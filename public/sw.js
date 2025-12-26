@@ -7,9 +7,9 @@
  * - Background sync for pending mutations
  */
 
-const _CACHE_NAME = 'stacklume-v1'; // Reserved for future cache versioning
-const STATIC_CACHE_NAME = 'stacklume-static-v1';
-const API_CACHE_NAME = 'stacklume-api-v1';
+const _CACHE_NAME = 'stacklume-v2'; // Reserved for future cache versioning
+const STATIC_CACHE_NAME = 'stacklume-static-v2';
+const API_CACHE_NAME = 'stacklume-api-v2';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
@@ -82,6 +82,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip cross-origin requests entirely - let the browser handle them directly
+  // This prevents CSP issues with external images, favicons, and API calls
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   // Handle API requests
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(handleApiRequest(request));
@@ -100,9 +106,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Default: network with cache fallback
+  // Default: network with cache fallback for same-origin requests
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(request)
+      .then(response => response)
+      .catch(() => {
+        return caches.match(request).then(cached => {
+          return cached || new Response('Not available offline', { status: 503 });
+        });
+      })
   );
 });
 

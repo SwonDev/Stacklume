@@ -15,9 +15,9 @@ const ContentSecurityPolicy = `
   default-src 'self' http://localhost:*;
   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.sentry.io http://localhost:*;
   style-src 'self' 'unsafe-inline' http://localhost:*;
-  img-src 'self' data: blob: https: http://localhost:*;
+  img-src 'self' data: blob: https: http: http://localhost:*;
   font-src 'self' data: http://localhost:*;
-  connect-src 'self' http://localhost:* ws://localhost:* https://api.github.com https://api.openweathermap.org https://*.neon.tech wss://*.neon.tech https://*.sentry.io https://*.ingest.sentry.io;
+  connect-src 'self' http://localhost:* ws://localhost:* https: http://localhost:*;
   media-src 'self' https://www.youtube.com https://*.spotify.com http://localhost:*;
   frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://codepen.io http://localhost:*;
   frame-ancestors 'self';
