@@ -534,43 +534,41 @@ export async function POST(request: NextRequest) {
 
     // Try platform-specific APIs first (faster & more reliable)
     const platformResult = await scrapeWithAPIs(url, detection);
-    if (platformResult && platformResult.title) {
-      const result: ScrapeResult = {
-        title: platformResult.title || validUrl.hostname,
-        description: platformResult.description || null,
-        imageUrl: platformResult.imageUrl || null,
-        faviconUrl: platformResult.faviconUrl || `${validUrl.origin}/favicon.ico`,
-        siteName: platformResult.siteName || null,
-        author: platformResult.author || null,
-        platform: platformResult.platform || detection.platform,
-        contentType: platformResult.contentType || detection.contentType,
-        platformLabel: platformResult.platformLabel || detection.label,
-        platformColor: platformResult.platformColor || detection.color,
-        platformIcon: platformResult.platformIcon || detection.icon,
-      };
 
-      scrapeCache.set(url, result);
-      log.info({
-        url,
-        platform: result.platform,
-        hasDescription: !!result.description,
-        hasImage: !!result.imageUrl,
-        duration: Date.now() - startTime,
-      }, "Scrape completed via platform API");
-      return NextResponse.json(result);
-    }
+    // Always try HTML scraping to get description and other metadata
+    // This is important because oEmbed APIs often don't return descriptions
+    log.debug({ url }, "Scraping HTML for metadata");
+    const htmlResult = await scrapeWithFetch(validUrl, detection);
 
-    // Fall back to cheerio HTML scraping
-    log.debug({ url }, "Platform API returned null, falling back to HTML scrape");
-    const result = await scrapeWithFetch(validUrl, detection);
+    // Merge results: platform API data takes priority, but use HTML for missing fields
+    const result: ScrapeResult = {
+      // Use platform title if available, otherwise HTML title
+      title: platformResult?.title || htmlResult.title || validUrl.hostname,
+      // IMPORTANT: Use HTML description as it's more reliable than oEmbed
+      description: htmlResult.description || platformResult?.description || null,
+      // Use platform image if available (usually better quality)
+      imageUrl: platformResult?.imageUrl || htmlResult.imageUrl || null,
+      faviconUrl: platformResult?.faviconUrl || htmlResult.faviconUrl || `${validUrl.origin}/favicon.ico`,
+      siteName: platformResult?.siteName || htmlResult.siteName || null,
+      author: platformResult?.author || htmlResult.author || null,
+      platform: platformResult?.platform || detection.platform,
+      contentType: platformResult?.contentType || detection.contentType,
+      platformLabel: platformResult?.platformLabel || detection.label,
+      platformColor: platformResult?.platformColor || detection.color,
+      platformIcon: platformResult?.platformIcon || detection.icon,
+    };
 
     scrapeCache.set(url, result);
     log.info({
       url,
+      platform: result.platform,
+      title: result.title?.substring(0, 50),
+      description: result.description?.substring(0, 100),
       hasDescription: !!result.description,
       hasImage: !!result.imageUrl,
+      usedPlatformApi: !!platformResult?.title,
       duration: Date.now() - startTime,
-    }, "Scrape completed via HTML");
+    }, "Scrape completed");
 
     return NextResponse.json(result);
   } catch (error) {
