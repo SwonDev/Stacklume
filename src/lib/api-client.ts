@@ -182,6 +182,7 @@ async function request<T>(url: string, config: RequestConfig): Promise<T> {
   const options: RequestInit = {
     method: config.method,
     headers,
+    credentials: 'include', // Always include cookies for authentication
   };
 
   if (config.body !== undefined) {
