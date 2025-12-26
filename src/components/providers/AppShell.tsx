@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AddLinkModal } from "@/components/modals/AddLinkModal";
@@ -13,18 +14,24 @@ import { ManageCategoriesModal } from "@/components/modals/ManageCategoriesModal
 import { ManageTagsModal } from "@/components/modals/ManageTagsModal";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
-import { DatabaseSetupWizard } from "@/components/onboarding/DatabaseSetupWizard";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 
 interface AppShellProps {
   children: React.ReactNode;
 }
 
+// Routes that should not have the app shell (login, register, etc.)
+const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
+
 export function AppShell({ children }: AppShellProps) {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
-  // Initialize undo/redo keyboard shortcuts globally
-  useUndoRedo({ enableKeyboardShortcuts: true });
+  // Check if current route is an auth route (no shell needed)
+  const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route));
+
+  // Initialize undo/redo keyboard shortcuts globally (only for app routes)
+  useUndoRedo({ enableKeyboardShortcuts: !isAuthRoute });
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -32,6 +39,11 @@ export function AppShell({ children }: AppShellProps) {
     });
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // For auth routes, just render children without shell
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <>
@@ -83,9 +95,6 @@ export function AppShell({ children }: AppShellProps) {
         <>
           {/* Undo toast notification */}
           <UndoToast />
-
-          {/* Database setup wizard for first-time users - shows before tour */}
-          <DatabaseSetupWizard />
 
           {/* Onboarding tour for first-time users */}
           <OnboardingTour />

@@ -1,10 +1,11 @@
 /**
- * Next.js Middleware for CSRF Protection, CORS, and Rate Limiting
+ * Next.js Middleware for Authentication, CSRF Protection, CORS, and Rate Limiting
  *
  * This middleware implements:
- * 1. Double Submit Cookie pattern for CSRF protection
- * 2. Explicit CORS headers for API security
- * 3. Rate limiting using Upstash Redis (when configured)
+ * 1. Authentication protection (JWT cookie verification)
+ * 2. Double Submit Cookie pattern for CSRF protection
+ * 3. Explicit CORS headers for API security
+ * 4. Rate limiting using Upstash Redis (when configured)
  *
  * The middleware runs on the Edge runtime for optimal performance.
  *
@@ -13,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 import {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
@@ -37,6 +39,49 @@ import {
  * Routes that should be protected by CSRF (API routes)
  */
 const API_ROUTE_PREFIX = '/api/';
+
+/**
+ * Authentication Configuration
+ */
+const AUTH_COOKIE_NAME = 'stacklume-auth';
+
+// Routes that don't require authentication
+const PUBLIC_ROUTES = ['/login'];
+const PUBLIC_API_ROUTES = ['/api/auth/login', '/api/auth/logout', '/api/auth/session'];
+
+/**
+ * Check if a route is public (doesn't require auth)
+ */
+function isPublicRoute(pathname: string): boolean {
+  // Check exact matches for public routes
+  if (PUBLIC_ROUTES.includes(pathname)) return true;
+  if (PUBLIC_API_ROUTES.includes(pathname)) return true;
+
+  // Allow static files and Next.js internals
+  if (pathname.startsWith('/_next/')) return true;
+  if (pathname.startsWith('/favicon')) return true;
+  if (pathname.endsWith('.svg')) return true;
+  if (pathname.endsWith('.png')) return true;
+  if (pathname.endsWith('.ico')) return true;
+
+  return false;
+}
+
+/**
+ * Verify JWT token using jose (Edge-compatible)
+ */
+async function verifyAuthToken(token: string): Promise<boolean> {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) return false;
+
+  try {
+    const secretKey = new TextEncoder().encode(secret);
+    await jwtVerify(token, secretKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * CORS Configuration
@@ -141,6 +186,42 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const method = request.method;
   const origin = request.headers.get('origin');
+
+  // =========================================================================
+  // Authentication Check (runs in both dev and production)
+  // =========================================================================
+
+  // Check if AUTH_SECRET is configured (auth is enabled)
+  const authEnabled = !!process.env.AUTH_SECRET;
+
+  if (authEnabled && !isPublicRoute(pathname)) {
+    const authCookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const isAuthenticated = authCookie ? await verifyAuthToken(authCookie) : false;
+
+    if (!isAuthenticated) {
+      // For API routes, return 401
+      if (isApiRoute(pathname)) {
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      // For other routes, redirect to login
+      const loginUrl = new URL('/login', request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // If authenticated user tries to access login page, redirect to home
+  if (authEnabled && pathname === '/login') {
+    const authCookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    const isAuthenticated = authCookie ? await verifyAuthToken(authCookie) : false;
+
+    if (isAuthenticated) {
+      const homeUrl = new URL('/', request.url);
+      return NextResponse.redirect(homeUrl);
+    }
+  }
 
   // In development mode, bypass all CORS and CSRF checks for API routes
   if (process.env.NODE_ENV !== 'production') {
@@ -292,16 +373,16 @@ function getRateLimitMessage(type: RateLimitType): string {
 
 /**
  * Configure which routes the middleware should run on
- * We apply it to all API routes for comprehensive protection
+ * We apply it to all routes for authentication and API routes for security
  */
 export const config = {
   matcher: [
     /*
-     * Match all API routes except:
-     * - Static files (_next/static, etc.)
+     * Match all routes except:
+     * - Static files (_next/static)
      * - Image optimization files (_next/image)
-     * - Favicon and other static assets
+     * - Favicon and manifest files
      */
-    '/api/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.svg$|.*\\.png$|.*\\.ico$).*)',
   ],
 };

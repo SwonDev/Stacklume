@@ -38,6 +38,9 @@ function TooltipArrow({ arrowPosition }: { arrowPosition: "top" | "bottom" | "le
     "border-transparent"
   );
 
+  // Use hardcoded navy color for consistent branding
+  const arrowStyle = { borderColor: "transparent" };
+
   switch (arrowPosition) {
     case "top":
       return (
@@ -45,8 +48,9 @@ function TooltipArrow({ arrowPosition }: { arrowPosition: "top" | "bottom" | "le
           className={cn(
             arrowClasses,
             "left-1/2 -translate-x-1/2 -top-2",
-            "border-b-card border-b-8 border-x-8"
+            "border-b-8 border-x-8"
           )}
+          style={{ ...arrowStyle, borderBottomColor: "#1a2744" }}
         />
       );
     case "bottom":
@@ -55,8 +59,9 @@ function TooltipArrow({ arrowPosition }: { arrowPosition: "top" | "bottom" | "le
           className={cn(
             arrowClasses,
             "left-1/2 -translate-x-1/2 -bottom-2",
-            "border-t-card border-t-8 border-x-8"
+            "border-t-8 border-x-8"
           )}
+          style={{ ...arrowStyle, borderTopColor: "#1a2744" }}
         />
       );
     case "left":
@@ -65,8 +70,9 @@ function TooltipArrow({ arrowPosition }: { arrowPosition: "top" | "bottom" | "le
           className={cn(
             arrowClasses,
             "top-1/2 -translate-y-1/2 -left-2",
-            "border-r-card border-r-8 border-y-8"
+            "border-r-8 border-y-8"
           )}
+          style={{ ...arrowStyle, borderRightColor: "#1a2744" }}
         />
       );
     case "right":
@@ -75,8 +81,9 @@ function TooltipArrow({ arrowPosition }: { arrowPosition: "top" | "bottom" | "le
           className={cn(
             arrowClasses,
             "top-1/2 -translate-y-1/2 -right-2",
-            "border-l-card border-l-8 border-y-8"
+            "border-l-8 border-y-8"
           )}
+          style={{ ...arrowStyle, borderLeftColor: "#1a2744" }}
         />
       );
   }
@@ -220,12 +227,14 @@ export function OnboardingTooltip({
           <motion.div
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-            className="absolute border-2 border-primary rounded-lg shadow-[0_0_0_4px_rgba(var(--primary)/0.2)]"
+            className="absolute rounded-lg"
             style={{
               top: targetRect.top - 8,
               left: targetRect.left - 8,
               width: targetRect.width + 16,
               height: targetRect.height + 16,
+              border: "2px solid #d4a853",
+              boxShadow: "0 0 0 4px rgba(212, 168, 83, 0.2)",
             }}
           />
         )}
@@ -239,23 +248,24 @@ export function OnboardingTooltip({
           animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
           transition={{ duration: reduceMotion ? 0.1 : 0.2 }}
-          className={cn(
-            "fixed z-[3001] w-[320px]",
-            "bg-card border border-border rounded-lg shadow-xl",
-            "pointer-events-auto"
-          )}
-          style={
-            position
+          className="fixed z-[3001] w-[320px] rounded-lg shadow-xl pointer-events-auto"
+          style={{
+            ...(position
               ? { top: position.top, left: position.left }
-              : { visibility: "hidden" }
-          }
+              : { visibility: "hidden" as const }),
+            backgroundColor: "#1a2744",
+            border: "1px solid #2a3a5c",
+          }}
         >
           <TooltipArrow arrowPosition={position?.arrowPosition ?? null} />
 
           {/* Header */}
           <div className="flex items-center justify-between p-4 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ color: "#d4a853", backgroundColor: "rgba(212, 168, 83, 0.15)" }}
+              >
                 {step} / {totalSteps}
               </span>
             </div>
@@ -263,7 +273,8 @@ export function OnboardingTooltip({
               variant="ghost"
               size="icon-sm"
               onClick={onSkip}
-              className="h-6 w-6 text-muted-foreground"
+              className="h-6 w-6 hover:bg-white/10"
+              style={{ color: "#8b9dc3" }}
               aria-label="Saltar tour"
             >
               <X className="w-4 h-4" />
@@ -272,10 +283,10 @@ export function OnboardingTooltip({
 
           {/* Content */}
           <div className="px-4 pb-2">
-            <h3 className="text-base font-semibold text-foreground mb-1">
+            <h3 className="text-base font-semibold mb-1" style={{ color: "#f5f5f5" }}>
               {title}
             </h3>
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className="text-sm" style={{ color: "#8b9dc3" }}>{description}</p>
           </div>
 
           {/* Progress dots */}
@@ -283,21 +294,23 @@ export function OnboardingTooltip({
             {Array.from({ length: totalSteps }).map((_, i) => (
               <div
                 key={i}
-                className={cn(
-                  "w-1.5 h-1.5 rounded-full transition-colors",
-                  i + 1 === step ? "bg-primary" : "bg-muted-foreground/30"
-                )}
+                className="w-1.5 h-1.5 rounded-full transition-colors"
+                style={{ backgroundColor: i + 1 === step ? "#d4a853" : "rgba(139, 157, 195, 0.3)" }}
               />
             ))}
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between p-4 pt-2 border-t border-border">
+          <div
+            className="flex items-center justify-between p-4 pt-2"
+            style={{ borderTop: "1px solid #2a3a5c" }}
+          >
             <Button
               variant="ghost"
               size="sm"
               onClick={onSkip}
-              className="text-muted-foreground"
+              className="hover:bg-white/10"
+              style={{ color: "#8b9dc3" }}
             >
               Saltar
             </Button>
@@ -309,16 +322,24 @@ export function OnboardingTooltip({
                   size="sm"
                   onClick={onPrevious}
                   className="gap-1"
+                  style={{
+                    borderColor: "#2a3a5c",
+                    color: "#c5cee0",
+                    backgroundColor: "transparent"
+                  }}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Anterior
                 </Button>
               )}
               <Button
-                variant="default"
                 size="sm"
                 onClick={isLast ? onComplete : onNext}
                 className="gap-1"
+                style={{
+                  backgroundColor: "#d4a853",
+                  color: "#0a1628"
+                }}
               >
                 {isLast ? "Finalizar" : "Siguiente"}
                 {!isLast && <ChevronRight className="w-4 h-4" />}

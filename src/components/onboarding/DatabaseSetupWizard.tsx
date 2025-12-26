@@ -155,25 +155,31 @@ export function DatabaseSetupWizard({
   const steps: Record<SetupStep, React.ReactNode> = {
     welcome: (
       <div className="space-y-6 text-center">
-        <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-          <Database className="w-10 h-10 text-primary" />
+        <div
+          className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center"
+          style={{ background: "linear-gradient(to bottom right, rgba(212, 168, 83, 0.2), rgba(212, 168, 83, 0.05))" }}
+        >
+          <Database className="w-10 h-10" style={{ color: "#d4a853" }} />
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold">Configura tu Base de Datos</h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Configura tu Base de Datos</h2>
+          <p className="max-w-md mx-auto" style={{ color: "#8b9dc3" }}>
             Stacklume puede guardar tus datos en la nube para acceder desde
             cualquier dispositivo, o localmente en tu navegador.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-          <div className="p-4 rounded-xl border bg-card/50 text-left space-y-3">
-            <div className="flex items-center gap-2 text-primary">
+          <div
+            className="p-4 rounded-xl text-left space-y-3"
+            style={{ border: "1px solid #2a3a5c", backgroundColor: "rgba(26, 39, 68, 0.5)" }}
+          >
+            <div className="flex items-center gap-2" style={{ color: "#d4a853" }}>
               <Cloud className="w-5 h-5" />
               <span className="font-semibold">Base de Datos en la Nube</span>
             </div>
-            <ul className="text-sm text-muted-foreground space-y-1.5">
+            <ul className="text-sm space-y-1.5" style={{ color: "#8b9dc3" }}>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 Sincroniza entre dispositivos
@@ -189,12 +195,15 @@ export function DatabaseSetupWizard({
             </ul>
           </div>
 
-          <div className="p-4 rounded-xl border bg-card/50 text-left space-y-3">
-            <div className="flex items-center gap-2 text-muted-foreground">
+          <div
+            className="p-4 rounded-xl text-left space-y-3"
+            style={{ border: "1px solid #2a3a5c", backgroundColor: "rgba(26, 39, 68, 0.5)" }}
+          >
+            <div className="flex items-center gap-2" style={{ color: "#8b9dc3" }}>
               <HardDrive className="w-5 h-5" />
               <span className="font-semibold">Solo en este Navegador</span>
             </div>
-            <ul className="text-sm text-muted-foreground space-y-1.5">
+            <ul className="text-sm space-y-1.5" style={{ color: "#8b9dc3" }}>
               <li className="flex items-center gap-2">
                 <XCircle className="w-4 h-4 text-orange-500" />
                 Datos solo en este navegador
@@ -216,11 +225,16 @@ export function DatabaseSetupWizard({
             variant="outline"
             className="flex-1"
             onClick={handleSkipToLocal}
+            style={{ borderColor: "#2a3a5c", color: "#c5cee0", backgroundColor: "transparent" }}
           >
             <HardDrive className="w-4 h-4 mr-2" />
             Continuar sin Base de Datos
           </Button>
-          <Button className="flex-1" onClick={() => setCurrentStep("choice")}>
+          <Button
+            className="flex-1"
+            onClick={() => setCurrentStep("choice")}
+            style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
+          >
             <Cloud className="w-4 h-4 mr-2" />
             Configurar Base de Datos
             <ArrowRight className="w-4 h-4 ml-2" />
@@ -232,8 +246,8 @@ export function DatabaseSetupWizard({
     choice: (
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">Elige como conectar</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Elige como conectar</h2>
+          <p style={{ color: "#8b9dc3" }}>
             Recomendamos Neon por su plan gratuito generoso y facil
             configuracion.
           </p>
@@ -242,7 +256,11 @@ export function DatabaseSetupWizard({
         <div className="space-y-3">
           <button
             onClick={() => setCurrentStep("neon-guide")}
-            className="w-full p-4 rounded-xl border-2 border-primary bg-primary/5 hover:bg-primary/10 transition-colors text-left group"
+            className="w-full p-4 rounded-xl transition-colors text-left group"
+            style={{
+              border: "2px solid #d4a853",
+              backgroundColor: "rgba(212, 168, 83, 0.05)",
+            }}
           >
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
@@ -250,46 +268,50 @@ export function DatabaseSetupWizard({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-lg">Neon PostgreSQL</span>
+                  <span className="font-semibold text-lg" style={{ color: "#f5f5f5" }}>Neon PostgreSQL</span>
                   <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 text-xs font-medium">
                     Recomendado
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
                   Base de datos serverless gratuita. 512MB storage, sin limite
                   de tiempo.
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#8b9dc3" }}>
                     <Zap className="w-3 h-3" /> Rapido
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#8b9dc3" }}>
                     <Shield className="w-3 h-3" /> Seguro
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#8b9dc3" }}>
                     <Globe className="w-3 h-3" /> Global
                   </span>
                 </div>
               </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <ArrowRight className="w-5 h-5" style={{ color: "#d4a853" }} />
             </div>
           </button>
 
           <button
             onClick={() => setCurrentStep("connection")}
-            className="w-full p-4 rounded-xl border hover:bg-accent/50 transition-colors text-left group"
+            className="w-full p-4 rounded-xl transition-colors text-left group hover:bg-white/5"
+            style={{ border: "1px solid #2a3a5c" }}
           >
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                <Database className="w-6 h-6 text-muted-foreground" />
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "#0a1628" }}
+              >
+                <Database className="w-6 h-6" style={{ color: "#8b9dc3" }} />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="font-semibold">Ya tengo una Base de Datos</span>
-                <p className="text-sm text-muted-foreground mt-1">
+                <span className="font-semibold" style={{ color: "#f5f5f5" }}>Ya tengo una Base de Datos</span>
+                <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
                   Conecta tu propia base de datos PostgreSQL existente.
                 </p>
               </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <ArrowRight className="w-5 h-5" style={{ color: "#8b9dc3" }} />
             </div>
           </button>
         </div>
@@ -298,7 +320,8 @@ export function DatabaseSetupWizard({
           <Button
             variant="ghost"
             onClick={() => setCurrentStep("welcome")}
-            className="flex-1"
+            className="flex-1 hover:bg-white/10"
+            style={{ color: "#8b9dc3" }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Atras
@@ -310,20 +333,26 @@ export function DatabaseSetupWizard({
     "neon-guide": (
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">Crear Base de Datos en Neon</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Crear Base de Datos en Neon</h2>
+          <p style={{ color: "#8b9dc3" }}>
             Sigue estos 3 simples pasos para configurar tu base de datos gratis.
           </p>
         </div>
 
         <div className="space-y-4">
-          <div className="flex gap-4 items-start p-4 rounded-xl bg-accent/30">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
+          <div
+            className="flex gap-4 items-start p-4 rounded-xl"
+            style={{ backgroundColor: "rgba(212, 168, 83, 0.1)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0"
+              style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
+            >
               1
             </div>
             <div>
-              <p className="font-medium">Crea una cuenta gratis en Neon</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="font-medium" style={{ color: "#f5f5f5" }}>Crea una cuenta gratis en Neon</p>
+              <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
                 Puedes usar tu cuenta de GitHub, Google, o email.
               </p>
               <Button
@@ -333,6 +362,7 @@ export function DatabaseSetupWizard({
                 onClick={() =>
                   window.open("https://console.neon.tech/signup", "_blank")
                 }
+                style={{ borderColor: "#2a3a5c", color: "#c5cee0", backgroundColor: "transparent" }}
               >
                 Ir a Neon
                 <ExternalLink className="w-3 h-3 ml-2" />
@@ -340,30 +370,45 @@ export function DatabaseSetupWizard({
             </div>
           </div>
 
-          <div className="flex gap-4 items-start p-4 rounded-xl bg-accent/30">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
+          <div
+            className="flex gap-4 items-start p-4 rounded-xl"
+            style={{ backgroundColor: "rgba(212, 168, 83, 0.1)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0"
+              style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
+            >
               2
             </div>
             <div>
-              <p className="font-medium">Crea un nuevo proyecto</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="font-medium" style={{ color: "#f5f5f5" }}>Crea un nuevo proyecto</p>
+              <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
                 Dale un nombre (ej: &quot;stacklume&quot;) y selecciona la region mas
                 cercana.
               </p>
             </div>
           </div>
 
-          <div className="flex gap-4 items-start p-4 rounded-xl bg-accent/30">
-            <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
+          <div
+            className="flex gap-4 items-start p-4 rounded-xl"
+            style={{ backgroundColor: "rgba(212, 168, 83, 0.1)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0"
+              style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
+            >
               3
             </div>
             <div>
-              <p className="font-medium">Copia la cadena de conexion</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="font-medium" style={{ color: "#f5f5f5" }}>Copia la cadena de conexion</p>
+              <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
                 En el dashboard, busca &quot;Connection string&quot; y copia la URL
                 completa.
               </p>
-              <div className="mt-2 p-2 rounded-lg bg-muted/50 font-mono text-xs break-all">
+              <div
+                className="mt-2 p-2 rounded-lg font-mono text-xs break-all"
+                style={{ backgroundColor: "rgba(10, 22, 40, 0.5)", color: "#8b9dc3" }}
+              >
                 postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
               </div>
             </div>
@@ -374,12 +419,17 @@ export function DatabaseSetupWizard({
           <Button
             variant="ghost"
             onClick={() => setCurrentStep("choice")}
-            className="flex-1"
+            className="flex-1 hover:bg-white/10"
+            style={{ color: "#8b9dc3" }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Atras
           </Button>
-          <Button onClick={() => setCurrentStep("connection")} className="flex-1">
+          <Button
+            onClick={() => setCurrentStep("connection")}
+            className="flex-1"
+            style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
+          >
             Ya tengo mi conexion
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
@@ -390,15 +440,15 @@ export function DatabaseSetupWizard({
     connection: (
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">Conecta tu Base de Datos</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Conecta tu Base de Datos</h2>
+          <p style={{ color: "#8b9dc3" }}>
             Pega tu cadena de conexion PostgreSQL para verificar la conexion.
           </p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">
+            <label className="text-sm font-medium mb-2 block" style={{ color: "#c5cee0" }}>
               Cadena de Conexion (DATABASE_URL)
             </label>
             <div className="relative">
@@ -412,10 +462,13 @@ export function DatabaseSetupWizard({
                   setErrorMessage("");
                 }}
                 className={cn(
-                  "pr-10 font-mono text-sm",
-                  connectionStatus === "success" && "border-green-500",
-                  connectionStatus === "error" && "border-red-500"
+                  "pr-10 font-mono text-sm"
                 )}
+                style={{
+                  backgroundColor: "#0a1628",
+                  borderColor: connectionStatus === "success" ? "#22c55e" : connectionStatus === "error" ? "#ef4444" : "#2a3a5c",
+                  color: "#f5f5f5"
+                }}
               />
               {connectionStatus === "success" && (
                 <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
@@ -429,22 +482,26 @@ export function DatabaseSetupWizard({
             )}
           </div>
 
-          <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+          <div
+            className="p-3 rounded-lg space-y-2"
+            style={{ backgroundColor: "rgba(10, 22, 40, 0.5)" }}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs" style={{ color: "#8b9dc3" }}>
                 Ejemplo de formato:
               </span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2"
+                className="h-6 px-2 hover:bg-white/10"
                 onClick={handleCopyExample}
+                style={{ color: "#8b9dc3" }}
               >
                 <Copy className="w-3 h-3 mr-1" />
                 {copied ? "Copiado!" : "Copiar"}
               </Button>
             </div>
-            <code className="text-xs text-muted-foreground block break-all">
+            <code className="text-xs block break-all" style={{ color: "#8b9dc3" }}>
               postgresql://user:password@ep-xxx.region.neon.tech/neondb?sslmode=require
             </code>
           </div>
@@ -453,6 +510,7 @@ export function DatabaseSetupWizard({
             className="w-full"
             onClick={handleTestConnection}
             disabled={isTestingConnection || !connectionString.trim()}
+            style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
           >
             {isTestingConnection ? (
               <>
@@ -472,7 +530,8 @@ export function DatabaseSetupWizard({
           <Button
             variant="ghost"
             onClick={() => setCurrentStep("neon-guide")}
-            className="flex-1"
+            className="flex-1 hover:bg-white/10"
+            style={{ color: "#8b9dc3" }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Atras
@@ -481,6 +540,7 @@ export function DatabaseSetupWizard({
             variant="outline"
             onClick={handleSkipToLocal}
             className="flex-1"
+            style={{ borderColor: "#2a3a5c", color: "#c5cee0", backgroundColor: "transparent" }}
           >
             Continuar sin DB
           </Button>
@@ -495,8 +555,8 @@ export function DatabaseSetupWizard({
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold">Conexion Exitosa!</h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Conexion Exitosa!</h2>
+          <p className="max-w-md mx-auto" style={{ color: "#8b9dc3" }}>
             Tu base de datos esta configurada correctamente. Tus datos se
             sincronizaran automaticamente.
           </p>
@@ -513,6 +573,7 @@ export function DatabaseSetupWizard({
           className="w-full"
           size="lg"
           onClick={() => handleComplete("cloud")}
+          style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
         >
           Comenzar a usar Stacklume
           <ArrowRight className="w-4 h-4 ml-2" />
@@ -527,14 +588,19 @@ export function DatabaseSetupWizard({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm p-4"
+        style={{ backgroundColor: "rgba(10, 22, 40, 0.85)" }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", duration: 0.5 }}
-          className="w-full max-w-lg bg-card border rounded-2xl shadow-2xl p-6 md:p-8"
+          className="w-full max-w-lg rounded-2xl shadow-2xl p-6 md:p-8"
+          style={{
+            backgroundColor: "#1a2744",
+            border: "1px solid #2a3a5c",
+          }}
         >
           {steps[currentStep]}
         </motion.div>
