@@ -84,7 +84,6 @@ export function CategorySection({
   className,
 }: CategorySectionProps) {
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
-  const isCategoryCollapsed = useListViewStore((state) => state.isCategoryCollapsed);
   const toggleCategoryCollapsed = useListViewStore((state) => state.toggleCategoryCollapsed);
   const reorderLinks = useLinksStore((state) => state.reorderLinks);
 
@@ -92,7 +91,12 @@ export function CategorySection({
   const [activeLinkId, setActiveLinkId] = useState<string | null>(null);
 
   const categoryId = category?.id || "uncategorized";
-  const isCollapsed = isCategoryCollapsed(categoryId);
+
+  // Subscribe directly to the collapsed state for this category
+  // This ensures the component re-renders when collapsedCategories changes
+  const isCollapsed = useListViewStore((state) =>
+    state.collapsedCategories.includes(categoryId)
+  );
   const categoryName = category?.name || "Sin categoria";
   const categoryColor = category?.color || "gray";
   const colorClass = categoryColorClasses[categoryColor] || "bg-gray-500";
