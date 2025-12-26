@@ -238,10 +238,12 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
         });
         if (response.ok) {
           const data = await response.json();
+          // Use GitHub's OpenGraph image service for a nice preview
+          const ogImageUrl = `https://opengraph.githubassets.com/1/${detection.id}/${detection.secondaryId}`;
           return {
             title: data.full_name || `${detection.id}/${detection.secondaryId}`,
             description: data.description || null,
-            imageUrl: data.owner?.avatar_url || null,
+            imageUrl: ogImageUrl,
             faviconUrl: 'https://github.com/favicon.ico',
             siteName: 'GitHub',
             author: data.owner?.login || null,
@@ -253,8 +255,23 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
           };
         }
       } catch {
-        // Fall through
+        // Fall through to HTML scraping
       }
+
+      // Fallback: still return the OpenGraph image even if API fails
+      return {
+        title: `${detection.id}/${detection.secondaryId}`,
+        description: null,
+        imageUrl: `https://opengraph.githubassets.com/1/${detection.id}/${detection.secondaryId}`,
+        faviconUrl: 'https://github.com/favicon.ico',
+        siteName: 'GitHub',
+        author: detection.id,
+        platform: 'github',
+        contentType: 'code',
+        platformLabel: 'GitHub',
+        platformColor: '#181717',
+        platformIcon: 'Github',
+      };
     }
 
     return null;
