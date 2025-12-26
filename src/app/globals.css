@@ -1,0 +1,893 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Custom color variables for Stacklume - Navy Blue & Gold Theme */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Custom Stacklume colors */
+  --color-navy: var(--navy);
+  --color-navy-light: var(--navy-light);
+  --color-navy-dark: var(--navy-dark);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
+}
+
+/*
+  STACKLUME COLOR PALETTE
+  Navy Blue: #0a1628 (dark) | #1a2744 (medium) | #2a3a5c (light)
+  Gold: #d4a853 (base) | #e6c77a (light) | #b8923f (dark)
+*/
+
+:root {
+  --radius: 0.75rem;
+
+  /* Navy Blue shades */
+  --navy: oklch(0.20 0.04 250);
+  --navy-light: oklch(0.28 0.05 250);
+  --navy-dark: oklch(0.12 0.03 250);
+
+  /* Gold shades */
+  --gold: oklch(0.75 0.14 85);
+  --gold-light: oklch(0.82 0.12 85);
+  --gold-dark: oklch(0.65 0.15 85);
+
+  /* Dark mode by default - Navy & Gold */
+  --background: oklch(0.10 0.025 250);
+  --foreground: oklch(0.95 0.01 85);
+  --card: oklch(0.15 0.035 250);
+  --card-foreground: oklch(0.95 0.01 85);
+  --popover: oklch(0.13 0.03 250);
+  --popover-foreground: oklch(0.95 0.01 85);
+  --primary: oklch(0.75 0.14 85);
+  --primary-foreground: oklch(0.12 0.03 250);
+  --secondary: oklch(0.20 0.04 250);
+  --secondary-foreground: oklch(0.90 0.02 85);
+  --muted: oklch(0.18 0.035 250);
+  --muted-foreground: oklch(0.72 0.03 250);
+  --accent: oklch(0.65 0.15 85);
+  --accent-foreground: oklch(0.12 0.03 250);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.28 0.045 250);
+  --input: oklch(0.25 0.04 250);
+  --ring: oklch(0.75 0.14 85);
+
+  /* Charts - Gold variations */
+  --chart-1: oklch(0.75 0.14 85);
+  --chart-2: oklch(0.70 0.12 90);
+  --chart-3: oklch(0.65 0.15 80);
+  --chart-4: oklch(0.80 0.10 88);
+  --chart-5: oklch(0.60 0.13 82);
+
+  /* Sidebar - Navy variations */
+  --sidebar: oklch(0.12 0.03 250);
+  --sidebar-foreground: oklch(0.92 0.02 85);
+  --sidebar-primary: oklch(0.75 0.14 85);
+  --sidebar-primary-foreground: oklch(0.12 0.03 250);
+  --sidebar-accent: oklch(0.18 0.04 250);
+  --sidebar-accent-foreground: oklch(0.92 0.02 85);
+  --sidebar-border: oklch(0.25 0.04 250);
+  --sidebar-ring: oklch(0.75 0.14 85);
+}
+
+/*
+  LIGHT MODE - Elegant Beige & Gold Theme
+  Warm cream/beige backgrounds with rich gold accents
+  Inspired by luxury aesthetics with excellent readability
+*/
+.light {
+  /* Beige shades for light mode */
+  --beige: oklch(0.95 0.015 85);
+  --beige-light: oklch(0.98 0.01 85);
+  --beige-dark: oklch(0.90 0.02 85);
+
+  /* Warm brown for text */
+  --brown: oklch(0.25 0.04 60);
+  --brown-light: oklch(0.45 0.035 60);
+  --brown-dark: oklch(0.18 0.04 55);
+
+  /* Main backgrounds - warm cream/beige */
+  --background: oklch(0.97 0.012 80);
+  --foreground: oklch(0.22 0.035 55);
+
+  /* Cards - slightly warmer, elevated surfaces */
+  --card: oklch(0.99 0.008 85);
+  --card-foreground: oklch(0.22 0.035 55);
+
+  /* Popovers/Dropdowns */
+  --popover: oklch(0.995 0.006 85);
+  --popover-foreground: oklch(0.22 0.035 55);
+
+  /* Primary - Rich Gold (main action color) */
+  --primary: oklch(0.65 0.16 80);
+  --primary-foreground: oklch(0.99 0.01 85);
+
+  /* Secondary - Light beige surfaces */
+  --secondary: oklch(0.93 0.018 82);
+  --secondary-foreground: oklch(0.30 0.04 60);
+
+  /* Muted - Subtle backgrounds */
+  --muted: oklch(0.94 0.015 80);
+  --muted-foreground: oklch(0.42 0.03 60);
+
+  /* Accent - Warm gold highlight */
+  --accent: oklch(0.70 0.14 85);
+  --accent-foreground: oklch(0.20 0.04 55);
+
+  /* Destructive - Warm red */
+  --destructive: oklch(0.55 0.20 28);
+
+  /* Borders - Subtle warm tone */
+  --border: oklch(0.82 0.02 80);
+  --input: oklch(0.88 0.015 82);
+  --ring: oklch(0.65 0.16 80);
+
+  /* Charts - Gold and warm earth tones */
+  --chart-1: oklch(0.65 0.16 80);
+  --chart-2: oklch(0.60 0.12 70);
+  --chart-3: oklch(0.55 0.10 50);
+  --chart-4: oklch(0.72 0.14 90);
+  --chart-5: oklch(0.50 0.08 40);
+
+  /* Sidebar - Warm cream with gold accents */
+  --sidebar: oklch(0.96 0.014 82);
+  --sidebar-foreground: oklch(0.25 0.035 55);
+  --sidebar-primary: oklch(0.65 0.16 80);
+  --sidebar-primary-foreground: oklch(0.99 0.01 85);
+  --sidebar-accent: oklch(0.92 0.02 82);
+  --sidebar-accent-foreground: oklch(0.30 0.04 60);
+  --sidebar-border: oklch(0.82 0.02 80);
+  --sidebar-ring: oklch(0.65 0.16 80);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Dark mode as default */
+  html {
+    color-scheme: dark;
+  }
+
+  /* Light mode color scheme */
+  html.light {
+    color-scheme: light;
+  }
+}
+
+/* Custom scrollbar for the bento grid items */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold) var(--navy);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: var(--navy);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--gold-light);
+  }
+
+  /* Light mode scrollbar */
+  .light .scrollbar-thin {
+    scrollbar-color: oklch(0.65 0.16 80) oklch(0.94 0.015 80);
+  }
+
+  .light .scrollbar-thin::-webkit-scrollbar-track {
+    background: oklch(0.94 0.015 80);
+  }
+
+  .light .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(0.65 0.16 80);
+  }
+
+  .light .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.70 0.14 85);
+  }
+
+  /* Hidden scrollbar - keeps scroll functionality but hides the bar */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* No scroll for main viewport */
+  .no-scroll {
+    overflow: hidden;
+    height: 100vh;
+    max-height: 100vh;
+  }
+
+  /* Glass effect for cards - Dark mode */
+  .glass {
+    background: oklch(0.15 0.035 250 / 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid oklch(0.75 0.14 85 / 0.4);
+  }
+
+  /* Glass effect for cards - Light mode */
+  .light .glass {
+    background: oklch(0.99 0.01 85 / 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid oklch(0.65 0.16 80 / 0.3);
+    box-shadow: 0 4px 20px oklch(0.40 0.04 60 / 0.08);
+  }
+
+  /* Gold gradient text */
+  .text-gold-gradient {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Navy gradient background */
+  .bg-navy-gradient {
+    background: linear-gradient(180deg, var(--navy-dark), var(--navy), var(--navy-light));
+  }
+
+  /* Beige gradient background for light mode */
+  .bg-beige-gradient {
+    background: linear-gradient(180deg, oklch(0.98 0.01 85), oklch(0.96 0.014 82), oklch(0.94 0.018 80));
+  }
+
+  /* Gold shimmer effect for buttons/accents */
+  .gold-shimmer {
+    background: linear-gradient(
+      110deg,
+      oklch(0.65 0.16 80) 0%,
+      oklch(0.75 0.14 85) 45%,
+      oklch(0.80 0.12 88) 50%,
+      oklch(0.75 0.14 85) 55%,
+      oklch(0.65 0.16 80) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .gold-shimmer:hover {
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* React Grid Layout styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+  /* Ensure grid items have no default margins */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Child div inside grid item should fill completely */
+.react-grid-item > div {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.resizing {
+  z-index: 10;
+  will-change: width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 20;
+  will-change: transform;
+  opacity: 0.9;
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--gold);
+  opacity: 0.3;
+  transition-duration: 100ms;
+  z-index: 2;
+  border-radius: var(--radius);
+  border: 2px dashed var(--gold);
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+/* Hide resize handles by default */
+.react-grid-item > .react-resizable-handle {
+  display: none;
+}
+
+/* Show resize handles only in edit mode */
+.edit-mode .react-grid-item > .react-resizable-handle {
+  display: block;
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  z-index: 10;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--gold);
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.edit-mode .react-grid-item:hover > .react-resizable-handle::after,
+.edit-mode .react-grid-item > .react-resizable-handle:hover::after {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+/* Corner handles */
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-sw::after {
+  right: 6px;
+  top: 6px;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+  bottom: -6px;
+  right: -6px;
+  cursor: se-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-se::after {
+  left: 6px;
+  top: 6px;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-nw {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-nw::after {
+  right: 6px;
+  bottom: 6px;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-ne {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-ne::after {
+  left: 6px;
+  bottom: 6px;
+}
+
+/* Edge handles */
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-w {
+  left: -6px;
+  top: 50%;
+  margin-top: -10px;
+  cursor: ew-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-w::after {
+  right: 6px;
+  top: 5px;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+  right: -6px;
+  top: 50%;
+  margin-top: -10px;
+  cursor: ew-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-e::after {
+  left: 6px;
+  top: 5px;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-n {
+  top: -6px;
+  left: 50%;
+  margin-left: -10px;
+  cursor: ns-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-n::after {
+  bottom: 6px;
+  left: 5px;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+  bottom: -6px;
+  left: 50%;
+  margin-left: -10px;
+  cursor: ns-resize;
+}
+
+.edit-mode .react-grid-item > .react-resizable-handle.react-resizable-handle-s::after {
+  top: 6px;
+  left: 5px;
+}
+
+/* Edit mode indicator - Dark */
+.edit-mode {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 10px,
+    oklch(0.75 0.14 85 / 0.03) 10px,
+    oklch(0.75 0.14 85 / 0.03) 20px
+  );
+  border-radius: var(--radius);
+  /* Prevent text selection during drag/resize */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Edit mode indicator - Light */
+.light .edit-mode {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 10px,
+    oklch(0.65 0.16 80 / 0.06) 10px,
+    oklch(0.65 0.16 80 / 0.06) 20px
+  );
+}
+
+/* Light mode placeholder */
+.light .react-grid-item.react-grid-placeholder {
+  background: oklch(0.65 0.16 80);
+  border-color: oklch(0.60 0.14 78);
+}
+
+/* Light mode resize handles */
+.light .edit-mode .react-grid-item > .react-resizable-handle::after {
+  background: oklch(0.65 0.16 80);
+}
+
+/* Reduce Motion - Disable all animations and transitions */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Hide Tooltips - Hide all tooltip content */
+.hide-tooltips [data-slot="tooltip-content"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Drop Zone Feedback Styles */
+/* Base drop zone styling */
+[data-drop-zone] {
+  position: relative;
+  transition: all 200ms ease;
+}
+
+/* Active drop zone - when dragging over */
+[data-drop-zone][data-drop-active="true"] {
+  border-color: var(--gold) !important;
+  background-color: oklch(0.75 0.14 85 / 0.08) !important;
+  box-shadow:
+    0 0 0 2px oklch(0.75 0.14 85 / 0.3),
+    inset 0 0 20px oklch(0.75 0.14 85 / 0.05) !important;
+}
+
+/* Light mode drop zone active */
+.light [data-drop-zone][data-drop-active="true"] {
+  border-color: oklch(0.65 0.16 80) !important;
+  background-color: oklch(0.65 0.16 80 / 0.08) !important;
+  box-shadow:
+    0 0 0 2px oklch(0.65 0.16 80 / 0.3),
+    inset 0 0 20px oklch(0.65 0.16 80 / 0.05) !important;
+}
+
+/* Drop zone hint text */
+[data-drop-zone][data-drop-active="true"]::before {
+  content: attr(data-drop-hint);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  background: oklch(0.15 0.035 250 / 0.95);
+  color: var(--gold);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  animation: drop-hint-pulse 1.5s ease-in-out infinite;
+}
+
+/* Light mode drop hint */
+.light [data-drop-zone][data-drop-active="true"]::before {
+  background: oklch(0.99 0.01 85 / 0.95);
+  color: oklch(0.60 0.16 80);
+  box-shadow: 0 4px 12px oklch(0.40 0.04 60 / 0.15);
+}
+
+@keyframes drop-hint-pulse {
+  0%, 100% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.02);
+  }
+}
+
+/* Reduce motion - disable drop zone animations */
+.reduce-motion [data-drop-zone][data-drop-active="true"]::before {
+  animation: none;
+}
+
+/* Drop zone border animation */
+[data-drop-zone][data-drop-active="true"]::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--radius) + 2px);
+  border: 2px dashed var(--gold);
+  pointer-events: none;
+  animation: drop-border-dash 0.5s linear infinite;
+}
+
+.light [data-drop-zone][data-drop-active="true"]::after {
+  border-color: oklch(0.65 0.16 80);
+}
+
+@keyframes drop-border-dash {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
+/* Reduce motion - static border */
+.reduce-motion [data-drop-zone][data-drop-active="true"]::after {
+  animation: none;
+  border-style: solid;
+}
+
+/* Kanban column drop zone */
+.kanban-column[data-drop-active="true"] {
+  background-color: oklch(0.75 0.14 85 / 0.06) !important;
+}
+
+.light .kanban-column[data-drop-active="true"] {
+  background-color: oklch(0.65 0.16 80 / 0.06) !important;
+}
+
+/* Category drop zone in sidebar */
+[data-category-drop-zone][data-drop-active="true"] {
+  background-color: oklch(0.75 0.14 85 / 0.15) !important;
+  transform: scale(1.02);
+}
+
+.light [data-category-drop-zone][data-drop-active="true"] {
+  background-color: oklch(0.65 0.16 80 / 0.12) !important;
+}
+
+/* Invalid drop zone indicator */
+[data-drop-zone][data-drop-invalid="true"] {
+  border-color: var(--destructive) !important;
+  background-color: oklch(0.55 0.22 25 / 0.08) !important;
+}
+
+[data-drop-zone][data-drop-invalid="true"]::before {
+  content: "No se puede soltar aqui";
+  background: oklch(0.55 0.22 25 / 0.95);
+  color: oklch(0.95 0.02 25);
+}
+
+/* =============================================================================
+   ACCESSIBILITY - BentoGrid Drop Zone Visual Feedback
+   ============================================================================= */
+
+/* Drop zone container - visible when in edit mode */
+.drop-zone-container {
+  position: relative;
+}
+
+/* Drop zone visual feedback during drag */
+.drop-zone-container.edit-mode .react-grid-item.react-draggable-dragging {
+  /* Dragging item styling */
+  box-shadow: 0 8px 32px oklch(0.75 0.14 85 / 0.3);
+  border-radius: var(--radius);
+}
+
+/* Light mode dragging item */
+.light .drop-zone-container.edit-mode .react-grid-item.react-draggable-dragging {
+  box-shadow: 0 8px 32px oklch(0.65 0.16 80 / 0.25);
+}
+
+/* Enhanced placeholder styling - valid drop zone */
+.drop-zone-container .react-grid-item.react-grid-placeholder {
+  background: oklch(0.75 0.14 85 / 0.2);
+  border: 3px dashed oklch(0.75 0.14 85 / 0.6);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Drop zone diagonal stripes indicator */
+.drop-zone-container .react-grid-item.react-grid-placeholder::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 8px,
+    oklch(0.75 0.14 85 / 0.1) 8px,
+    oklch(0.75 0.14 85 / 0.1) 16px
+  );
+  pointer-events: none;
+}
+
+/* Pulse animation for drop zone (respects reduce-motion) */
+.drop-zone-container .react-grid-item.react-grid-placeholder::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 2px solid oklch(0.75 0.14 85 / 0.4);
+  border-radius: calc(var(--radius) - 4px);
+  animation: grid-drop-zone-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes grid-drop-zone-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+}
+
+/* Light mode drop zone styling */
+.light .drop-zone-container .react-grid-item.react-grid-placeholder {
+  background: oklch(0.65 0.16 80 / 0.15);
+  border-color: oklch(0.65 0.16 80 / 0.5);
+}
+
+.light .drop-zone-container .react-grid-item.react-grid-placeholder::before {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 8px,
+    oklch(0.65 0.16 80 / 0.1) 8px,
+    oklch(0.65 0.16 80 / 0.1) 16px
+  );
+}
+
+.light .drop-zone-container .react-grid-item.react-grid-placeholder::after {
+  border-color: oklch(0.65 0.16 80 / 0.4);
+}
+
+/* Reduced motion - disable drop zone animations */
+.reduce-motion .drop-zone-container .react-grid-item.react-grid-placeholder::after {
+  animation: none;
+  opacity: 0.6;
+  transform: none;
+}
+
+.reduce-motion .drop-zone-container.edit-mode .react-grid-item.react-draggable-dragging {
+  box-shadow: 0 4px 16px oklch(0.75 0.14 85 / 0.2);
+}
+
+/* =============================================================================
+   ACCESSIBILITY - Focus Indicators for Keyboard Navigation
+   ============================================================================= */
+
+/* Enhanced focus indicators for keyboard navigation in grid */
+.drop-zone-container [tabindex="0"]:focus-visible {
+  outline: 3px solid oklch(0.75 0.14 85 / 0.8);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+  z-index: 10;
+}
+
+.light .drop-zone-container [tabindex="0"]:focus-visible {
+  outline-color: oklch(0.65 0.16 80 / 0.8);
+}
+
+/* Focus indicator during keyboard drag mode */
+.drop-zone-container [aria-grabbed="true"] {
+  outline: 3px solid oklch(0.75 0.14 85);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px oklch(0.75 0.14 85 / 0.2);
+  border-radius: var(--radius);
+  z-index: 20;
+}
+
+.light .drop-zone-container [aria-grabbed="true"] {
+  outline-color: oklch(0.65 0.16 80);
+  box-shadow: 0 0 0 6px oklch(0.65 0.16 80 / 0.2);
+}
+
+/* =============================================================================
+   ACCESSIBILITY - Screen Reader Only Content
+   ============================================================================= */
+
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Make sr-only elements visible on focus (for skip links) */
+.sr-only-focusable:focus,
+.sr-only-focusable:active {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* =============================================================================
+   ACCESSIBILITY - Toolbar Keyboard Navigation
+   ============================================================================= */
+
+/* Toolbar focus within indicator */
+[role="toolbar"]:focus-within {
+  outline: 2px solid oklch(0.75 0.14 85 / 0.3);
+  outline-offset: 4px;
+  border-radius: var(--radius);
+}
+
+.light [role="toolbar"]:focus-within {
+  outline-color: oklch(0.65 0.16 80 / 0.3);
+}
+
+/* Toolbar button focus */
+[role="toolbar"] button:focus-visible {
+  outline: 2px solid oklch(0.75 0.14 85);
+  outline-offset: 2px;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.light [role="toolbar"] button:focus-visible {
+  outline-color: oklch(0.65 0.16 80);
+}
+
+/* =============================================================================
+   ACCESSIBILITY - High Contrast Mode Support
+   ============================================================================= */
+
+@media (prefers-contrast: high) {
+  /* Increase contrast for focus indicators */
+  .drop-zone-container [tabindex="0"]:focus-visible,
+  .drop-zone-container [aria-grabbed="true"],
+  [role="toolbar"] button:focus-visible {
+    outline-width: 4px;
+    outline-color: CanvasText;
+  }
+
+  /* Increase contrast for drop zones */
+  .drop-zone-container .react-grid-item.react-grid-placeholder {
+    border-width: 4px;
+    border-color: CanvasText;
+    background: Canvas;
+  }
+
+  /* Increase contrast for invalid drop zones */
+  [data-drop-zone][data-drop-invalid="true"] {
+    border-color: Mark !important;
+    background-color: Mark !important;
+  }
+}
