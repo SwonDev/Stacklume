@@ -1,0 +1,4 @@
+ignoredBuiltDependencies:
+  - '@sentry/cli'
+  - electron
+  - electron-winstaller
