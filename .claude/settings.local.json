@@ -130,7 +130,8 @@
       "Bash(vercel env:*)",
       "Bash(printf:*)",
       "Bash(vercel logs:*)",
-      "Bash(vercel inspect:*)"
+      "Bash(vercel inspect:*)",
+      "Bash(vercel --prod --yes)"
     ],
     "deny": [],
     "ask": []
