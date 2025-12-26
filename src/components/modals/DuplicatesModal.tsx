@@ -35,6 +35,7 @@ import { useLinksStore } from "@/stores/links-store";
 import { cn } from "@/lib/utils";
 import type { Link } from "@/lib/db/schema";
 import { motion, AnimatePresence } from "motion/react";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface DuplicatesModalProps {
   open: boolean;
@@ -126,7 +127,11 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
     // Delete via API
     for (const id of pendingDeleteIds) {
       try {
-        await fetch(`/api/links/${id}`, { method: "DELETE" });
+        await fetch(`/api/links/${id}`, {
+          method: "DELETE",
+          headers: getCsrfHeaders(),
+          credentials: "include",
+        });
         removeLink(id);
       } catch (error) {
         console.error("Error deleting link:", error);

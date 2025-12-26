@@ -40,6 +40,7 @@ import {
 import { TagBadge } from "@/components/ui/tag-badge";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -119,13 +120,19 @@ export function LinkListItemContent({
         // Remove tag
         await fetch(`/api/tags/link?linkId=${link.id}&tagId=${tagId}`, {
           method: "DELETE",
+          headers: getCsrfHeaders(),
+          credentials: "include",
         });
         removeLinkTag(link.id, tagId);
       } else {
         // Add tag
         await fetch("/api/tags/link", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getCsrfHeaders(),
+          },
+          credentials: "include",
           body: JSON.stringify({ linkId: link.id, tagId }),
         });
         addLinkTag(link.id, tagId);
@@ -141,7 +148,11 @@ export function LinkListItemContent({
       const newValue = !link.isFavorite;
       await fetch(`/api/links/${link.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ isFavorite: newValue }),
       });
       updateLink(link.id, { isFavorite: newValue });
@@ -154,7 +165,11 @@ export function LinkListItemContent({
   const handleDelete = useCallback(async () => {
     if (!confirm("¿Eliminar este enlace?")) return;
     try {
-      await fetch(`/api/links/${link.id}`, { method: "DELETE" });
+      await fetch(`/api/links/${link.id}`, {
+        method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
+      });
       removeLink(link.id);
     } catch (error) {
       console.error("Error deleting link:", error);

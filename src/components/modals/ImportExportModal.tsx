@@ -31,6 +31,7 @@ import {
   generatePDFHTML,
   generateNetscapeHTML,
 } from "@/lib/export-utils";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface ImportExportModalProps {
   open: boolean;
@@ -187,7 +188,11 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
           // Call API to import the data
           const response = await fetch("/api/links/import", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...getCsrfHeaders(),
+            },
+            credentials: "include",
             body: JSON.stringify(data),
           });
 
@@ -229,7 +234,11 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
         // Import HTML bookmarks (Netscape format)
         const response = await fetch("/api/links/import-html", {
           method: "POST",
-          headers: { "Content-Type": "text/html" },
+          headers: {
+            "Content-Type": "text/html",
+            ...getCsrfHeaders(),
+          },
+          credentials: "include",
           body: content,
         });
 

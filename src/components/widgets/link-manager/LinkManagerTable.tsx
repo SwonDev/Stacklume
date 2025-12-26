@@ -41,6 +41,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { useLinksStore } from "@/stores/links-store";
 import type { Link, Tag, Category } from "@/lib/db/schema";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface LinkManagerTableProps {
   links: Link[];
@@ -227,12 +228,18 @@ function TableRow({
         if (isSelected) {
           await fetch(`/api/tags/link?linkId=${link.id}&tagId=${tagId}`, {
             method: "DELETE",
+            headers: getCsrfHeaders(),
+            credentials: "include",
           });
           onRemoveLinkTag(link.id, tagId);
         } else {
           await fetch("/api/tags/link", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...getCsrfHeaders(),
+            },
+            credentials: "include",
             body: JSON.stringify({ linkId: link.id, tagId }),
           });
           onAddLinkTag(link.id, tagId);
@@ -249,7 +256,11 @@ function TableRow({
       const newValue = !link.isFavorite;
       await fetch(`/api/links/${link.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ isFavorite: newValue }),
       });
       onUpdateLink(link.id, { isFavorite: newValue });
@@ -264,7 +275,11 @@ function TableRow({
 
   const handleDelete = async () => {
     try {
-      await fetch(`/api/links/${link.id}`, { method: "DELETE" });
+      await fetch(`/api/links/${link.id}`, {
+        method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
+      });
       onRemoveLink(link.id);
     } catch (error) {
       console.error("Error deleting link:", error);

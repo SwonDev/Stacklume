@@ -49,6 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLinksStore } from "@/stores/links-store";
 import { motion, AnimatePresence } from "motion/react";
 import type { Category } from "@/lib/db/schema";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 const formSchema = z.object({
   url: z.string().url("Introduce una URL válida"),
@@ -159,7 +160,11 @@ export function AddLinkModal() {
       try {
         const response = await fetch("/api/scrape", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getCsrfHeaders(),
+          },
+          credentials: "include",
           body: JSON.stringify({ url: watchUrl }),
         });
 
@@ -191,7 +196,11 @@ export function AddLinkModal() {
     try {
       const response = await fetch("/api/links", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           ...values,
           imageUrl: scrapedData?.imageUrl,
