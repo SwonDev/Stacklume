@@ -1,12 +1,19 @@
 <div align="center">
 
-<!-- Logo -->
-<img src="assets/logo.svg" alt="Stacklume Logo" width="120" height="120" />
+<!-- Logo con fondo circular dorado -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/SwonDev/Stacklume/main/package.json&query=$.name&style=for-the-badge&label=&color=d4a853&labelColor=d4a853">
+  <source media="(prefers-color-scheme: light)" srcset="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/SwonDev/Stacklume/main/package.json&query=$.name&style=for-the-badge&label=&color=d4a853&labelColor=d4a853">
+</picture>
+
+<a href="#">
+  <img src="assets/logo-badge.svg" alt="Stacklume Logo" width="120" height="120" />
+</a>
 
 <br />
 <br />
 
-# ✨ Stacklume
+# Stacklume
 
 ### **Tu universo de links, bellamente organizado**
 
@@ -24,7 +31,8 @@ Stacklume es un **dashboard personal** que transforma la forma en que guardas, o
 
 <br />
 
-[Reportar Bug](https://github.com/SwonDev/Stacklume/issues) · [Solicitar Feature](https://github.com/SwonDev/Stacklume/issues)
+[![Report Bug](https://img.shields.io/badge/Reportar_Bug-0a1628?style=flat-square&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume/issues)
+[![Request Feature](https://img.shields.io/badge/Solicitar_Feature-0a1628?style=flat-square&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume/issues)
 
 </div>
 
@@ -34,17 +42,34 @@ Stacklume es un **dashboard personal** que transforma la forma en que guardas, o
 
 <br />
 
-## 🎯 ¿Qué problema resuelve?
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=target&logoColor=d4a853" height="20" /> ¿Qué problema resuelve?
 
 ¿Cuántas pestañas tienes abiertas ahora mismo? ¿Cuántos bookmarks tienes guardados que nunca vuelves a ver?
 
 **Stacklume** te ayuda a:
 
-- 📌 **Centralizar** todos tus links importantes en un solo lugar
-- 🏷️ **Organizar** con categorías y tags inteligentes
-- 🔍 **Encontrar** rápidamente lo que necesitas con búsqueda instantánea
-- 📊 **Visualizar** tu contenido de forma atractiva con widgets personalizables
-- 🔗 **Detectar** automáticamente el tipo de contenido (YouTube, GitHub, Steam, Spotify...)
+<table>
+<tr>
+<td><img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=pushpin&logoColor=d4a853" height="16" /></td>
+<td><strong>Centralizar</strong> todos tus links importantes en un solo lugar</td>
+</tr>
+<tr>
+<td><img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=tag&logoColor=d4a853" height="16" /></td>
+<td><strong>Organizar</strong> con categorías y tags inteligentes</td>
+</tr>
+<tr>
+<td><img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=search&logoColor=d4a853" height="16" /></td>
+<td><strong>Encontrar</strong> rápidamente lo que necesitas con búsqueda instantánea</td>
+</tr>
+<tr>
+<td><img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=barchart&logoColor=d4a853" height="16" /></td>
+<td><strong>Visualizar</strong> tu contenido de forma atractiva con widgets personalizables</td>
+</tr>
+<tr>
+<td><img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=link&logoColor=d4a853" height="16" /></td>
+<td><strong>Detectar</strong> automáticamente el tipo de contenido (YouTube, GitHub, Steam...)</td>
+</tr>
+</table>
 
 <br />
 
@@ -52,33 +77,33 @@ Stacklume es un **dashboard personal** que transforma la forma en que guardas, o
 
 <br />
 
-## ✨ Características principales
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=sparkles&logoColor=d4a853" height="20" /> Características principales
 
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
-### 🧱 Bento Grid Layout
+### <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=grid&logoColor=d4a853" height="18" /> Bento Grid Layout
 Arrastra, redimensiona y organiza widgets como quieras. Tu dashboard, tus reglas.
 
-### 📦 120+ Widgets
+### <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=package&logoColor=d4a853" height="18" /> 120+ Widgets
 Desde notas y tareas hasta el tiempo, crypto y repositorios trending de GitHub.
 
-### 🎨 3 Modos de Vista
+### <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=palette&logoColor=d4a853" height="18" /> 3 Modos de Vista
 - **Bento** — Grid visual e interactivo
 - **Kanban** — Organización por columnas
 - **Lista** — Vista clásica y compacta
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
-### 🏷️ Categorías & Tags
+### <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=bookmark&logoColor=d4a853" height="18" /> Categorías & Tags
 Organiza tus links con carpetas y etiquetas. Filtrado inteligente incluido.
 
-### 🔮 Detección de Plataforma
+### <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=eye&logoColor=d4a853" height="18" /> Detección de Plataforma
 Identifica automáticamente YouTube, GitHub, Steam, Spotify, Twitter y más.
 
-### 🌙 Tema Dual
+### <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=moon&logoColor=d4a853" height="18" /> Tema Dual
 Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
 
 </td>
@@ -91,20 +116,20 @@ Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
 
 <br />
 
-## 🛠️ Stack Tecnológico
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=wrench&logoColor=d4a853" height="20" /> Stack Tecnológico
 
 <div align="center">
 
-| Capa | Tecnología |
-|:----:|:-----------|
-| ⚡ **Framework** | Next.js 16 (App Router) + React 19 |
-| 🗄️ **Database** | Neon PostgreSQL + Drizzle ORM |
-| 🎨 **UI** | shadcn/ui + Radix UI + Tailwind v4 |
-| 📦 **Estado** | Zustand con persistencia |
-| 🎬 **Animaciones** | Motion (Framer Motion) |
-| 🧱 **Grid** | react-grid-layout |
-| 🖱️ **Drag & Drop** | @dnd-kit |
-| ✅ **Forms** | React Hook Form + Zod |
+| | Capa | Tecnología |
+|:---:|:----:|:-----------|
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=zap&logoColor=d4a853" height="16" /> | **Framework** | Next.js 16 (App Router) + React 19 |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=database&logoColor=d4a853" height="16" /> | **Database** | Neon PostgreSQL + Drizzle ORM |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=paintbrush&logoColor=d4a853" height="16" /> | **UI** | shadcn/ui + Radix UI + Tailwind v4 |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=box&logoColor=d4a853" height="16" /> | **Estado** | Zustand con persistencia |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=film&logoColor=d4a853" height="16" /> | **Animaciones** | Motion (Framer Motion) |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=layout&logoColor=d4a853" height="16" /> | **Grid** | react-grid-layout |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=move&logoColor=d4a853" height="16" /> | **Drag & Drop** | @dnd-kit |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=check&logoColor=d4a853" height="16" /> | **Forms** | React Hook Form + Zod |
 
 </div>
 
@@ -114,7 +139,7 @@ Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
 
 <br />
 
-## 🚀 Instalación
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=rocket&logoColor=d4a853" height="20" /> Instalación
 
 ### Requisitos previos
 
@@ -151,7 +176,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 <br />
 
-## 📁 Estructura del proyecto
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=folder&logoColor=d4a853" height="20" /> Estructura del proyecto
 
 ```
 src/
@@ -170,10 +195,6 @@ src/
 │   ├── db/                # Drizzle ORM (schema, client)
 │   └── security/          # Protección SSRF
 ├── stores/                # Zustand stores
-│   ├── links-store.ts     # Links, categorías, tags
-│   ├── widget-store.ts    # Gestión de widgets
-│   ├── kanban-store.ts    # Columnas kanban
-│   └── settings-store.ts  # Preferencias de usuario
 └── types/                 # Tipos TypeScript
 ```
 
@@ -183,10 +204,10 @@ src/
 
 <br />
 
-## 🧩 Widgets disponibles
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=puzzle&logoColor=d4a853" height="20" /> Widgets disponibles
 
 <details>
-<summary><strong>📋 Ver todos los widgets (120+)</strong></summary>
+<summary><strong>Ver todos los widgets (120+)</strong></summary>
 
 <br />
 
@@ -211,7 +232,7 @@ src/
 
 <br />
 
-## ⌨️ Atajos de teclado
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=keyboard&logoColor=d4a853" height="20" /> Atajos de teclado
 
 | Atajo | Acción |
 |:-----:|:-------|
@@ -225,7 +246,7 @@ src/
 
 <br />
 
-## ⚙️ Variables de entorno
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=gear&logoColor=d4a853" height="20" /> Variables de entorno
 
 Crea un archivo `.env.local` basándote en `.env.example`:
 
@@ -244,7 +265,7 @@ UPSTASH_REDIS_REST_TOKEN=""
 
 <br />
 
-## 📜 Scripts disponibles
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=terminal&logoColor=d4a853" height="20" /> Scripts disponibles
 
 | Comando | Descripción |
 |---------|-------------|
@@ -263,7 +284,7 @@ UPSTASH_REDIS_REST_TOKEN=""
 
 <br />
 
-## 🤝 Contribuir
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=handshake&logoColor=d4a853" height="20" /> Contribuir
 
 Las contribuciones son bienvenidas. Por favor:
 
@@ -279,7 +300,7 @@ Las contribuciones son bienvenidas. Por favor:
 
 <br />
 
-## 📄 Licencia
+## <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=scroll&logoColor=d4a853" height="20" /> Licencia
 
 Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
 
@@ -291,14 +312,19 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 <div align="center">
 
-### 🌟 Hecho con pasión por [SwonDev](https://github.com/SwonDev)
+<img src="assets/logo-badge.svg" alt="Stacklume" width="60" height="60" />
+
+<br />
+<br />
+
+**Hecho con <img src="https://img.shields.io/badge/-d4a853?style=flat-square&logo=heart&logoColor=0a1628" height="14" /> por [SwonDev](https://github.com/SwonDev)**
 
 <br />
 
-**Navy Blue & Gold** · *Tu universo de links, bellamente organizado*
+`Navy Blue & Gold` · *Tu universo de links, bellamente organizado*
 
 <br />
 
-<img src="assets/logo.svg" alt="Stacklume" width="40" height="40" />
+[![GitHub](https://img.shields.io/badge/GitHub-0a1628?style=for-the-badge&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume)
 
 </div>
