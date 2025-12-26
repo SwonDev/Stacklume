@@ -111,7 +111,11 @@
       "Bash(if exist electron rmdir /s /q electron)",
       "Bash(if exist dist-electron rmdir /s /q dist-electron)",
       "Bash(if exist electron-builder.yml del /f electron-builder.yml)",
-      "Bash(if exist .npmignore del /f .npmignore)"
+      "Bash(if exist .npmignore del /f .npmignore)",
+      "Bash(git remote add:*)",
+      "Bash(ping:*)",
+      "Bash(Remove-Item -Force \".next\\\\dev\\\\lock\" -ErrorAction SilentlyContinue)",
+      "Bash(vercel --version:*)"
     ],
     "deny": [],
     "ask": []
