@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useLinksStore } from "@/stores/links-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio").max(100),
@@ -84,7 +85,11 @@ export function AddCategoryModal() {
     try {
       const response = await fetch("/api/categories", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           ...values,
           icon: selectedIcon,

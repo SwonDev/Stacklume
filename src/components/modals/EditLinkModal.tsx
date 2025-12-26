@@ -46,6 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useLinksStore } from "@/stores/links-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 const formSchema = z.object({
   url: z.string().url("Introduce una URL válida"),
@@ -110,7 +111,11 @@ export function EditLinkModal() {
     try {
       const response = await fetch(`/api/links/${selectedLink.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           ...values,
           categoryId: values.categoryId || null,
@@ -131,6 +136,8 @@ export function EditLinkModal() {
           if (!selectedTagIds.includes(tagId)) {
             await fetch(`/api/tags/link?linkId=${selectedLink.id}&tagId=${tagId}`, {
               method: "DELETE",
+              headers: getCsrfHeaders(),
+              credentials: "include",
             });
             removeLinkTag(selectedLink.id, tagId);
           }
@@ -141,7 +148,11 @@ export function EditLinkModal() {
           if (!currentTagIds.includes(tagId)) {
             await fetch("/api/tags/link", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                ...getCsrfHeaders(),
+              },
+              credentials: "include",
               body: JSON.stringify({ linkId: selectedLink.id, tagId }),
             });
             addLinkTag(selectedLink.id, tagId);
@@ -168,6 +179,8 @@ export function EditLinkModal() {
     try {
       const response = await fetch(`/api/links/${selectedLink.id}`, {
         method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
       });
 
       if (response.ok) {

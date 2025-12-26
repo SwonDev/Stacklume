@@ -33,6 +33,7 @@ import {
 import { useLinksStore } from "@/stores/links-store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 export function ManageTagsModal() {
   const {
@@ -70,7 +71,11 @@ export function ManageTagsModal() {
     try {
       const response = await fetch(`/api/tags`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ id: editingId, name: editingName.trim() }),
       });
 
@@ -93,6 +98,8 @@ export function ManageTagsModal() {
     try {
       const response = await fetch(`/api/tags?id=${deleteId}`, {
         method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
       });
 
       if (response.ok) {

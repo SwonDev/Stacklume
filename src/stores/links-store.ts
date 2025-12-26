@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Link, Category, Tag } from "@/lib/db/schema";
 import { normalizeUrlForComparison } from "@/lib/url-utils";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface LinksState {
   // Links data
@@ -122,7 +123,11 @@ export const useLinksStore = create<LinksState>((set, get) => ({
     try {
       const response = await fetch("/api/links/reorder", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ orderedIds, categoryId }),
       });
 
@@ -174,7 +179,11 @@ export const useLinksStore = create<LinksState>((set, get) => ({
     try {
       const response = await fetch("/api/categories/reorder", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ orderedIds }),
       });
 
@@ -220,7 +229,11 @@ export const useLinksStore = create<LinksState>((set, get) => ({
     try {
       const response = await fetch("/api/tags/reorder", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ orderedIds }),
       });
 

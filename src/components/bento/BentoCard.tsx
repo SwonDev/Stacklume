@@ -61,6 +61,7 @@ import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
 import { LazyWidgetRenderer, specialWidgetTypes } from "@/components/widgets/LazyWidgets";
 import { WidgetErrorBoundary } from "@/components/providers/ErrorBoundary";
 import { WidgetContextMenu } from "@/components/widgets/WidgetContextMenu";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface BentoCardProps {
   widget: Widget;
@@ -710,7 +711,11 @@ export function BentoCard({ widget }: BentoCardProps) {
                 try {
                   await fetch(`/api/links/${link.id}`, {
                     method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...getCsrfHeaders(),
+                    },
+                    credentials: "include",
                     body: JSON.stringify({ isFavorite: newFavorite }),
                   });
                 } catch (error) {
