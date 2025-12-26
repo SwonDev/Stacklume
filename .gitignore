@@ -76,3 +76,5 @@ NUL
 
 # Lint output files (dev only)
 lint_*.txt
+
+.vercel

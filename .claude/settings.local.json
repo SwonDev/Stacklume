@@ -115,7 +115,19 @@
       "Bash(git remote add:*)",
       "Bash(ping:*)",
       "Bash(Remove-Item -Force \".next\\\\dev\\\\lock\" -ErrorAction SilentlyContinue)",
-      "Bash(vercel --version:*)"
+      "Bash(vercel --version:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel env add:*)",
+      "Bash(vercel --prod)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel domains:*)",
+      "Bash(vercel project:*)",
+      "Bash(vercel --help:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel remove:*)",
+      "Bash(vercel teams ls:*)",
+      "Bash(vercel login:*)",
+      "Bash(vercel env:*)"
     ],
     "deny": [],
     "ask": []
