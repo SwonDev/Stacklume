@@ -196,6 +196,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLinksStore } from "@/stores/links-store";
+import { useProjectsStore } from "@/stores/projects-store";
 import type { Category, Tag } from "@/lib/db/schema";
 import {
   WIDGET_TYPE_METADATA,
@@ -1871,6 +1872,7 @@ export function AddWidgetModal() {
   const addWidget = useWidgetStore((state) => state.addWidget);
   const categories = useLinksStore((state) => state.categories);
   const tags = useLinksStore((state) => state.tags);
+  const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<WidgetType[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -2037,6 +2039,7 @@ export function AddWidgetModal() {
           tagId: isSingleSelection && metadata.requiresTag ? values.tagId || undefined : undefined,
           tags: isSingleSelection && selectedTags.length > 0 ? selectedTags : undefined,
           config: defaultConfig,
+          projectId: activeProjectId, // Explicitly pass the active project ID
           layout: {
             x: 0,
             y: 0,

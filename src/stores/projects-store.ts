@@ -99,7 +99,10 @@ export const useProjectsStore = create<ProjectsState>()(
           });
 
           if (!response.ok) {
-            throw new Error(`Failed to create project: ${response.statusText}`);
+            // Try to get error message from response body
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.error || response.statusText || `HTTP ${response.status}`;
+            throw new Error(`Failed to create project: ${errorMessage}`);
           }
 
           const newProject: Project = await response.json();
@@ -114,6 +117,7 @@ export const useProjectsStore = create<ProjectsState>()(
           const errorMessage = error instanceof Error ? error.message : "Failed to create project";
           console.error("Error creating project:", error);
           set({ error: errorMessage, isLoading: false });
+          throw error; // Re-throw to let the UI handle it
         }
       },
 

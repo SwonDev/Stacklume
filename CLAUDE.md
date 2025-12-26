@@ -25,13 +25,18 @@ pnpm test              # Run all tests once
 pnpm test:watch        # Run tests in watch mode
 pnpm test:ui           # Open Vitest UI
 pnpm test:coverage     # Run tests with coverage report
-pnpm test src/path/to/file.test.ts  # Run a single test file
+pnpm test src/path/to/file.test.ts      # Run a single test file
+pnpm test src/stores/                    # Run tests in a directory
+pnpm test -t "test name"                 # Run tests matching name
 
 # E2E Testing (Playwright)
 pnpm test:e2e          # Run E2E tests headless
 pnpm test:e2e:ui       # Open Playwright UI mode
 pnpm test:e2e:headed   # Run tests with browser visible
 pnpm test:e2e:report   # Show HTML test report
+
+# Utilities
+pnpm generate:icons    # Generate icon components from SVGs
 
 # Database (Drizzle ORM with Neon PostgreSQL)
 pnpm db:generate  # Generate migrations from schema changes
@@ -204,8 +209,18 @@ All API routes follow this pattern:
 ## Environment Variables
 
 Required in `.env.local`:
-```
-DATABASE_URL=postgresql://...  # Neon connection string
+```bash
+# Required - Neon PostgreSQL
+DATABASE_URL="postgresql://..."
+
+# Required for production - Simple credentials auth
+AUTH_USERNAME="your-username"
+AUTH_PASSWORD_HASH="bcrypt-hash"  # Generate: node -e "require('bcryptjs').hash('password', 10).then(console.log)"
+AUTH_SECRET="random-secret"       # Generate: openssl rand -base64 32
+
+# Optional - Rate limiting (Upstash Redis)
+UPSTASH_REDIS_REST_URL=""
+UPSTASH_REDIS_REST_TOKEN=""
 ```
 
 ## Adding shadcn/ui Components

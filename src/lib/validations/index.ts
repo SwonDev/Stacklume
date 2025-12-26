@@ -566,7 +566,7 @@ export const htmlImportSchema = z.object({
 // Create project request body
 export const createProjectSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   icon: z.string().max(50, 'Icon name must be 50 characters or less').default('Folder'),
   color: z.string().max(20, 'Color must be 20 characters or less').default('#6366f1'),
   order: z.number().int('Order must be an integer').default(0),

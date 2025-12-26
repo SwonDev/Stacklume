@@ -1,10 +1,14 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export type SortBy = "createdAt" | "title" | "updatedAt";
 export type SortOrder = "asc" | "desc";
 
 interface ListViewState {
+  // Hydration state
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
+
   // Collapsed state per category (Set stored as array for persistence)
   collapsedCategories: string[];
   toggleCategoryCollapsed: (categoryId: string) => void;
@@ -34,6 +38,10 @@ interface ListViewState {
 export const useListViewStore = create<ListViewState>()(
   persist(
     (set, get) => ({
+      // Hydration state
+      _hasHydrated: false,
+      setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
+
       // Default values
       collapsedCategories: [],
       sortBy: "createdAt",
@@ -44,7 +52,7 @@ export const useListViewStore = create<ListViewState>()(
 
       // Toggle category collapsed state
       toggleCategoryCollapsed: (categoryId: string) => {
-        const current = get().collapsedCategories;
+        const current = [...get().collapsedCategories]; // Create a new array to ensure React detects change
         const isCollapsed = current.includes(categoryId);
 
         if (isCollapsed) {
@@ -96,6 +104,7 @@ export const useListViewStore = create<ListViewState>()(
     }),
     {
       name: "stacklume-list-view",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         collapsedCategories: state.collapsedCategories,
         sortBy: state.sortBy,
@@ -103,6 +112,12 @@ export const useListViewStore = create<ListViewState>()(
         showEmptyCategories: state.showEmptyCategories,
         showUncategorized: state.showUncategorized,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
+
+// Helper hook to check if the store has hydrated
+export const useListViewHasHydrated = () => useListViewStore((state) => state._hasHydrated);
