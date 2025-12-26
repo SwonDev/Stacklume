@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as cheerio from "cheerio";
 import { detectPlatform, type ContentType, type Platform } from "@/lib/platform-detection";
 import { validateUrlForSSRF } from "@/lib/security/ssrf-protection";
 import { createModuleLogger } from "@/lib/logger";
@@ -22,18 +23,17 @@ interface ScrapeResult {
   platformIcon: string;
 }
 
-// Check if a YouTube thumbnail exists
+// Check if a YouTube thumbnail exists and return best quality
 async function getYouTubeThumbnail(videoId: string): Promise<string> {
-  // Try thumbnail qualities in order of preference
   const qualities = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault', 'default'];
 
   for (const quality of qualities) {
     const url = `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
     try {
       const response = await fetch(url, { method: 'HEAD' });
-      // Check if the image exists and is not the default placeholder (120x90)
       const contentLength = response.headers.get('content-length');
-      if (response.ok && contentLength && parseInt(contentLength) > 1000) {
+      // Check if image exists and is not placeholder (placeholder is ~1KB)
+      if (response.ok && contentLength && parseInt(contentLength) > 2000) {
         return url;
       }
     } catch {
@@ -41,14 +41,13 @@ async function getYouTubeThumbnail(videoId: string): Promise<string> {
     }
   }
 
-  // Fallback to hqdefault which always exists
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
 // Platform-specific scrapers using APIs (no browser needed)
 async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPlatform>): Promise<Partial<ScrapeResult> | null> {
   try {
-    // YouTube - use oEmbed API + thumbnail check
+    // YouTube - use oEmbed API
     if (detection.platform === 'youtube' && detection.id) {
       const oEmbedUrl = detection.oEmbedUrl;
       let title = 'YouTube Video';
@@ -67,7 +66,6 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
         }
       }
 
-      // Get the best available thumbnail
       const imageUrl = await getYouTubeThumbnail(detection.id);
 
       return {
@@ -111,7 +109,7 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
           }
         }
       } catch {
-        // Fallback
+        // Fallback below
       }
       return {
         title: 'Steam Game',
@@ -226,8 +224,10 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
       }
     }
 
-    // GitHub - use API for repo info
+    // GitHub - use API for repo info + OpenGraph image
     if (detection.platform === 'github' && detection.id && detection.secondaryId) {
+      const ogImageUrl = `https://opengraph.githubassets.com/1/${detection.id}/${detection.secondaryId}`;
+
       try {
         const apiUrl = `https://api.github.com/repos/${detection.id}/${detection.secondaryId}`;
         const response = await fetch(apiUrl, {
@@ -238,8 +238,6 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
         });
         if (response.ok) {
           const data = await response.json();
-          // Use GitHub's OpenGraph image service for a nice preview
-          const ogImageUrl = `https://opengraph.githubassets.com/1/${detection.id}/${detection.secondaryId}`;
           return {
             title: data.full_name || `${detection.id}/${detection.secondaryId}`,
             description: data.description || null,
@@ -255,14 +253,14 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
           };
         }
       } catch {
-        // Fall through to HTML scraping
+        // Fall through to fallback
       }
 
-      // Fallback: still return the OpenGraph image even if API fails
+      // Fallback with OpenGraph image
       return {
         title: `${detection.id}/${detection.secondaryId}`,
         description: null,
-        imageUrl: `https://opengraph.githubassets.com/1/${detection.id}/${detection.secondaryId}`,
+        imageUrl: ogImageUrl,
         faviconUrl: 'https://github.com/favicon.ico',
         siteName: 'GitHub',
         author: detection.id,
@@ -280,8 +278,8 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
   }
 }
 
-// Parse HTML to extract meta tags (simple regex-based parser for serverless)
-function parseMetaTags(html: string): {
+// Parse HTML using cheerio for robust metadata extraction
+function parseMetaTagsWithCheerio(html: string, baseUrl: URL): {
   title: string | null;
   description: string | null;
   imageUrl: string | null;
@@ -289,98 +287,119 @@ function parseMetaTags(html: string): {
   siteName: string | null;
   author: string | null;
 } {
-  const result = {
-    title: null as string | null,
-    description: null as string | null,
-    imageUrl: null as string | null,
-    faviconUrl: null as string | null,
-    siteName: null as string | null,
-    author: null as string | null,
+  const $ = cheerio.load(html);
+
+  // Helper to resolve relative URLs
+  const resolveUrl = (urlStr: string | undefined): string | null => {
+    if (!urlStr) return null;
+    try {
+      // Handle protocol-relative URLs
+      if (urlStr.startsWith('//')) {
+        return `https:${urlStr}`;
+      }
+      // Handle absolute URLs
+      if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+        return urlStr;
+      }
+      // Handle relative URLs
+      return new URL(urlStr, baseUrl.origin).toString();
+    } catch {
+      return null;
+    }
   };
 
-  // Helper to extract content from meta tags
-  const getMetaContent = (patterns: RegExp[]): string | null => {
-    for (const pattern of patterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        // Decode HTML entities
-        return match[1]
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .trim();
-      }
+  // Get meta content by various attribute combinations
+  const getMeta = (names: string[]): string | null => {
+    for (const name of names) {
+      // Try property attribute (OpenGraph)
+      let content = $(`meta[property="${name}"]`).attr('content');
+      if (content) return content.trim();
+
+      // Try name attribute
+      content = $(`meta[name="${name}"]`).attr('content');
+      if (content) return content.trim();
+
+      // Try itemprop attribute (Schema.org)
+      content = $(`meta[itemprop="${name}"]`).attr('content');
+      if (content) return content.trim();
     }
     return null;
   };
 
-  // Title
-  result.title = getMetaContent([
-    /<meta\s+(?:property|name)=["']og:title["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:title["']/i,
-    /<meta\s+(?:property|name)=["']twitter:title["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:title["']/i,
-    /<title[^>]*>([^<]+)<\/title>/i,
-  ]);
+  // Extract title
+  const title = getMeta(['og:title', 'twitter:title', 'title'])
+    || $('title').first().text().trim()
+    || null;
 
-  // Description
-  result.description = getMetaContent([
-    /<meta\s+(?:property|name)=["']og:description["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:description["']/i,
-    /<meta\s+(?:property|name)=["']twitter:description["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:description["']/i,
-    /<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i,
-  ]);
+  // Extract description
+  const description = getMeta(['og:description', 'twitter:description', 'description'])
+    || null;
 
-  // Image URL
-  result.imageUrl = getMetaContent([
-    /<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:image["']/i,
-    /<meta\s+(?:property|name)=["']og:image:url["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:image:url["']/i,
-    /<meta\s+(?:property|name)=["']twitter:image["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:image["']/i,
-  ]);
+  // Extract image URL
+  const imageUrlRaw = getMeta(['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']);
+  const imageUrl = resolveUrl(imageUrlRaw || undefined);
 
-  // Site name
-  result.siteName = getMetaContent([
-    /<meta\s+(?:property|name)=["']og:site_name["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:site_name["']/i,
-    /<meta\s+name=["']application-name["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+name=["']application-name["']/i,
-  ]);
+  // Extract site name
+  const siteName = getMeta(['og:site_name', 'application-name', 'al:ios:app_name', 'al:android:app_name'])
+    || null;
 
-  // Author
-  result.author = getMetaContent([
-    /<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i,
-    /<meta\s+(?:property|name)=["']article:author["']\s+content=["']([^"']+)["']/i,
-    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']article:author["']/i,
-  ]);
+  // Extract author
+  const author = getMeta(['author', 'article:author', 'twitter:creator', 'og:article:author'])
+    || $('a[rel="author"]').first().text().trim()
+    || null;
 
-  // Favicon
-  result.faviconUrl = getMetaContent([
-    /<link\s+rel=["'](?:icon|shortcut icon|apple-touch-icon)["'][^>]*href=["']([^"']+)["']/i,
-    /<link[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["']/i,
-  ]);
+  // Extract favicon - try multiple approaches
+  let faviconUrl: string | null = null;
 
-  return result;
+  // Priority order for favicons
+  const faviconSelectors = [
+    'link[rel="icon"][type="image/svg+xml"]',
+    'link[rel="apple-touch-icon"]',
+    'link[rel="apple-touch-icon-precomposed"]',
+    'link[rel="icon"][sizes="192x192"]',
+    'link[rel="icon"][sizes="128x128"]',
+    'link[rel="icon"][sizes="96x96"]',
+    'link[rel="icon"][sizes="32x32"]',
+    'link[rel="icon"]',
+    'link[rel="shortcut icon"]',
+  ];
+
+  for (const selector of faviconSelectors) {
+    const href = $(selector).first().attr('href');
+    if (href) {
+      faviconUrl = resolveUrl(href);
+      if (faviconUrl) break;
+    }
+  }
+
+  // Fallback to default favicon
+  if (!faviconUrl) {
+    faviconUrl = `${baseUrl.origin}/favicon.ico`;
+  }
+
+  return {
+    title,
+    description,
+    imageUrl,
+    faviconUrl,
+    siteName,
+    author,
+  };
 }
 
-// Scrape website using fetch + HTML parsing (works on Vercel serverless)
+// Scrape website using fetch + cheerio (works on Vercel serverless)
 async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlatform>): Promise<ScrapeResult> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
     const response = await fetch(url.toString(), {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'User-Agent': 'Mozilla/5.0 (compatible; Stacklume/1.0; +https://stacklume.vercel.app)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+        'Cache-Control': 'no-cache',
       },
       signal: controller.signal,
       redirect: 'follow',
@@ -389,26 +408,24 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const html = await response.text();
-    const metadata = parseMetaTags(html);
+    const metadata = parseMetaTagsWithCheerio(html, url);
 
-    // Fix relative URLs
-    const fixUrl = (urlStr: string | null): string | null => {
-      if (!urlStr) return null;
-      if (urlStr.startsWith('//')) return `https:${urlStr}`;
-      if (urlStr.startsWith('/')) return `${url.origin}${urlStr}`;
-      if (!urlStr.startsWith('http')) return `${url.origin}/${urlStr}`;
-      return urlStr;
-    };
+    log.debug({
+      url: url.toString(),
+      title: metadata.title,
+      hasImage: !!metadata.imageUrl,
+      hasDescription: !!metadata.description,
+    }, "Scraped metadata with cheerio");
 
     return {
       title: metadata.title || url.hostname,
       description: metadata.description,
-      imageUrl: fixUrl(metadata.imageUrl),
-      faviconUrl: fixUrl(metadata.faviconUrl) || `${url.origin}/favicon.ico`,
+      imageUrl: metadata.imageUrl,
+      faviconUrl: metadata.faviconUrl || `${url.origin}/favicon.ico`,
       siteName: metadata.siteName,
       author: metadata.author,
       platform: detection.platform,
@@ -452,7 +469,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(cachedResult);
     }
 
-    // SSRF Protection: Validate URL and check for private IPs
+    // SSRF Protection: Validate URL
     const ssrfCheck = await validateUrlForSSRF(url);
     if (!ssrfCheck.safe) {
       return NextResponse.json(
@@ -461,13 +478,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use the validated URL from SSRF check
     const validUrl = ssrfCheck.validUrl!;
 
-    // Detect platform first
+    // Detect platform
     const detection = detectPlatform(url);
 
-    // Try platform-specific scraping with APIs first (faster & more reliable)
+    // Try platform-specific APIs first (faster & more reliable)
     const platformResult = await scrapeWithAPIs(url, detection);
     if (platformResult && platformResult.title) {
       const result: ScrapeResult = {
@@ -483,18 +499,17 @@ export async function POST(request: NextRequest) {
         platformColor: platformResult.platformColor || detection.color,
         platformIcon: platformResult.platformIcon || detection.icon,
       };
-      // Cache the result for 1 hour
+
       scrapeCache.set(url, result);
-      log.debug({ url }, "Cached platform API scrape result");
+      log.debug({ url, platform: result.platform }, "Cached platform API scrape result");
       return NextResponse.json(result);
     }
 
-    // Fall back to fetch + HTML parsing for other sites
+    // Fall back to cheerio HTML scraping
     const result = await scrapeWithFetch(validUrl, detection);
 
-    // Cache the result for 1 hour
     scrapeCache.set(url, result);
-    log.debug({ url }, "Cached fetch scrape result");
+    log.debug({ url }, "Cached cheerio scrape result");
 
     return NextResponse.json(result);
   } catch (error) {
