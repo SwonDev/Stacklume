@@ -563,7 +563,18 @@ export function LazyWidgetRenderer({ widget }: LazyWidgetRendererProps) {
   const WidgetComponent = widgetMap[widget.type];
 
   if (!WidgetComponent) {
-    return null;
+    // Log error in development and show a placeholder
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`[LazyWidgetRenderer] Unknown widget type: "${widget.type}". Make sure it's registered in widgetMap.`);
+    }
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+        <div className="text-muted-foreground text-sm">
+          <p className="font-medium">Widget no disponible</p>
+          <p className="text-xs mt-1 opacity-60">Tipo: {widget.type}</p>
+        </div>
+      </div>
+    );
   }
 
   const skeletonVariant = getSkeletonVariant(widget.type);
