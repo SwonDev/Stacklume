@@ -7,7 +7,7 @@
 <br />
 <br />
 
-# ✨ Stacklume ✨
+# Stacklume
 
 ### **Tu universo de links, bellamente organizado**
 
@@ -22,11 +22,11 @@
 <br />
 
 <a href="https://github.com/SwonDev/Stacklume/issues">
-  <img src="https://img.shields.io/badge/🐛_Reportar_Bug-0a1628?style=flat-square" height="25" />
+  <img src="https://img.shields.io/badge/Reportar_Bug-0a1628?style=flat-square&logo=github&logoColor=d4a853" height="28" />
 </a>
 &nbsp;&nbsp;
 <a href="https://github.com/SwonDev/Stacklume/issues">
-  <img src="https://img.shields.io/badge/💡_Solicitar_Feature-0a1628?style=flat-square" height="25" />
+  <img src="https://img.shields.io/badge/Solicitar_Feature-0a1628?style=flat-square&logo=github&logoColor=d4a853" height="28" />
 </a>
 
 </div>
@@ -37,7 +37,7 @@
 
 <br />
 
-## 🎯 ¿Qué problema resuelve?
+## <img src="assets/icons/target.svg" width="28" height="28" align="center" /> ¿Qué problema resuelve?
 
 ¿Cuántas pestañas tienes abiertas ahora mismo? ¿Cuántos bookmarks tienes guardados que nunca vuelves a ver?
 
@@ -47,23 +47,23 @@
 
 <table>
 <tr>
-<td>📌</td>
+<td width="40"><img src="assets/icons/pin.svg" width="24" height="24" /></td>
 <td><strong>Centralizar</strong> todos tus links importantes en un solo lugar</td>
 </tr>
 <tr>
-<td>🏷️</td>
+<td><img src="assets/icons/tag.svg" width="24" height="24" /></td>
 <td><strong>Organizar</strong> con categorías y tags inteligentes</td>
 </tr>
 <tr>
-<td>🔍</td>
+<td><img src="assets/icons/search.svg" width="24" height="24" /></td>
 <td><strong>Encontrar</strong> rápidamente lo que necesitas con búsqueda instantánea</td>
 </tr>
 <tr>
-<td>📊</td>
+<td><img src="assets/icons/chart.svg" width="24" height="24" /></td>
 <td><strong>Visualizar</strong> tu contenido de forma atractiva con widgets personalizables</td>
 </tr>
 <tr>
-<td>🔗</td>
+<td><img src="assets/icons/link.svg" width="24" height="24" /></td>
 <td><strong>Detectar</strong> automáticamente el tipo de contenido (YouTube, GitHub, Steam...)</td>
 </tr>
 </table>
@@ -74,19 +74,19 @@
 
 <br />
 
-## ✨ Características principales
+## <img src="assets/icons/sparkles.svg" width="28" height="28" align="center" /> Características principales
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### 🧩 Bento Grid Layout
+### <img src="assets/icons/grid.svg" width="22" height="22" align="center" /> Bento Grid Layout
 Arrastra, redimensiona y organiza widgets como quieras. Tu dashboard, tus reglas.
 
-### 📦 120+ Widgets
+### <img src="assets/icons/box.svg" width="22" height="22" align="center" /> 120+ Widgets
 Desde notas y tareas hasta el tiempo, crypto y repositorios trending de GitHub.
 
-### 👁️ 3 Modos de Vista
+### <img src="assets/icons/eye.svg" width="22" height="22" align="center" /> 3 Modos de Vista
 - **Bento** — Grid visual e interactivo
 - **Kanban** — Organización por columnas
 - **Lista** — Vista clásica y compacta
@@ -94,13 +94,13 @@ Desde notas y tareas hasta el tiempo, crypto y repositorios trending de GitHub.
 </td>
 <td width="50%" valign="top">
 
-### 📁 Categorías & Tags
+### <img src="assets/icons/folder.svg" width="22" height="22" align="center" /> Categorías & Tags
 Organiza tus links con carpetas y etiquetas. Filtrado inteligente incluido.
 
-### 🔎 Detección de Plataforma
+### <img src="assets/icons/search.svg" width="22" height="22" align="center" /> Detección de Plataforma
 Identifica automáticamente YouTube, GitHub, Steam, Spotify, Twitter y más.
 
-### 🌙 Tema Dual
+### <img src="assets/icons/moon.svg" width="22" height="22" align="center" /> Tema Dual
 Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
 
 </td>
@@ -113,20 +113,20 @@ Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
 
 <br />
 
-## 🛠️ Stack Tecnológico
+## <img src="assets/icons/wrench.svg" width="28" height="28" align="center" /> Stack Tecnológico
 
 <div align="center">
 
 | | Capa | Tecnología |
 |:---:|:----:|:-----------|
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=nextdotjs&logoColor=d4a853" height="22" /> | **Framework** | Next.js 16 (App Router) + React 19 |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=postgresql&logoColor=d4a853" height="22" /> | **Database** | Neon PostgreSQL + Drizzle ORM |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=radixui&logoColor=d4a853" height="22" /> | **UI** | shadcn/ui + Radix UI + Tailwind v4 |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=redux&logoColor=d4a853" height="22" /> | **Estado** | Zustand con persistencia |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=framer&logoColor=d4a853" height="22" /> | **Animaciones** | Motion (Framer Motion) |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=css3&logoColor=d4a853" height="22" /> | **Grid** | react-grid-layout |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=react&logoColor=d4a853" height="22" /> | **Drag & Drop** | @dnd-kit |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=zod&logoColor=d4a853" height="22" /> | **Forms** | React Hook Form + Zod |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=nextdotjs&logoColor=d4a853" height="24" /> | **Framework** | Next.js 16 (App Router) + React 19 |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=postgresql&logoColor=d4a853" height="24" /> | **Database** | Neon PostgreSQL + Drizzle ORM |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=radixui&logoColor=d4a853" height="24" /> | **UI** | shadcn/ui + Radix UI + Tailwind v4 |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=redux&logoColor=d4a853" height="24" /> | **Estado** | Zustand con persistencia |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=framer&logoColor=d4a853" height="24" /> | **Animaciones** | Motion (Framer Motion) |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=css3&logoColor=d4a853" height="24" /> | **Grid** | react-grid-layout |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=react&logoColor=d4a853" height="24" /> | **Drag & Drop** | @dnd-kit |
+| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=zod&logoColor=d4a853" height="24" /> | **Forms** | React Hook Form + Zod |
 
 </div>
 
@@ -136,7 +136,7 @@ Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
 
 <br />
 
-## 🚀 Instalación
+## <img src="assets/icons/rocket.svg" width="28" height="28" align="center" /> Instalación
 
 ### Requisitos previos
 
@@ -173,7 +173,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 <br />
 
-## 📁 Estructura del proyecto
+## <img src="assets/icons/folder.svg" width="28" height="28" align="center" /> Estructura del proyecto
 
 ```
 src/
@@ -201,25 +201,25 @@ src/
 
 <br />
 
-## 🧩 Widgets disponibles
+## <img src="assets/icons/puzzle.svg" width="28" height="28" align="center" /> Widgets disponibles
 
 <details>
-<summary><strong>📋 Ver todos los widgets (120+)</strong></summary>
+<summary><strong>Ver todos los widgets (120+)</strong></summary>
 
 <br />
 
 | Categoría | Widgets |
 |-----------|---------|
-| **🔗 Links** | Favoritos, Recientes, Categorías, Quick-add, Random Link, Link Manager |
-| **📝 Productividad** | Notas, Todo, Pomodoro, Calendario, Countdown, Habit Tracker |
-| **📊 Analytics** | Stats, Link Analytics, Bookmark Growth, Tag Cloud |
-| **🎬 Media** | YouTube, Spotify, CodePen, Unsplash, Image Embed |
-| **💻 Developer** | GitHub Trending, GitHub Search, Deployment Status, QR Code |
-| **🔧 Utilidades** | Clock, Weather, Crypto, Calculator, Stopwatch, Dice Roller |
-| **📄 Text Tools** | JSON Formatter, Base64, Regex Tester, JWT Decoder, Markdown |
-| **🔄 Converters** | Units, Currency, Timezone, Color, Number, Aspect Ratio |
-| **🎨 CSS Generators** | Gradient, Glassmorphism, Neumorphism, Box Shadow, Clip Path |
-| **🎮 Game Dev** | Sprite Sheet, Tilemap, Pathfinding, Particle System, Skill Tree |
+| **Links** | Favoritos, Recientes, Categorías, Quick-add, Random Link, Link Manager |
+| **Productividad** | Notas, Todo, Pomodoro, Calendario, Countdown, Habit Tracker |
+| **Analytics** | Stats, Link Analytics, Bookmark Growth, Tag Cloud |
+| **Media** | YouTube, Spotify, CodePen, Unsplash, Image Embed |
+| **Developer** | GitHub Trending, GitHub Search, Deployment Status, QR Code |
+| **Utilidades** | Clock, Weather, Crypto, Calculator, Stopwatch, Dice Roller |
+| **Text Tools** | JSON Formatter, Base64, Regex Tester, JWT Decoder, Markdown |
+| **Converters** | Units, Currency, Timezone, Color, Number, Aspect Ratio |
+| **CSS Generators** | Gradient, Glassmorphism, Neumorphism, Box Shadow, Clip Path |
+| **Game Dev** | Sprite Sheet, Tilemap, Pathfinding, Particle System, Skill Tree |
 
 </details>
 
@@ -229,7 +229,7 @@ src/
 
 <br />
 
-## ⌨️ Atajos de teclado
+## <img src="assets/icons/keyboard.svg" width="28" height="28" align="center" /> Atajos de teclado
 
 | Atajo | Acción |
 |:-----:|:-------|
@@ -243,7 +243,7 @@ src/
 
 <br />
 
-## ⚙️ Variables de entorno
+## <img src="assets/icons/gear.svg" width="28" height="28" align="center" /> Variables de entorno
 
 Crea un archivo `.env.local` basándote en `.env.example`:
 
@@ -262,7 +262,7 @@ UPSTASH_REDIS_REST_TOKEN=""
 
 <br />
 
-## 💻 Scripts disponibles
+## <img src="assets/icons/terminal.svg" width="28" height="28" align="center" /> Scripts disponibles
 
 | Comando | Descripción |
 |---------|-------------|
@@ -281,7 +281,7 @@ UPSTASH_REDIS_REST_TOKEN=""
 
 <br />
 
-## 🤝 Contribuir
+## <img src="assets/icons/handshake.svg" width="28" height="28" align="center" /> Contribuir
 
 Las contribuciones son bienvenidas. Por favor:
 
@@ -297,7 +297,7 @@ Las contribuciones son bienvenidas. Por favor:
 
 <br />
 
-## 📜 Licencia
+## <img src="assets/icons/scroll.svg" width="28" height="28" align="center" /> Licencia
 
 Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
 
@@ -314,7 +314,7 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 <br />
 <br />
 
-**Hecho con 💛 por [SwonDev](https://github.com/SwonDev)**
+**Hecho con** <img src="https://img.shields.io/badge/-d4a853?style=flat-square&logo=heart&logoColor=0a1628" height="16" align="center" /> **por [SwonDev](https://github.com/SwonDev)**
 
 <br />
 
