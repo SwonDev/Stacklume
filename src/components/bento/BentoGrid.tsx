@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState, useEffect, useDeferredValue, memo, useR
 import { Responsive, WidthProvider, Layout } from "react-grid-layout";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useWidgetStore } from "@/stores/widget-store";
-import { useProjectsStore } from "@/stores/projects-store";
+import { useProjectsStore, useProjectsHasHydrated } from "@/stores/projects-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { BentoCard } from "./BentoCard";
@@ -36,6 +36,7 @@ export function BentoGrid({ className }: BentoGridProps) {
   const reorderWidgets = useWidgetStore((state) => state.reorderWidgets);
   const currentProjectId = useWidgetStore((state) => state.currentProjectId);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
+  const projectsHydrated = useProjectsHasHydrated();
   const links = useLinksStore((state) => state.links);
   const linkTags = useLinksStore((state) => state.linkTags);
   const viewDensity = useSettingsStore((state) => state.viewDensity);
@@ -87,16 +88,17 @@ export function BentoGrid({ className }: BentoGridProps) {
   }, []); // Run once on unmount - cleanup function is stable
 
   // Sync project ID from projects store to widget store
-  // Use a ref to prevent the effect from running unnecessarily
-  const prevActiveProjectIdRef = useRef(activeProjectId);
+  // Only sync AFTER hydration is complete to avoid SSR mismatch issues
   useEffect(() => {
-    if (prevActiveProjectIdRef.current !== activeProjectId) {
-      prevActiveProjectIdRef.current = activeProjectId;
-      // Zustand store functions are stable, safe to call directly
+    // Wait for projects store to hydrate before syncing
+    if (!projectsHydrated) return;
+
+    const currentInStore = useWidgetStore.getState().currentProjectId;
+    // Sync if there's a mismatch (handles initial mount and subsequent changes)
+    if (currentInStore !== activeProjectId) {
       useWidgetStore.getState().setCurrentProjectId(activeProjectId);
     }
-     
-  }, [activeProjectId]); // Only depend on the primitive value
+  }, [activeProjectId, projectsHydrated]);
 
   // Get widgets filtered by current project - computed directly instead of using store function
   const projectWidgets = useMemo(() => {
@@ -443,7 +445,9 @@ export function BentoGrid({ className }: BentoGridProps) {
     cols: COLS[currentBreakpoint],
   }), [currentBreakpoint]);
 
-  if (!mounted) {
+  // Wait for both mount AND hydration to complete before rendering widgets
+  // This ensures activeProjectId is correctly loaded from localStorage
+  if (!mounted || !projectsHydrated) {
     return (
       <div
         className="flex items-center justify-center h-full"

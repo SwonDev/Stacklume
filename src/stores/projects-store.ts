@@ -1,9 +1,13 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { Project, NewProject } from "@/lib/db/schema";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface ProjectsState {
+  // Hydration state for SSR
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
+
   // Projects data
   projects: Project[];
   activeProjectId: string | null;
@@ -46,6 +50,10 @@ interface ProjectsState {
 export const useProjectsStore = create<ProjectsState>()(
   persist(
     (set, get) => ({
+      // Hydration state
+      _hasHydrated: false,
+      setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
+
       // Initial state
       projects: [],
       activeProjectId: null,
@@ -310,10 +318,14 @@ export const useProjectsStore = create<ProjectsState>()(
     }),
     {
       name: "stacklume-active-project",
+      storage: createJSONStorage(() => localStorage),
       // Only persist the activeProjectId to localStorage
       partialize: (state) => ({
         activeProjectId: state.activeProjectId,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
@@ -322,6 +334,9 @@ export const useProjectsStore = create<ProjectsState>()(
 export function useActiveProject(): Project | null {
   return useProjectsStore((state) => state.getActiveProject());
 }
+
+// Helper hook to check if the store has hydrated
+export const useProjectsHasHydrated = () => useProjectsStore((state) => state._hasHydrated);
 
 // Helper hook to get default project
 export function useDefaultProject(): Project | null {
