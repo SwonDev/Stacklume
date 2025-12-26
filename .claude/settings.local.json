@@ -131,7 +131,8 @@
       "Bash(printf:*)",
       "Bash(vercel logs:*)",
       "Bash(vercel inspect:*)",
-      "Bash(vercel --prod --yes)"
+      "Bash(vercel --prod --yes)",
+      "Bash(del \"C:\\\\Users\\\\swon_\\\\OneDrive\\\\Documentos\\\\PROYECTOS\\\\VIBECLAUDE\\\\Stacklume\\\\.env.prod\" \"C:\\\\Users\\\\swon_\\\\OneDrive\\\\Documentos\\\\PROYECTOS\\\\VIBECLAUDE\\\\Stacklume\\\\.env.vercel\")"
     ],
     "deny": [],
     "ask": []
