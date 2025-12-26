@@ -1,198 +1,304 @@
 <div align="center">
 
-# Stacklume
+<!-- Logo -->
+<img src="assets/logo.svg" alt="Stacklume Logo" width="120" height="120" />
 
-### Your Link Universe, Beautifully Organized
+<br />
+<br />
+
+# ✨ Stacklume
+
+### **Tu universo de links, bellamente organizado**
 
 <br />
 
-[Live Demo](#) · [Report Bug](https://github.com/SwonDev/Stacklume/issues) · [Request Feature](https://github.com/SwonDev/Stacklume/issues)
+Stacklume es un **dashboard personal** que transforma la forma en que guardas, organizas y accedes a tus bookmarks. Olvídate de las listas aburridas de favoritos — visualiza tu contenido en un **bento grid interactivo** con más de 120 widgets personalizables.
 
 <br />
 
-![Next.js](https://img.shields.io/badge/Next.js_16-black?style=for-the-badge&logo=next.js)
-![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+[![Next.js](https://img.shields.io/badge/Next.js_16-0a1628?style=for-the-badge&logo=next.js&logoColor=d4a853)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React_19-0a1628?style=for-the-badge&logo=react&logoColor=d4a853)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-0a1628?style=for-the-badge&logo=typescript&logoColor=d4a853)](https://www.typescriptlang.org/)
+[![Tailwind](https://img.shields.io/badge/Tailwind_v4-0a1628?style=for-the-badge&logo=tailwindcss&logoColor=d4a853)](https://tailwindcss.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-0a1628?style=for-the-badge&logo=postgresql&logoColor=d4a853)](https://www.postgresql.org/)
+
+<br />
+
+[Reportar Bug](https://github.com/SwonDev/Stacklume/issues) · [Solicitar Feature](https://github.com/SwonDev/Stacklume/issues)
 
 </div>
 
+<br />
+
 ---
-
-## About
-
-**Stacklume** is a modern link management dashboard with a beautiful bento grid layout. Save, organize, and visualize your bookmarks with categories, tags, and 120+ customizable widgets.
 
 <br />
 
-### Key Features
+## 🎯 ¿Qué problema resuelve?
 
-| Feature | Description |
-|---------|-------------|
-| **Bento Grid Layout** | Draggable, resizable widgets in a beautiful grid |
-| **120+ Widgets** | From notes to weather, crypto to GitHub trending |
-| **3 View Modes** | Bento, Kanban, and List views |
-| **Smart Categories** | Organize links with folders and tags |
-| **Platform Detection** | Auto-detect YouTube, GitHub, Steam, Spotify & more |
-| **Dark Mode** | Beautiful light and dark themes |
-| **Keyboard Shortcuts** | Power-user friendly navigation |
+¿Cuántas pestañas tienes abiertas ahora mismo? ¿Cuántos bookmarks tienes guardados que nunca vuelves a ver?
 
----
+**Stacklume** te ayuda a:
 
-## Tech Stack
+- 📌 **Centralizar** todos tus links importantes en un solo lugar
+- 🏷️ **Organizar** con categorías y tags inteligentes
+- 🔍 **Encontrar** rápidamente lo que necesitas con búsqueda instantánea
+- 📊 **Visualizar** tu contenido de forma atractiva con widgets personalizables
+- 🔗 **Detectar** automáticamente el tipo de contenido (YouTube, GitHub, Steam, Spotify...)
 
-```
-Framework    →  Next.js 16 (App Router, React 19)
-Database     →  Neon PostgreSQL + Drizzle ORM
-State        →  Zustand with persistence
-UI           →  shadcn/ui + Radix UI + Tailwind v4
-Animations   →  Motion (Framer Motion)
-Grid         →  react-grid-layout
-Drag & Drop  →  @dnd-kit
-Forms        →  React Hook Form + Zod
-```
+<br />
 
 ---
 
-## Quick Start
+<br />
 
-### Prerequisites
+## ✨ Características principales
+
+<table>
+<tr>
+<td width="50%">
+
+### 🧱 Bento Grid Layout
+Arrastra, redimensiona y organiza widgets como quieras. Tu dashboard, tus reglas.
+
+### 📦 120+ Widgets
+Desde notas y tareas hasta el tiempo, crypto y repositorios trending de GitHub.
+
+### 🎨 3 Modos de Vista
+- **Bento** — Grid visual e interactivo
+- **Kanban** — Organización por columnas
+- **Lista** — Vista clásica y compacta
+
+</td>
+<td width="50%">
+
+### 🏷️ Categorías & Tags
+Organiza tus links con carpetas y etiquetas. Filtrado inteligente incluido.
+
+### 🔮 Detección de Plataforma
+Identifica automáticamente YouTube, GitHub, Steam, Spotify, Twitter y más.
+
+### 🌙 Tema Dual
+Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
+
+</td>
+</tr>
+</table>
+
+<br />
+
+---
+
+<br />
+
+## 🛠️ Stack Tecnológico
+
+<div align="center">
+
+| Capa | Tecnología |
+|:----:|:-----------|
+| ⚡ **Framework** | Next.js 16 (App Router) + React 19 |
+| 🗄️ **Database** | Neon PostgreSQL + Drizzle ORM |
+| 🎨 **UI** | shadcn/ui + Radix UI + Tailwind v4 |
+| 📦 **Estado** | Zustand con persistencia |
+| 🎬 **Animaciones** | Motion (Framer Motion) |
+| 🧱 **Grid** | react-grid-layout |
+| 🖱️ **Drag & Drop** | @dnd-kit |
+| ✅ **Forms** | React Hook Form + Zod |
+
+</div>
+
+<br />
+
+---
+
+<br />
+
+## 🚀 Instalación
+
+### Requisitos previos
 
 - Node.js 18+
-- pnpm (recommended) or npm
-- PostgreSQL database ([Neon](https://neon.tech) recommended)
+- pnpm (recomendado) o npm
+- Base de datos PostgreSQL ([Neon](https://neon.tech) es gratis)
 
-### Installation
+### Pasos
 
 ```bash
-# Clone the repository
+# 1. Clonar el repositorio
 git clone https://github.com/SwonDev/Stacklume.git
 cd Stacklume
 
-# Install dependencies
+# 2. Instalar dependencias
 pnpm install
 
-# Set up environment variables
+# 3. Configurar variables de entorno
 cp .env.example .env.local
-# Edit .env.local with your database URL
+# Editar .env.local con tu DATABASE_URL
 
-# Push database schema
+# 4. Crear tablas en la base de datos
 pnpm db:push
 
-# Start development server
+# 5. Iniciar servidor de desarrollo
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+
+<br />
 
 ---
 
-## Scripts
+<br />
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Build for production |
-| `pnpm start` | Start production server |
-| `pnpm lint` | Run ESLint |
-| `pnpm test` | Run unit tests |
-| `pnpm test:e2e` | Run E2E tests |
-| `pnpm db:push` | Push schema to database |
-| `pnpm db:studio` | Open Drizzle Studio |
-
----
-
-## Project Structure
+## 📁 Estructura del proyecto
 
 ```
 src/
-├── app/                # Next.js App Router
-│   ├── api/           # REST API routes
-│   ├── layout.tsx     # Root layout
-│   └── page.tsx       # Main dashboard
+├── app/                    # Next.js App Router
+│   ├── api/               # API REST (links, categories, tags, widgets...)
+│   ├── layout.tsx         # Layout raíz con providers
+│   └── page.tsx           # Dashboard principal
 ├── components/
-│   ├── bento/         # Bento grid components
-│   ├── kanban/        # Kanban view
-│   ├── modals/        # Dialogs and modals
-│   ├── ui/            # shadcn/ui components
-│   └── widgets/       # 120+ widget implementations
-├── hooks/             # Custom React hooks
+│   ├── bento/             # BentoGrid y BentoCard
+│   ├── kanban/            # Vista Kanban
+│   ├── modals/            # Modales (añadir/editar links, widgets...)
+│   ├── ui/                # Componentes shadcn/ui
+│   └── widgets/           # 120+ widgets implementados
+├── hooks/                 # Custom hooks (shortcuts, etc.)
 ├── lib/
-│   └── db/            # Drizzle ORM setup
-├── stores/            # Zustand state stores
-└── types/             # TypeScript types
+│   ├── db/                # Drizzle ORM (schema, client)
+│   └── security/          # Protección SSRF
+├── stores/                # Zustand stores
+│   ├── links-store.ts     # Links, categorías, tags
+│   ├── widget-store.ts    # Gestión de widgets
+│   ├── kanban-store.ts    # Columnas kanban
+│   └── settings-store.ts  # Preferencias de usuario
+└── types/                 # Tipos TypeScript
 ```
+
+<br />
 
 ---
 
-## Widget Categories
+<br />
+
+## 🧩 Widgets disponibles
 
 <details>
-<summary><strong>View all 120+ widgets</strong></summary>
+<summary><strong>📋 Ver todos los widgets (120+)</strong></summary>
 
-- **Links** — favorites, recent, categories, quick-add
-- **Productivity** — notes, todo, pomodoro, calendar
-- **Analytics** — stats, charts, tag clouds
-- **Media** — YouTube, Spotify, CodePen embeds
-- **Developer** — GitHub trending, deployment status
-- **Utilities** — clock, weather, crypto, calculator
-- **Text Tools** — JSON formatter, regex tester, markdown
-- **Converters** — units, currency, timezone
-- **CSS Generators** — gradients, shadows, animations
-- **Game Dev** — sprite sheets, tilemaps, pathfinding
+<br />
+
+| Categoría | Widgets |
+|-----------|---------|
+| **Links** | Favoritos, Recientes, Categorías, Quick-add, Random Link, Link Manager |
+| **Productividad** | Notas, Todo, Pomodoro, Calendario, Countdown, Habit Tracker |
+| **Analytics** | Stats, Link Analytics, Bookmark Growth, Tag Cloud |
+| **Media** | YouTube, Spotify, CodePen, Unsplash, Image Embed |
+| **Developer** | GitHub Trending, GitHub Search, Deployment Status, QR Code |
+| **Utilidades** | Clock, Weather, Crypto, Calculator, Stopwatch, Dice Roller |
+| **Text Tools** | JSON Formatter, Base64, Regex Tester, JWT Decoder, Markdown |
+| **Converters** | Units, Currency, Timezone, Color, Number, Aspect Ratio |
+| **CSS Generators** | Gradient, Glassmorphism, Neumorphism, Box Shadow, Clip Path |
+| **Game Dev** | Sprite Sheet, Tilemap, Pathfinding, Particle System, Skill Tree |
 
 </details>
 
+<br />
+
 ---
 
-## Environment Variables
+<br />
 
-Create a `.env.local` file with:
+## ⌨️ Atajos de teclado
+
+| Atajo | Acción |
+|:-----:|:-------|
+| `Cmd/Ctrl + K` | Abrir búsqueda |
+| `Cmd/Ctrl + N` | Nuevo link |
+| `Escape` | Cerrar modal / Limpiar búsqueda |
+
+<br />
+
+---
+
+<br />
+
+## ⚙️ Variables de entorno
+
+Crea un archivo `.env.local` basándote en `.env.example`:
 
 ```env
-# Required - Neon PostgreSQL
-DATABASE_URL="postgresql://..."
+# Requerido - Neon PostgreSQL
+DATABASE_URL="postgresql://usuario:password@host/database?sslmode=require"
 
-# Optional - Upstash Redis (rate limiting)
+# Opcional - Rate limiting con Upstash
 UPSTASH_REDIS_REST_URL=""
 UPSTASH_REDIS_REST_TOKEN=""
 ```
 
-See `.env.example` for all available options.
+<br />
 
 ---
 
-## Keyboard Shortcuts
+<br />
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + K` | Focus search |
-| `Cmd/Ctrl + N` | New link |
-| `Escape` | Clear search / Exit edit mode |
+## 📜 Scripts disponibles
 
----
+| Comando | Descripción |
+|---------|-------------|
+| `pnpm dev` | Servidor de desarrollo |
+| `pnpm build` | Build de producción |
+| `pnpm start` | Servidor de producción |
+| `pnpm lint` | Ejecutar ESLint |
+| `pnpm test` | Tests unitarios |
+| `pnpm test:e2e` | Tests E2E (Playwright) |
+| `pnpm db:push` | Sincronizar schema con DB |
+| `pnpm db:studio` | Abrir Drizzle Studio |
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+<br />
 
 ---
 
-## License
+<br />
 
-This project is licensed under the MIT License.
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Haz fork del proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/nueva-feature`)
+3. Haz commit de tus cambios (`git commit -m 'Añadir nueva feature'`)
+4. Push a la rama (`git push origin feature/nueva-feature`)
+5. Abre un Pull Request
+
+<br />
 
 ---
+
+<br />
+
+## 📄 Licencia
+
+Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
+
+<br />
+
+---
+
+<br />
 
 <div align="center">
 
-Made with love by [SwonDev](https://github.com/SwonDev)
+### 🌟 Hecho con pasión por [SwonDev](https://github.com/SwonDev)
+
+<br />
+
+**Navy Blue & Gold** · *Tu universo de links, bellamente organizado*
+
+<br />
+
+<img src="assets/logo.svg" alt="Stacklume" width="40" height="40" />
 
 </div>
