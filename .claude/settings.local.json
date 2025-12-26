@@ -127,7 +127,10 @@
       "Bash(vercel remove:*)",
       "Bash(vercel teams ls:*)",
       "Bash(vercel login:*)",
-      "Bash(vercel env:*)"
+      "Bash(vercel env:*)",
+      "Bash(printf:*)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel inspect:*)"
     ],
     "deny": [],
     "ask": []
