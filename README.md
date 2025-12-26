@@ -314,7 +314,7 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 <br />
 <br />
 
-**Hecho con** <img src="https://img.shields.io/badge/-d4a853?style=flat-square&logo=heart&logoColor=0a1628" height="16" align="center" /> **por [SwonDev](https://github.com/SwonDev)**
+**Hecho con** <img src="assets/icons/heart.svg" width="20" height="20" align="center" /> **por [SwonDev](https://github.com/SwonDev)**
 
 <br />
 
