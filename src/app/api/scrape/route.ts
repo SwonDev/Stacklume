@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chromium } from "playwright";
 import { detectPlatform, type ContentType, type Platform } from "@/lib/platform-detection";
 import { validateUrlForSSRF } from "@/lib/security/ssrf-protection";
 import { createModuleLogger } from "@/lib/logger";
@@ -15,7 +14,7 @@ interface ScrapeResult {
   faviconUrl: string | null;
   siteName: string | null;
   author: string | null;
-  // New platform-specific fields
+  // Platform-specific fields
   platform: Platform;
   contentType: ContentType;
   platformLabel: string;
@@ -23,37 +22,61 @@ interface ScrapeResult {
   platformIcon: string;
 }
 
-// Platform-specific scrapers that don't need Playwright
-async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof detectPlatform>): Promise<Partial<ScrapeResult> | null> {
+// Check if a YouTube thumbnail exists
+async function getYouTubeThumbnail(videoId: string): Promise<string> {
+  // Try thumbnail qualities in order of preference
+  const qualities = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault', 'default'];
+
+  for (const quality of qualities) {
+    const url = `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      // Check if the image exists and is not the default placeholder (120x90)
+      const contentLength = response.headers.get('content-length');
+      if (response.ok && contentLength && parseInt(contentLength) > 1000) {
+        return url;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Fallback to hqdefault which always exists
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+// Platform-specific scrapers using APIs (no browser needed)
+async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPlatform>): Promise<Partial<ScrapeResult> | null> {
   try {
-    // YouTube - use direct thumbnail URL
+    // YouTube - use oEmbed API + thumbnail check
     if (detection.platform === 'youtube' && detection.id) {
       const oEmbedUrl = detection.oEmbedUrl;
+      let title = 'YouTube Video';
+      let author: string | null = null;
+
       if (oEmbedUrl) {
-        const response = await fetch(oEmbedUrl);
-        if (response.ok) {
-          const data = await response.json();
-          return {
-            title: data.title || 'YouTube Video',
-            description: null,
-            imageUrl: `https://img.youtube.com/vi/${detection.id}/maxresdefault.jpg`,
-            faviconUrl: 'https://www.youtube.com/favicon.ico',
-            siteName: 'YouTube',
-            author: data.author_name || null,
-            platform: 'youtube',
-            contentType: 'video',
-            platformLabel: 'YouTube',
-            platformColor: '#FF0000',
-            platformIcon: 'Youtube',
-          };
+        try {
+          const response = await fetch(oEmbedUrl);
+          if (response.ok) {
+            const data = await response.json();
+            title = data.title || title;
+            author = data.author_name || null;
+          }
+        } catch {
+          // Continue with defaults
         }
       }
-      // Fallback to direct thumbnail
+
+      // Get the best available thumbnail
+      const imageUrl = await getYouTubeThumbnail(detection.id);
+
       return {
-        title: 'YouTube Video',
-        imageUrl: `https://img.youtube.com/vi/${detection.id}/hqdefault.jpg`,
+        title,
+        description: null,
+        imageUrl,
         faviconUrl: 'https://www.youtube.com/favicon.ico',
         siteName: 'YouTube',
+        author,
         platform: 'youtube',
         contentType: 'video',
         platformLabel: 'YouTube',
@@ -62,7 +85,7 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
       };
     }
 
-    // Steam - use direct CDN URLs
+    // Steam - use Steam API
     if (detection.platform === 'steam' && detection.id) {
       try {
         const apiUrl = `https://store.steampowered.com/api/appdetails?appids=${detection.id}`;
@@ -88,7 +111,7 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
           }
         }
       } catch {
-        // Fallback to direct image
+        // Fallback
       }
       return {
         title: 'Steam Game',
@@ -124,7 +147,7 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
           };
         }
       } catch {
-        // Fall through to browser scraping
+        // Fall through
       }
     }
 
@@ -149,7 +172,7 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
           };
         }
       } catch {
-        // Fall through to browser scraping
+        // Fall through
       }
     }
 
@@ -174,7 +197,7 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
           };
         }
       } catch {
-        // Fall through to browser scraping
+        // Fall through
       }
     }
 
@@ -199,7 +222,7 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
           };
         }
       } catch {
-        // Fall through to browser scraping
+        // Fall through
       }
     }
 
@@ -230,13 +253,170 @@ async function scrapeWithoutBrowser(url: string, detection: ReturnType<typeof de
           };
         }
       } catch {
-        // Fall through to browser scraping
+        // Fall through
       }
     }
 
     return null;
   } catch {
     return null;
+  }
+}
+
+// Parse HTML to extract meta tags (simple regex-based parser for serverless)
+function parseMetaTags(html: string): {
+  title: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  faviconUrl: string | null;
+  siteName: string | null;
+  author: string | null;
+} {
+  const result = {
+    title: null as string | null,
+    description: null as string | null,
+    imageUrl: null as string | null,
+    faviconUrl: null as string | null,
+    siteName: null as string | null,
+    author: null as string | null,
+  };
+
+  // Helper to extract content from meta tags
+  const getMetaContent = (patterns: RegExp[]): string | null => {
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        // Decode HTML entities
+        return match[1]
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+      }
+    }
+    return null;
+  };
+
+  // Title
+  result.title = getMetaContent([
+    /<meta\s+(?:property|name)=["']og:title["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:title["']/i,
+    /<meta\s+(?:property|name)=["']twitter:title["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:title["']/i,
+    /<title[^>]*>([^<]+)<\/title>/i,
+  ]);
+
+  // Description
+  result.description = getMetaContent([
+    /<meta\s+(?:property|name)=["']og:description["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:description["']/i,
+    /<meta\s+(?:property|name)=["']twitter:description["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:description["']/i,
+    /<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i,
+  ]);
+
+  // Image URL
+  result.imageUrl = getMetaContent([
+    /<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:image["']/i,
+    /<meta\s+(?:property|name)=["']og:image:url["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:image:url["']/i,
+    /<meta\s+(?:property|name)=["']twitter:image["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:image["']/i,
+  ]);
+
+  // Site name
+  result.siteName = getMetaContent([
+    /<meta\s+(?:property|name)=["']og:site_name["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:site_name["']/i,
+    /<meta\s+name=["']application-name["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+name=["']application-name["']/i,
+  ]);
+
+  // Author
+  result.author = getMetaContent([
+    /<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i,
+    /<meta\s+(?:property|name)=["']article:author["']\s+content=["']([^"']+)["']/i,
+    /<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']article:author["']/i,
+  ]);
+
+  // Favicon
+  result.faviconUrl = getMetaContent([
+    /<link\s+rel=["'](?:icon|shortcut icon|apple-touch-icon)["'][^>]*href=["']([^"']+)["']/i,
+    /<link[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["']/i,
+  ]);
+
+  return result;
+}
+
+// Scrape website using fetch + HTML parsing (works on Vercel serverless)
+async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlatform>): Promise<ScrapeResult> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const html = await response.text();
+    const metadata = parseMetaTags(html);
+
+    // Fix relative URLs
+    const fixUrl = (urlStr: string | null): string | null => {
+      if (!urlStr) return null;
+      if (urlStr.startsWith('//')) return `https:${urlStr}`;
+      if (urlStr.startsWith('/')) return `${url.origin}${urlStr}`;
+      if (!urlStr.startsWith('http')) return `${url.origin}/${urlStr}`;
+      return urlStr;
+    };
+
+    return {
+      title: metadata.title || url.hostname,
+      description: metadata.description,
+      imageUrl: fixUrl(metadata.imageUrl),
+      faviconUrl: fixUrl(metadata.faviconUrl) || `${url.origin}/favicon.ico`,
+      siteName: metadata.siteName,
+      author: metadata.author,
+      platform: detection.platform,
+      contentType: detection.contentType,
+      platformLabel: detection.label,
+      platformColor: detection.color,
+      platformIcon: detection.icon,
+    };
+  } catch (error) {
+    log.warn({ error, url: url.toString() }, "Error fetching page for scrape");
+
+    // Return basic info if scraping fails
+    return {
+      title: url.hostname,
+      description: null,
+      imageUrl: detection.directThumbnailUrl || null,
+      faviconUrl: `${url.origin}/favicon.ico`,
+      siteName: url.hostname,
+      author: null,
+      platform: detection.platform,
+      contentType: detection.contentType,
+      platformLabel: detection.label,
+      platformColor: detection.color,
+      platformIcon: detection.icon,
+    };
   }
 }
 
@@ -270,8 +450,8 @@ export async function POST(request: NextRequest) {
     // Detect platform first
     const detection = detectPlatform(url);
 
-    // Try platform-specific scraping without browser first (faster & more reliable)
-    const platformResult = await scrapeWithoutBrowser(url, detection);
+    // Try platform-specific scraping with APIs first (faster & more reliable)
+    const platformResult = await scrapeWithAPIs(url, detection);
     if (platformResult && platformResult.title) {
       const result: ScrapeResult = {
         title: platformResult.title || validUrl.hostname,
@@ -288,160 +468,18 @@ export async function POST(request: NextRequest) {
       };
       // Cache the result for 1 hour
       scrapeCache.set(url, result);
-      log.debug({ url }, "Cached platform scrape result");
+      log.debug({ url }, "Cached platform API scrape result");
       return NextResponse.json(result);
     }
 
-    // Fall back to Playwright for other sites
-    const browser = await chromium.launch({
-      headless: true,
-    });
+    // Fall back to fetch + HTML parsing for other sites
+    const result = await scrapeWithFetch(validUrl, detection);
 
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    });
+    // Cache the result for 1 hour
+    scrapeCache.set(url, result);
+    log.debug({ url }, "Cached fetch scrape result");
 
-    const page = await context.newPage();
-
-    try {
-      await page.goto(validUrl.toString(), {
-        waitUntil: "domcontentloaded",
-        timeout: 15000,
-      });
-
-      // Extract metadata
-      const metadata = await page.evaluate(() => {
-        const getMetaContent = (selectors: string[]): string | null => {
-          for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-              const content =
-                element.getAttribute("content") ||
-                element.getAttribute("href") ||
-                element.textContent;
-              if (content) return content.trim();
-            }
-          }
-          return null;
-        };
-
-        // Title
-        const title =
-          getMetaContent([
-            'meta[property="og:title"]',
-            'meta[name="twitter:title"]',
-          ]) ||
-          document.title ||
-          "";
-
-        // Description
-        const description = getMetaContent([
-          'meta[property="og:description"]',
-          'meta[name="twitter:description"]',
-          'meta[name="description"]',
-        ]);
-
-        // Image - try multiple sources
-        const imageUrl = getMetaContent([
-          'meta[property="og:image"]',
-          'meta[property="og:image:url"]',
-          'meta[property="og:image:secure_url"]',
-          'meta[name="twitter:image"]',
-          'meta[name="twitter:image:src"]',
-          'meta[itemprop="image"]',
-        ]);
-
-        // Site name
-        const siteName = getMetaContent([
-          'meta[property="og:site_name"]',
-          'meta[name="application-name"]',
-        ]);
-
-        // Author
-        const author = getMetaContent([
-          'meta[name="author"]',
-          'meta[property="article:author"]',
-          'meta[name="twitter:creator"]',
-        ]);
-
-        // Favicon - try multiple sources
-        const faviconUrl =
-          getMetaContent([
-            'link[rel="icon"][sizes="192x192"]',
-            'link[rel="icon"][sizes="128x128"]',
-            'link[rel="apple-touch-icon"]',
-            'link[rel="icon"]',
-            'link[rel="shortcut icon"]',
-          ]) || "/favicon.ico";
-
-        // Type detection from Open Graph
-        const ogType = getMetaContent(['meta[property="og:type"]']);
-
-        return {
-          title,
-          description,
-          imageUrl,
-          faviconUrl,
-          siteName,
-          author,
-          ogType,
-        };
-      });
-
-      // Fix relative URLs
-      const fixUrl = (urlStr: string | null): string | null => {
-        if (!urlStr) return null;
-        if (urlStr.startsWith("//")) return `https:${urlStr}`;
-        if (urlStr.startsWith("/"))
-          return `${validUrl.origin}${urlStr}`;
-        if (!urlStr.startsWith("http")) return `${validUrl.origin}/${urlStr}`;
-        return urlStr;
-      };
-
-      // Use direct thumbnail URL if available
-      const finalImageUrl = detection.directThumbnailUrl || fixUrl(metadata.imageUrl);
-
-      const result: ScrapeResult = {
-        title: metadata.title || validUrl.hostname,
-        description: metadata.description,
-        imageUrl: finalImageUrl,
-        faviconUrl: fixUrl(metadata.faviconUrl),
-        siteName: metadata.siteName,
-        author: metadata.author,
-        platform: detection.platform,
-        contentType: detection.contentType,
-        platformLabel: detection.label,
-        platformColor: detection.color,
-        platformIcon: detection.icon,
-      };
-
-      await browser.close();
-
-      // Cache the result for 1 hour
-      scrapeCache.set(url, result);
-      log.debug({ url }, "Cached browser scrape result");
-
-      return NextResponse.json(result);
-    } catch (pageError) {
-      await browser.close();
-      log.warn({ error: pageError, url: validUrl.toString() }, "Error loading page during scrape");
-
-      // Return basic info if scraping fails, but still include platform info
-      return NextResponse.json({
-        title: validUrl.hostname,
-        description: null,
-        imageUrl: detection.directThumbnailUrl || null,
-        faviconUrl: `${validUrl.origin}/favicon.ico`,
-        siteName: validUrl.hostname,
-        author: null,
-        platform: detection.platform,
-        contentType: detection.contentType,
-        platformLabel: detection.label,
-        platformColor: detection.color,
-        platformIcon: detection.icon,
-      });
-    }
+    return NextResponse.json(result);
   } catch (error) {
     log.error({ error }, "Scrape error");
     return NextResponse.json(
