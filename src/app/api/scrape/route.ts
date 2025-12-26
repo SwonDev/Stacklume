@@ -323,6 +323,48 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
   }
 }
 
+// Extract full description from YouTube's embedded data
+function extractYouTubeDescription(html: string): string | null {
+  try {
+    // YouTube stores full description in ytInitialPlayerResponse
+    // Use [\s\S] instead of . with s flag for ES2017 compatibility
+    const match = html.match(/var ytInitialPlayerResponse\s*=\s*(\{[\s\S]+?\});/);
+    if (match) {
+      const data = JSON.parse(match[1]);
+      const desc = data?.videoDetails?.shortDescription;
+      if (desc && desc.length > 50) {
+        return desc;
+      }
+    }
+  } catch {
+    // Fall through to meta tags
+  }
+  return null;
+}
+
+// Extract description from JSON-LD structured data
+function extractJsonLdDescription($: cheerio.CheerioAPI): string | null {
+  try {
+    const jsonLdScripts = $('script[type="application/ld+json"]').toArray();
+    for (const script of jsonLdScripts) {
+      const content = $(script).html();
+      if (content) {
+        const data = JSON.parse(content);
+        // Handle array of objects
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          if (item.description && item.description.length > 50) {
+            return item.description;
+          }
+        }
+      }
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
 // Parse HTML using cheerio for robust metadata extraction
 function parseMetaTagsWithCheerio(html: string, baseUrl: URL): {
   title: string | null;
@@ -333,6 +375,7 @@ function parseMetaTagsWithCheerio(html: string, baseUrl: URL): {
   author: string | null;
 } {
   const $ = cheerio.load(html);
+  const isYouTube = baseUrl.hostname.includes('youtube.com') || baseUrl.hostname.includes('youtu.be');
 
   // Helper to resolve relative URLs
   const resolveUrl = (urlStr: string | undefined): string | null => {
@@ -376,9 +419,23 @@ function parseMetaTagsWithCheerio(html: string, baseUrl: URL): {
     || $('title').first().text().trim()
     || null;
 
-  // Extract description
-  const description = getMeta(['og:description', 'twitter:description', 'description'])
-    || null;
+  // Extract description - try multiple sources for the fullest description
+  let description: string | null = null;
+
+  // 1. For YouTube, try to get the full description from embedded data
+  if (isYouTube) {
+    description = extractYouTubeDescription(html);
+  }
+
+  // 2. Try JSON-LD structured data (often has full descriptions)
+  if (!description) {
+    description = extractJsonLdDescription($);
+  }
+
+  // 3. Fall back to meta tags (usually truncated)
+  if (!description) {
+    description = getMeta(['og:description', 'twitter:description', 'description']);
+  }
 
   // Extract image URL
   const imageUrlRaw = getMeta(['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']);
