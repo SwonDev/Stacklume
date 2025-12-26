@@ -8,6 +8,29 @@ import { scrapeCache } from "@/lib/cache";
 // Create a module-specific logger
 const log = createModuleLogger("api/scrape");
 
+// Timeout for external API calls (5 seconds)
+const API_TIMEOUT = 5000;
+// Timeout for HTML scraping (10 seconds)
+const SCRAPE_TIMEOUT = 10000;
+
+/**
+ * Helper to add timeout to fetch requests
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = API_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 interface ScrapeResult {
   title: string;
   description: string | null;
@@ -24,21 +47,35 @@ interface ScrapeResult {
 }
 
 // Check if a YouTube thumbnail exists and return best quality
+// Uses parallel requests for faster response
 async function getYouTubeThumbnail(videoId: string): Promise<string> {
-  const qualities = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault', 'default'];
+  const qualities = ['maxresdefault', 'sddefault', 'hqdefault'];
 
-  for (const quality of qualities) {
+  // Check all qualities in parallel with timeout
+  const checks = qualities.map(async (quality) => {
     const url = `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
     try {
-      const response = await fetch(url, { method: 'HEAD' });
+      const response = await fetchWithTimeout(url, { method: 'HEAD' }, 3000);
       const contentLength = response.headers.get('content-length');
       // Check if image exists and is not placeholder (placeholder is ~1KB)
       if (response.ok && contentLength && parseInt(contentLength) > 2000) {
-        return url;
+        return { quality, url, valid: true };
       }
+      return { quality, url, valid: false };
     } catch {
-      continue;
+      return { quality, url, valid: false };
     }
+  });
+
+  try {
+    const results = await Promise.all(checks);
+    // Return the highest quality that's valid
+    const validResult = results.find(r => r.valid);
+    if (validResult) {
+      return validResult.url;
+    }
+  } catch {
+    // Fall through to default
   }
 
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
@@ -55,14 +92,14 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
 
       if (oEmbedUrl) {
         try {
-          const response = await fetch(oEmbedUrl);
+          const response = await fetchWithTimeout(oEmbedUrl);
           if (response.ok) {
             const data = await response.json();
             title = data.title || title;
             author = data.author_name || null;
           }
-        } catch {
-          // Continue with defaults
+        } catch (e) {
+          log.debug({ error: e, videoId: detection.id }, "YouTube oEmbed failed, using defaults");
         }
       }
 
@@ -87,7 +124,7 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
     if (detection.platform === 'steam' && detection.id) {
       try {
         const apiUrl = `https://store.steampowered.com/api/appdetails?appids=${detection.id}`;
-        const response = await fetch(apiUrl);
+        const response = await fetchWithTimeout(apiUrl);
         if (response.ok) {
           const data = await response.json();
           const gameData = data[detection.id];
@@ -108,8 +145,8 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
             };
           }
         }
-      } catch {
-        // Fallback below
+      } catch (e) {
+        log.debug({ error: e, steamId: detection.id }, "Steam API failed");
       }
       return {
         title: 'Steam Game',
@@ -127,7 +164,7 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
     // Spotify - use oEmbed
     if (detection.platform === 'spotify' && detection.oEmbedUrl) {
       try {
-        const response = await fetch(detection.oEmbedUrl);
+        const response = await fetchWithTimeout(detection.oEmbedUrl);
         if (response.ok) {
           const data = await response.json();
           return {
@@ -144,15 +181,15 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
             platformIcon: 'Music',
           };
         }
-      } catch {
-        // Fall through
+      } catch (e) {
+        log.debug({ error: e }, "Spotify oEmbed failed");
       }
     }
 
     // Vimeo - use oEmbed
     if (detection.platform === 'vimeo' && detection.oEmbedUrl) {
       try {
-        const response = await fetch(detection.oEmbedUrl);
+        const response = await fetchWithTimeout(detection.oEmbedUrl);
         if (response.ok) {
           const data = await response.json();
           return {
@@ -169,15 +206,15 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
             platformIcon: 'Video',
           };
         }
-      } catch {
-        // Fall through
+      } catch (e) {
+        log.debug({ error: e }, "Vimeo oEmbed failed");
       }
     }
 
     // SoundCloud - use oEmbed
     if (detection.platform === 'soundcloud' && detection.oEmbedUrl) {
       try {
-        const response = await fetch(detection.oEmbedUrl);
+        const response = await fetchWithTimeout(detection.oEmbedUrl);
         if (response.ok) {
           const data = await response.json();
           return {
@@ -194,15 +231,15 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
             platformIcon: 'Music',
           };
         }
-      } catch {
-        // Fall through
+      } catch (e) {
+        log.debug({ error: e }, "SoundCloud oEmbed failed");
       }
     }
 
     // CodePen - use oEmbed
     if (detection.platform === 'codepen' && detection.oEmbedUrl) {
       try {
-        const response = await fetch(detection.oEmbedUrl);
+        const response = await fetchWithTimeout(detection.oEmbedUrl);
         if (response.ok) {
           const data = await response.json();
           return {
@@ -219,8 +256,8 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
             platformIcon: 'Codepen',
           };
         }
-      } catch {
-        // Fall through
+      } catch (e) {
+        log.debug({ error: e }, "CodePen oEmbed failed");
       }
     }
 
@@ -230,7 +267,7 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
 
       try {
         const apiUrl = `https://api.github.com/repos/${detection.id}/${detection.secondaryId}`;
-        const response = await fetch(apiUrl, {
+        const response = await fetchWithTimeout(apiUrl, {
           headers: {
             'Accept': 'application/vnd.github.v3+json',
             'User-Agent': 'Stacklume-App',
@@ -238,6 +275,11 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
         });
         if (response.ok) {
           const data = await response.json();
+          log.debug({
+            repo: `${detection.id}/${detection.secondaryId}`,
+            description: data.description,
+            hasDescription: !!data.description,
+          }, "GitHub API response");
           return {
             title: data.full_name || `${detection.id}/${detection.secondaryId}`,
             description: data.description || null,
@@ -251,9 +293,11 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
             platformColor: '#181717',
             platformIcon: 'Github',
           };
+        } else {
+          log.warn({ status: response.status, repo: `${detection.id}/${detection.secondaryId}` }, "GitHub API non-OK response");
         }
-      } catch {
-        // Fall through to fallback
+      } catch (e) {
+        log.debug({ error: e, repo: `${detection.id}/${detection.secondaryId}` }, "GitHub API failed");
       }
 
       // Fallback with OpenGraph image
@@ -273,7 +317,8 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
     }
 
     return null;
-  } catch {
+  } catch (e) {
+    log.error({ error: e }, "Platform scraper error");
     return null;
   }
 }
@@ -390,10 +435,9 @@ function parseMetaTagsWithCheerio(html: string, baseUrl: URL): {
 // Scrape website using fetch + cheerio (works on Vercel serverless)
 async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlatform>): Promise<ScrapeResult> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    log.debug({ url: url.toString() }, "Starting HTML scrape with cheerio");
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithTimeout(url.toString(), {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; Stacklume/1.0; +https://stacklume.vercel.app)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -401,11 +445,8 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
         'Accept-Encoding': 'gzip, deflate',
         'Cache-Control': 'no-cache',
       },
-      signal: controller.signal,
       redirect: 'follow',
-    });
-
-    clearTimeout(timeoutId);
+    }, SCRAPE_TIMEOUT);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -417,8 +458,10 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
     log.debug({
       url: url.toString(),
       title: metadata.title,
+      description: metadata.description?.substring(0, 100),
       hasImage: !!metadata.imageUrl,
       hasDescription: !!metadata.description,
+      siteName: metadata.siteName,
     }, "Scraped metadata with cheerio");
 
     return {
@@ -455,6 +498,8 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const { url } = await request.json();
 
@@ -462,16 +507,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "URL es requerida" }, { status: 400 });
     }
 
+    log.debug({ url }, "Scrape request received");
+
     // Check cache first (1 hour TTL)
     const cachedResult = scrapeCache.get(url);
     if (cachedResult) {
-      log.debug({ url }, "Returning cached scrape result");
+      log.debug({ url, duration: Date.now() - startTime }, "Returning cached scrape result");
       return NextResponse.json(cachedResult);
     }
 
     // SSRF Protection: Validate URL
     const ssrfCheck = await validateUrlForSSRF(url);
     if (!ssrfCheck.safe) {
+      log.warn({ url, reason: ssrfCheck.reason }, "SSRF validation failed");
       return NextResponse.json(
         { error: `Security validation failed: ${ssrfCheck.reason}` },
         { status: 403 }
@@ -482,6 +530,7 @@ export async function POST(request: NextRequest) {
 
     // Detect platform
     const detection = detectPlatform(url);
+    log.debug({ url, platform: detection.platform, contentType: detection.contentType }, "Platform detected");
 
     // Try platform-specific APIs first (faster & more reliable)
     const platformResult = await scrapeWithAPIs(url, detection);
@@ -501,19 +550,31 @@ export async function POST(request: NextRequest) {
       };
 
       scrapeCache.set(url, result);
-      log.debug({ url, platform: result.platform }, "Cached platform API scrape result");
+      log.info({
+        url,
+        platform: result.platform,
+        hasDescription: !!result.description,
+        hasImage: !!result.imageUrl,
+        duration: Date.now() - startTime,
+      }, "Scrape completed via platform API");
       return NextResponse.json(result);
     }
 
     // Fall back to cheerio HTML scraping
+    log.debug({ url }, "Platform API returned null, falling back to HTML scrape");
     const result = await scrapeWithFetch(validUrl, detection);
 
     scrapeCache.set(url, result);
-    log.debug({ url }, "Cached cheerio scrape result");
+    log.info({
+      url,
+      hasDescription: !!result.description,
+      hasImage: !!result.imageUrl,
+      duration: Date.now() - startTime,
+    }, "Scrape completed via HTML");
 
     return NextResponse.json(result);
   } catch (error) {
-    log.error({ error }, "Scrape error");
+    log.error({ error, duration: Date.now() - startTime }, "Scrape error");
     return NextResponse.json(
       { error: "Error al obtener metadatos" },
       { status: 500 }
