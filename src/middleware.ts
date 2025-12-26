@@ -97,6 +97,7 @@ const CORS_CONFIG = {
     'https://localhost:3000',
     'http://localhost:3456',
     'https://localhost:3456',
+    'https://stacklume.vercel.app',
   ],
   allowedMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [

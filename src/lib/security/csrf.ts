@@ -163,7 +163,10 @@ export function requiresCsrfProtection(method: string): boolean {
  * These should be carefully considered - only truly public endpoints should be here
  */
 export const CSRF_EXEMPT_ROUTES: string[] = [
-  // Add any routes that need to be exempt (e.g., webhooks with their own auth)
+  // Auth routes need to be exempt since user doesn't have CSRF token yet
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/session',
 ];
 
 /**
