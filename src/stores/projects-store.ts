@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Project, NewProject } from "@/lib/db/schema";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface ProjectsState {
   // Projects data
@@ -89,7 +90,11 @@ export const useProjectsStore = create<ProjectsState>()(
         try {
           const response = await fetch("/api/projects", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...getCsrfHeaders(),
+            },
+            credentials: "include",
             body: JSON.stringify(data),
           });
 
@@ -127,7 +132,11 @@ export const useProjectsStore = create<ProjectsState>()(
         try {
           const response = await fetch(`/api/projects/${id}`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...getCsrfHeaders(),
+            },
+            credentials: "include",
             body: JSON.stringify(data),
           });
 
@@ -170,6 +179,8 @@ export const useProjectsStore = create<ProjectsState>()(
         try {
           const response = await fetch(`/api/projects/${id}`, {
             method: "DELETE",
+            headers: getCsrfHeaders(),
+            credentials: "include",
           });
 
           if (!response.ok) {
@@ -208,7 +219,11 @@ export const useProjectsStore = create<ProjectsState>()(
         try {
           const response = await fetch("/api/projects/reorder", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...getCsrfHeaders(),
+            },
+            credentials: "include",
             body: JSON.stringify({ orderedIds }),
           });
 

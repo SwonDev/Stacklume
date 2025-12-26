@@ -39,6 +39,7 @@ import { useWidgetStore } from "@/stores/widget-store";
 import { useStickerStore } from "@/stores/sticker-store";
 import { StickerBook } from "@/components/stickers";
 import { motion, AnimatePresence } from "motion/react";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 export function Header() {
   const router = useRouter();
@@ -73,7 +74,11 @@ export function Header() {
   // Handle logout
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: getCsrfHeaders(),
+        credentials: 'include',
+      });
       router.push('/login');
       router.refresh();
     } catch (error) {

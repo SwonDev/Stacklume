@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useLinksStore } from "@/stores/links-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 const quickAddSchema = z.object({
   url: z.string().url("Por favor, introduce una URL válida"),
@@ -45,7 +46,9 @@ export function QuickAddWidget() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getCsrfHeaders(),
         },
+        credentials: "include",
         body: JSON.stringify({
           url: values.url,
         }),
@@ -70,7 +73,9 @@ export function QuickAddWidget() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getCsrfHeaders(),
         },
+        credentials: "include",
         body: JSON.stringify(linkData),
       });
 

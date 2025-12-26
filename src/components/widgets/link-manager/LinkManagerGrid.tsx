@@ -27,6 +27,7 @@ import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface LinkManagerGridProps {
   links: Link[];
@@ -144,7 +145,11 @@ function LinkGridCard({
       const newValue = !link.isFavorite;
       await fetch(`/api/links/${link.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({ isFavorite: newValue }),
       });
       onUpdateLink(link.id, { isFavorite: newValue });
@@ -159,7 +164,11 @@ function LinkGridCard({
 
   const handleDelete = async () => {
     try {
-      await fetch(`/api/links/${link.id}`, { method: "DELETE" });
+      await fetch(`/api/links/${link.id}`, {
+        method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
+      });
       onRemoveLink(link.id);
     } catch (error) {
       console.error("Error deleting link:", error);

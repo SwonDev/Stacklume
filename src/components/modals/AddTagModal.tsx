@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button"
 import { TagBadge, type TagColor } from "@/components/ui/tag-badge"
 import { useLinksStore } from "@/stores/links-store"
 import { cn } from "@/lib/utils"
+import { getCsrfHeaders } from "@/hooks/useCsrf"
 
 const formSchema = z.object({
   name: z
@@ -112,7 +113,11 @@ export function AddTagModal() {
     try {
       const response = await fetch("/api/tags", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getCsrfHeaders(),
+        },
+        credentials: "include",
         body: JSON.stringify({
           name: values.name.trim(),
           color: selectedColor,
