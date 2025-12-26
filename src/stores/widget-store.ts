@@ -190,16 +190,22 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
   addWidget: async (widgetData) => {
     const sizePreset = WIDGET_SIZE_PRESETS[widgetData.size];
+    // Use the current project ID from this store
+    // Note: This should be synced from projects-store by the UI
     const currentProjectId = get().currentProjectId;
 
     // Calculate position based on widgets in the current project only
     const projectWidgets = get().selectWidgetsByProject(currentProjectId);
     const nextPosition = calculateNextPosition(projectWidgets, widgetData.size);
 
+    // Determine the projectId to use:
+    // 1. If explicitly passed (including null for Home), use that
+    // 2. Otherwise, use the current project ID
+    const effectiveProjectId = 'projectId' in widgetData ? widgetData.projectId : currentProjectId;
+
     const newWidgetData = {
       ...widgetData,
-      // If projectId is not explicitly provided, use currentProjectId
-      projectId: widgetData.projectId !== undefined ? widgetData.projectId : currentProjectId,
+      projectId: effectiveProjectId,
       layout: {
         ...widgetData.layout,
         x: widgetData.layout.x ?? nextPosition.x,

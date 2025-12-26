@@ -172,7 +172,12 @@ export function CategorySection({
       <div className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
         {/* Clickable area for collapse */}
         <button
-          onClick={() => toggleCategoryCollapsed(categoryId)}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleCategoryCollapsed(categoryId);
+          }}
           className={cn(
             "flex-1 flex items-center gap-3 text-left",
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 rounded-sm"

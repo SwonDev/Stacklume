@@ -7,9 +7,9 @@
  * - Background sync for pending mutations
  */
 
-const _CACHE_NAME = 'stacklume-v2'; // Reserved for future cache versioning
-const STATIC_CACHE_NAME = 'stacklume-static-v2';
-const API_CACHE_NAME = 'stacklume-api-v2';
+const _CACHE_NAME = 'stacklume-v3'; // Reserved for future cache versioning
+const STATIC_CACHE_NAME = 'stacklume-static-v3';
+const API_CACHE_NAME = 'stacklume-api-v3';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
@@ -149,7 +149,9 @@ async function handleStaticRequest(request) {
   try {
     const networkResponse = await fetch(request);
 
-    if (networkResponse.ok) {
+    // Only cache complete responses (status 200)
+    // Do NOT cache partial responses (206) as Chrome doesn't support caching them
+    if (networkResponse.ok && networkResponse.status === 200) {
       const cache = await caches.open(STATIC_CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
@@ -179,7 +181,8 @@ async function handleApiRequest(request) {
       const networkResponse = await fetch(request);
 
       // Cache successful GET responses for offline use
-      if (networkResponse.ok && isCacheableRoute) {
+      // Only cache complete responses (status 200), NOT partial responses (206)
+      if (networkResponse.ok && networkResponse.status === 200 && isCacheableRoute) {
         const cache = await caches.open(API_CACHE_NAME);
         cache.put(request, networkResponse.clone());
       }
@@ -247,7 +250,8 @@ async function handleNavigationRequest(request) {
     const networkResponse = await fetch(request);
 
     // Cache the HTML for offline access
-    if (networkResponse.ok) {
+    // Only cache complete responses (status 200), NOT partial responses (206)
+    if (networkResponse.ok && networkResponse.status === 200) {
       const cache = await caches.open(STATIC_CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
