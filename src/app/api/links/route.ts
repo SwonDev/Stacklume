@@ -218,11 +218,20 @@ export async function GET(request: NextRequest) {
 // POST new link
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      log.error({ error: parseError }, "Failed to parse request body");
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
+    }
+
+    log.debug({ body }, "Received POST request to create link");
 
     // Validate request body with Zod schema
     const validation = validateRequest(createLinkSchema, body);
     if (!validation.success) {
+      log.warn({ errors: validation.errors, body }, "Validation failed for create link");
       return NextResponse.json({ error: validation.errors.join(", ") }, { status: 400 });
     }
 
@@ -245,6 +254,8 @@ export async function POST(request: NextRequest) {
       platformColor: validatedData.platformColor || null,
     };
 
+    log.debug({ newLink }, "Attempting to insert link into database");
+
     const [created] = await withRetry(
       () => db.insert(links).values(newLink).returning(),
       { operationName: "create link" }
@@ -253,7 +264,12 @@ export async function POST(request: NextRequest) {
     log.info({ linkId: created.id, url: created.url }, "Link created successfully");
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
-    log.error({ error, operation: "POST" }, "Error creating link");
-    return NextResponse.json({ error: "Error al crear enlace" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    log.error({ error: errorMessage, stack: errorStack, operation: "POST" }, "Error creating link");
+    return NextResponse.json({
+      error: "Error al crear enlace",
+      details: process.env.NODE_ENV !== "production" ? errorMessage : undefined
+    }, { status: 500 });
   }
 }
