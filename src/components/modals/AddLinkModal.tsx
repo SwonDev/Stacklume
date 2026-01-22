@@ -222,7 +222,20 @@ export function AddLinkModal() {
         toast.success("Enlace creado correctamente");
         handleClose();
       } else {
-        toast.error("Error al crear el enlace");
+        // Try to get the actual error message from the server
+        let errorMessage = "Error al crear el enlace";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          if (errorData.details) {
+            errorMessage += `: ${errorData.details}`;
+          }
+        } catch {
+          // If we can't parse the error response, use status text
+          errorMessage = `Error ${response.status}: ${response.statusText || errorMessage}`;
+        }
+        console.error("Error creating link:", errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error("Error creating link:", error);

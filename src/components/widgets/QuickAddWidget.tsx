@@ -80,7 +80,18 @@ export function QuickAddWidget() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create link");
+        // Try to get the actual error message from the server
+        let errorMessage = "Error al crear el enlace";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          if (errorData.details) {
+            errorMessage += `: ${errorData.details}`;
+          }
+        } catch {
+          errorMessage = `Error ${response.status}: ${response.statusText || errorMessage}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const newLink = await response.json();
@@ -102,12 +113,13 @@ export function QuickAddWidget() {
         setShowSuccess(false);
       }, 2000);
     } catch (error) {
-      console.error("Error adding link:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      console.error("Error adding link:", errorMessage);
       form.setError("url", {
-        message: "Error al añadir el enlace",
+        message: errorMessage,
       });
       toast.error("Error al añadir el enlace", {
-        description: "Por favor, verifica la URL e intenta de nuevo",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
