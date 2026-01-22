@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useHistoryStore, type HistoryEntry, type HistoryAction, createActionDescription } from "@/stores/history-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useWidgetStore } from "@/stores/widget-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import type { Link, Category, Tag } from "@/lib/db/schema";
 import type { Widget } from "@/types/widget";
 
@@ -244,7 +245,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
         try {
           const response = await fetch("/api/links", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
             body: JSON.stringify(link),
           });
 
@@ -256,7 +258,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
             for (const tagId of tagIds) {
               await fetch("/api/link-tags", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+                credentials: "include",
                 body: JSON.stringify({ linkId: restoredLink.id, tagId }),
               });
               useLinksStore.getState().addLinkTag(restoredLink.id, tagId);
@@ -276,7 +279,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
         try {
           const response = await fetch("/api/widgets", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
             body: JSON.stringify(widget),
           });
 
@@ -300,7 +304,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
         try {
           const response = await fetch("/api/categories", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
             body: JSON.stringify(category),
           });
 
@@ -312,7 +317,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
             for (const link of affectedLinks) {
               await fetch(`/api/links/${link.id}`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+                credentials: "include",
                 body: JSON.stringify({ categoryId: restoredCategory.id }),
               });
               useLinksStore.getState().updateLink(link.id, { categoryId: restoredCategory.id });
@@ -332,7 +338,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
         try {
           const response = await fetch("/api/tags", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
             body: JSON.stringify(tag),
           });
 
@@ -344,7 +351,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
             for (const linkId of affectedLinkIds) {
               await fetch("/api/link-tags", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+                credentials: "include",
                 body: JSON.stringify({ linkId, tagId: restoredTag.id }),
               });
               useLinksStore.getState().addLinkTag(linkId, restoredTag.id);
@@ -374,7 +382,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
           try {
             const response = await fetch("/api/links", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+              credentials: "include",
               body: JSON.stringify(link),
             });
 
@@ -386,7 +395,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
               for (const tagId of tagIds) {
                 await fetch("/api/link-tags", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+                  credentials: "include",
                   body: JSON.stringify({ linkId: restoredLink.id, tagId }),
                 });
                 useLinksStore.getState().addLinkTag(restoredLink.id, tagId);
@@ -407,7 +417,8 @@ async function restoreAction(action: HistoryAction, operation: "undo" | "redo"):
           try {
             const response = await fetch("/api/widgets", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+              credentials: "include",
               body: JSON.stringify(widget),
             });
 

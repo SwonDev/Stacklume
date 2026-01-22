@@ -200,10 +200,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
             const result = await response.json();
             // Refresh data from server
             const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
-              fetch("/api/links"),
-              fetch("/api/categories"),
-              fetch("/api/tags"),
-              fetch("/api/link-tags"),
+              fetch("/api/links", { credentials: "include" }),
+              fetch("/api/categories", { credentials: "include" }),
+              fetch("/api/tags", { credentials: "include" }),
+              fetch("/api/link-tags", { credentials: "include" }),
             ]);
 
             const [newLinks, newCategories, newTags, newLinkTags] = await Promise.all([
@@ -246,8 +246,8 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
           const result = await response.json();
           // Refresh data from server
           const [linksRes, categoriesRes] = await Promise.all([
-            fetch("/api/links"),
-            fetch("/api/categories"),
+            fetch("/api/links", { credentials: "include" }),
+            fetch("/api/categories", { credentials: "include" }),
           ]);
 
           const [newLinks, newCategories] = await Promise.all([

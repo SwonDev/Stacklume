@@ -64,8 +64,8 @@ export function QuickAddWidget() {
         url: values.url,
         title: scrapedData?.title || values.url,
         description: scrapedData?.description || null,
-        favicon: scrapedData?.faviconUrl || null,
-        image: scrapedData?.imageUrl || null,
+        faviconUrl: scrapedData?.faviconUrl || null,
+        imageUrl: scrapedData?.imageUrl || null,
         isFavorite: false,
       };
 

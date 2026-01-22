@@ -11,6 +11,7 @@ async function fetchWithCsrfRetry(
 ): Promise<Response> {
   const response = await fetch(url, {
     ...options,
+    credentials: "include",
     headers: {
       ...options.headers,
       ...getCsrfHeaders(),
@@ -19,7 +20,7 @@ async function fetchWithCsrfRetry(
 
   if (response.status === 403 && !retried) {
     console.log("CSRF token expired or missing, refreshing...");
-    await fetch("/api/settings");
+    await fetch("/api/settings", { credentials: "include" });
     await new Promise(resolve => setTimeout(resolve, 100));
     return fetchWithCsrfRetry(url, options, true);
   }
@@ -93,7 +94,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const response = await fetch("/api/settings");
+      const response = await fetch("/api/settings", { credentials: "include" });
       if (response.ok) {
         const settings = await response.json();
         set({
@@ -195,7 +196,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   fetchDatabaseInfo: async () => {
     set({ isDatabaseLoading: true });
     try {
-      const response = await fetch("/api/database");
+      const response = await fetch("/api/database", { credentials: "include" });
       if (response.ok) {
         const databaseInfo = await response.json();
         set({ databaseInfo, isDatabaseLoading: false });

@@ -361,7 +361,7 @@ export function StickerBook({ onClose }: StickerBookProps) {
     async function fetchStickers() {
       setIsLoading(true);
       try {
-        const response = await fetch("/api/stickers");
+        const response = await fetch("/api/stickers", { credentials: "include" });
         const data = await response.json();
         loadStickers(data);
       } catch (error) {

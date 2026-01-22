@@ -69,7 +69,7 @@ export const useProjectsStore = create<ProjectsState>()(
       fetchProjects: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch("/api/projects");
+          const response = await fetch("/api/projects", { credentials: "include" });
 
           if (!response.ok) {
             throw new Error(`Failed to fetch projects: ${response.statusText}`);

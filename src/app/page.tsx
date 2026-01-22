@@ -42,10 +42,10 @@ export default function Home() {
       setIsLoading(true);
       try {
         const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
-          fetch("/api/links"),
-          fetch("/api/categories"),
-          fetch("/api/tags"),
-          fetch("/api/link-tags"),
+          fetch("/api/links", { credentials: "include" }),
+          fetch("/api/categories", { credentials: "include" }),
+          fetch("/api/tags", { credentials: "include" }),
+          fetch("/api/link-tags", { credentials: "include" }),
         ]);
 
         if (linksRes.ok) {

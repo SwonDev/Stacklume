@@ -17,6 +17,7 @@ async function fetchWithCsrfRetry(
 ): Promise<Response> {
   const response = await fetch(url, {
     ...options,
+    credentials: "include",
     headers: {
       ...options.headers,
       ...getCsrfHeaders(),
@@ -27,7 +28,7 @@ async function fetchWithCsrfRetry(
   if (response.status === 403 && !retried) {
     console.log("CSRF token expired or missing, refreshing...");
     // Make a GET request to get a fresh CSRF token
-    await fetch("/api/widgets");
+    await fetch("/api/widgets", { credentials: "include" });
     // Wait a bit for the cookie to be set
     await new Promise(resolve => setTimeout(resolve, 100));
     // Retry the original request
@@ -170,7 +171,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const response = await fetch("/api/widgets");
+      const response = await fetch("/api/widgets", { credentials: "include" });
       if (response.ok) {
         const widgets = await response.json();
         // Load whatever is in the database (even if empty)
