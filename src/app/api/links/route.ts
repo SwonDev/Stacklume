@@ -267,9 +267,13 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
     log.error({ error: errorMessage, stack: errorStack, operation: "POST" }, "Error creating link");
+    // Always include error details for debugging - sanitize sensitive info
+    const sanitizedError = errorMessage
+      .replace(/postgresql:\/\/[^@]+@/gi, 'postgresql://***@') // Hide DB credentials
+      .replace(/password[=:]["']?[^"'\s]+/gi, 'password=***'); // Hide passwords
     return NextResponse.json({
       error: "Error al crear enlace",
-      details: process.env.NODE_ENV !== "production" ? errorMessage : undefined
+      details: sanitizedError
     }, { status: 500 });
   }
 }
