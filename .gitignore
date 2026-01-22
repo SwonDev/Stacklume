@@ -78,3 +78,4 @@ NUL
 lint_*.txt
 
 .vercel
+.env*.local

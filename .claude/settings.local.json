@@ -132,7 +132,10 @@
       "Bash(vercel logs:*)",
       "Bash(vercel inspect:*)",
       "Bash(vercel --prod --yes)",
-      "Bash(del \"C:\\\\Users\\\\swon_\\\\OneDrive\\\\Documentos\\\\PROYECTOS\\\\VIBECLAUDE\\\\Stacklume\\\\.env.prod\" \"C:\\\\Users\\\\swon_\\\\OneDrive\\\\Documentos\\\\PROYECTOS\\\\VIBECLAUDE\\\\Stacklume\\\\.env.vercel\")"
+      "Bash(del \"C:\\\\Users\\\\swon_\\\\OneDrive\\\\Documentos\\\\PROYECTOS\\\\VIBECLAUDE\\\\Stacklume\\\\.env.prod\" \"C:\\\\Users\\\\swon_\\\\OneDrive\\\\Documentos\\\\PROYECTOS\\\\VIBECLAUDE\\\\Stacklume\\\\.env.vercel\")",
+      "Bash(gh repo edit:*)",
+      "Bash(del:*)",
+      "Bash(Remove-Item -Force test-scrape.mjs)"
     ],
     "deny": [],
     "ask": []
