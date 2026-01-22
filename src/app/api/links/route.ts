@@ -237,6 +237,26 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validation.data;
 
+    // Check for duplicate URL before inserting
+    const existingLink = await withRetry(
+      () =>
+        db
+          .select({ id: links.id, url: links.url, title: links.title })
+          .from(links)
+          .where(and(eq(links.url, validatedData.url), isNull(links.deletedAt)))
+          .limit(1),
+      { operationName: "check duplicate URL" }
+    );
+
+    if (existingLink.length > 0) {
+      log.warn({ url: validatedData.url, existingId: existingLink[0].id }, "Duplicate URL detected");
+      return NextResponse.json({
+        error: "URL duplicada",
+        details: `Este enlace ya existe: "${existingLink[0].title}"`,
+        existingLink: existingLink[0]
+      }, { status: 409 }); // 409 Conflict
+    }
+
     const newLink: NewLink = {
       url: validatedData.url,
       title: validatedData.title,
@@ -267,7 +287,16 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
     log.error({ error: errorMessage, stack: errorStack, operation: "POST" }, "Error creating link");
-    // Always include error details for debugging - sanitize sensitive info
+
+    // Check for unique constraint violation (PostgreSQL error code 23505)
+    if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint') || errorMessage.includes('23505')) {
+      return NextResponse.json({
+        error: "URL duplicada",
+        details: "Este enlace ya existe en tu colección"
+      }, { status: 409 });
+    }
+
+    // Sanitize error for other cases
     const sanitizedError = errorMessage
       .replace(/postgresql:\/\/[^@]+@/gi, 'postgresql://***@') // Hide DB credentials
       .replace(/password[=:]["']?[^"'\s]+/gi, 'password=***'); // Hide passwords
