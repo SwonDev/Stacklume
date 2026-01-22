@@ -65,7 +65,7 @@ export function DatabaseSetupWizard({
     // Check if database is already configured
     const checkDatabase = async () => {
       try {
-        const response = await fetch("/api/database");
+        const response = await fetch("/api/database", { credentials: "include" });
         const data = await response.json();
 
         if (data.config?.hasConnection && data.status === "connected") {
