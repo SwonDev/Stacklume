@@ -100,3 +100,20 @@ lint_*.txt
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Tests — no se publican en el repo público
+e2e/
+docs/
+src/test/
+src/**/__tests__/
+src/**/*.test.ts
+src/**/*.test.tsx
+src/**/*.spec.ts
+src/**/*.spec.tsx
+vitest.config.ts
+playwright.config.ts
+playwright.stickers.config.ts
+/coverage/
+/playwright-report/
+/playwright-results/
+/test-results/
