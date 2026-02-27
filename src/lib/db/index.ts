@@ -1,65 +1,99 @@
 /**
- * Database Module - Neon PostgreSQL
+ * Database Module — Neon PostgreSQL (producción) o SQLite (modo desktop)
  *
- * This module provides the database interface using Neon PostgreSQL.
+ * Usa DESKTOP_MODE=true para activar SQLite.
+ * En producción usa Neon PostgreSQL vía drizzle-orm/neon-http.
  */
 
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
-import { drizzle, NeonHttpDatabase } from "drizzle-orm/neon-http";
-import * as schema from "./schema";
+import { drizzle as drizzleNeon, NeonHttpDatabase } from "drizzle-orm/neon-http";
+import * as pgSchema from "./schema";
+import { getSQLiteDb, type SQLiteDatabase } from "./sqlite-driver";
 
-export type UnifiedDatabase = NeonHttpDatabase<typeof schema>;
+export type UnifiedDatabase = NeonHttpDatabase<typeof pgSchema> | SQLiteDatabase;
 
-// Singleton instance
-let _db: NeonHttpDatabase<typeof schema> | null = null;
+// ─── Neon singleton ────────────────────────────────────────────────────────────
 
-/**
- * Get Neon PostgreSQL database instance (lazy initialization)
- */
-function getDb(): NeonHttpDatabase<typeof schema> {
-  if (!_db) {
+let _neonDb: NeonHttpDatabase<typeof pgSchema> | null = null;
+
+function getNeonDb(): NeonHttpDatabase<typeof pgSchema> {
+  if (!_neonDb) {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL is required for Neon PostgreSQL");
     }
     const sql: NeonQueryFunction<boolean, boolean> = neon(process.env.DATABASE_URL, {
-      fetchOptions: {
-        cache: "no-store",
-      },
+      fetchOptions: { cache: "no-store" },
     });
-    _db = drizzle(sql, { schema });
+    _neonDb = drizzleNeon(sql, { schema: pgSchema });
     console.log("[DB] Initialized Neon PostgreSQL");
   }
-  return _db;
+  return _neonDb;
 }
 
+// ─── Public API ────────────────────────────────────────────────────────────────
+
 /**
- * Get the database instance
+ * Obtiene la instancia de base de datos correcta según el entorno.
  */
 export async function getDatabase(): Promise<UnifiedDatabase> {
-  return getDb();
+  if (process.env.DESKTOP_MODE === "true") {
+    return getSQLiteDb();
+  }
+  return getNeonDb();
 }
 
 /**
- * Ensure the database is initialized
- * Call this at application startup
+ * Ensure the database is initialized.
+ * Call this at application startup.
  */
 export async function ensureDbInitialized(): Promise<void> {
-  getDb();
+  if (process.env.DESKTOP_MODE === "true") {
+    await getSQLiteDb();
+  } else {
+    getNeonDb();
+  }
   console.log("[DB] Database initialized");
 }
 
 /**
- * The database instance for direct use
+ * Proxy para acceso directo a la DB (compatible con el uso existente).
+ * En modo desktop la DB SQLite debe estar inicializada antes de usarlo
+ * (se hace en el startup del servidor vía initDesktopDatabase()).
+ *
+ * Se tipifica como NeonHttpDatabase para mantener compatibilidad TypeScript
+ * con el schema PostgreSQL que usan todas las rutas API. El runtime
+ * del proxy devuelve la DB SQLite cuando DESKTOP_MODE=true.
  */
-export const db = new Proxy({} as UnifiedDatabase, {
-  get: function(_target, prop) {
-    return Reflect.get(getDb(), prop);
+export const db = new Proxy({} as NeonHttpDatabase<typeof pgSchema>, {
+  get(_target, prop) {
+    if (process.env.DESKTOP_MODE === "true") {
+      // Usamos globalThis para acceder al singleton cross-chunk de Turbopack.
+      // El require() clásico puede devolver una instancia diferente del módulo.
+      const SQLITE_KEY = "__stacklume_sqlite_db__";
+      const sqliteDb = (globalThis as Record<string, unknown>)[
+        SQLITE_KEY
+      ] as SQLiteDatabase | null | undefined;
+      if (sqliteDb) return Reflect.get(sqliteDb, prop);
+      throw new Error(
+        "[Desktop] SQLite DB not initialized. Call getDatabase() first."
+      );
+    }
+    return Reflect.get(getNeonDb(), prop);
   },
 });
 
 /**
- * Wrapper function to execute database operations with retry logic
- * Handles transient errors like cold starts, timeouts, and connection issues
+ * Genera un UUID para usar como ID en inserts.
+ * Necesario en SQLite (PostgreSQL los genera automáticamente).
+ */
+export function generateId(): string {
+  return crypto.randomUUID();
+}
+
+// ─── Retry logic ───────────────────────────────────────────────────────────────
+
+/**
+ * Wrapper para ejecutar operaciones de DB con reintentos en errores transitorios.
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,
@@ -109,12 +143,8 @@ export async function withRetry<T>(
   throw lastError || new Error("Unknown error in withRetry");
 }
 
-/**
- * Check if an error is retryable (transient network/connection errors)
- */
 function isRetryableError(error: Error): boolean {
   const message = error.message.toLowerCase();
-
   const retryablePatterns = [
     "fetch failed",
     "network",
@@ -130,20 +160,15 @@ function isRetryableError(error: Error): boolean {
     "ssl",
     "tls",
   ];
-
   return retryablePatterns.some((pattern) => message.includes(pattern));
 }
 
-/**
- * Simple sleep utility
- */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Pagination metadata type
- */
+// ─── Pagination helpers ────────────────────────────────────────────────────────
+
 export interface PaginationMeta {
   page: number;
   limit: number;
@@ -151,17 +176,11 @@ export interface PaginationMeta {
   totalPages: number;
 }
 
-/**
- * Paginated response type
- */
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: PaginationMeta;
 }
 
-/**
- * Creates a paginated response object
- */
 export function createPaginatedResponse<T>(
   data: T[],
   page: number,
@@ -180,11 +199,11 @@ export function createPaginatedResponse<T>(
 }
 
 /**
- * Get the current database type (always neon now)
+ * Devuelve el tipo de base de datos activo.
  */
 export function getCurrentDatabaseType(): "neon" | "sqlite" {
-  return "neon";
+  return process.env.DESKTOP_MODE === "true" ? "sqlite" : "neon";
 }
 
-// Re-export schema for convenience
+// Re-export schema PostgreSQL para compatibilidad
 export * from "./schema";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, tags, withRetry, type NewTag, createPaginatedResponse } from "@/lib/db";
+import { db, tags, withRetry, type NewTag, createPaginatedResponse, generateId } from "@/lib/db";
 import { asc, eq, count, isNull } from "drizzle-orm";
 import { paginationSchema, createTagSchema, updateTagSchema, validateRequest } from "@/lib/validations";
 
@@ -91,8 +91,10 @@ export async function POST(request: NextRequest) {
     const validatedData = validation.data;
 
     const newTag: NewTag = {
+      id: generateId(),
       name: validatedData.name,
       color: validatedData.color || null,
+      createdAt: new Date(),
     };
 
     const [created] = await withRetry(

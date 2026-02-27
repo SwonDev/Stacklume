@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, generateId } from "@/lib/db";
 import {
   links,
   categories,
@@ -154,11 +154,13 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
   const [newBackup] = await db
     .insert(userBackups)
     .values({
+      id: generateId(),
       userId,
       filename,
       size,
       backupData,
       backupType,
+      createdAt: new Date(),
     })
     .returning();
 

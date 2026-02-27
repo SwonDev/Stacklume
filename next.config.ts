@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-// Check if building for Electron (standalone mode)
-const isElectronBuild = process.env.ELECTRON_BUILD === "true";
+// Check if building for Electron or Tauri (standalone mode)
+const isDesktopMode = process.env.DESKTOP_MODE === "true";
+const isElectronBuild = process.env.ELECTRON_BUILD === "true" || isDesktopMode;
 const isProduction = process.env.NODE_ENV === "production";
 
 /**
@@ -29,6 +30,26 @@ const ContentSecurityPolicy = `
 const nextConfig: NextConfig = {
   // Standalone output for Electron - creates a self-contained server
   output: "standalone",
+
+  // Excluir módulos con addons nativos del bundle
+  // En modo desktop también excluimos Sentry y OpenTelemetry: no se necesitan
+  // en la app de escritorio y sus rutas pnpm sobrepasan el límite de NSIS (260 chars)
+  serverExternalPackages: [
+    "@libsql/client",
+    "libsql",
+    ...(isDesktopMode
+      ? [
+          "@sentry/nextjs",
+          "@sentry/node",
+          "@sentry/core",
+          "@opentelemetry/api",
+          "@opentelemetry/resources",
+          "@opentelemetry/sdk-trace-base",
+          "@opentelemetry/sdk-node",
+          "@opentelemetry/instrumentation",
+        ]
+      : []),
+  ],
 
   // Fix Turbopack workspace root inference on Windows
   // Without this, Turbopack incorrectly infers src/app as the project root
@@ -88,6 +109,9 @@ const nextConfig: NextConfig = {
 
   // Security headers
   async headers() {
+    // En modo desktop el WebView2 gestiona su propia seguridad
+    if (isDesktopMode) return [];
+
     return [
       {
         source: "/:path*",

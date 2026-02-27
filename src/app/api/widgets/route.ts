@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, widgets, withRetry, type NewWidget } from "@/lib/db";
+import { db, widgets, withRetry, type NewWidget, generateId } from "@/lib/db";
 import { desc, eq, and, isNull } from "drizzle-orm";
 import { createWidgetSchema, updateWidgetSchema, validateRequest } from "@/lib/validations";
 
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     const validatedData = validationResult.data;
 
     const newWidget: NewWidget = {
+      id: generateId(),
       userId: DEFAULT_USER_ID,
       type: validatedData.type,
       title: validatedData.title || null,
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
       layoutY: validatedData.layoutY,
       layoutW: validatedData.layoutW,
       layoutH: validatedData.layoutH,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const [created] = await withRetry(
