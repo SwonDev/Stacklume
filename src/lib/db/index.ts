@@ -182,7 +182,7 @@ export function createPaginatedResponse<T>(
 /**
  * Get the current database type (always neon now)
  */
-export function getCurrentDatabaseType(): "neon" {
+export function getCurrentDatabaseType(): "neon" | "sqlite" {
   return "neon";
 }
 
