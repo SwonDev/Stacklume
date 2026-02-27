@@ -94,3 +94,9 @@ lint_*.txt
 
 .vercel
 .env*.local
+
+# Claude Code — configuración local privada
+.claude/
+
+# TypeScript build info
+*.tsbuildinfo
