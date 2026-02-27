@@ -122,36 +122,41 @@ src/
     └── widget-utils.ts    # Widget utility functions
 ```
 
+### Authentication
+
+The app uses a **custom JWT/bcrypt system** (not NextAuth), implemented in `src/lib/auth.ts`:
+- Credentials stored in env vars (`AUTH_USERNAME`, `AUTH_PASSWORD_HASH`)
+- JWT tokens signed with `AUTH_SECRET`, stored in `stacklume-auth` HttpOnly cookie (7-day expiry)
+- Auth routes: `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`
+- Session check: `isAuthenticated()` or `getSession()` from `src/lib/auth.ts`
+
+The schema (`src/lib/db/schema.ts`) has NextAuth-style tables (`users`, `accounts`, `sessions`, `verificationTokens`) kept for potential future multi-user support but not actively used by the current auth flow.
+
 ### Data Model
 
 The database has these core entities (see `src/lib/db/schema.ts`):
 
-**Authentication (NextAuth):**
-- **users**: User accounts with email/password or OAuth
-- **accounts**: OAuth provider accounts (Google, GitHub, etc.)
-- **sessions**: Active user sessions
-- **verificationTokens**: Email verification tokens
-
 **Application Data:**
-- **links**: URL bookmarks with metadata (title, description, favicon, image, category, platform detection fields, health status)
+
+- **links**: URL bookmarks with metadata (title, description, favicon, image, category, platform detection fields, health status). Has `uniqueIndex` on `url` — duplicates return HTTP 409.
 - **categories**: Organizational folders for links (with soft delete)
-- **tags**: Flexible labeling system for links (with soft delete)
+- **tags**: Flexible labeling system for links; unique per `(userId, name)` pair (with soft delete)
 - **linkTags**: Many-to-many junction table
-- **projects**: Workspaces for organizing widgets (null projectId = Home view)
+- **projects**: Workspaces for organizing widgets (null projectId = Home view) (with soft delete)
 - **userLayouts**: Stores bento grid configurations (JSON)
-- **widgets**: Widget configurations (type, title, config JSON, layout position, projectId)
+- **widgets**: Widget configurations (type, title, config JSON, layoutX/Y/W/H, projectId) (with soft delete)
 - **userSettings**: User preferences (theme, viewDensity, viewMode, reduceMotion)
 - **userBackups**: JSON backups of user data (manual/auto/export types)
 
 ### State Management Pattern
 
 Eight Zustand stores handle different concerns:
-1. **useLinksStore**: Links, categories, tags data + modal states
-2. **useLayoutStore**: react-grid-layout positions (persisted)
+1. **useLinksStore**: Links, categories, tags data + modal states (fetches from DB on load)
+2. **useLayoutStore**: react-grid-layout positions (persisted to localStorage)
 3. **useWidgetStore**: Widget instances and configurations (persisted to localStorage as `stacklume-widgets`)
 4. **useKanbanStore**: Kanban columns, view settings, WIP limits (persisted to localStorage as `stacklume-kanban-columns`)
-5. **useSettingsStore**: User preferences (theme, view density, etc.)
-6. **useProjectsStore**: Project/workspace management
+5. **useSettingsStore**: User preferences (theme, view density, etc.) (synced to DB)
+6. **useProjectsStore**: Project/workspace management (fetches from DB on load)
 7. **useStickerStore**: Sticker overlays on the dashboard (persisted to localStorage)
 8. **useListViewStore**: List view settings and sorting preferences
 
@@ -203,8 +208,26 @@ Links automatically detect platform types (YouTube, Steam, GitHub, Spotify, etc.
 
 All API routes follow this pattern:
 - Return JSON responses via `NextResponse.json()`
-- Use Drizzle ORM query builder
+- Use Drizzle ORM query builder wrapped in `withRetry()` for transient error resilience
 - Handle errors with try/catch returning 500 status
+- Validate inputs with Zod schemas from `src/lib/validations/index.ts` via `validateRequest()`
+- Log with `createModuleLogger('api/route-name')` from `src/lib/logger.ts` (pino-based)
+
+```typescript
+import { db, withRetry } from "@/lib/db";
+import { createModuleLogger } from "@/lib/logger";
+import { validateRequest, createLinkSchema } from "@/lib/validations";
+
+const log = createModuleLogger("api/example");
+
+// All DB operations use withRetry for cold-start resilience
+const result = await withRetry(
+  () => db.select().from(table).where(...),
+  { operationName: "fetch example" }
+);
+```
+
+Paginated responses use `createPaginatedResponse(data, page, limit, total)` from `@/lib/db`.
 
 ## Environment Variables
 
@@ -243,6 +266,21 @@ The app supports importing links via:
 - **JSON API** (`/api/links/import`) - POST JSON array of links
 - **HTML Bookmarks** (`/api/links/import-html`) - Parse exported browser bookmarks HTML
 
+## Key lib/ Modules
+
+| File | Purpose |
+|------|---------|
+| `src/lib/validations/index.ts` | Zod schemas + `validateRequest()` helper for all API inputs |
+| `src/lib/logger.ts` | Pino-based logger; use `createModuleLogger('module-name')` |
+| `src/lib/cache.ts` | In-memory caching utilities |
+| `src/lib/rate-limit.ts` | Upstash Redis rate limiting for API routes |
+| `src/lib/security/csrf.ts` | CSRF protection middleware |
+| `src/lib/backup/backup-service.ts` | Data export/import and backup management |
+| `src/lib/export-utils.ts` | Link export utilities (JSON, CSV, HTML) |
+| `src/lib/analytics.ts` | Link analytics tracking |
+| `src/lib/responsive-layout.ts` | Responsive bento grid breakpoint helpers |
+| `src/lib/offline/` | PWA offline support and service worker registration |
+
 ## Security
 
 The scrape API (`/api/scrape`) includes SSRF protection via `src/lib/security/ssrf-protection.ts`:
@@ -250,6 +288,8 @@ The scrape API (`/api/scrape`) includes SSRF protection via `src/lib/security/ss
 - DNS rebinding protection with hostname validation
 - Protocol whitelist (only http/https allowed)
 - Configurable allow/deny lists for hosts
+
+CSRF protection is applied via `src/lib/security/csrf.ts`. Error monitoring via Sentry (`@sentry/nextjs`).
 
 ## Soft Deletes
 

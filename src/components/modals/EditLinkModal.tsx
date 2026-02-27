@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon } from "lucide-react";
 import { TagSelector } from "@/components/ui/tag-selector";
 import { TagBadge } from "@/components/ui/tag-badge";
-import type { Category, Tag } from "@/lib/db/schema";
+import { CategorySelector } from "@/components/ui/category-selector";
+import type { Tag } from "@/lib/db/schema";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +25,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,7 +57,6 @@ export function EditLinkModal() {
     isEditLinkModalOpen,
     closeEditLinkModal,
     selectedLink,
-    categories,
     tags,
     linkTags,
     updateLink,
@@ -276,20 +269,12 @@ export function EditLinkModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoría (opcional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una categoría" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((category: Category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <CategorySelector
+                      selectedCategoryId={field.value || null}
+                      onCategoryChange={(id) => field.onChange(id ?? "")}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

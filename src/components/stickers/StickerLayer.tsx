@@ -323,9 +323,9 @@ export function StickerLayer() {
     getStickersForContext,
   } = useStickerStore();
 
-  // Get current view mode and project
-  const { viewMode } = useSettingsStore();
-  const { activeProjectId } = useProjectsStore();
+  // Get current view mode and project - use selectors to avoid re-renders on unrelated state changes
+  const viewMode = useSettingsStore((state) => state.viewMode);
+  const activeProjectId = useProjectsStore((state) => state.activeProjectId);
 
   // Current view mode for stickers - supports bento, kanban, and list views
   const currentViewMode: 'bento' | 'kanban' | 'list' = viewMode === 'kanban' ? 'kanban' : viewMode === 'list' ? 'list' : 'bento';
@@ -408,7 +408,8 @@ export function StickerLayer() {
     [widgetPositionsVersion]
   );
 
-  // Handle double-click to attach/detach sticker from widget
+  // Handle double-click to manually detach a sticker from its widget
+  // (attachment is now automatic on drop/move; double-click frees the sticker to float)
   const handleStickerDoubleClick = useCallback(
     (sticker: PlacedSticker, e: React.MouseEvent) => {
       e.preventDefault();
@@ -417,31 +418,15 @@ export function StickerLayer() {
       if (sticker.locked) return;
 
       if (sticker.attachedToWidgetId) {
-        // Already attached - detach it
-        // Update sticker position to current calculated position so it stays in place
+        // Detach: preserve current visual position so the sticker stays in place
         const currentPos = getCalculatedPosition(sticker);
         if (currentPos) {
           updateSticker(sticker.id, { x: currentPos.x, y: currentPos.y });
         }
         detachFromWidget(sticker.id);
-      } else {
-        // Not attached - try to attach to widget under the sticker
-        const stickerCenterX = sticker.x + (sticker.width * sticker.scale) / 2;
-        const stickerCenterY = sticker.y + (sticker.height * sticker.scale) / 2;
-
-        const widgetInfo = findWidgetAtPosition(stickerCenterX, stickerCenterY, scrollContainerRef.current);
-        if (widgetInfo) {
-          // Get widget position to calculate proper offset
-          const widgetPos = getWidgetPosition(widgetInfo.widgetId, scrollContainerRef.current);
-          if (widgetPos) {
-            const relativeOffsetX = sticker.x - widgetPos.x;
-            const relativeOffsetY = sticker.y - widgetPos.y;
-            attachToWidget(sticker.id, widgetInfo.widgetId, relativeOffsetX, relativeOffsetY);
-          }
-        }
       }
     },
-    [attachToWidget, detachFromWidget, updateSticker, getCalculatedPosition]
+    [detachFromWidget, updateSticker, getCalculatedPosition]
   );
 
   // Handle all transforms at parent level - like Cryalis Creation
@@ -606,9 +591,51 @@ export function StickerLayer() {
     };
 
     const handleMouseUp = () => {
-      // Play drop sound when releasing a placed sticker (only for move, not resize/rotate)
       if (dragState) {
         playDrop();
+
+        const container = scrollContainerRef.current;
+        if (container) {
+          // Read fresh sticker state (store was updated during mousemove)
+          const currentSticker = useStickerStore.getState().placedStickers.find(
+            (s) => s.id === dragState.stickerId
+          );
+
+          if (currentSticker) {
+            // Compute current absolute position
+            let absX: number;
+            let absY: number;
+
+            if (dragState.isAttached && currentSticker.attachedToWidgetId) {
+              const widgetPos = getWidgetPosition(currentSticker.attachedToWidgetId, container);
+              absX = widgetPos ? widgetPos.x + (currentSticker.widgetOffsetX ?? 0) : currentSticker.x;
+              absY = widgetPos ? widgetPos.y + (currentSticker.widgetOffsetY ?? 0) : currentSticker.y;
+            } else {
+              absX = currentSticker.x;
+              absY = currentSticker.y;
+            }
+
+            // Find widget at sticker center
+            const stickerW = currentSticker.width * currentSticker.scale;
+            const stickerH = currentSticker.height * currentSticker.scale;
+            const widgetInfo = findWidgetAtPosition(absX + stickerW / 2, absY + stickerH / 2, container);
+
+            if (widgetInfo) {
+              const widgetPos = getWidgetPosition(widgetInfo.widgetId, container);
+              if (widgetPos) {
+                // Sync absolute position and attach to the widget underneath
+                updateSticker(dragState.stickerId, { x: absX, y: absY });
+                attachToWidget(dragState.stickerId, widgetInfo.widgetId, absX - widgetPos.x, absY - widgetPos.y);
+              }
+            } else {
+              // Dropped in empty space — place free-floating and detach if was attached
+              updateSticker(dragState.stickerId, { x: absX, y: absY });
+              if (dragState.isAttached) {
+                detachFromWidget(dragState.stickerId);
+              }
+            }
+          }
+        }
       }
       setDragState(null);
       setResizeState(null);
@@ -622,7 +649,7 @@ export function StickerLayer() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, resizeState, rotateState, updateSticker, playDrop]);
+  }, [dragState, resizeState, rotateState, updateSticker, attachToWidget, detachFromWidget, playDrop]);
 
   // Global click handler to deselect stickers
   useEffect(() => {
@@ -682,13 +709,36 @@ export function StickerLayer() {
           const offsetX = containerRect?.left || 0;
           const offsetY = containerRect?.top || 0;
 
+          const containerX = e.clientX - 36 - offsetX + scrollX;
+          const containerY = e.clientY - 36 - offsetY + scrollY;
+
+          // Auto-detect widget at sticker center for immediate attachment
+          let attachWidgetId: string | undefined;
+          let attachOffsetX: number | undefined;
+          let attachOffsetY: number | undefined;
+
+          const stickerCenterX = containerX + 36; // 72px default width / 2
+          const stickerCenterY = containerY + 36;
+          const widgetInfo = findWidgetAtPosition(stickerCenterX, stickerCenterY, scrollContainerRef.current);
+          if (widgetInfo) {
+            const widgetPos = getWidgetPosition(widgetInfo.widgetId, scrollContainerRef.current);
+            if (widgetPos) {
+              attachWidgetId = widgetInfo.widgetId;
+              attachOffsetX = containerX - widgetPos.x;
+              attachOffsetY = containerY - widgetPos.y;
+            }
+          }
+
           placeSticker(
             draggedSticker.sticker.id,
             draggedSticker.sticker.filename,
-            e.clientX - 36 - offsetX + scrollX,
-            e.clientY - 36 - offsetY + scrollY,
+            containerX,
+            containerY,
             currentViewMode,
-            currentProjectId
+            currentProjectId,
+            attachWidgetId,
+            attachOffsetX,
+            attachOffsetY,
           );
 
           // Play drop sound when placing a sticker from the book
@@ -737,13 +787,34 @@ export function StickerLayer() {
           const offsetX = containerRect?.left || 0;
           const offsetY = containerRect?.top || 0;
 
+          const containerX = touch.clientX - 36 - offsetX + scrollX;
+          const containerY = touch.clientY - 36 - offsetY + scrollY;
+
+          // Auto-detect widget at sticker center for immediate attachment
+          let attachWidgetId: string | undefined;
+          let attachOffsetX: number | undefined;
+          let attachOffsetY: number | undefined;
+
+          const widgetInfo = findWidgetAtPosition(containerX + 36, containerY + 36, scrollContainerRef.current);
+          if (widgetInfo) {
+            const widgetPos = getWidgetPosition(widgetInfo.widgetId, scrollContainerRef.current);
+            if (widgetPos) {
+              attachWidgetId = widgetInfo.widgetId;
+              attachOffsetX = containerX - widgetPos.x;
+              attachOffsetY = containerY - widgetPos.y;
+            }
+          }
+
           placeSticker(
             draggedSticker.sticker.id,
             draggedSticker.sticker.filename,
-            touch.clientX - 36 - offsetX + scrollX,
-            touch.clientY - 36 - offsetY + scrollY,
+            containerX,
+            containerY,
             currentViewMode,
-            currentProjectId
+            currentProjectId,
+            attachWidgetId,
+            attachOffsetX,
+            attachOffsetY,
           );
 
           // Play drop sound when placing a sticker from the book (touch)

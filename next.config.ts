@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
   // Standalone output for Electron - creates a self-contained server
   output: "standalone",
 
+  // Fix Turbopack workspace root inference on Windows
+  // Without this, Turbopack incorrectly infers src/app as the project root
+  turbopack: {
+    root: process.cwd(),
+  },
+
   // Image optimization configuration
   images: {
     // Disable image optimization for standalone/Electron builds
