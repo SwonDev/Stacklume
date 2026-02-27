@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers/Providers";
 import { AppShell } from "@/components/providers/AppShell";
+import { DesktopTitleBar } from "@/components/desktop/TitleBar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -64,12 +65,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isDesktopMode = process.env.DESKTOP_MODE === "true";
+
   return (
     <html lang="es" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased no-scroll`}
       >
+        {/*
+          Inyección temprana: cuando el servidor corre en DESKTOP_MODE,
+          se establece window.__DESKTOP_MODE__ = true ANTES de que React
+          hidrate. Así isTauriWebView() detecta desktop sin depender de
+          window.__TAURI__ (que Tauri v2 no inyecta automáticamente).
+        */}
+        {isDesktopMode && (
+          <script
+            dangerouslySetInnerHTML={{ __html: "window.__DESKTOP_MODE__=true;" }}
+          />
+        )}
         <Providers>
+          <DesktopTitleBar />
           <AppShell>{children}</AppShell>
           <Toaster
             theme="dark"

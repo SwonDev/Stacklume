@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, userSettings, withRetry } from "@/lib/db";
+import { db, userSettings, withRetry, generateId } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { updateSettingsSchema, validateRequest } from "@/lib/validations";
 
@@ -17,11 +17,14 @@ export async function GET() {
     if (!settings) {
       const [newSettings] = await withRetry(
         () => db.insert(userSettings).values({
+          id: generateId(),
           userId: DEFAULT_USER_ID,
           theme: "system",
           viewDensity: "normal",
           showTooltips: true,
           reduceMotion: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }).returning(),
         { operationName: "create default settings" }
       );
@@ -73,12 +76,15 @@ export async function PUT(request: NextRequest) {
       // Create new settings
       const [newSettings] = await withRetry(
         () => db.insert(userSettings).values({
+          id: generateId(),
           userId: DEFAULT_USER_ID,
           theme: theme ?? "system",
           viewDensity: viewDensity ?? "normal",
           viewMode: viewMode ?? "bento",
           showTooltips: showTooltips ?? true,
           reduceMotion: reduceMotion ?? false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }).returning(),
         { operationName: "create user settings" }
       );

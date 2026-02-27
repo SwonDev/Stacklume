@@ -1,6 +1,9 @@
 // This file configures the initialization of Sentry on the server.
 // The config you add here will be used whenever the server handles a request.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
+//
+// En modo desktop (DESKTOP_MODE=true), @sentry/nextjs está en serverExternalPackages
+// y no se incluye en el standalone. Este archivo no se cargará en desktop.
 
 import * as Sentry from "@sentry/nextjs";
 

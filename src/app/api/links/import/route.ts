@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, links, categories, tags, linkTags, withRetry, type NewLink, type NewCategory, type NewTag } from "@/lib/db";
+import { db, links, categories, tags, linkTags, withRetry, type NewLink, type NewCategory, type NewTag, generateId } from "@/lib/db";
 import { importDataSchema, validateRequest, IMPORT_LIMITS } from "@/lib/validations";
 
 /**
@@ -123,10 +123,13 @@ export async function POST(request: NextRequest) {
           categoryIdMap.set(sanitizedName, existing.id);
         } else {
           const newCat: NewCategory = {
+            id: generateId(),
             name: sanitizedName,
             description: sanitizeText(cat.description),
             icon: sanitizeText(cat.icon),
             color: sanitizeText(cat.color),
+            createdAt: new Date(),
+            updatedAt: new Date(),
           };
           const [created] = await withRetry(
             () => db.insert(categories).values(newCat).returning(),
@@ -167,8 +170,10 @@ export async function POST(request: NextRequest) {
           tagIdMap.set(sanitizedName, existing.id);
         } else {
           const newTag: NewTag = {
+            id: generateId(),
             name: sanitizedName,
             color: sanitizeText(tag.color),
+            createdAt: new Date(),
           };
           const [created] = await withRetry(
             () => db.insert(tags).values(newTag).returning(),
@@ -220,6 +225,7 @@ export async function POST(request: NextRequest) {
         }
 
         const newLink: NewLink = {
+          id: generateId(),
           url: sanitizedUrl,
           title: sanitizedTitle,
           description: sanitizeText(link.description),
@@ -233,6 +239,8 @@ export async function POST(request: NextRequest) {
           platform: sanitizeText(link.platform),
           contentType: sanitizeText(link.contentType),
           platformColor: sanitizeText(link.platformColor),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         };
 
         const [created] = await withRetry(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, links, linkTags, withRetry, createPaginatedResponse } from "@/lib/db";
-import { eq, and, isNull, ilike, or, count, desc, asc, inArray } from "drizzle-orm";
+import { db, links, linkTags, withRetry, createPaginatedResponse, getCurrentDatabaseType } from "@/lib/db";
+import { eq, and, isNull, ilike, like, or, count, desc, asc, inArray } from "drizzle-orm";
 import { paginationSchema, linkFilterSchema, sortSchema, validateRequest } from "@/lib/validations";
 import { createModuleLogger } from "@/lib/logger";
 import { z } from "zod";
@@ -71,18 +71,26 @@ export async function GET(request: NextRequest) {
     const { q, categoryId, tagId, isFavorite, platform, sortBy, sortOrder, page, limit } = params;
     const offset = (page - 1) * limit;
 
-    // Build search pattern for ILIKE
+    // Build search pattern para ILIKE (PG) o LIKE (SQLite)
     const searchPattern = `%${q}%`;
+    const isDesktop = getCurrentDatabaseType() === "sqlite";
 
     // Build base conditions array
     const conditions = [
       isNull(links.deletedAt),
-      or(
-        ilike(links.title, searchPattern),
-        ilike(links.description, searchPattern),
-        ilike(links.url, searchPattern),
-        ilike(links.siteName, searchPattern)
-      ),
+      isDesktop
+        ? or(
+            like(links.title, searchPattern),
+            like(links.description, searchPattern),
+            like(links.url, searchPattern),
+            like(links.siteName, searchPattern)
+          )
+        : or(
+            ilike(links.title, searchPattern),
+            ilike(links.description, searchPattern),
+            ilike(links.url, searchPattern),
+            ilike(links.siteName, searchPattern)
+          ),
     ];
 
     // Add optional filters

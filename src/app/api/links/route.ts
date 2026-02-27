@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, links, linkTags, withRetry, type NewLink, createPaginatedResponse } from "@/lib/db";
-import { desc, asc, count, isNull, eq, and, inArray } from "drizzle-orm";
+import { db, links, linkTags, withRetry, type NewLink, createPaginatedResponse, generateId, getCurrentDatabaseType } from "@/lib/db";
+import { desc, asc, count, isNull, eq, and, inArray, like, ilike, or } from "drizzle-orm";
 import { paginationSchema, createLinkSchema, validateRequest, linkFilterSchema, sortSchema } from "@/lib/validations";
 import { createModuleLogger } from "@/lib/logger";
 import { z } from "zod";
@@ -155,14 +155,23 @@ export async function GET(request: NextRequest) {
     // Handle simple search (for full-text search, use /api/links/search)
     // This is a lightweight filter, not full search
     if (search) {
-      const { ilike, or } = await import("drizzle-orm");
       const searchPattern = `%${search}%`;
-      conditions.push(
-        or(
-          ilike(links.title, searchPattern),
-          ilike(links.description, searchPattern)
-        )!
-      );
+      // ilike es solo PostgreSQL; en SQLite usamos like (case-insensitive por defecto para ASCII)
+      if (getCurrentDatabaseType() === "sqlite") {
+        conditions.push(
+          or(
+            like(links.title, searchPattern),
+            like(links.description, searchPattern)
+          )!
+        );
+      } else {
+        conditions.push(
+          or(
+            ilike(links.title, searchPattern),
+            ilike(links.description, searchPattern)
+          )!
+        );
+      }
     }
 
     // Determine sort column and order
@@ -258,6 +267,7 @@ export async function POST(request: NextRequest) {
     }
 
     const newLink: NewLink = {
+      id: generateId(), // Necesario para SQLite; PostgreSQL acepta IDs externos
       url: validatedData.url,
       title: validatedData.title,
       description: validatedData.description || null,
@@ -272,6 +282,8 @@ export async function POST(request: NextRequest) {
       platform: validatedData.platform || null,
       contentType: validatedData.contentType || null,
       platformColor: validatedData.platformColor || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     log.debug({ newLink }, "Attempting to insert link into database");

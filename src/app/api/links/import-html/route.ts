@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, links, categories, withRetry, type NewLink, type NewCategory } from "@/lib/db";
+import { db, links, categories, withRetry, type NewLink, type NewCategory, generateId } from "@/lib/db";
 import { htmlImportSchema, validateRequest, IMPORT_LIMITS } from "@/lib/validations";
 
 /**
@@ -251,7 +251,10 @@ export async function POST(request: NextRequest) {
           } else {
             // Create new category
             const newCat: NewCategory = {
+              id: generateId(),
               name: bookmark.category,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             };
             const [created] = await withRetry(
               () => db.insert(categories).values(newCat).returning(),
@@ -265,11 +268,14 @@ export async function POST(request: NextRequest) {
 
       // Create the link
       const newLink: NewLink = {
+        id: generateId(),
         url: bookmark.url,
         title: bookmark.title,
         categoryId,
         source: "import-html",
         isFavorite: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       await withRetry(

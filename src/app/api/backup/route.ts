@@ -4,7 +4,7 @@ import {
   listBackups,
   validateBackupData,
 } from "@/lib/backup/backup-service";
-import { db } from "@/lib/db";
+import { db, generateId } from "@/lib/db";
 import { userBackups } from "@/lib/db/schema";
 import type { BackupData } from "@/lib/db/schema";
 import { DEFAULT_USER_ID } from "@/lib/auth-utils";
@@ -73,11 +73,13 @@ export async function POST(request: NextRequest) {
       const [newBackup] = await db
         .insert(userBackups)
         .values({
+          id: generateId(),
           userId,
           filename,
           size,
           backupData,
           backupType: "export",
+          createdAt: new Date(),
         })
         .returning();
 

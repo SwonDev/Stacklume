@@ -183,10 +183,19 @@ function handlePreflightRequest(origin: string | null): NextResponse {
   return addCorsHeaders(response, origin);
 }
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const method = request.method;
   const origin = request.headers.get('origin');
+
+  // =========================================================================
+  // Desktop Mode — bypass all auth, CSRF and CORS checks
+  // =========================================================================
+  if (process.env.DESKTOP_MODE === 'true') {
+    const res = NextResponse.next();
+    res.headers.set('X-Desktop-Mode', 'true');
+    return res;
+  }
 
   // =========================================================================
   // Authentication Check (runs in both dev and production)

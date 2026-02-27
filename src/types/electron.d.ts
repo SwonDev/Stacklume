@@ -24,10 +24,25 @@ interface ElectronAPI {
   isElectron: boolean;
 }
 
+/** API de Tauri v2 expuesta al WebView */
+interface TauriAPI {
+  invoke: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  event: {
+    listen: (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
+    emit: (event: string, payload?: unknown) => Promise<void>;
+  };
+}
+
 declare global {
   interface Window {
     electronAPI?: ElectronAPI;
     isElectron?: boolean;
+    /** Presente cuando la app corre dentro del WebView de Tauri v1 */
+    __TAURI__?: TauriAPI;
+    /** API interna de Tauri v2 (reemplaza __TAURI__ en v2) */
+    __TAURI_INTERNALS__?: TauriAPI;
+    /** Inyectado por el servidor Next.js en modo desktop */
+    __DESKTOP_MODE__?: boolean;
   }
 }
 

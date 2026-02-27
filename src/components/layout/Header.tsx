@@ -40,9 +40,11 @@ import { useStickerStore } from "@/stores/sticker-store";
 import { StickerBook } from "@/components/stickers";
 import { motion, AnimatePresence } from "motion/react";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useElectron } from "@/hooks/useElectron";
 
 export function Header() {
   const router = useRouter();
+  const { isDesktop } = useElectron();
 
   // Use selectors ONLY for state values, not functions (prevents re-render loops)
   const searchQuery = useLayoutStore((state) => state.searchQuery);
@@ -342,23 +344,25 @@ export function Header() {
           {/* Offline status indicator */}
           <OfflineBadge />
 
-          {/* Logout button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={handleLogout}
-                aria-label="Cerrar sesión"
-              >
-                <LogOut size={16} aria-hidden="true" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Cerrar sesión</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Logout button — oculto en modo desktop (Tauri), sin sesión de usuario */}
+          {!isDesktop && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleLogout}
+                  aria-label="Cerrar sesión"
+                >
+                  <LogOut size={16} aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Cerrar sesión</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {/* Settings dropdown with tools */}
           <SettingsDropdown

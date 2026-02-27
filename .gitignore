@@ -74,6 +74,21 @@ logs/
 nul
 NUL
 
+# Tauri — artefactos de build generados (no commitear)
+src-tauri/target/
+src-tauri/resources/node/
+src-tauri/resources/server/
+src-tauri/gen/
+
+# Next.js standalone build para desktop (generado por build-desktop.mjs)
+dist-placeholder/*.html
+!dist-placeholder/index.html
+
+# Archivos temporales y accidentales
+tmp/
+null
+*.db
+
 # Lint output files (dev only)
 lint_*.txt
 
