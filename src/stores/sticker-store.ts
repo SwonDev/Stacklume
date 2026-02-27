@@ -61,7 +61,7 @@ interface StickerState {
   isDropOutsideBook: (x: number, y: number) => boolean;
 
   // Actions - Placed Stickers
-  placeSticker: (stickerId: string, filename: string, x: number, y: number, viewMode: 'bento' | 'kanban' | 'list', projectId: string | null) => void;
+  placeSticker: (stickerId: string, filename: string, x: number, y: number, viewMode: 'bento' | 'kanban' | 'list', projectId: string | null, attachedToWidgetId?: string, widgetOffsetX?: number, widgetOffsetY?: number) => void;
   removeSticker: (id: string) => void;
   updateSticker: (id: string, transform: StickerTransform) => void;
   selectSticker: (id: string | null) => void;
@@ -184,7 +184,7 @@ export const useStickerStore = create<StickerState>()(
       },
 
       // Placed Stickers
-      placeSticker: (stickerId, filename, x, y, viewMode, projectId) => {
+      placeSticker: (stickerId, filename, x, y, viewMode, projectId, attachedToWidgetId, widgetOffsetX, widgetOffsetY) => {
         const { maxZIndex, placedStickers } = get();
         const newZIndex = maxZIndex + 1;
 
@@ -200,6 +200,7 @@ export const useStickerStore = create<StickerState>()(
           projectId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          ...(attachedToWidgetId !== undefined ? { attachedToWidgetId, widgetOffsetX, widgetOffsetY } : {}),
         };
 
         set({
@@ -338,8 +339,10 @@ export const useStickerStore = create<StickerState>()(
         return get().placedStickers.filter((s) => {
           // Filter by view mode
           if (s.viewMode !== viewMode) return false;
-          // Filter by project (null means global/no project)
-          if (s.projectId !== projectId) return false;
+          // Normalize projectId: legacy stickers persisted before the field existed
+          // may have undefined instead of null. Treat undefined as null.
+          const stickerProjectId = s.projectId ?? null;
+          if (stickerProjectId !== projectId) return false;
           return true;
         });
       },

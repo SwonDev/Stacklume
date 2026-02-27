@@ -35,20 +35,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CategorySelector } from "@/components/ui/category-selector";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLinksStore } from "@/stores/links-store";
 import { motion, AnimatePresence } from "motion/react";
-import type { Category } from "@/lib/db/schema";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 const formSchema = z.object({
@@ -102,7 +95,7 @@ const contentTypeLabels: Record<string, string> = {
 };
 
 export function AddLinkModal() {
-  const { isAddLinkModalOpen, setAddLinkModalOpen, closeAddLinkModal, categories, addLink, prefillLinkData } =
+  const { isAddLinkModalOpen, setAddLinkModalOpen, closeAddLinkModal, addLink, prefillLinkData } =
     useLinksStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
@@ -473,23 +466,12 @@ export function AddLinkModal() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Categoría (opcional)</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una categoría" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((category: Category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <CategorySelector
+                      selectedCategoryId={field.value || null}
+                      onCategoryChange={(id) => field.onChange(id ?? "")}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
