@@ -367,6 +367,28 @@ pub fn run() {
                     .env("DATABASE_PATH", db_path.to_str().unwrap_or("stacklume.db"))
                     .env("NODE_ENV", "production");
 
+                // Cargar claves privadas desde .env.keys (generado por build-desktop.mjs).
+                // Este archivo solo existe en builds privadas del propietario — no en el repo público.
+                let env_keys_path = server_dir.join(".env.keys");
+                if env_keys_path.exists() {
+                    if let Ok(contents) = std::fs::read_to_string(&env_keys_path) {
+                        let mut loaded = 0u32;
+                        for line in contents.lines() {
+                            let line = line.trim();
+                            if line.starts_with('#') || line.is_empty() { continue; }
+                            if let Some((k, v)) = line.split_once('=') {
+                                let k = k.trim();
+                                let v = v.trim().trim_matches('"').trim_matches('\'');
+                                if !k.is_empty() && !v.is_empty() {
+                                    cmd.env(k, v);
+                                    loaded += 1;
+                                }
+                            }
+                        }
+                        log(&log_path, &format!(".env.keys: {} variables cargadas", loaded));
+                    }
+                }
+
                 // Evitar que node.exe abra una ventana de consola en Windows
                 #[cfg(windows)]
                 {

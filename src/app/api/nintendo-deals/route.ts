@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
-// Nintendo eShop usa Algolia públicamente (las mismas keys que expone nintendo.com en frontend)
-// Puedes sobreescribirlas con variables de entorno si Nintendo las cambia
-const ALGOLIA_APP_ID = process.env.NINTENDO_ALGOLIA_APP_ID ?? "U3B6GR4UA3";
-const ALGOLIA_API_KEY = process.env.NINTENDO_ALGOLIA_API_KEY ?? "a29c6927638bfd8cee23993e51e721c9";
-const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/store_all_products_en_us/query`;
+// Nintendo eShop usa Algolia. Configura NINTENDO_ALGOLIA_APP_ID y NINTENDO_ALGOLIA_API_KEY
+// en .env.local para activar este widget.
+const ALGOLIA_APP_ID = process.env.NINTENDO_ALGOLIA_APP_ID;
+const ALGOLIA_API_KEY = process.env.NINTENDO_ALGOLIA_API_KEY;
 
 export interface NintendoGame {
   id: string;
@@ -170,6 +169,14 @@ function parseAlgoliaGames(hits: AlgoliaHit[]): NintendoGame[] {
 }
 
 export async function GET(request: Request) {
+  if (!ALGOLIA_APP_ID || !ALGOLIA_API_KEY) {
+    return NextResponse.json(
+      { games: [], totalCount: 0, hasMore: false, offset: 0, count: 0, error: "Nintendo eShop widget not configured" },
+      { status: 503 }
+    );
+  }
+  const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/store_all_products_en_us/query`;
+
   try {
     const { searchParams } = new URL(request.url);
     const category = (searchParams.get("category") || "sales") as CategoryType;
@@ -280,6 +287,11 @@ export async function GET(request: Request) {
 
 // Search endpoint via POST for more complex queries
 export async function POST(request: Request) {
+  if (!ALGOLIA_APP_ID || !ALGOLIA_API_KEY) {
+    return NextResponse.json({ error: "Nintendo eShop widget not configured" }, { status: 503 });
+  }
+  const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/store_all_products_en_us/query`;
+
   try {
     const body = await request.json();
     const { query = "", filters = {}, page = 0, hitsPerPage = 30 } = body;

@@ -161,6 +161,40 @@ async function main() {
   cpSync(PATHS.standalone, PATHS.serverResources, { recursive: true, dereference: true });
   log("✓ Next.js standalone copiado como server/");
 
+  // ── Incrustar claves privadas desde .env.local en resources/server/.env.keys ─
+  // Este archivo va dentro de src-tauri/resources/ que está en .gitignore.
+  // Solo se empaqueta en el instalador cuando el usuario construye desde su propia máquina.
+  // Las builds públicas no tendrán este archivo → widgets requieren configuración.
+  const envLocalPath = join(ROOT, ".env.local");
+  if (existsSync(envLocalPath)) {
+    const envContent = readFileSync(envLocalPath, "utf-8");
+    const privateVars = [
+      "NINTENDO_ALGOLIA_APP_ID",
+      "NINTENDO_ALGOLIA_API_KEY",
+    ];
+    const lines = [];
+    for (const line of envContent.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+      const key = trimmed.split("=")[0].trim();
+      if (privateVars.includes(key)) {
+        lines.push(trimmed);
+      }
+    }
+    if (lines.length > 0) {
+      writeFileSync(
+        join(PATHS.serverResources, ".env.keys"),
+        lines.join("\n") + "\n",
+        "utf-8"
+      );
+      log(`✓ Claves privadas incrustadas en server/.env.keys (${lines.length} vars, no subido a git)`);
+    } else {
+      log("ℹ Ninguna clave privada encontrada en .env.local — widgets externos sin configurar en la build pública");
+    }
+  } else {
+    log("ℹ .env.local no encontrado — widgets externos sin configurar en la build pública");
+  }
+
   // Aplanar .pnpm/ → node_modules/ ANTES de borrarlo.
   //
   // PROBLEMA: El tracer de Next.js (nft) a veces genera stubs para módulos externos
