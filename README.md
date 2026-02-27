@@ -22,11 +22,11 @@
 <br />
 
 <a href="https://github.com/SwonDev/Stacklume/releases/latest">
-  <img src="https://img.shields.io/badge/⬇️_Descargar_para_Windows-d4a853?style=for-the-badge&logoColor=0a1628" height="42" />
+  <img src="https://img.shields.io/badge/Descargar_para_Windows-d4a853?style=for-the-badge&logo=windows&logoColor=0a1628" height="42" />
 </a>
 &nbsp;&nbsp;
 <a href="https://stacklume.vercel.app">
-  <img src="https://img.shields.io/badge/🌐_Usar_en_el_Navegador-0a1628?style=for-the-badge&logoColor=d4a853" height="42" />
+  <img src="https://img.shields.io/badge/Usar_en_el_Navegador-0a1628?style=for-the-badge&logo=vercel&logoColor=d4a853" height="42" />
 </a>
 
 <br />
