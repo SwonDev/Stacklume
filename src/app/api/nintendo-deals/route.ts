@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-// Nintendo uses Algolia for their eShop data
-const ALGOLIA_APP_ID = "U3B6GR4UA3";
-const ALGOLIA_API_KEY = "a29c6927638bfd8cee23993e51e721c9";
+// Nintendo eShop usa Algolia públicamente (las mismas keys que expone nintendo.com en frontend)
+// Puedes sobreescribirlas con variables de entorno si Nintendo las cambia
+const ALGOLIA_APP_ID = process.env.NINTENDO_ALGOLIA_APP_ID ?? "U3B6GR4UA3";
+const ALGOLIA_API_KEY = process.env.NINTENDO_ALGOLIA_API_KEY ?? "a29c6927638bfd8cee23993e51e721c9";
 const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/store_all_products_en_us/query`;
 
 export interface NintendoGame {

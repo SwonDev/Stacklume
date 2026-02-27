@@ -6,12 +6,23 @@ import {
   varchar,
   integer,
   json,
-  boolean,
   primaryKey,
   index,
   uniqueIndex,
+  customType,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+
+// Columna boolean compatible con SQLite (convierte 0/1 a true/false)
+// En PostgreSQL ya devuelve boolean, en SQLite devuelve 0/1 sin esta normalización
+const boolCol = customType<{ data: boolean; driverData: boolean | number }>({
+  dataType() {
+    return "boolean";
+  },
+  fromDriver(value) {
+    return Boolean(value);
+  },
+});
 
 // Type for OAuth account types (matches NextAuth adapter expectations)
 type AdapterAccountType = "oauth" | "oidc" | "email" | "webauthn";
@@ -25,11 +36,11 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  emailVerified: timestamp("email_verified", { mode: "date" }),
+  emailVerified: timestamp("email_verified", { mode: "date", withTimezone: true }),
   image: text("image"),
   password: text("password"), // For credentials provider (bcrypt hashed)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
 });
 
 // Accounts table - for OAuth providers (NextAuth)
@@ -64,7 +75,7 @@ export const sessions = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expires: timestamp("expires", { mode: "date" }).notNull(),
+    expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
   },
   (table) => ({
     userIdIdx: index("idx_sessions_user_id").on(table.userId),
@@ -77,7 +88,7 @@ export const verificationTokens = pgTable(
   {
     identifier: varchar("identifier", { length: 255 }).notNull(),
     token: varchar("token", { length: 255 }).notNull(),
-    expires: timestamp("expires", { mode: "date" }).notNull(),
+    expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.identifier, table.token] }),
@@ -124,9 +135,9 @@ export const categories = pgTable(
     icon: varchar("icon", { length: 50 }), // Lucide icon name
     color: varchar("color", { length: 20 }), // Color for the category badge
     order: integer("order").default(0).notNull(), // For sorting in sidebar
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-    deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete timestamp
   },
   (table) => ({
     nameIdx: index("idx_categories_name").on(table.name),
@@ -148,11 +159,11 @@ export const links = pgTable(
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
-    isFavorite: boolean("is_favorite").default(false),
+    isFavorite: boolCol("is_favorite").default(false),
     // Metadata from scraping
     siteName: varchar("site_name", { length: 100 }),
     author: varchar("author", { length: 100 }),
-    publishedAt: timestamp("published_at"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     // Source info (e.g., "twitter", "github", "manual")
     source: varchar("source", { length: 50 }),
     sourceId: varchar("source_id", { length: 100 }), // Original ID from source
@@ -163,11 +174,11 @@ export const links = pgTable(
     // Order for custom sorting within category
     order: integer("order").default(0).notNull(),
     // Timestamps
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-    deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete timestamp
     // Health check fields
-    lastCheckedAt: timestamp("last_checked_at"), // Last time the link was checked
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }), // Last time the link was checked
     healthStatus: varchar("health_status", { length: 20 }), // ok, redirect, broken, timeout
   },
   (table) => ({
@@ -197,8 +208,8 @@ export const tags = pgTable(
     name: varchar("name", { length: 50 }).notNull(),
     color: varchar("color", { length: 20 }),
     order: integer("order").default(0).notNull(), // For sorting in sidebar
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete timestamp
   },
   (table) => ({
     userIdIdx: index("idx_tags_user_id").on(table.userId),
@@ -228,8 +239,8 @@ export const userLayouts = pgTable("user_layouts", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: varchar("user_id", { length: 100 }).default("default"), // For future multi-user support
   layoutData: json("layout_data").$type<LayoutItem[]>().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
 });
 
 // Projects table - for organizing widgets into separate workspaces
@@ -241,10 +252,10 @@ export const projects = pgTable("projects", {
   icon: varchar("icon", { length: 50 }).default("Folder"), // Lucide icon name
   color: varchar("color", { length: 20 }).default("#6366f1"), // Project accent color
   order: integer("order").default(0).notNull(), // For sorting projects in sidebar
-  isDefault: boolean("is_default").default(false), // Only one can be default (Home)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+  isDefault: boolCol("is_default").default(false), // Only one can be default (Home)
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete timestamp
 });
 
 // Widget configurations for the bento grid
@@ -266,10 +277,10 @@ export const widgets = pgTable(
     layoutY: integer("layout_y").default(0).notNull(),
     layoutW: integer("layout_w").default(2).notNull(),
     layoutH: integer("layout_h").default(2).notNull(),
-    isVisible: boolean("is_visible").default(true),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-    deletedAt: timestamp("deleted_at"), // Soft delete timestamp
+    isVisible: boolCol("is_visible").default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete timestamp
   },
   (table) => ({
     userIdIdx: index("idx_widgets_user_id").on(table.userId),
@@ -286,10 +297,10 @@ export const userSettings = pgTable(
     theme: varchar("theme", { length: 20 }).default("system").notNull(), // 'light', 'dark', 'system'
     viewDensity: varchar("view_density", { length: 20 }).default("normal").notNull(), // 'compact', 'normal', 'comfortable'
     viewMode: varchar("view_mode", { length: 20 }).default("bento").notNull(), // 'bento', 'kanban'
-    showTooltips: boolean("show_tooltips").default(true).notNull(),
-    reduceMotion: boolean("reduce_motion").default(false).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    showTooltips: boolCol("show_tooltips").default(true).notNull(),
+    reduceMotion: boolCol("reduce_motion").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     userIdIdx: uniqueIndex("idx_user_settings_user_id").on(table.userId),
@@ -306,7 +317,7 @@ export const userBackups = pgTable(
     size: integer("size").notNull(), // Size in bytes
     backupData: json("backup_data").$type<BackupData>().notNull(),
     backupType: varchar("backup_type", { length: 20 }).default("manual").notNull(), // 'manual', 'auto', 'export'
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     userIdIdx: index("idx_user_backups_user_id").on(table.userId),

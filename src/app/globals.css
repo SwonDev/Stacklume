@@ -258,6 +258,23 @@
     max-height: 100vh;
   }
 
+  /* Modo desktop Tauri: desplaza el contenido debajo de la TitleBar (40px) */
+  html.tauri-desktop body {
+    padding-top: 40px;
+    height: calc(100vh - 40px);
+    max-height: calc(100vh - 40px);
+  }
+
+  html.tauri-desktop .no-scroll {
+    height: calc(100vh - 40px);
+    max-height: calc(100vh - 40px);
+  }
+
+  /* El header fijo también baja 40px para quedar debajo de la TitleBar */
+  html.tauri-desktop header[role="banner"] {
+    top: 2.5rem; /* 40px */
+  }
+
   /* Glass effect for cards - Dark mode */
   .glass {
     background: oklch(0.15 0.035 250 / 0.8);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, projects, withRetry, type NewProject } from "@/lib/db";
+import { db, projects, withRetry, type NewProject, generateId } from "@/lib/db";
 import { asc, eq, isNull } from "drizzle-orm";
 import { createProjectSchema, validateRequest } from "@/lib/validations";
 
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       : -1;
 
     const newProject: NewProject = {
+      id: generateId(),
       userId: "default",
       name: validatedData.name,
       description: validatedData.description || null,
@@ -60,6 +61,8 @@ export async function POST(request: NextRequest) {
       color: validatedData.color,
       order: validatedData.order !== undefined ? validatedData.order : maxOrder + 1,
       isDefault: isFirstProject ? true : validatedData.isDefault,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     // If setting this project as default, unset all other defaults

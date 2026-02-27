@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, categories, links, withRetry, type NewCategory, createPaginatedResponse } from "@/lib/db";
+import { db, categories, links, withRetry, type NewCategory, createPaginatedResponse, generateId } from "@/lib/db";
 import { desc, eq, count, isNull } from "drizzle-orm";
 import { paginationSchema, createCategorySchema, updateCategorySchema, validateRequest } from "@/lib/validations";
 
@@ -91,10 +91,13 @@ export async function POST(request: NextRequest) {
     const validatedData = validation.data;
 
     const newCategory: NewCategory = {
+      id: generateId(),
       name: validatedData.name,
       description: validatedData.description || null,
       icon: validatedData.icon || "folder",
       color: validatedData.color || "gold",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const [created] = await withRetry(
