@@ -85,14 +85,14 @@ Stacklume está disponible como **app de escritorio nativa para Windows** o como
 
 <br />
 
-### 🪟 App de escritorio — Windows
+### <img src="assets/icons/box.svg" width="22" height="22" align="center" /> App de escritorio — Windows
 
 La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, sin configuración, tus datos en local.
 
 <div align="center">
 
 <a href="https://github.com/SwonDev/Stacklume/releases/latest">
-  <img src="https://img.shields.io/badge/⬇️_Descargar_Stacklume_para_Windows-d4a853?style=for-the-badge&labelColor=0a1628" height="48" />
+  <img src="https://img.shields.io/badge/Descargar_Stacklume_para_Windows-d4a853?style=for-the-badge&labelColor=0a1628" height="48" />
 </a>
 
 </div>
@@ -106,13 +106,28 @@ La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, 
 
 **Características exclusivas del desktop:**
 
-| | |
-|---|---|
-| 🗄️ **SQLite local** | Datos guardados en `%APPDATA%\com.stacklume.app\stacklume.db` |
-| 🔒 **Sin login** | Uso personal, acceso directo sin autenticación |
-| 📦 **Autocontenido** | Incluye Node.js — cero dependencias externas |
-| 🪟 **Ventana nativa** | Barra de título personalizada, sin decoraciones del SO |
-| 💾 **Privacidad total** | Todos tus datos permanecen en tu equipo |
+<table>
+<tr>
+<td><img src="assets/icons/folder.svg" width="20" height="20" /></td>
+<td><strong>SQLite local</strong> — Datos guardados en <code>%APPDATA%\com.stacklume.app\stacklume.db</code></td>
+</tr>
+<tr>
+<td><img src="assets/icons/gear.svg" width="20" height="20" /></td>
+<td><strong>Sin login</strong> — Uso personal, acceso directo sin autenticación</td>
+</tr>
+<tr>
+<td><img src="assets/icons/box.svg" width="20" height="20" /></td>
+<td><strong>Autocontenido</strong> — Incluye Node.js, cero dependencias externas</td>
+</tr>
+<tr>
+<td><img src="assets/icons/grid.svg" width="20" height="20" /></td>
+<td><strong>Ventana nativa</strong> — Barra de título personalizada, sin decoraciones del SO</td>
+</tr>
+<tr>
+<td><img src="assets/icons/eye.svg" width="20" height="20" /></td>
+<td><strong>Privacidad total</strong> — Todos tus datos permanecen en tu equipo</td>
+</tr>
+</table>
 
 > **Requisitos:** Windows 10/11 (64-bit). WebView2 Runtime (incluido en Windows 11; se instala automáticamente en Windows 10).
 
@@ -120,7 +135,7 @@ La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, 
 
 ---
 
-### 🌐 Versión web — Self-hosted
+### <img src="assets/icons/terminal.svg" width="22" height="22" align="center" /> Versión web — Self-hosted
 
 Si prefieres alojar tu propia instancia con Neon PostgreSQL:
 
