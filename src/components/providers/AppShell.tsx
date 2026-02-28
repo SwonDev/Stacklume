@@ -16,6 +16,7 @@ import { UndoToast } from "@/components/ui/UndoToast";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { isTauriWebView, openExternalUrl } from "@/lib/desktop";
+import { TrayIconUpdater } from "./TrayIconUpdater";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -134,6 +135,9 @@ export function AppShell({ children }: AppShellProps) {
           <OnboardingTour />
         </>
       )}
+
+      {/* Tray icon animation — solo activo en Tauri */}
+      {mounted && isTauriWebView() && <TrayIconUpdater />}
     </>
   );
 }

@@ -154,6 +154,67 @@ fn close_window(window: tauri::WebviewWindow) {
     let _ = window.close();
 }
 
+/// Actualiza el icono del system tray con un frame RGBA enviado desde el frontend.
+/// Se llama ~30 veces por segundo desde TrayIconUpdater.tsx.
+#[tauri::command]
+fn update_tray_icon(
+    app: tauri::AppHandle,
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    if let Some(tray) = app.tray_by_id("main") {
+        let icon = tauri::image::Image::new_owned(rgba, width, height);
+        tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// ─── System Tray ──────────────────────────────────────────────────────────────
+
+fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+    let show_item = MenuItemBuilder::with_id("show", "Abrir Stacklume").build(app)?;
+    let quit_item = MenuItemBuilder::with_id("quit", "Cerrar").build(app)?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&show_item, &quit_item])
+        .build()?;
+
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().unwrap().clone())
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+        })
+        .build(app)?;
+
+    Ok(())
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 pub fn run() {
@@ -167,6 +228,9 @@ pub fn run() {
             node_job: Mutex::new(0),
         })
         .setup(|app| {
+            // Crear system tray (dev y prod)
+            setup_tray(app)?;
+
             // ── MODO DEV ────────────────────────────────────────────────────────
             #[cfg(dev)]
             {
@@ -535,6 +599,13 @@ pub fn run() {
             }
         })
         .on_window_event(|_window, event| {
+            // Botón X → ocultar al tray en lugar de cerrar la aplicación.
+            // Para cerrar completamente: menú del tray → "Cerrar" (app.exit(0)).
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = _window.hide();
+            }
+
             // Cuando la ventana principal se destruye, matar el proceso node.exe hijo.
             // Esto evita que node.exe quede bloqueando el archivo durante reinstalaciones.
             if let tauri::WindowEvent::Destroyed = event {
@@ -561,6 +632,7 @@ pub fn run() {
             minimize_window,
             toggle_maximize_window,
             close_window,
+            update_tray_icon,
         ])
         .run(tauri::generate_context!())
         .expect("Error al ejecutar Stacklume");

@@ -41,6 +41,12 @@ import { StickerBook } from "@/components/stickers";
 import { motion, AnimatePresence } from "motion/react";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useElectron } from "@/hooks/useElectron";
+import dynamic from "next/dynamic";
+
+const SpinningCoinLogo = dynamic(
+  () => import("./SpinningCoinLogo").then((m) => ({ default: m.SpinningCoinLogo })),
+  { ssr: false }
+);
 
 export function Header() {
   const router = useRouter();
@@ -175,14 +181,10 @@ export function Header() {
           data-tour="header-logo"
         >
           <motion.div
-            className="h-6 w-6 rounded-md bg-primary flex items-center justify-center overflow-hidden"
+            className="h-6 w-6 rounded-md overflow-hidden"
             whileHover={{ scale: 1.05 }}
           >
-            <img
-              src="/logo.svg"
-              alt="Stacklume"
-              className="h-5 w-5 object-contain"
-            />
+            <SpinningCoinLogo width={24} height={24} />
           </motion.div>
           <span className="text-sm font-semibold text-gold-gradient hidden md:inline">
             Stacklume

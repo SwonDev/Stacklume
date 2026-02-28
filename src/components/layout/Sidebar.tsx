@@ -13,6 +13,12 @@ import { useProjectsStore } from "@/stores/projects-store";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { AddProjectModal, EditProjectModal } from "@/components/projects/ProjectDialog";
 import type { Link, Category, Tag } from "@/lib/db/schema";
+import dynamic from "next/dynamic";
+
+const SpinningCoinLogo = dynamic(
+  () => import("./SpinningCoinLogo").then((m) => ({ default: m.SpinningCoinLogo })),
+  { ssr: false }
+);
 import { motion } from "motion/react";
 
 // dnd-kit imports
@@ -450,10 +456,8 @@ export function Sidebar() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-sm font-bold text-primary-foreground">
-                  S
-                </span>
+              <div className="h-7 w-7 rounded-md overflow-hidden">
+                <SpinningCoinLogo width={28} height={28} />
               </div>
               <span className="font-semibold text-sidebar-foreground">
                 Stacklume
