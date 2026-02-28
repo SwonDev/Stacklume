@@ -29,6 +29,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
     "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:installer": "node scripts/generate-installer-images.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "build:desktop": "node scripts/build-desktop.mjs",
