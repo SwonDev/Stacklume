@@ -15,6 +15,7 @@ import { ManageTagsModal } from "@/components/modals/ManageTagsModal";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { isTauriWebView, openExternalUrl } from "@/lib/desktop";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -38,6 +39,39 @@ export function AppShell({ children }: AppShellProps) {
       setMounted(true);
     });
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  // En Tauri, interceptar clicks en <a> externas y window.open() para abrirlos
+  // en el navegador del sistema (WebView2 los bloquea por defecto).
+  useEffect(() => {
+    if (!isTauriWebView()) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute("href") ?? "";
+      if (href.startsWith("http://") || href.startsWith("https://")) {
+        e.preventDefault();
+        e.stopPropagation();
+        void openExternalUrl(href);
+      }
+    };
+    document.addEventListener("click", handleClick, true);
+
+    // Sobreescribir window.open para widgets que llaman directamente a él
+    const origOpen = window.open.bind(window);
+    window.open = (url?: string | URL, target?: string, features?: string) => {
+      const u = typeof url === "string" ? url : url?.toString() ?? "";
+      if (u.startsWith("http://") || u.startsWith("https://")) {
+        void openExternalUrl(u);
+        return null;
+      }
+      return origOpen(url, target, features);
+    };
+
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+    };
   }, []);
 
   // For auth routes, just render children without shell

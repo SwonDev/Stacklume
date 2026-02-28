@@ -401,6 +401,7 @@ const formSchema = z.object({
     "api-tester",
     "cron-builder",
     "diff-viewer",
+    "password-manager",
   ]),
   title: z.string().min(1, "El título es obligatorio"),
   size: z.enum(["small", "medium", "large", "wide", "tall"]),
@@ -1500,6 +1501,12 @@ const widgetTypeOptions: Array<{
     description: "Comparador de textos",
     icon: GitCompare,
   },
+  {
+    type: "password-manager",
+    label: "Gestor de Contraseñas",
+    description: "Almacena logins, usuarios y contraseñas con acceso a las webs",
+    icon: KeyRound,
+  },
 ];
 
 // Size options in Spanish
@@ -1645,7 +1652,7 @@ const WIDGET_CATEGORIES: WidgetCategory[] = [
     label: "Utilidades Avanzadas",
     icon: Terminal,
     color: "zinc",
-    widgets: ["clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer"],
+    widgets: ["clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer", "password-manager"],
   },
 ];
 

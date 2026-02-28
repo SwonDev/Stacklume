@@ -1887,6 +1887,26 @@ export interface DiffViewerWidgetConfig {
   viewMode?: 'split' | 'inline';
 }
 
+// ----- Password Manager widget ------------------------------------------------
+
+export interface PasswordEntry {
+  id: string;
+  service: string;
+  url?: string;
+  username: string;
+  /** Contraseña codificada en Base64 */
+  password: string;
+  notes?: string;
+  category?: 'email' | 'social' | 'work' | 'finance' | 'gaming' | 'personal' | 'other';
+  isFavorite?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PasswordManagerConfig {
+  entries?: PasswordEntry[];
+}
+
 // Combined widget config interface that includes all possible config properties
 // This allows any widget to access any config property without type errors
 export interface WidgetConfig
@@ -2044,7 +2064,8 @@ export interface WidgetConfig
     Partial<SiteStatusWidgetConfig>,
     Partial<APITesterWidgetConfig>,
     Partial<CronBuilderWidgetConfig>,
-    Partial<DiffViewerWidgetConfig> {
+    Partial<DiffViewerWidgetConfig>,
+    Partial<PasswordManagerConfig> {
   // Allow additional properties for extensibility
   [key: string]: unknown;
 }

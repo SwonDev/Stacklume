@@ -677,6 +677,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
       'api-tester': -112,
       'cron-builder': -113,
       'diff-viewer': -114,
+      'password-manager': -115,
     };
 
     const sortedWidgets = [...projectWidgets].sort((a, b) => {

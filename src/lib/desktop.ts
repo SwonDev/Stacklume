@@ -75,3 +75,32 @@ export async function getServerPort(): Promise<number | null> {
   if (!window.__TAURI_INTERNALS__ && !window.__TAURI__) return null;
   return tauriInvoke<number>("get_server_port");
 }
+
+/**
+ * Abre una URL externa en el navegador por defecto del sistema.
+ * En Tauri usa el plugin shell (requiere capability shell:allow-open).
+ * En navegador normal usa window.open() estándar.
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  // Tauri v2 — usa __TAURI_INTERNALS__
+  if (window.__TAURI_INTERNALS__) {
+    try {
+      await window.__TAURI_INTERNALS__.invoke("plugin:shell|open", { path: url });
+      return;
+    } catch {
+      // fallback por si la API cambia de nombre
+    }
+  }
+  // Tauri v1 — usa __TAURI__.shell
+  const tauriV1 = window.__TAURI__ as unknown as { shell?: { open: (url: string) => Promise<void> } } | undefined;
+  if (tauriV1?.shell) {
+    try {
+      await tauriV1.shell.open(url);
+      return;
+    } catch {
+      // fallback
+    }
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}

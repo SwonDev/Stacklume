@@ -188,7 +188,8 @@ export type WidgetType =
   | 'site-status'      // Multi-site uptime checker
   | 'api-tester'       // Quick REST API tester
   | 'cron-builder'     // Cron expression builder
-  | 'diff-viewer';     // Text diff comparison
+  | 'diff-viewer'      // Text diff comparison
+  | 'password-manager'; // Gestor de contraseñas (logins, usuarios, URLs)
 
 export type WidgetSize = 'small' | 'medium' | 'large' | 'wide' | 'tall';
 

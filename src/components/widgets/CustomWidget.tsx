@@ -727,7 +727,6 @@ function ConfigurationPanel({
     }
 
     updateConfig(updates);
-    onModeChange(localMode);
     onClose();
   };
 
