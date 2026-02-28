@@ -77,6 +77,22 @@ export async function getServerPort(): Promise<number | null> {
 }
 
 /**
+ * Actualiza el icono del system tray con un frame RGBA del canvas offscreen.
+ * @param rgba  Array de bytes RGBA (width × height × 4) en orden top-down.
+ * @param width  Ancho en píxeles (normalmente 64).
+ * @param height Alto en píxeles (normalmente 64).
+ */
+export async function updateTrayIcon(
+  rgba: number[],
+  width: number,
+  height: number
+): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!window.__TAURI_INTERNALS__) return;
+  await window.__TAURI_INTERNALS__.invoke("update_tray_icon", { rgba, width, height });
+}
+
+/**
  * Abre una URL externa en el navegador por defecto del sistema.
  * En Tauri usa el plugin shell (requiere capability shell:allow-open).
  * En navegador normal usa window.open() estándar.
