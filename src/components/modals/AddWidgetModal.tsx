@@ -1703,7 +1703,7 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
   }, [categoryWidgets, selectedTypes]);
 
   const colors = FOLDER_COLORS[category.color] || FOLDER_COLORS.blue;
-  const Icon = category.icon;
+  const Icon = category.icon as React.ComponentType<{ className?: string }>;
 
   const handleDoubleClick = useCallback(() => {
     setIsOpen(prev => !prev);
@@ -1793,7 +1793,7 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
           >
             <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
               {categoryWidgets.map((option) => {
-                const WidgetIcon = option.icon;
+                const WidgetIcon = option.icon as React.ComponentType<{ className?: string }>;
                 const isSelected = selectedTypes.includes(option.type);
 
                 return (
@@ -2207,7 +2207,7 @@ export function AddWidgetModal() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {filteredWidgetOptions.map((option) => {
-                        const Icon = option.icon;
+                        const Icon = option.icon as React.ComponentType<{ className?: string }>;
                         const isSelected = selectedTypes.includes(option.type);
 
                         return (

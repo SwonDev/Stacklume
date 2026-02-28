@@ -251,7 +251,7 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(categoryConfig).map(([key, config]) => {
-                  const Icon = config.icon;
+                  const Icon = config.icon as React.ComponentType<{ className?: string }>;
                   return (
                     <SelectItem key={key} value={key}>
                       <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
               <div className="space-y-1">
                 {filteredExpenses.map((expense) => {
                   const config = categoryConfig[expense.category];
-                  const Icon = config.icon;
+                  const Icon = config.icon as React.ComponentType<{ className?: string }>;
                   const date = new Date(expense.createdAt);
                   return (
                     <motion.div
@@ -367,7 +367,7 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
                   .filter((e) => e.category === key)
                   .reduce((sum, e) => sum + e.amount, 0);
                 if (categoryTotal === 0) return null;
-                const Icon = config.icon;
+                const Icon = config.icon as React.ComponentType<{ className?: string }>;
                 return (
                   <Badge
                     key={key}
