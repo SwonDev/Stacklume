@@ -1674,6 +1674,15 @@ export const WIDGET_TYPE_METADATA: Record<WidgetType, WidgetTypeMetadata> = {
     defaultTitle: 'Diff Viewer',
     configurable: true,
   },
+  'password-manager': {
+    type: 'password-manager',
+    label: 'Gestor de Contraseñas',
+    description: 'Almacena y gestiona logins, usuarios y contraseñas con acceso a las webs',
+    icon: 'KeyRound',
+    defaultSize: 'large',
+    defaultTitle: 'Contraseñas',
+    configurable: false,
+  },
 };
 
 // Type alias for WidgetConfig - used for functions that return widget configs
@@ -2782,6 +2791,9 @@ export function getDefaultWidgetConfig(type: WidgetType): WidgetConfigOptions {
           framework: 'next',
         },
       };
+
+    case 'password-manager':
+      return { entries: [] };
 
     default:
       return {};

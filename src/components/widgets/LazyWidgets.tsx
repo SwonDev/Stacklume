@@ -191,6 +191,7 @@ const SiteStatusMonitorWidget = lazy(() => import("./SiteStatusMonitorWidget").t
 const APITesterWidget = lazy(() => import("./APITesterWidget").then(m => ({ default: m.APITesterWidget })));
 const CronBuilderWidget = lazy(() => import("./CronBuilderWidget").then(m => ({ default: m.CronBuilderWidget })));
 const DiffViewerWidget = lazy(() => import("./DiffViewerWidget").then(m => ({ default: m.DiffViewerWidget })));
+const PasswordManagerWidget = lazy(() => import("./PasswordManagerWidget").then(m => ({ default: m.PasswordManagerWidget })));
 
 // Map of widget types to their lazy components
 const widgetMap: Record<string, LazyWidgetComponent> = {
@@ -379,6 +380,7 @@ const widgetMap: Record<string, LazyWidgetComponent> = {
   "api-tester": APITesterWidget,
   "cron-builder": CronBuilderWidget,
   "diff-viewer": DiffViewerWidget,
+  "password-manager": PasswordManagerWidget,
 };
 
 // Skeleton variant mapping based on widget type
@@ -528,6 +530,7 @@ function getSkeletonVariant(widgetType: string): "list" | "stats" | "clock" | "n
     case "api-tester":
     case "cron-builder":
     case "diff-viewer":
+    case "password-manager":
       return "notes";
     case "favorites":
     case "recent":
@@ -767,6 +770,7 @@ export {
   APITesterWidget,
   CronBuilderWidget,
   DiffViewerWidget,
+  PasswordManagerWidget,
 };
 
 // List of special widget types that use LazyWidgetRenderer
@@ -816,5 +820,6 @@ export const specialWidgetTypes = [
   // Productivity Extended widgets
   "focus-score", "time-blocking", "daily-review", "energy-tracker", "parking-lot-enhanced",
   // Utility Extended widgets
-  "clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer"
+  "clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer",
+  "password-manager",
 ];
