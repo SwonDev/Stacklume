@@ -370,6 +370,7 @@ const widgetTypeSchema = z.enum([
   'api-tester',
   'cron-builder',
   'diff-viewer',
+  'password-manager',
   // Additional game development
   'tilemap',
 ] as const);
