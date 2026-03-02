@@ -115,11 +115,22 @@ function parseBookmarksHtml(html: string): {
         continue;
       }
 
-      // Check for bookmark (A tag) - more robust regex
-      const linkMatch = line.match(/<A\s+[^>]*HREF="([^"]+)"[^>]*>([^<]*)<\/A>/i);
-      if (linkMatch) {
-        const rawUrl = linkMatch[1];
-        const rawTitle = linkMatch[2].trim();
+      // Check for bookmark (A tag).
+      // Usamos dos regex separados en lugar de uno combinado porque Chrome exporta
+      // marcadores con atributos ICON="data:image/png;base64,..." que pueden contener
+      // el carácter '>' dentro del valor base64. El patrón [^>]* de un regex único
+      // se detiene en ese '>' y no consigue hacer match de la línea completa.
+      // Solución:
+      //   1. HREF="([^"]+)"  → extrae la URL ignorando cualquier '>' en otros atributos
+      //   2. >([^<>]*)<\/A>  → extrae el título entre el último '>' de la apertura y </A>
+      //      usando [^<>]* que excluye ambos caracteres y no se confunde con '>' en base64
+      if (/<A\s/i.test(line) && /HREF=/i.test(line)) {
+        const hrefMatch = line.match(/HREF="([^"]+)"/i);
+        const titleMatch = line.match(/>([^<>]*)<\/A>/i);
+        if (!hrefMatch) continue; // Línea con <A> pero sin HREF válido — ignorar
+
+        const rawUrl = hrefMatch[1];
+        const rawTitle = titleMatch ? titleMatch[1].trim() : '';
 
         // Extract ADD_DATE if present
         const addDateMatch = line.match(/ADD_DATE="(\d+)"/i);
