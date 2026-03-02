@@ -72,6 +72,7 @@ export function AppShell({ children }: AppShellProps) {
 
     return () => {
       document.removeEventListener("click", handleClick, true);
+      window.open = origOpen;
     };
   }, []);
 
