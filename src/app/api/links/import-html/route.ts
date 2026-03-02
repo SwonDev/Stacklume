@@ -74,8 +74,13 @@ function parseBookmarksHtml(html: string): {
   }> = [];
   const errors: string[] = [];
 
-  // Match folder names (H3 tags)
+  // Pila para gestionar carpetas anidadas: cada entrada es la categoría del nivel padre.
+  // Cuando se abre <DL> después de un <H3>, se empuja la categoría actual a la pila
+  // y se activa la nueva. Cuando se cierra </DL>, se restaura la categoría padre.
+  const categoryStack: (string | undefined)[] = [];
   let currentCategory: string | undefined;
+  // Categoría pendiente: la fijada por <H3> que se activará al abrir <DL>
+  let pendingCategory: string | undefined;
 
   // Split by lines for simpler parsing
   const lines = html.split("\n");
@@ -91,10 +96,21 @@ function parseBookmarksHtml(html: string): {
         // Sanitize category name
         const sanitizedCategory = sanitizeText(rawCategory);
         if (sanitizedCategory && sanitizedCategory.length <= 100) {
-          currentCategory = sanitizedCategory;
+          pendingCategory = sanitizedCategory;
         } else if (sanitizedCategory && sanitizedCategory.length > 100) {
-          currentCategory = sanitizedCategory.substring(0, 100);
+          pendingCategory = sanitizedCategory.substring(0, 100);
           errors.push(`Line ${lineNum + 1}: Category name truncated to 100 characters`);
+        }
+        continue;
+      }
+
+      // Apertura de <DL>: si hay categoría pendiente (venimos de <H3>),
+      // guardamos la categoría actual en la pila y activamos la pendiente.
+      if (/<DL[\s>]/i.test(line) && !/<\/DL>/i.test(line)) {
+        categoryStack.push(currentCategory);
+        if (pendingCategory !== undefined) {
+          currentCategory = pendingCategory;
+          pendingCategory = undefined;
         }
         continue;
       }
@@ -134,10 +150,13 @@ function parseBookmarksHtml(html: string): {
         });
       }
 
-      // Reset category when closing a folder
-      if (line.includes("</DL>")) {
-        // Go back to parent category (simplified - just reset for now)
-        currentCategory = undefined;
+      // Cierre de </DL>: restaurar la categoría del nivel padre
+      if (/<\/DL>/i.test(line)) {
+        if (categoryStack.length > 0) {
+          currentCategory = categoryStack.pop();
+        } else {
+          currentCategory = undefined;
+        }
       }
     } catch {
       errors.push(`Line ${lineNum + 1}: Failed to parse line`);
