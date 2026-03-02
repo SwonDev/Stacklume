@@ -53,12 +53,6 @@ const nextConfig: NextConfig = {
       : []),
   ],
 
-  // Fix Turbopack workspace root inference on Windows
-  // Without this, Turbopack incorrectly infers src/app as the project root
-  turbopack: {
-    root: process.cwd(),
-  },
-
   // Image optimization configuration
   images: {
     // Disable image optimization for standalone/Electron builds
