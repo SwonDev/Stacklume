@@ -25,7 +25,7 @@ const ROOT = resolve(__dirname, "..");
 // Versión de Node.js portable a descargar — debe coincidir con la versión local
 // para que los native addons (@libsql/client) funcionen sin recompilar.
 // Verificar con: node --version → debe coincidir con esta constante.
-const NODE_VERSION = "25.6.1";
+const NODE_VERSION = "25.2.1";
 const NODE_ZIP = `node-v${NODE_VERSION}-win-x64.zip`;
 const NODE_URL = `https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ZIP}`;
 const NODE_FOLDER = `node-v${NODE_VERSION}-win-x64`;
