@@ -468,42 +468,45 @@ export const IMPORT_LIMITS = {
 } as const;
 
 // Import link item (for JSON bulk import)
+// Nota: todos los campos opcionales usan .nullish() (= .nullable().optional())
+// porque el JSON exportado contiene null para campos no rellenados, y Zod
+// rechaza null con solo .optional() (que admite undefined pero no null).
 const importLinkItemSchema = z.object({
   id: z.string().uuid().optional(),   // ID original — necesario para mapear linkTags
   url: urlSchema,
   title: z.string().min(1).max(255),
-  description: z.string().max(1000).optional(),
-  imageUrl: urlSchema.optional(),
-  faviconUrl: urlSchema.optional(),
+  description: z.string().max(1000).nullish(),
+  imageUrl: urlSchema.nullish(),
+  faviconUrl: urlSchema.nullish(),
   categoryId: optionalUuidSchema,
-  isFavorite: z.boolean().optional(),
-  siteName: z.string().max(100).optional(),
-  author: z.string().max(100).optional(),
-  publishedAt: isoDateSchema.optional(),
-  source: z.string().max(50).optional(),
-  sourceId: z.string().max(100).optional(),
-  platform: z.string().max(50).optional(),
-  contentType: z.string().max(30).optional(),
-  platformColor: z.string().max(20).optional(),
-  tags: z.array(z.string()).optional(), // Tag names for association
+  isFavorite: z.boolean().nullish(),
+  siteName: z.string().max(100).nullish(),
+  author: z.string().max(100).nullish(),
+  publishedAt: isoDateSchema.nullish(),
+  source: z.string().max(50).nullish(),
+  sourceId: z.string().max(100).nullish(),
+  platform: z.string().max(50).nullish(),
+  contentType: z.string().max(30).nullish(),
+  platformColor: z.string().max(20).nullish(),
+  tags: z.array(z.string()).nullish(), // Tag names for association
 });
 
 // Import category item
 const importCategoryItemSchema = z.object({
   id: z.string().uuid().optional(),   // ID original — necesario para mapear categoryId de los links
   name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  icon: z.string().max(50).optional(),
-  color: z.string().max(50).optional(), // Aumentado a 50 para soportar hex y nombres de color
-  order: z.number().int().optional(),
+  description: z.string().max(500).nullish(),
+  icon: z.string().max(50).nullish(),
+  color: z.string().max(50).nullish(), // Soporta hex y nombres de color
+  order: z.number().int().nullish(),
 });
 
 // Import tag item
 const importTagItemSchema = z.object({
   id: z.string().uuid().optional(),   // ID original — necesario para mapear linkTags
   name: z.string().min(1).max(50),
-  color: z.string().max(50).optional(), // Aumentado a 50 para soportar hex y nombres de color
-  order: z.number().int().optional(),
+  color: z.string().max(50).nullish(), // Soporta hex y nombres de color
+  order: z.number().int().nullish(),
 });
 
 // Link-tag association for import
