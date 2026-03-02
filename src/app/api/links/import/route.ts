@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db, links, categories, tags, linkTags, withRetry, type NewLink, type NewCategory, type NewTag, generateId } from "@/lib/db";
 import { importDataSchema, validateRequest, IMPORT_LIMITS } from "@/lib/validations";
 
@@ -93,41 +94,56 @@ export async function POST(request: NextRequest) {
 
     let imported = 0;
     const skipped: string[] = [];
-    const categoryIdMap = new Map<string, string>(); // old id -> new id
-    const tagIdMap = new Map<string, string>(); // old id -> new id
+    const categoryIdMap = new Map<string, string>(); // old id/name -> new id
+    const tagIdMap = new Map<string, string>();       // old id/name -> new id
 
-    // Import categories first
+    // ── 1. Importar categorías ────────────────────────────────────────────────
     if (validatedData.categories && validatedData.categories.length > 0) {
       for (const cat of validatedData.categories) {
-        // Sanitize category data
         const sanitizedName = sanitizeText(cat.name);
         if (!sanitizedName) {
           skipped.push(`Category skipped: invalid name`);
           continue;
         }
 
-        // Check if category with same name exists
+        const sanitizedColor = sanitizeText(cat.color);
+        const sanitizedIcon  = sanitizeText(cat.icon);
+        const sanitizedDesc  = sanitizeText(cat.description);
+
+        // Buscar categoría existente por nombre
         const existing = await withRetry(
           () => db.query.categories.findFirst({
-            where: (c, { eq }) => eq(c.name, sanitizedName),
+            where: (c, { eq: ceq }) => ceq(c.name, sanitizedName),
           }),
           { operationName: "check existing category" }
         );
 
         if (existing) {
-          // Use the ID from the original data if available, otherwise use the name
-          const originalId = (cat as { id?: string }).id;
-          if (originalId) {
-            categoryIdMap.set(originalId, existing.id);
-          }
+          // Mapear el ID original → ID existente
+          if (cat.id) categoryIdMap.set(cat.id, existing.id);
           categoryIdMap.set(sanitizedName, existing.id);
+
+          // Actualizar color/icono/descripción si el export los trae
+          // (restaura fielmente los datos exportados)
+          const updates: Record<string, unknown> = { updatedAt: new Date() };
+          if (sanitizedColor) updates.color = sanitizedColor;
+          if (sanitizedIcon)  updates.icon  = sanitizedIcon;
+          if (sanitizedDesc)  updates.description = sanitizedDesc;
+
+          if (Object.keys(updates).length > 1) {
+            await withRetry(
+              () => db.update(categories).set(updates).where(eq(categories.id, existing.id)),
+              { operationName: "update category from import" }
+            );
+          }
         } else {
+          // Crear categoría nueva con todos sus datos
           const newCat: NewCategory = {
             id: generateId(),
             name: sanitizedName,
-            description: sanitizeText(cat.description),
-            icon: sanitizeText(cat.icon),
-            color: sanitizeText(cat.color),
+            description: sanitizedDesc,
+            icon: sanitizedIcon,
+            color: sanitizedColor,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -135,80 +151,81 @@ export async function POST(request: NextRequest) {
             () => db.insert(categories).values(newCat).returning(),
             { operationName: "import category" }
           );
-          const originalId = (cat as { id?: string }).id;
-          if (originalId) {
-            categoryIdMap.set(originalId, created.id);
-          }
+          if (cat.id) categoryIdMap.set(cat.id, created.id);
           categoryIdMap.set(sanitizedName, created.id);
         }
       }
     }
 
-    // Import tags
+    // ── 2. Importar tags ──────────────────────────────────────────────────────
     if (validatedData.tags && validatedData.tags.length > 0) {
       for (const tag of validatedData.tags) {
-        // Sanitize tag data
         const sanitizedName = sanitizeText(tag.name);
         if (!sanitizedName) {
           skipped.push(`Tag skipped: invalid name`);
           continue;
         }
 
-        // Check if tag with same name exists
+        const sanitizedColor = sanitizeText(tag.color);
+
         const existing = await withRetry(
           () => db.query.tags.findFirst({
-            where: (t, { eq }) => eq(t.name, sanitizedName),
+            where: (t, { eq: teq }) => teq(t.name, sanitizedName),
           }),
           { operationName: "check existing tag" }
         );
 
         if (existing) {
-          const originalId = (tag as { id?: string }).id;
-          if (originalId) {
-            tagIdMap.set(originalId, existing.id);
-          }
+          if (tag.id) tagIdMap.set(tag.id, existing.id);
           tagIdMap.set(sanitizedName, existing.id);
+
+          // Actualizar color si el export lo trae
+          if (sanitizedColor) {
+            await withRetry(
+              () => db.update(tags)
+                .set({ color: sanitizedColor })
+                .where(eq(tags.id, existing.id)),
+              { operationName: "update tag color from import" }
+            );
+          }
         } else {
           const newTag: NewTag = {
             id: generateId(),
             name: sanitizedName,
-            color: sanitizeText(tag.color),
+            color: sanitizedColor,
             createdAt: new Date(),
           };
           const [created] = await withRetry(
             () => db.insert(tags).values(newTag).returning(),
             { operationName: "import tag" }
           );
-          const originalId = (tag as { id?: string }).id;
-          if (originalId) {
-            tagIdMap.set(originalId, created.id);
-          }
+          if (tag.id) tagIdMap.set(tag.id, created.id);
           tagIdMap.set(sanitizedName, created.id);
         }
       }
     }
 
-    // Import links
+    // ── 3. Importar links ─────────────────────────────────────────────────────
     if (validatedData.links && validatedData.links.length > 0) {
       for (const link of validatedData.links) {
-        // Sanitize URL - this is critical for security
+        // Sanitizar URL — crítico para seguridad
         const sanitizedUrl = sanitizeUrl(link.url);
         if (!sanitizedUrl) {
           skipped.push(`Link skipped: invalid URL "${link.url?.substring(0, 50)}..."`);
           continue;
         }
 
-        // Sanitize title
+        // Sanitizar título
         const sanitizedTitle = sanitizeText(link.title);
         if (!sanitizedTitle) {
           skipped.push(`Link skipped: invalid title for URL "${sanitizedUrl.substring(0, 50)}..."`);
           continue;
         }
 
-        // Check for duplicate URL
+        // Comprobar duplicado por URL
         const existing = await withRetry(
           () => db.query.links.findFirst({
-            where: (l, { eq }) => eq(l.url, sanitizedUrl),
+            where: (l, { eq: leq }) => leq(l.url, sanitizedUrl),
           }),
           { operationName: "check existing link" }
         );
@@ -218,10 +235,12 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Resolve category ID
+        // Resolver categoryId: primero por UUID original, luego por nombre
         let resolvedCategoryId: string | null = null;
         if (link.categoryId) {
-          resolvedCategoryId = categoryIdMap.get(link.categoryId) || null;
+          resolvedCategoryId =
+            categoryIdMap.get(link.categoryId) ??
+            null;
         }
 
         const newLink: NewLink = {
@@ -249,8 +268,8 @@ export async function POST(request: NextRequest) {
         );
         imported++;
 
-        // Import link-tag associations
-        const originalLinkId = (link as { id?: string }).id;
+        // Importar asociaciones link-tag usando el ID original del link
+        const originalLinkId = link.id; // Ahora accesible directamente (id en schema)
         if (validatedData.linkTags && Array.isArray(validatedData.linkTags) && originalLinkId) {
           const linkTagAssocs = validatedData.linkTags.filter((lt) => lt.linkId === originalLinkId);
           for (const assoc of linkTagAssocs) {

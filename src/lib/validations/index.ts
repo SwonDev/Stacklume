@@ -469,6 +469,7 @@ export const IMPORT_LIMITS = {
 
 // Import link item (for JSON bulk import)
 const importLinkItemSchema = z.object({
+  id: z.string().uuid().optional(),   // ID original — necesario para mapear linkTags
   url: urlSchema,
   title: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
@@ -489,17 +490,19 @@ const importLinkItemSchema = z.object({
 
 // Import category item
 const importCategoryItemSchema = z.object({
+  id: z.string().uuid().optional(),   // ID original — necesario para mapear categoryId de los links
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   icon: z.string().max(50).optional(),
-  color: z.string().max(20).optional(),
+  color: z.string().max(50).optional(), // Aumentado a 50 para soportar hex y nombres de color
   order: z.number().int().optional(),
 });
 
 // Import tag item
 const importTagItemSchema = z.object({
+  id: z.string().uuid().optional(),   // ID original — necesario para mapear linkTags
   name: z.string().min(1).max(50),
-  color: z.string().max(20).optional(),
+  color: z.string().max(50).optional(), // Aumentado a 50 para soportar hex y nombres de color
   order: z.number().int().optional(),
 });
 
