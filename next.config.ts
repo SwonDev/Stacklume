@@ -28,8 +28,10 @@ const ContentSecurityPolicy = `
 `.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
 const nextConfig: NextConfig = {
-  // Standalone output for Electron - creates a self-contained server
-  output: "standalone",
+  // Standalone output solo para desktop (Tauri/Electron).
+  // Vercel gestiona su propio formato de salida; usar "standalone" en Vercel
+  // produce lambdas sin funciones (output=[]) con Next.js 16 + Turbopack.
+  output: isDesktopMode ? "standalone" : undefined,
 
   // Excluir módulos con addons nativos del bundle
   // En modo desktop también excluimos Sentry y OpenTelemetry: no se necesitan
