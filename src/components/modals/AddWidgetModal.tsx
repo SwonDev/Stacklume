@@ -412,6 +412,24 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface CustomWidgetTypeEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  defaultWidth: number;
+  defaultHeight: number;
+  defaultConfig: Record<string, unknown> | null;
+}
+
+function sizeFromDims(w: number, h: number): WidgetSize {
+  if (w <= 1 && h <= 1) return "small";
+  if (w >= 4 && h >= 3) return "large";
+  if (w >= 4 && h <= 2) return "wide";
+  if (w <= 2 && h >= 3) return "tall";
+  return "medium";
+}
+
 // Widget type options with icons and labels in Spanish
 const widgetTypeOptions: Array<{
   type: WidgetType;
@@ -1886,6 +1904,8 @@ export function AddWidgetModal() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [customWidgetTypesList, setCustomWidgetTypesList] = useState<CustomWidgetTypeEntry[]>([]);
+  const [isLoadingCustomTypes, setIsLoadingCustomTypes] = useState(false);
 
   // Category order state for drag and drop
   const [categoryOrder, setCategoryOrder] = useState<string[]>(() => {
@@ -1910,6 +1930,17 @@ export function AddWidgetModal() {
       }
     }
   }, []);
+
+  // Fetch custom widget types when modal opens
+  useEffect(() => {
+    if (!isAddWidgetModalOpen) return;
+    setIsLoadingCustomTypes(true);
+    fetch("/api/custom-widget-types", { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: CustomWidgetTypeEntry[]) => setCustomWidgetTypesList(data))
+      .catch(() => setCustomWidgetTypesList([]))
+      .finally(() => setIsLoadingCustomTypes(false));
+  }, [isAddWidgetModalOpen]);
 
   // DnD sensors
   const sensors = useSensors(
@@ -1957,6 +1988,16 @@ export function AddWidgetModal() {
       option.type.toLowerCase().includes(query)
     );
   }, [deferredSearchQuery]);
+
+  const filteredCustomTypes = useMemo(() => {
+    if (!deferredSearchQuery.trim()) return customWidgetTypesList;
+    const q = deferredSearchQuery.toLowerCase().trim();
+    return customWidgetTypesList.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        (t.description ?? "").toLowerCase().includes(q)
+    );
+  }, [customWidgetTypesList, deferredSearchQuery]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -2019,6 +2060,31 @@ export function AddWidgetModal() {
   // Clear selection
   const handleClearSelection = () => {
     setSelectedTypes([]);
+  };
+
+  const handleAddCustomType = async (customType: CustomWidgetTypeEntry) => {
+    setIsLoading(true);
+    try {
+      const size = sizeFromDims(customType.defaultWidth, customType.defaultHeight);
+      await addWidget({
+        type: "custom-user",
+        title: customType.name,
+        size,
+        config: { ...(customType.defaultConfig ?? {}), _customTypeId: customType.id },
+        projectId: activeProjectId,
+        layout: { x: 0, y: 0, w: customType.defaultWidth, h: customType.defaultHeight },
+      });
+      toast.success(`Widget "${customType.name}" añadido al panel`);
+      form.reset();
+      setSelectedTypes([]);
+      setSelectedTags([]);
+      setSearchQuery("");
+      closeAddWidgetModal();
+    } catch {
+      toast.error("Error al crear el widget");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -2296,6 +2362,48 @@ export function AddWidgetModal() {
                 )}
               </AnimatePresence>
             </FormItem>
+
+            {/* Mis widgets personalizados */}
+            {(filteredCustomTypes.length > 0 || (isLoadingCustomTypes && customWidgetTypesList.length === 0)) && (
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Puzzle className="w-4 h-4 text-primary" />
+                  <span>Mis widgets personalizados</span>
+                  {filteredCustomTypes.length > 0 && (
+                    <Badge variant="secondary">{filteredCustomTypes.length}</Badge>
+                  )}
+                </div>
+                {isLoadingCustomTypes ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {filteredCustomTypes.map((customType) => (
+                      <motion.button
+                        key={customType.id}
+                        type="button"
+                        onClick={() => handleAddCustomType(customType)}
+                        disabled={isLoading}
+                        className="relative p-4 rounded-lg border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 flex flex-col items-center gap-2 text-center transition-all disabled:opacity-50"
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Puzzle className="w-6 h-6 text-primary/70" />
+                        <div>
+                          <p className="text-sm font-medium line-clamp-1">{customType.name}</p>
+                          {customType.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {customType.description}
+                            </p>
+                          )}
+                        </div>
+                        <Plus className="absolute top-2 right-2 w-4 h-4 text-primary/60" />
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Show additional options only when single widget is selected */}
             <AnimatePresence>
