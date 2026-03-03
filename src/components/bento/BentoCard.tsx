@@ -886,13 +886,13 @@ export function BentoCard({ widget }: BentoCardProps) {
       <CardContent className={cn(
         "flex-1 overflow-hidden min-h-0",
         // Full-bleed widgets (iframes, images) - no padding
-        ["embed", "youtube", "spotify", "codepen", "unsplash", "image", "qr-code"].includes(widget.type)
+        ["embed", "youtube", "spotify", "codepen", "unsplash", "image", "qr-code", "custom-user"].includes(widget.type)
           ? "p-0"
           : "p-2"
       )}>
         <WidgetErrorBoundary widgetId={widget.id} widgetType={widget.type}>
           {/* Full-bleed widgets render directly without ScrollArea */}
-          {["embed", "youtube", "spotify", "codepen", "unsplash", "image", "qr-code"].includes(widget.type) ? (
+          {["embed", "youtube", "spotify", "codepen", "unsplash", "image", "qr-code", "custom-user"].includes(widget.type) ? (
             <div className="h-full w-full">
               {renderContent()}
             </div>
@@ -1113,7 +1113,7 @@ function FullscreenOverlay({
             <motion.div
               className={cn(
                 "flex-1 min-h-0 flex flex-col",
-                ["embed", "youtube", "spotify", "codepen", "unsplash", "image", "qr-code"].includes(widgetType)
+                ["embed", "youtube", "spotify", "codepen", "unsplash", "image", "qr-code", "custom-user"].includes(widgetType)
                   ? "p-0 overflow-hidden"
                   : "p-6 overflow-hidden"
               )}
