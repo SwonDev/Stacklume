@@ -67,7 +67,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "add_widget",
-    description: "Añade un widget built-in al dashboard. Usa list_widget_types para obtener los tipos disponibles.",
+    description: "Añade un widget built-in al dashboard. Usa list_widget_types para ver los tipos disponibles. IMPORTANTE: después de añadir, informa al usuario que debe refrescar la página (F5) para ver el nuevo widget.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,13 +112,13 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "create_custom_widget_type",
-    description: "Crea un nuevo tipo de widget personalizado con HTML/CSS/JS. El HTML puede incluir {{CONFIG_JSON}} que se sustituye por la config del widget al renderizar.",
+    description: "Crea un tipo de widget personalizado con HTML/CSS/JS inline. El template se renderiza en <iframe sandbox='allow-scripts'> (sin red ni recursos externos). Reglas: (1) usa {{CONFIG_JSON}} para acceder a la config (se sustituye por JSON), (2) para canvas usa ResizeObserver para ajustar width/height al contenedor, (3) NO usar fetch/XHR/CDN/import, todo inline. Después de crear, usa add_custom_widget para colocarlo y pide al usuario que refresque.",
     inputSchema: {
       type: "object",
       properties: {
         name: { type: "string", description: "Nombre del tipo de widget" },
         description: { type: "string", description: "Descripción breve" },
-        htmlTemplate: { type: "string", description: "HTML completo (puede incluir <style> y <script>). Usa {{CONFIG_JSON}} para acceder a la config." },
+        htmlTemplate: { type: "string", description: "HTML completo con <style> y <script> inline. Usa {{CONFIG_JSON}} para la config. Para canvas: const ro = new ResizeObserver(([e]) => { canvas.width = e.contentRect.width; canvas.height = e.contentRect.height; draw(); }); ro.observe(canvas);" },
         category: { type: "string", description: "Categoría (por defecto: 'custom')" },
         icon: { type: "string", description: "Nombre de icono Lucide (por defecto: 'Puzzle')" },
         configSchema: { type: "object", description: "Schema JSON de las propiedades de configuración del widget" },
@@ -162,7 +162,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "add_custom_widget",
-    description: "Añade una instancia de un tipo de widget personalizado al dashboard.",
+    description: "Coloca una instancia de un tipo de widget personalizado en el dashboard. IMPORTANTE: después de añadir, pide al usuario que refresque la página (F5) para ver el widget.",
     inputSchema: {
       type: "object",
       properties: {
@@ -372,8 +372,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
           serverInfo: { name: "stacklume", version: "1.0.0" },
-          instructions:
-            "Servidor MCP de Stacklume. Usa get_app_info para empezar, list_widget_types para ver los widgets disponibles y add_widget para añadirlos al dashboard. Para widgets HTML personalizados usa create_custom_widget_type seguido de add_custom_widget.",
+          instructions: `Servidor MCP de Stacklume — dashboard de enlaces y widgets con bento grid (cuadrícula de 12 columnas).
+
+FLUJO DE TRABAJO BÁSICO:
+1. get_app_info → resumen del estado actual
+2. list_widget_types → catálogo de 190+ tipos de widget built-in
+3. add_widget con el tipo elegido → añade widget al dashboard
+4. Para widgets HTML/CSS/JS propios: create_custom_widget_type → add_custom_widget
+
+⚠️  IMPORTANTE — REFRESCO DE UI OBLIGATORIO:
+El dashboard carga los widgets en memoria al arrancar y NO detecta cambios externos automáticamente. Después de CUALQUIER operación de widget (add_widget, update_widget, remove_widget, add_custom_widget), el usuario DEBE refrescar la página manualmente (F5 / Ctrl+R / Cmd+R) para que los cambios sean visibles. SIEMPRE informa de esto al usuario tras cada operación de widget.
+
+GUÍA COMPLETA PARA WIDGETS HTML PERSONALIZADOS (create_custom_widget_type):
+• El template se renderiza dentro de un <iframe sandbox="allow-scripts"> — SIN acceso a red, localStorage, cookies ni DOM del padre.
+• PROHIBIDO: fetch(), XMLHttpRequest, import(), WebSocket, recursos externos (CDN, imágenes remotas). TODO debe estar inline.
+• ACCESO A CONFIG: Escribe el literal {{CONFIG_JSON}} en el template — se sustituye por JSON.stringify(config) al renderizar. Uso: const CONFIG = {{CONFIG_JSON}};
+• CANVAS: Usa ResizeObserver para ajustar canvas.width/height al contenedor (sin esto el canvas queda en 0×0).
+
+PLANTILLA CANVAS (copiar y adaptar):
+<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;width:100%;height:100vh;overflow:hidden}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
+const CONFIG = {{CONFIG_JSON}};
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+const ro = new ResizeObserver(([e]) => { canvas.width = e.contentRect.width; canvas.height = e.contentRect.height; draw(); });
+ro.observe(canvas);
+function draw() { /* tu lógica aquí */ }
+</script></body></html>
+
+PLANTILLA HTML/CSS (copiar y adaptar):
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;padding:12px;height:100vh;overflow:auto}</style></head><body><div id="app"></div><script>const CONFIG = {{CONFIG_JSON}}; /* tu lógica aquí */</script></body></html>
+
+TAMAÑOS: small=1×1, medium=2×2, large=4×3, wide=4×2, tall=2×3. Usa defaultWidth/defaultHeight para dimensiones exactas en la cuadrícula de 12 columnas.`,
         });
 
       case "tools/list":

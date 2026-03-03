@@ -89,6 +89,8 @@ interface WidgetState {
 
   // DB operations
   initWidgets: () => Promise<void>;
+  /** Fuerza una recarga de widgets desde la DB (útil tras cambios externos via MCP). */
+  refreshWidgets: () => Promise<void>;
 
   // Cleanup function to prevent memory leaks
   cleanup: () => void;
@@ -158,6 +160,9 @@ function createDefaultWidgets(): Widget[] {
 // Debounce timer map for layout updates (per store instance)
 const layoutDebounceTimers = new Map<string, NodeJS.Timeout>();
 
+// Flag para registrar el listener de visibilidad sólo una vez
+let visibilityListenerRegistered = false;
+
 export const useWidgetStore = create<WidgetState>()((set, get) => ({
   // Initial state
   widgets: [],
@@ -176,6 +181,20 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
         const widgets = await response.json();
         // Load whatever is in the database (even if empty)
         set({ widgets, isInitialized: true });
+
+        // Registrar listener de visibilidad para refrescar cuando el usuario
+        // vuelve a la pestaña/ventana tras haber usado el MCP desde otra app.
+        if (!visibilityListenerRegistered && typeof document !== "undefined") {
+          visibilityListenerRegistered = true;
+          document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+              fetch("/api/widgets", { credentials: "include", cache: "no-store" })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => { if (data) set({ widgets: data }); })
+                .catch(() => {});
+            }
+          });
+        }
       }
     } catch (error) {
       console.error("Error loading widgets:", error);
@@ -183,6 +202,19 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
       set({ widgets: [], isInitialized: true });
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  /** Recarga widgets desde la DB sin tocar isInitialized (para uso externo/MCP). */
+  refreshWidgets: async () => {
+    try {
+      const response = await fetch("/api/widgets", { credentials: "include", cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        set({ widgets: data });
+      }
+    } catch (error) {
+      console.error("Error refreshing widgets:", error);
     }
   },
 
