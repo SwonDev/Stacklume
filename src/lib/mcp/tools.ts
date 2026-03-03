@@ -43,6 +43,19 @@ const SIZE_DIMS: Record<string, { w: number; h: number }> = {
   tall: { w: 2, h: 3 },
 };
 
+/** Convierte dimensiones de cuadrícula al nombre de tamaño más cercano. */
+function sizeFromDims(w: number, h: number): string {
+  if (w <= 1 && h <= 1) return "small";
+  if (w >= 4 && h >= 3) return "large";
+  if (w >= 4 && h <= 2) return "wide";
+  if (w <= 2 && h >= 3) return "tall";
+  return "medium";
+}
+
+/** Nota que se adjunta a toda respuesta de operación de widget. */
+const WIDGET_UI_NOTE =
+  "ACCIÓN REQUERIDA: Informa al usuario que debe refrescar la página (F5 / Ctrl+R / Cmd+R) para ver los cambios en el dashboard. El widget ya está guardado en la base de datos.";
+
 // ─── Info general ──────────────────────────────────────────────────────────────
 
 async function handleGetAppInfo(): Promise<ToolResult> {
@@ -68,8 +81,10 @@ async function handleGetAppInfo(): Promise<ToolResult> {
     tips: [
       "Usa list_widget_types para ver todos los tipos de widget disponibles (190+)",
       "Usa add_widget con el type apropiado para añadir widgets al dashboard",
-      "Usa create_custom_widget_type + add_custom_widget para widgets HTML/CSS/JS propios",
+      "Usa create_custom_widget_type + add_custom_widget para widgets HTML/CSS/JS propios completamente funcionales",
+      "Usa list_projects para ver los workspaces disponibles; projectId=null corresponde a la vista Home",
       "Usa list_links, list_categories y list_tags para conocer el contenido existente",
+      "IMPORTANTE: tras cualquier operación de widget, el usuario debe refrescar la página (F5/Ctrl+R) para ver los cambios",
     ],
   });
 }
@@ -147,6 +162,7 @@ async function handleAddWidget(args: Record<string, unknown>): Promise<ToolResul
   return ok({
     success: true,
     widget: { id: created.id, type: created.type, title: created.title, size: created.size },
+    _ui_note: WIDGET_UI_NOTE,
   });
 }
 
@@ -174,7 +190,7 @@ async function handleUpdateWidget(args: Record<string, unknown>): Promise<ToolRe
     { operationName: "update widget" }
   );
   if (!updated) return err(`Widget '${id}' no encontrado`);
-  return ok({ success: true, widget: { id: updated.id, type: updated.type, title: updated.title } });
+  return ok({ success: true, widget: { id: updated.id, type: updated.type, title: updated.title }, _ui_note: WIDGET_UI_NOTE });
 }
 
 async function handleRemoveWidget(args: Record<string, unknown>): Promise<ToolResult> {
@@ -183,7 +199,7 @@ async function handleRemoveWidget(args: Record<string, unknown>): Promise<ToolRe
     () => db.update(widgets).set({ deletedAt: new Date() } as never).where(eq(widgets.id, id)),
     { operationName: "remove widget" }
   );
-  return ok({ success: true });
+  return ok({ success: true, _ui_note: WIDGET_UI_NOTE });
 }
 
 // ─── Custom widget types ───────────────────────────────────────────────────────
@@ -279,6 +295,8 @@ async function handleAddCustomWidget(args: Record<string, unknown>): Promise<Too
     ...((args.config as Record<string, unknown>) || {}),
   };
 
+  const derivedSize = sizeFromDims(type.defaultWidth, type.defaultHeight);
+
   const [created] = await withRetry(
     () =>
       db
@@ -288,7 +306,7 @@ async function handleAddCustomWidget(args: Record<string, unknown>): Promise<Too
           userId: DEFAULT_USER_ID,
           type: "custom-user",
           title: (args.title as string) || type.name,
-          size: "medium",
+          size: derivedSize,
           config,
           projectId: (args.projectId as string) || null,
           layoutX: 0,
@@ -303,7 +321,8 @@ async function handleAddCustomWidget(args: Record<string, unknown>): Promise<Too
   );
   return ok({
     success: true,
-    widget: { id: created.id, type: "custom-user", title: created.title },
+    widget: { id: created.id, type: "custom-user", title: created.title, size: derivedSize },
+    _ui_note: WIDGET_UI_NOTE,
   });
 }
 
