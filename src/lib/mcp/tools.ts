@@ -137,6 +137,16 @@ async function handleAddWidget(args: Record<string, unknown>): Promise<ToolResul
   const size = (args.size as string) || "medium";
   const dims = SIZE_DIMS[size] || { w: 2, h: 2 };
 
+  // Parsear config si llegó como string JSON (error de algunos clientes MCP)
+  let widgetConfig: Record<string, unknown> | null = null;
+  if (args.config !== undefined) {
+    if (typeof args.config === "string") {
+      try { widgetConfig = JSON.parse(args.config) as Record<string, unknown>; } catch { widgetConfig = null; }
+    } else {
+      widgetConfig = (args.config as Record<string, unknown>) || null;
+    }
+  }
+
   const [created] = await withRetry(
     () =>
       db
@@ -147,7 +157,7 @@ async function handleAddWidget(args: Record<string, unknown>): Promise<ToolResul
           type,
           title: (args.title as string) || null,
           size,
-          config: (args.config as Record<string, unknown>) || null,
+          config: widgetConfig,
           projectId: (args.projectId as string) || null,
           layoutX: 0,
           layoutY: 9999, // react-grid-layout lo reubica al final
@@ -240,7 +250,11 @@ async function handleCreateCustomWidgetType(args: Record<string, unknown>): Prom
         .returning(),
     { operationName: "create custom widget type" }
   );
-  return ok({ success: true, customWidgetType: created });
+  return ok({
+    success: true,
+    customWidgetType: created,
+    _next_step: `Tipo creado con id="${created.id}". Ahora llama a add_custom_widget con customWidgetTypeId="${created.id}" para colocarlo en el dashboard. Después pide al usuario que refresque la página (F5).`,
+  });
 }
 
 async function handleUpdateCustomWidgetType(args: Record<string, unknown>): Promise<ToolResult> {
@@ -277,22 +291,48 @@ async function handleDeleteCustomWidgetType(args: Record<string, unknown>): Prom
 }
 
 async function handleAddCustomWidget(args: Record<string, unknown>): Promise<ToolResult> {
-  const customTypeId = args.customTypeId as string;
+  // Acepta tanto 'customWidgetTypeId' (nombre preferido en el schema) como
+  // 'customTypeId' (alias legado) para máxima compatibilidad con distintos clientes MCP.
+  const customWidgetTypeId = (
+    (args.customWidgetTypeId as string) ||
+    (args.customTypeId as string) ||
+    ""
+  ).trim();
+
+  if (!customWidgetTypeId) {
+    return err(
+      "Parámetro 'customWidgetTypeId' requerido. Pasa el campo 'id' exacto devuelto por create_custom_widget_type o list_custom_widget_types."
+    );
+  }
+
+  // Si config llegó como JSON string (error de algunos clientes), lo parseamos.
+  let parsedConfig: Record<string, unknown> | null = null;
+  if (args.config !== undefined) {
+    if (typeof args.config === "string") {
+      try {
+        parsedConfig = JSON.parse(args.config) as Record<string, unknown>;
+      } catch {
+        parsedConfig = null;
+      }
+    } else {
+      parsedConfig = (args.config as Record<string, unknown>) || null;
+    }
+  }
 
   const [type] = await withRetry(
     () =>
       db
         .select()
         .from(customWidgetTypes)
-        .where(and(eq(customWidgetTypes.id, customTypeId), isNull(customWidgetTypes.deletedAt)))
+        .where(and(eq(customWidgetTypes.id, customWidgetTypeId), isNull(customWidgetTypes.deletedAt)))
         .limit(1),
     { operationName: "get custom widget type" }
   );
-  if (!type) return err(`Tipo de widget personalizado '${customTypeId}' no encontrado`);
+  if (!type) return err(`Tipo de widget personalizado '${customWidgetTypeId}' no encontrado. Usa list_custom_widget_types para ver los disponibles.`);
 
   const config: Record<string, unknown> = {
-    _customTypeId: customTypeId,
-    ...((args.config as Record<string, unknown>) || {}),
+    _customTypeId: customWidgetTypeId,
+    ...(parsedConfig || {}),
   };
 
   const derivedSize = sizeFromDims(type.defaultWidth, type.defaultHeight);
