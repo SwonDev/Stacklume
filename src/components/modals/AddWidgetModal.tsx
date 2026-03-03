@@ -402,6 +402,7 @@ const formSchema = z.object({
     "cron-builder",
     "diff-viewer",
     "password-manager",
+    "custom-user",
   ]),
   title: z.string().min(1, "El título es obligatorio"),
   size: z.enum(["small", "medium", "large", "wide", "tall"]),

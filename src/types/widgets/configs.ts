@@ -2065,7 +2065,14 @@ export interface WidgetConfig
     Partial<APITesterWidgetConfig>,
     Partial<CronBuilderWidgetConfig>,
     Partial<DiffViewerWidgetConfig>,
-    Partial<PasswordManagerConfig> {
+    Partial<PasswordManagerConfig>,
+  Partial<CustomUserWidgetConfig> {
   // Allow additional properties for extensibility
   [key: string]: unknown;
+}
+
+// Config for custom user-created widgets (rendered as sandboxed iframe)
+export interface CustomUserWidgetConfig {
+  _customTypeId: string; // References customWidgetTypes.id in DB
+  [key: string]: unknown; // User-defined config values from the custom widget's configSchema
 }

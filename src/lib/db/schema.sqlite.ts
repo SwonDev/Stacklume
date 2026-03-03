@@ -269,11 +269,37 @@ export const userSettings = sqliteTable(
     reduceMotion: integer("reduce_motion", { mode: "boolean" })
       .default(false)
       .notNull(),
+    // MCP Server settings
+    mcpEnabled: integer("mcp_enabled", { mode: "boolean" }).default(false).notNull(),
+    mcpApiKey: text("mcp_api_key"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
     uniqueIndex("idx_user_settings_user_id").on(table.userId),
+  ]
+);
+
+export const customWidgetTypes = sqliteTable(
+  "custom_widget_types",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").default("default"),
+    name: text("name").notNull(),
+    description: text("description"),
+    category: text("category").default("custom").notNull(),
+    icon: text("icon").default("Puzzle").notNull(),
+    htmlTemplate: text("html_template").notNull(),
+    configSchema: text("config_schema", { mode: "json" }),
+    defaultConfig: text("default_config", { mode: "json" }),
+    defaultWidth: integer("default_width").default(2).notNull(),
+    defaultHeight: integer("default_height").default(2).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    index("idx_custom_widget_types_user_id").on(table.userId),
   ]
 );
 
@@ -403,6 +429,9 @@ export interface BackupData {
     settings?: Partial<UserSettings>;
   };
 }
+
+export type CustomWidgetType = typeof customWidgetTypes.$inferSelect;
+export type NewCustomWidgetType = typeof customWidgetTypes.$inferInsert;
 
 // Evitar error TS de módulo sin usar
 export { real };

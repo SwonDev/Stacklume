@@ -14,6 +14,7 @@ import {
   Loader2,
   Globe,
   Sparkles,
+  Puzzle,
 } from "lucide-react";
 import {
   Dialog,
@@ -40,10 +41,7 @@ interface ImportExportModalProps {
 
 export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps) {
   const exportToJSON = useLinksStore((state) => state.exportToJSON);
-  const setLinks = useLinksStore((state) => state.setLinks);
-  const setCategories = useLinksStore((state) => state.setCategories);
-  const setTags = useLinksStore((state) => state.setTags);
-  const setLinkTags = useLinksStore((state) => state.setLinkTags);
+  const refreshAllData = useLinksStore((state) => state.refreshAllData);
   const links = useLinksStore((state) => state.links);
   const categories = useLinksStore((state) => state.categories);
   const tags = useLinksStore((state) => state.tags);
@@ -54,6 +52,11 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const widgetFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isExportingWidgets, setIsExportingWidgets] = useState(false);
+  const [isImportingWidget, setIsImportingWidget] = useState(false);
+  const [widgetImportResult, setWidgetImportResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Detect current theme for PDF export
   const currentTheme: "light" | "dark" = resolvedTheme === "light" ? "light" : "dark";
@@ -198,25 +201,8 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
 
           if (response.ok) {
             const result = await response.json();
-            // Refresh data from server
-            const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
-              fetch("/api/links", { credentials: "include" }),
-              fetch("/api/categories", { credentials: "include" }),
-              fetch("/api/tags", { credentials: "include" }),
-              fetch("/api/link-tags", { credentials: "include" }),
-            ]);
-
-            const [newLinks, newCategories, newTags, newLinkTags] = await Promise.all([
-              linksRes.json(),
-              categoriesRes.json(),
-              tagsRes.json(),
-              linkTagsRes.json(),
-            ]);
-
-            setLinks(newLinks);
-            setCategories(newCategories);
-            setTags(newTags);
-            setLinkTags(newLinkTags);
+            // Recargar todo el estado desde el servidor sin caché (evita datos obsoletos en Tauri/WebView2)
+            await refreshAllData();
 
             toast.success(`Importados ${result.imported} enlaces correctamente`);
             setImportResult({
@@ -244,19 +230,8 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
 
         if (response.ok) {
           const result = await response.json();
-          // Refresh data from server
-          const [linksRes, categoriesRes] = await Promise.all([
-            fetch("/api/links", { credentials: "include" }),
-            fetch("/api/categories", { credentials: "include" }),
-          ]);
-
-          const [newLinks, newCategories] = await Promise.all([
-            linksRes.json(),
-            categoriesRes.json(),
-          ]);
-
-          setLinks(newLinks);
-          setCategories(newCategories);
+          // Recargar todo el estado desde el servidor sin caché
+          await refreshAllData();
 
           toast.success(`Importados ${result.imported} marcadores correctamente`);
           setImportResult({
@@ -283,6 +258,87 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  };
+
+  const handleExportAllWidgetTypes = async () => {
+    setIsExportingWidgets(true);
+    try {
+      const res = await fetch("/api/custom-widget-types", { credentials: "include" });
+      if (!res.ok) throw new Error("Error al obtener widgets personalizados");
+      const types = await res.json();
+      if (!Array.isArray(types) || types.length === 0) {
+        toast.info("No hay widgets personalizados para exportar");
+        return;
+      }
+      const exportData = types.map((t: Record<string, unknown>) => ({
+        stacklume_widget_type: "1.0",
+        name: t.name,
+        description: t.description,
+        category: t.category,
+        icon: t.icon,
+        htmlTemplate: t.htmlTemplate,
+        configSchema: t.configSchema,
+        defaultConfig: t.defaultConfig,
+        defaultWidth: t.defaultWidth,
+        defaultHeight: t.defaultHeight,
+      }));
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `stacklume-custom-widgets-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`${exportData.length} tipo(s) de widget exportados`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al exportar");
+    } finally {
+      setIsExportingWidgets(false);
+    }
+  };
+
+  const handleWidgetFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsImportingWidget(true);
+    setWidgetImportResult(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const items = Array.isArray(data) ? data : [data];
+      let imported = 0;
+      for (const item of items) {
+        if (item.stacklume_widget_type !== "1.0") continue;
+        const res = await fetch("/api/custom-widget-types", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+          credentials: "include",
+          body: JSON.stringify({
+            name: item.name || "Widget importado",
+            description: item.description || undefined,
+            category: item.category || "custom",
+            icon: item.icon || "Puzzle",
+            htmlTemplate: item.htmlTemplate,
+            configSchema: item.configSchema || undefined,
+            defaultConfig: item.defaultConfig || undefined,
+            defaultWidth: item.defaultWidth || 2,
+            defaultHeight: item.defaultHeight || 2,
+          }),
+        });
+        if (res.ok) imported++;
+      }
+      setWidgetImportResult({ success: true, message: `${imported} tipo(s) de widget importados` });
+      toast.success(`${imported} tipo(s) de widget importados`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error al importar";
+      setWidgetImportResult({ success: false, message: msg });
+      toast.error(msg);
+    } finally {
+      setIsImportingWidget(false);
+      if (widgetFileInputRef.current) widgetFileInputRef.current.value = "";
     }
   };
 
@@ -345,7 +401,7 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
         </DialogHeader>
 
         <Tabs defaultValue="export" className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="export" className="gap-2">
               <Download className="w-4 h-4" />
               Exportar
@@ -353,6 +409,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
             <TabsTrigger value="import" className="gap-2">
               <Upload className="w-4 h-4" />
               Importar
+            </TabsTrigger>
+            <TabsTrigger value="widgets" className="gap-2">
+              <Puzzle className="w-4 h-4" />
+              Widgets
             </TabsTrigger>
           </TabsList>
 
@@ -490,6 +550,69 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
 
             <p className="text-xs text-muted-foreground text-center">
               Los enlaces duplicados se ignoraran automaticamente
+            </p>
+          </TabsContent>
+
+          {/* Custom Widget Types tab */}
+          <TabsContent value="widgets" className="space-y-4 mt-4">
+            <p className="text-sm text-muted-foreground">
+              Exporta e importa tipos de widget personalizados creados con el servidor MCP.
+            </p>
+
+            {/* Export */}
+            <button
+              onClick={handleExportAllWidgetTypes}
+              disabled={isExportingWidgets}
+              className={cn(
+                "flex items-start gap-3 p-4 rounded-lg border border-border/50 w-full",
+                "hover:bg-secondary/50 hover:border-primary/30 transition-all",
+                "text-left group disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                {isExportingWidgets ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+              </div>
+              <div>
+                <h4 className="font-medium text-sm">Exportar widgets personalizados</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Descarga todos tus widgets personalizados como JSON
+                </p>
+              </div>
+            </button>
+
+            {/* Import */}
+            <input
+              ref={widgetFileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleWidgetFileChange}
+              className="hidden"
+            />
+            <Button
+              onClick={() => widgetFileInputRef.current?.click()}
+              disabled={isImportingWidget}
+              className="w-full gap-2"
+              variant="outline"
+              size="lg"
+            >
+              {isImportingWidget ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {isImportingWidget ? "Importando..." : "Importar widgets (.json)"}
+            </Button>
+
+            {widgetImportResult && (
+              <div className={cn(
+                "flex items-center gap-2 p-3 rounded-lg",
+                widgetImportResult.success
+                  ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                  : "bg-red-500/10 text-red-600 dark:text-red-400"
+              )}>
+                {widgetImportResult.success ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <span className="text-sm">{widgetImportResult.message}</span>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground text-center">
+              Formato: JSON con stacklume_widget_type: &quot;1.0&quot; (individual o array)
             </p>
           </TabsContent>
         </Tabs>

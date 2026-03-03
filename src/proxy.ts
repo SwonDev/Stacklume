@@ -47,7 +47,7 @@ const AUTH_COOKIE_NAME = 'stacklume-auth';
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ['/login'];
-const PUBLIC_API_ROUTES = ['/api/auth/login', '/api/auth/logout', '/api/auth/session'];
+const PUBLIC_API_ROUTES = ['/api/auth/login', '/api/auth/logout', '/api/auth/session', '/api/mcp'];
 
 /**
  * Check if a route is public (doesn't require auth)

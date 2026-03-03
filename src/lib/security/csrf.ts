@@ -167,6 +167,8 @@ export const CSRF_EXEMPT_ROUTES: string[] = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/session',
+  // MCP endpoint usa Bearer token propio, no cookies CSRF
+  '/api/mcp',
 ];
 
 /**

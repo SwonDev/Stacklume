@@ -1,7 +1,10 @@
 "use client";
 
-import { Sun, Moon, Monitor, Grid2x2, MessageSquare, Zap, Settings, Download, Copy, LayoutGrid, Kanban, List, Volume2, VolumeX, Database, HardDrive, Cloud, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Sun, Moon, Monitor, Grid2x2, MessageSquare, Zap, Settings, Download, Copy, LayoutGrid, Kanban, List, Volume2, VolumeX, Database, HardDrive, Cloud, CheckCircle2, AlertCircle, Loader2, Plug, RefreshCw, Eye, EyeOff, BookOpen } from "lucide-react";
+import { McpDocsDialog } from "@/components/ui/McpDocsDialog";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,7 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Slider } from "@/components/ui/slider";
 import { useSettingsStore } from "@/stores/settings-store";
-import { useEffect } from "react";
+
 
 interface SettingsDropdownProps {
   onOpenImportExport?: () => void;
@@ -39,6 +42,8 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
     stickerSoundVolume,
     databaseInfo,
     isDatabaseLoading,
+    mcpEnabled,
+    mcpApiKey,
     setTheme: setStoredTheme,
     setViewDensity,
     setViewMode,
@@ -46,7 +51,14 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
     setReduceMotion,
     setStickerSoundVolume,
     fetchDatabaseInfo,
+    setMcpEnabled,
+    regenerateMcpApiKey,
   } = useSettingsStore();
+
+  const [showMcpKey, setShowMcpKey] = useState(false);
+  const [isCopyingKey, setIsCopyingKey] = useState(false);
+  const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
+  const [showMcpDocs, setShowMcpDocs] = useState(false);
 
   // Sync theme from store to next-themes on mount
   useEffect(() => {
@@ -60,7 +72,46 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
     setStoredTheme(newTheme);
   };
 
+  const mcpUrl = typeof window !== "undefined" ? `${window.location.origin}/api/mcp` : "/api/mcp";
+
+  const handleCopyMcpKey = async () => {
+    if (!mcpApiKey) return;
+    setIsCopyingKey(true);
+    await navigator.clipboard.writeText(mcpApiKey);
+    toast.success("API key copiada");
+    setTimeout(() => setIsCopyingKey(false), 1500);
+  };
+
+  const handleRegenerateMcpKey = async () => {
+    setIsRegeneratingKey(true);
+    await regenerateMcpApiKey();
+    setIsRegeneratingKey(false);
+    toast.success("API key regenerada");
+  };
+
+  const handleCopyMcpConfig = async (format: "claude" | "cursor") => {
+    if (!mcpApiKey) {
+      toast.error("Genera una API key primero");
+      return;
+    }
+    const config =
+      format === "claude"
+        ? JSON.stringify(
+            { mcpServers: { stacklume: { url: mcpUrl, headers: { Authorization: `Bearer ${mcpApiKey}` } } } },
+            null,
+            2
+          )
+        : JSON.stringify(
+            { mcpServers: { stacklume: { url: mcpUrl, transport: "http", headers: { Authorization: `Bearer ${mcpApiKey}` } } } },
+            null,
+            2
+          );
+    await navigator.clipboard.writeText(config);
+    toast.success(`Config para ${format === "claude" ? "Claude Desktop" : "Cursor"} copiada`);
+  };
+
   return (
+    <>
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -274,7 +325,113 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
             </button>
           )}
         </div>
+
+        <DropdownMenuSeparator />
+
+        {/* MCP Server Section */}
+        <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">
+          <Plug className="w-3.5 h-3.5 inline mr-1.5" />
+          Servidor MCP
+        </DropdownMenuLabel>
+        <div className="px-3 py-2 space-y-3">
+          {/* Toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Activar servidor MCP</span>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMcpEnabled(!mcpEnabled); }}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none ${mcpEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+              aria-label={mcpEnabled ? "Desactivar servidor MCP" : "Activar servidor MCP"}
+            >
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${mcpEnabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+            </button>
+          </div>
+
+          {/* API Key */}
+          {mcpEnabled && (
+            <>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">API Key</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMcpKey(!showMcpKey); }}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showMcpKey ? "Ocultar key" : "Mostrar key"}
+                    >
+                      {showMcpKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                    {mcpApiKey && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCopyMcpKey(); }}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Copiar API key"
+                      >
+                        {isCopyingKey ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRegenerateMcpKey(); }}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Regenerar API key"
+                      disabled={isRegeneratingKey}
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isRegeneratingKey ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+                <div className="font-mono text-xs bg-muted rounded px-2 py-1 truncate text-muted-foreground">
+                  {mcpApiKey
+                    ? showMcpKey
+                      ? mcpApiKey
+                      : `${"•".repeat(Math.min(mcpApiKey.length, 20))}…`
+                    : <span className="italic">Sin key — pulsa ↻ para generar</span>
+                  }
+                </div>
+              </div>
+
+              {/* Connect buttons */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Conectar con:</p>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMcpDocs(true); }}
+                    className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+                    aria-label="Ver guía de instalación MCP"
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    Guía de instalación
+                  </button>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCopyMcpConfig("claude"); }}
+                    className="flex-1 text-xs px-2 py-1.5 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+                  >
+                    Claude Desktop
+                  </button>
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCopyMcpConfig("cursor"); }}
+                    className="flex-1 text-xs px-2 py-1.5 rounded bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
+                  >
+                    Cursor / Cline
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 font-mono truncate" title={mcpUrl}>
+                  {mcpUrl}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    <McpDocsDialog
+      open={showMcpDocs}
+      onOpenChange={setShowMcpDocs}
+      mcpUrl={mcpUrl}
+      mcpApiKey={mcpApiKey}
+    />
+    </>
   );
 }

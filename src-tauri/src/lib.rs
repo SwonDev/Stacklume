@@ -130,8 +130,10 @@ fn open_url(url: String) -> Result<(), String> {
     }
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         std::process::Command::new("cmd")
             .args(["/c", "start", "", &url])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW — evita flash de ventana de terminal
             .spawn()
             .map_err(|e| e.to_string())?;
     }

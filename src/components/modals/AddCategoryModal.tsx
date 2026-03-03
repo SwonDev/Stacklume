@@ -70,7 +70,7 @@ export function AddCategoryModal() {
     useLinksStore();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIcon, setSelectedIcon] = useState("folder");
-  const [selectedColor, setSelectedColor] = useState("indigo");
+  const [selectedColor, setSelectedColor] = useState("#6366f1");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -116,7 +116,7 @@ export function AddCategoryModal() {
   const handleClose = () => {
     form.reset();
     setSelectedIcon("folder");
-    setSelectedColor("indigo");
+    setSelectedColor("#6366f1");
     setAddCategoryModalOpen(false);
   };
 
@@ -181,9 +181,9 @@ export function AddCategoryModal() {
                   <button
                     key={color.value}
                     type="button"
-                    onClick={() => setSelectedColor(color.value)}
+                    onClick={() => setSelectedColor(color.hex)}
                     className={`w-7 h-7 rounded-full transition-all hover:scale-110 ${
-                      selectedColor === color.value
+                      selectedColor === color.hex
                         ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110"
                         : "hover:ring-1 hover:ring-muted-foreground/30"
                     }`}

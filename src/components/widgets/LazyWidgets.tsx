@@ -192,6 +192,7 @@ const APITesterWidget = lazy(() => import("./APITesterWidget").then(m => ({ defa
 const CronBuilderWidget = lazy(() => import("./CronBuilderWidget").then(m => ({ default: m.CronBuilderWidget })));
 const DiffViewerWidget = lazy(() => import("./DiffViewerWidget").then(m => ({ default: m.DiffViewerWidget })));
 const PasswordManagerWidget = lazy(() => import("./PasswordManagerWidget").then(m => ({ default: m.PasswordManagerWidget })));
+const CustomUserWidget = lazy(() => import("./custom-user/CustomUserWidget").then(m => ({ default: m.CustomUserWidget })));
 
 // Map of widget types to their lazy components
 const widgetMap: Record<string, LazyWidgetComponent> = {
@@ -381,6 +382,7 @@ const widgetMap: Record<string, LazyWidgetComponent> = {
   "cron-builder": CronBuilderWidget,
   "diff-viewer": DiffViewerWidget,
   "password-manager": PasswordManagerWidget,
+  "custom-user": CustomUserWidget,
 };
 
 // Skeleton variant mapping based on widget type
@@ -771,6 +773,7 @@ export {
   CronBuilderWidget,
   DiffViewerWidget,
   PasswordManagerWidget,
+  CustomUserWidget,
 };
 
 // List of special widget types that use LazyWidgetRenderer

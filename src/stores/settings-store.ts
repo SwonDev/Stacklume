@@ -54,6 +54,10 @@ interface SettingsState {
   reduceMotion: boolean;
   stickerSoundVolume: number; // 0-100 (0 = muted)
 
+  // MCP server settings
+  mcpEnabled: boolean;
+  mcpApiKey: string | null;
+
   // Database info
   databaseInfo: DatabaseInfo | null;
   isDatabaseLoading: boolean;
@@ -71,6 +75,10 @@ interface SettingsState {
   setStickerSoundVolume: (volume: number) => void;
   fetchDatabaseInfo: () => Promise<void>;
 
+  // MCP actions
+  setMcpEnabled: (enabled: boolean) => Promise<void>;
+  regenerateMcpApiKey: () => Promise<void>;
+
   // DB operations
   initSettings: () => Promise<void>;
 }
@@ -83,6 +91,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   showTooltips: true,
   reduceMotion: false,
   stickerSoundVolume: 50, // 0-100 (default 50%)
+  mcpEnabled: false,
+  mcpApiKey: null,
   databaseInfo: null,
   isDatabaseLoading: false,
   isLoading: false,
@@ -103,6 +113,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           viewMode: (settings.viewMode as ViewMode) || "bento",
           showTooltips: settings.showTooltips,
           reduceMotion: settings.reduceMotion,
+          mcpEnabled: settings.mcpEnabled ?? false,
+          mcpApiKey: settings.mcpApiKey ?? null,
           isInitialized: true,
         });
       }
@@ -180,6 +192,37 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       });
     } catch (error) {
       console.error("Error saving reduce motion:", error);
+    }
+  },
+
+  // Toggle MCP server on/off
+  setMcpEnabled: async (mcpEnabled) => {
+    set({ mcpEnabled });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mcpEnabled }),
+      });
+    } catch (error) {
+      console.error("Error saving MCP enabled:", error);
+    }
+  },
+
+  // Genera una nueva API key y la persiste
+  regenerateMcpApiKey: async () => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    const mcpApiKey = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+    set({ mcpApiKey });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mcpApiKey }),
+      });
+    } catch (error) {
+      console.error("Error saving MCP API key:", error);
     }
   },
 

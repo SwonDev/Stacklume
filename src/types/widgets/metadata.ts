@@ -1683,6 +1683,15 @@ export const WIDGET_TYPE_METADATA: Record<WidgetType, WidgetTypeMetadata> = {
     defaultTitle: 'Contraseñas',
     configurable: false,
   },
+  'custom-user': {
+    type: 'custom-user',
+    label: 'Widget personalizado',
+    description: 'Widget HTML/CSS/JS personalizado creado vía MCP',
+    icon: 'Puzzle',
+    defaultSize: 'medium',
+    defaultTitle: 'Widget personalizado',
+    configurable: false,
+  },
 };
 
 // Type alias for WidgetConfig - used for functions that return widget configs
@@ -2794,6 +2803,9 @@ export function getDefaultWidgetConfig(type: WidgetType): WidgetConfigOptions {
 
     case 'password-manager':
       return { entries: [] };
+
+    case 'custom-user':
+      return {};
 
     default:
       return {};

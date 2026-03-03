@@ -189,7 +189,8 @@ export type WidgetType =
   | 'api-tester'       // Quick REST API tester
   | 'cron-builder'     // Cron expression builder
   | 'diff-viewer'      // Text diff comparison
-  | 'password-manager'; // Gestor de contraseñas (logins, usuarios, URLs)
+  | 'password-manager'  // Gestor de contraseñas (logins, usuarios, URLs)
+  | 'custom-user';      // Widget con HTML/CSS/JS personalizado (creado vía MCP o UI)
 
 export type WidgetSize = 'small' | 'medium' | 'large' | 'wide' | 'tall';
 
