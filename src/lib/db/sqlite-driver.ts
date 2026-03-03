@@ -52,8 +52,10 @@ export async function getSQLiteDb(): Promise<SQLiteDatabase> {
   setDbSingleton(db);
   _sqliteDb = db;
 
-  // Crear las tablas si no existen (sin migraciones formales para simplicidad)
+  // Crear las tablas si no existen
   await initializeSQLiteTables(client);
+  // Aplicar migraciones incrementales (columnas nuevas en upgrades)
+  await runSQLiteMigrations(client);
 
   console.log("[SQLite] Inicializado:", rawPath);
   return db;
@@ -218,10 +220,29 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       view_mode TEXT NOT NULL DEFAULT 'bento',
       show_tooltips INTEGER NOT NULL DEFAULT 1,
       reduce_motion INTEGER NOT NULL DEFAULT 0,
+      mcp_enabled INTEGER NOT NULL DEFAULT 0,
+      mcp_api_key TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id)`,
+    `CREATE TABLE IF NOT EXISTS custom_widget_types (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT NOT NULL DEFAULT 'custom',
+      icon TEXT NOT NULL DEFAULT 'Puzzle',
+      html_template TEXT NOT NULL,
+      config_schema TEXT,
+      default_config TEXT,
+      default_width INTEGER NOT NULL DEFAULT 2,
+      default_height INTEGER NOT NULL DEFAULT 2,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      deleted_at INTEGER
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_custom_widget_types_user_id ON custom_widget_types(user_id)`,
     `CREATE TABLE IF NOT EXISTS user_backups (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL DEFAULT 'default',
@@ -237,5 +258,34 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
 
   for (const sql of statements) {
     await client.execute(sql);
+  }
+}
+
+/**
+ * Migraciones incrementales para bases de datos existentes.
+ * Cada ALTER TABLE está envuelto en try/catch — SQLite lanza error si la columna
+ * ya existe ("duplicate column name"), lo cual es esperado en instalaciones nuevas.
+ * Esto garantiza que upgrades desde versiones anteriores no fallen.
+ */
+async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
+  const migrations: Array<{ sql: string; description: string }> = [
+    // v0.3.0 — Servidor MCP
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN mcp_enabled INTEGER NOT NULL DEFAULT 0`,
+      description: "user_settings.mcp_enabled",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN mcp_api_key TEXT`,
+      description: "user_settings.mcp_api_key",
+    },
+  ];
+
+  for (const migration of migrations) {
+    try {
+      await client.execute(migration.sql);
+      console.log(`[SQLite Migration] Columna añadida: ${migration.description}`);
+    } catch {
+      // "duplicate column name" → columna ya existía, OK
+    }
   }
 }
