@@ -22,6 +22,20 @@ import { useLinksStore } from "@/stores/links-store"
 import { cn } from "@/lib/utils"
 import type { Category } from "@/lib/db/schema"
 
+// Mapa de nombres Tailwind → hex para compatibilidad con categorías guardadas antes del fix
+const COLOR_MAP: Record<string, string> = {
+  red: "#ef4444", orange: "#f97316", amber: "#f59e0b", yellow: "#eab308",
+  gold: "#d4a853", lime: "#84cc16", green: "#22c55e", emerald: "#10b981",
+  teal: "#14b8a6", cyan: "#06b6d4", sky: "#0ea5e9", blue: "#3b82f6",
+  indigo: "#6366f1", violet: "#8b5cf6", purple: "#a855f7", fuchsia: "#d946ef",
+  pink: "#ec4899", rose: "#f43f5e", slate: "#64748b", gray: "#6b7280",
+  zinc: "#71717a", stone: "#78716c",
+}
+
+function resolveColor(color: string): string {
+  return COLOR_MAP[color] ?? color
+}
+
 export interface CategorySelectorProps {
   selectedCategoryId: string | null | undefined
   onCategoryChange: (categoryId: string | null) => void
@@ -82,7 +96,7 @@ export function CategorySelector({
               {selectedCategory.color && (
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: selectedCategory.color }}
+                  style={{ backgroundColor: resolveColor(selectedCategory.color) }}
                 />
               )}
               <span className="truncate">{selectedCategory.name}</span>
@@ -107,6 +121,8 @@ export function CategorySelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start">
+        {/* El div captura la rueda del ratón antes de que react-remove-scroll (Dialog) la intercepte */}
+        <div onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Buscar categoría..."
@@ -153,7 +169,7 @@ export function CategorySelector({
                     {category.color && (
                       <div
                         className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
-                        style={{ backgroundColor: category.color }}
+                        style={{ backgroundColor: resolveColor(category.color) }}
                       />
                     )}
                     <span className="truncate">{category.name}</span>
@@ -175,6 +191,7 @@ export function CategorySelector({
             </CommandGroup>
           </CommandList>
         </Command>
+        </div>
       </PopoverContent>
     </Popover>
   )

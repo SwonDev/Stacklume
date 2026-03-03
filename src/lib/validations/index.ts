@@ -373,6 +373,8 @@ const widgetTypeSchema = z.enum([
   'password-manager',
   // Additional game development
   'tilemap',
+  // Custom user widgets (created via MCP or UI with HTML/CSS/JS)
+  'custom-user',
 ] as const);
 
 // Valid widget sizes
@@ -444,6 +446,9 @@ export const updateSettingsSchema = z.object({
   viewMode: viewModeSchema.optional(),
   showTooltips: z.boolean().optional(),
   reduceMotion: z.boolean().optional(),
+  // MCP server settings
+  mcpEnabled: z.boolean().optional(),
+  mcpApiKey: z.string().max(64).nullable().optional(),
 });
 
 // ============================================================================

@@ -1,0 +1,9 @@
+node_modules
+.next
+src-tauri/target
+dist-placeholder
+.git
+coverage
+playwright-report
+playwright-results
+test-results

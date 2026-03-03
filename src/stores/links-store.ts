@@ -86,6 +86,9 @@ interface LinksState {
   isDuplicateUrl: (url: string) => boolean;
   getDuplicatesForUrl: (url: string) => Link[];
 
+  // Refresh all data from API (usado tras importar para forzar refresco sin caché)
+  refreshAllData: () => Promise<void>;
+
   // Export/Import
   exportToJSON: () => string;
   exportToHTML: () => string;
@@ -401,6 +404,28 @@ export const useLinksStore = create<LinksState>((set, get) => ({
     const state = get();
     const normalizedInput = normalizeUrlForComparison(url);
     return state.links.filter((link) => normalizeUrlForComparison(link.url) === normalizedInput);
+  },
+
+  // Refresh all data from API — cache: "no-store" para evitar que WebView2 devuelva datos cacheados
+  refreshAllData: async () => {
+    try {
+      const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
+        fetch("/api/links", { credentials: "include", cache: "no-store" }),
+        fetch("/api/categories", { credentials: "include", cache: "no-store" }),
+        fetch("/api/tags", { credentials: "include", cache: "no-store" }),
+        fetch("/api/link-tags", { credentials: "include", cache: "no-store" }),
+      ]);
+      const [newLinks, newCategories, newTags, newLinkTags] = await Promise.all([
+        linksRes.json(),
+        categoriesRes.json(),
+        tagsRes.json(),
+        linkTagsRes.json(),
+      ]);
+      // Actualización atómica — un solo re-render en lugar de cuatro
+      set({ links: newLinks, categories: newCategories, tags: newTags, linkTags: newLinkTags });
+    } catch (error) {
+      console.error("[refreshAllData] Error al recargar datos:", error);
+    }
   },
 
   // Export/Import

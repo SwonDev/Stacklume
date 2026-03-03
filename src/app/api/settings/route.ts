@@ -64,7 +64,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { theme, viewDensity, viewMode, showTooltips, reduceMotion } = validation.data;
+    const { theme, viewDensity, viewMode, showTooltips, reduceMotion, mcpEnabled, mcpApiKey } = validation.data;
 
     // Check if settings exist
     const [existing] = await withRetry(
@@ -102,6 +102,8 @@ export async function PUT(request: NextRequest) {
     if (viewMode !== undefined) updateData.viewMode = viewMode;
     if (showTooltips !== undefined) updateData.showTooltips = showTooltips;
     if (reduceMotion !== undefined) updateData.reduceMotion = reduceMotion;
+    if (mcpEnabled !== undefined) updateData.mcpEnabled = mcpEnabled;
+    if (mcpApiKey !== undefined) updateData.mcpApiKey = mcpApiKey;
 
     const [updated] = await withRetry(
       () => db.update(userSettings).set(updateData).where(eq(userSettings.userId, DEFAULT_USER_ID)).returning(),

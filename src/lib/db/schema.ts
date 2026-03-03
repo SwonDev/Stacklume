@@ -299,11 +299,38 @@ export const userSettings = pgTable(
     viewMode: varchar("view_mode", { length: 20 }).default("bento").notNull(), // 'bento', 'kanban'
     showTooltips: boolCol("show_tooltips").default(true).notNull(),
     reduceMotion: boolCol("reduce_motion").default(false).notNull(),
+    // MCP Server settings
+    mcpEnabled: boolCol("mcp_enabled").default(false).notNull(),
+    mcpApiKey: varchar("mcp_api_key", { length: 64 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
   },
   (table) => ({
     userIdIdx: uniqueIndex("idx_user_settings_user_id").on(table.userId),
+  })
+);
+
+// Custom widget type definitions - created by users/AI via MCP
+export const customWidgetTypes = pgTable(
+  "custom_widget_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: varchar("user_id", { length: 100 }).default("default"),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    category: varchar("category", { length: 50 }).default("custom").notNull(),
+    icon: varchar("icon", { length: 50 }).default("Puzzle").notNull(),
+    htmlTemplate: text("html_template").notNull(), // Full HTML with {{CONFIG_JSON}} placeholder
+    configSchema: json("config_schema"), // JSON Schema for config properties
+    defaultConfig: json("default_config"), // Default config values
+    defaultWidth: integer("default_width").default(2).notNull(),
+    defaultHeight: integer("default_height").default(2).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete
+  },
+  (table) => ({
+    userIdIdx: index("idx_custom_widget_types_user_id").on(table.userId),
   })
 );
 
@@ -453,3 +480,7 @@ export interface BackupData {
 // User backup types
 export type UserBackup = typeof userBackups.$inferSelect;
 export type NewUserBackup = typeof userBackups.$inferInsert;
+
+// Custom widget type types
+export type CustomWidgetType = typeof customWidgetTypes.$inferSelect;
+export type NewCustomWidgetType = typeof customWidgetTypes.$inferInsert;
