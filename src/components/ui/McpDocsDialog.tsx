@@ -10,7 +10,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
 interface McpDocsDialogProps {
@@ -149,25 +148,28 @@ curl -X POST "${mcpUrl}" \\
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-primary" />
-            Conectar servidor MCP de Stacklume
-          </DialogTitle>
-          <DialogDescription>
-            Instrucciones de configuración para cada herramienta compatible con MCP.
-            {!mcpApiKey && (
-              <span className="block mt-1 text-amber-500 text-xs">
-                ⚠️ Genera una API key en Configuración antes de usar estas instrucciones.
-              </span>
-            )}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col gap-0 p-0">
+        <div className="px-6 pt-6 pb-4 shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-primary" />
+              Conectar servidor MCP de Stacklume
+            </DialogTitle>
+            <DialogDescription>
+              Instrucciones de configuración para cada herramienta compatible con MCP.
+              {!mcpApiKey && (
+                <span className="block mt-1 text-amber-500 text-xs">
+                  ⚠️ Genera una API key en Configuración antes de usar estas instrucciones.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <ScrollArea className="flex-1 -mx-1 px-1">
-          <Tabs defaultValue="claude-desktop" className="mt-2">
-            <TabsList className="flex flex-wrap h-auto gap-1 mb-4 bg-transparent p-0">
+        <Tabs defaultValue="claude-desktop" className="flex flex-col flex-1 min-h-0">
+          {/* Barra de pestañas con scroll horizontal y sin wrap */}
+          <div className="px-6 pb-3 shrink-0 overflow-x-auto scrollbar-none">
+            <TabsList className="flex flex-nowrap h-auto gap-1 bg-transparent p-0 w-max">
               {[
                 { value: "claude-desktop", label: "Claude Desktop" },
                 { value: "claude-code",    label: "Claude Code" },
@@ -180,12 +182,16 @@ curl -X POST "${mcpUrl}" \\
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
-                  className="text-xs px-2.5 py-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="text-xs px-2.5 py-1 rounded-md whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
                   {tab.label}
                 </TabsTrigger>
               ))}
             </TabsList>
+          </div>
+
+          {/* Contenido con scroll vertical dorado */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-6 pb-6">
 
             {/* ── Claude Desktop ─────────────────────────────────────────── */}
             <TabsContent value="claude-desktop" className="space-y-4">
@@ -484,8 +490,8 @@ curl -X POST "${mcpUrl}" \\
                 </span>
               </div>
             </TabsContent>
-          </Tabs>
-        </ScrollArea>
+          </div>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
