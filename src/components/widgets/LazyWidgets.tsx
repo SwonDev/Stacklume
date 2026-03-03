@@ -825,4 +825,6 @@ export const specialWidgetTypes = [
   // Utility Extended widgets
   "clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer",
   "password-manager",
+  // Custom user widgets (HTML/CSS/JS via iframe)
+  "custom-user",
 ];
