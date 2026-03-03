@@ -65,15 +65,15 @@ fn create_job_for_child(child_pid: u32) -> isize {
 #[cfg(not(dev))]
 use std::net::TcpListener;
 
-/// Busca un puerto TCP libre comenzando desde 3001.
+/// Busca un puerto TCP libre comenzando desde 7878.
 #[cfg(not(dev))]
 fn find_free_port() -> u16 {
-    for port in [3001u16, 3002, 3003, 3004, 3005, 3006, 3007, 3008] {
+    for port in [7878u16, 7879, 7880, 7881, 7882, 7883, 7884, 7885] {
         if TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok() {
             return port;
         }
     }
-    3001
+    7878
 }
 
 /// Espera hasta que el servidor Next.js responda en /api/health (máx 40 s).
@@ -254,7 +254,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(ServerState {
-            port: Mutex::new(3000),
+            port: Mutex::new(7878),
             #[cfg(not(dev))]
             node_child: Mutex::new(None),
             #[cfg(windows)]
