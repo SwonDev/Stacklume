@@ -162,16 +162,16 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "add_custom_widget",
-    description: "Coloca una instancia de un tipo de widget personalizado en el dashboard. IMPORTANTE: después de añadir, pide al usuario que refresque la página (F5) para ver el widget.",
+    description: "Coloca una instancia de un tipo de widget personalizado en el dashboard. USA SIEMPRE este tool para widgets custom-user; NUNCA uses add_widget para esto. El parámetro customWidgetTypeId es el campo 'id' exacto devuelto por create_custom_widget_type o list_custom_widget_types. IMPORTANTE: tras añadir, pide al usuario que refresque la página (F5).",
     inputSchema: {
       type: "object",
       properties: {
-        customTypeId: { type: "string", description: "ID del tipo de widget personalizado (de list_custom_widget_types)" },
+        customWidgetTypeId: { type: "string", description: "El 'id' exacto del tipo personalizado — cópialo directamente del campo id de la respuesta de create_custom_widget_type o de list_custom_widget_types" },
         title: { type: "string", description: "Título de la instancia (opcional; por defecto: nombre del tipo)" },
-        config: { type: "object", description: "Configuración inicial de la instancia (opcional)" },
-        projectId: { type: "string", description: "ID del proyecto (null = Home)" },
+        config: { type: "object", description: "Configuración inicial como objeto JSON (opcional). NO pasar como string." },
+        projectId: { type: "string", description: "ID del proyecto (omitir o null = vista Home)" },
       },
-      required: ["customTypeId"],
+      required: ["customWidgetTypeId"],
     },
   },
   {
