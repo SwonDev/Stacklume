@@ -170,6 +170,7 @@ import {
   GitCompare,
   Trash2,
   StarOff,
+  Download,
 } from "lucide-react";
 import {
   Dialog,
@@ -420,6 +421,9 @@ interface CustomWidgetTypeEntry {
   name: string;
   description: string | null;
   icon: string;
+  category?: string;
+  htmlTemplate?: string;
+  configSchema?: Record<string, unknown> | null;
   defaultWidth: number;
   defaultHeight: number;
   defaultConfig: Record<string, unknown> | null;
@@ -2114,6 +2118,31 @@ export function AddWidgetModal() {
     });
   }, []);
 
+  const handleExportCustomType = useCallback((customType: CustomWidgetTypeEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const exportData = {
+      stacklume_widget_type: "1.0",
+      name: customType.name,
+      description: customType.description,
+      category: customType.category ?? "custom",
+      icon: customType.icon,
+      htmlTemplate: customType.htmlTemplate ?? "",
+      configSchema: customType.configSchema ?? null,
+      defaultWidth: customType.defaultWidth,
+      defaultHeight: customType.defaultHeight,
+      defaultConfig: customType.defaultConfig,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${customType.name.replace(/\s+/g, "-").toLowerCase()}.stacklume-widget.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
   const handleDeleteCustomType = useCallback(async (customType: CustomWidgetTypeEntry, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`¿Eliminar el tipo de widget "${customType.name}"? Esta acción no se puede deshacer.`)) return;
@@ -2476,6 +2505,14 @@ export function AddWidgetModal() {
                                 ) : (
                                   <StarOff className="w-3.5 h-3.5" />
                                 )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleExportCustomType(customType, e)}
+                                title="Exportar widget como archivo JSON"
+                                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Download className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
