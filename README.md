@@ -371,6 +371,6 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 [![GitHub](https://img.shields.io/badge/GitHub-0a1628?style=for-the-badge&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume)
 [![Releases](https://img.shields.io/badge/Releases-0a1628?style=for-the-badge&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume/releases)
-[![Star](https://img.shields.io/github/stars/SwonDev/Stacklume?style=for-the-badge&color=d4a853&labelColor=0a1628)](https://github.com/SwonDev/Stacklume)
+[![Star](https://img.shields.io/github/stars/SwonDev/Stacklume?style=for-the-badge&color=d4a853&labelColor=0a1628&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume)
 
 </div>
