@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers/Providers";
 import { AppShell } from "@/components/providers/AppShell";
 import { DesktopTitleBar } from "@/components/desktop/TitleBar";
 import { DesktopContextMenu } from "@/components/desktop/DesktopContextMenu";
+import { UpdateChecker } from "@/components/desktop/UpdateChecker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -87,6 +88,7 @@ export default function RootLayout({
         <Providers>
           <DesktopTitleBar />
           <DesktopContextMenu />
+          <UpdateChecker />
           <AppShell>{children}</AppShell>
           <Toaster
             theme="dark"

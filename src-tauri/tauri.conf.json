@@ -29,6 +29,17 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA0OUQ1OTg4RURCM0I5N0YKUldSL3ViUHRpRm1kQkJqQ3NmWGVqak5nU202UkUyc2xDclNlWDVHWmJVbHBxQVBmMW5xa1J4MFoK",
+      "endpoints": [
+        "https://github.com/SwonDev/Stacklume/releases/latest/download/update-manifest.json"
+      ],
+      "windows": {
+        "installMode": "currentUser"
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "nsis",
