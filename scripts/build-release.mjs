@@ -5,12 +5,12 @@
  * Pasos:
  * 1. Carga TAURI_SIGNING_PRIVATE_KEY desde .env.local si no está ya en el entorno
  * 2. Ejecuta `tauri build` (que a su vez ejecuta build:desktop como beforeBuildCommand)
- * 3. Lee el .sig generado por Tauri junto al instalador NSIS
+ * 3. Si Tauri no generó el .sig automáticamente, firma explícitamente con tauri signer sign
  * 4. Genera update-manifest.json con versión, URL y firma
- * 5. (Opcional) Sube instalador + manifest a la GitHub release del tag actual
+ * 5. Sube instalador + .sig + manifest a la GitHub release del tag actual (--clobber)
  *
  * Uso:
- *   pnpm tauri:build          → build completo con firma + manifest
+ *   pnpm tauri:build          → build completo con firma + manifest + upload
  */
 
 import { execSync, spawnSync } from "child_process";
@@ -40,7 +40,7 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
 }
 
 if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
-  console.warn("[build-release] ⚠ TAURI_SIGNING_PRIVATE_KEY no encontrada — el instalador no será firmado y el auto-updater no funcionará.");
+  console.warn("[build-release] ⚠ TAURI_SIGNING_PRIVATE_KEY no encontrada — el auto-updater no funcionará.");
 }
 
 // ─── 2. Ejecutar tauri build (beforeBuildCommand ya incluye Next.js + recursos) ──
@@ -56,7 +56,7 @@ try {
   process.exit(1);
 }
 
-// ─── 3. Leer versión y localizar el instalador + firma ────────────────────────
+// ─── 3. Localizar instalador ────────────────────────────────────────────────
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
 const version = pkg.version;
@@ -70,13 +70,46 @@ if (!existsSync(installerPath)) {
   process.exit(1);
 }
 
-// ─── 4. Generar update-manifest.json ──────────────────────────────────────────
+// ─── 4. Firmar el instalador si Tauri no lo hizo automáticamente ─────────────
+
+if (!existsSync(sigPath)) {
+  const signingKey = process.env.TAURI_SIGNING_PRIVATE_KEY;
+
+  if (!signingKey) {
+    console.warn("[build-release] ⚠ Sin clave de firma — saltando firma y manifest");
+    process.exit(0);
+  }
+
+  console.log("[build-release] Firmando instalador con tauri signer sign...");
+
+  const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? "";
+
+  const result = spawnSync(
+    "pnpm",
+    [
+      "exec", "tauri", "signer", "sign",
+      "-k", signingKey,
+      "-p", password,
+      installerPath,
+    ],
+    { encoding: "utf8", cwd: ROOT, stdio: "pipe" }
+  );
+
+  if (result.status !== 0) {
+    console.error("[build-release] ✗ Error al firmar:", result.stderr || result.stdout);
+    process.exit(1);
+  }
+
+  console.log("[build-release] ✓ Instalador firmado correctamente");
+}
+
+// ─── 5. Generar update-manifest.json ─────────────────────────────────────────
 
 const manifestPath = join(nsisDir, "update-manifest.json");
 
 if (!existsSync(sigPath)) {
-  console.warn("[build-release] ⚠ Archivo .sig no encontrado — manifest sin firma (el auto-updater no aceptará esta actualización).");
-  process.exit(0);
+  console.error("[build-release] ✗ Archivo .sig sigue sin existir tras el intento de firma");
+  process.exit(1);
 }
 
 const signature = readFileSync(sigPath, "utf8").trim();
@@ -95,14 +128,14 @@ const manifest = {
 
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
 console.log(`\n[build-release] ✓ update-manifest.json generado`);
-console.log(`  Versión:   ${version}`);
+console.log(`  Versión:    ${version}`);
 console.log(`  Instalador: ${installerName}`);
-console.log(`  Firma:     ${signature.slice(0, 40)}…`);
+console.log(`  Firma:      ${signature.slice(0, 50)}…`);
 
-// ─── 5. Subir a GitHub release si el tag ya existe ───────────────────────────
+// ─── 6. Subir a GitHub release si el tag ya existe ───────────────────────────
 
 const tag = `v${version}`;
-console.log(`\n[build-release] Comprobando si existe la GitHub release ${tag}...`);
+console.log(`\n[build-release] Comprobando release GitHub ${tag}...`);
 
 const ghCheck = spawnSync("gh", ["release", "view", tag, "--json", "tagName"], {
   encoding: "utf8",
@@ -110,7 +143,6 @@ const ghCheck = spawnSync("gh", ["release", "view", tag, "--json", "tagName"], {
 });
 
 if (ghCheck.status === 0) {
-  // La release existe — subir / sobrescribir assets
   console.log(`[build-release] Release ${tag} encontrada — subiendo assets...`);
 
   const uploadAssets = [
@@ -120,25 +152,24 @@ if (ghCheck.status === 0) {
   ];
 
   for (const asset of uploadAssets) {
-    console.log(`  → Subiendo ${asset.name}...`);
+    process.stdout.write(`  → ${asset.name}... `);
     const result = spawnSync(
       "gh",
       ["release", "upload", tag, `${asset.path}#${asset.name}`, "--clobber"],
       { encoding: "utf8", cwd: ROOT }
     );
     if (result.status !== 0) {
-      console.error(`    ✗ Error: ${result.stderr}`);
+      console.error(`✗\n    ${result.stderr}`);
     } else {
-      console.log(`    ✓ OK`);
+      console.log("✓");
     }
   }
 
-  console.log(`\n✅ Release ${tag} actualizada con auto-updater:`);
+  console.log(`\n✅ Release ${tag} lista con auto-updater:`);
   console.log(`   https://github.com/SwonDev/Stacklume/releases/tag/${tag}`);
 } else {
-  // La release no existe — mostrar instrucciones
-  console.log(`\n[build-release] Release ${tag} no encontrada en GitHub.`);
-  console.log(`Para crear la release con auto-updater, ejecuta:\n`);
+  console.log(`[build-release] No existe release ${tag} en GitHub todavía.`);
+  console.log(`Crea la release con:\n`);
   console.log(`  gh release create ${tag} \\`);
   console.log(`    "${installerPath}#${installerName}" \\`);
   console.log(`    "${sigPath}#${installerName}.sig" \\`);
