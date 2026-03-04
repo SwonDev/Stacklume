@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Loader2, AlertCircle, Puzzle } from "lucide-react";
 import type { Widget } from "@/types/widget";
 import type { CustomUserWidgetConfig } from "@/types/widgets/configs";
@@ -17,6 +17,10 @@ interface CustomUserWidgetProps {
  *
  * Template variables disponibles en el HTML:
  *   {{CONFIG_JSON}} — sustituido por JSON.stringify(config) antes del render
+ *
+ * El iframe recibe postMessages de tipo { type: "stacklume:resize", width, height }
+ * cada vez que el widget cambia de tamaño, para que los templates canvas-based
+ * puedan actualizar sus dimensiones sin depender de ResizeObserver interno.
  */
 export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
   const config = widget.config as CustomUserWidgetConfig | null;
@@ -25,6 +29,12 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
   const [definition, setDefinition] = useState<CustomWidgetType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Refs para el ResizeObserver externo
+  const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Dimensiones en píxeles exactos para el iframe (evita el lag de 100%/100vh durante resize)
+  const [iframeDims, setIframeDims] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     if (!customTypeId) {
@@ -64,6 +74,35 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
     };
   }, [customTypeId]);
 
+  // ResizeObserver externo: setea dimensiones en píxeles exactos en el iframe
+  // para que reaccione sin retraso durante el drag de react-grid-layout.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !definition) return;
+
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      const w = Math.round(width);
+      const h = Math.round(height);
+      setIframeDims({ w, h });
+      // Notificar al contenido del iframe para que actualice canvas u otros
+      // elementos dependientes del tamaño sin necesitar su propio ResizeObserver
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "stacklume:resize", width: w, height: h },
+          "*"
+        );
+      } catch {
+        // El iframe puede no estar listo aún; no es un error crítico
+      }
+    });
+
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [definition]); // Se re-inicializa cuando carga la definición
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -97,7 +136,7 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
   );
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       {/* Etiqueta de "Widget personalizado" en modo dev para identificación */}
       {process.env.NODE_ENV === "development" && (
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-400 pointer-events-none select-none">
@@ -106,11 +145,16 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
         </div>
       )}
       <iframe
+        ref={iframeRef}
         title={widget.title ?? definition.name}
         sandbox="allow-scripts"
         srcDoc={processedHtml}
-        className="w-full h-full border-0 rounded-[inherit]"
-        loading="lazy"
+        className="absolute inset-0 border-0 rounded-[inherit]"
+        style={
+          iframeDims
+            ? { width: iframeDims.w, height: iframeDims.h }
+            : { width: "100%", height: "100%" }
+        }
       />
     </div>
   );
