@@ -502,17 +502,25 @@ REGLAS CRÍTICAS DE CSS:
   • Usar display:flex + flex-direction:column en body para layouts verticales
 
 REGLAS CRÍTICAS DE JS:
-  • Canvas: usa ResizeObserver (el iframe no emite resize events al redimensionar el widget)
+  • Canvas: escucha SIEMPRE los dos canales de resize:
+    1. ResizeObserver sobre el canvas/body (cambios de tamaño generales)
+    2. window.addEventListener('message', e => { if(e.data?.type==='stacklume:resize') /* actualizar */ })
+       → Stacklume envía este mensaje en tiempo real durante el drag de resize del widget
+       → Sin este listener, el canvas puede quedar con dimensiones incorrectas mientras el usuario arrastra
   • IDs únicos en el DOM — no usar id="app" si el widget puede instanciarse varias veces
   • Maneja undefined: const cfg = (typeof CONFIG !== 'undefined') ? CONFIG : {};
   • requestAnimationFrame funciona normalmente dentro del iframe
+  • body { height: 100%; } — no usar 100vh, el iframe ya maneja sus propias dimensiones vía píxeles
 
 PLANTILLA CANVAS (copiar y adaptar):
-<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;width:100%;height:100vh;overflow:hidden}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
+<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;width:100%;height:100%;overflow:hidden}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
 const CONFIG=(typeof {{CONFIG_JSON}}!=='undefined')?{{CONFIG_JSON}}:{};
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
-const ro=new ResizeObserver(([e])=>{canvas.width=e.contentRect.width;canvas.height=e.contentRect.height;draw();});
-ro.observe(canvas);
+function resize(w,h){canvas.width=w||canvas.offsetWidth;canvas.height=h||canvas.offsetHeight;draw();}
+// ResizeObserver para cambios de tamaño generales
+new ResizeObserver(([e])=>resize(e.contentRect.width,e.contentRect.height)).observe(canvas);
+// postMessage de Stacklume: se dispara en tiempo real durante el drag de resize del widget
+window.addEventListener('message',e=>{if(e.data&&e.data.type==='stacklume:resize')resize(e.data.width,e.data.height);});
 function draw(){ctx.fillStyle='#0d1117';ctx.fillRect(0,0,canvas.width,canvas.height);/* tu lógica — usa #d4a520 para highlights */}
 </script></body></html>
 
