@@ -121,6 +121,46 @@ fn log(path: &std::path::Path, msg: &str) {
 
 // ─── Comandos Tauri ───────────────────────────────────────────────────────────
 
+/// Descarga el instalador de actualización desde GitHub y lo ejecuta.
+/// No usa tauri-plugin-updater (evita ACL plugin:updater|check).
+/// Funciona desde cualquier versión de la app que tenga este comando.
+#[tauri::command]
+async fn download_and_run_update(url: String) -> Result<(), String> {
+    // Solo se permiten URLs de nuestras releases de GitHub
+    if !url.starts_with("https://github.com/SwonDev/Stacklume/releases/") {
+        return Err("URL de actualización no válida".to_string());
+    }
+
+    let installer_path = std::env::temp_dir().join("StacklumeUpdate.exe");
+    let installer_path_clone = installer_path.clone();
+
+    // ureq es sincrónico — ejecutar en hilo blocking para no bloquear el runtime async
+    tokio::task::spawn_blocking(move || {
+        let response = ureq::get(&url)
+            .call()
+            .map_err(|e| format!("Error de descarga: {}", e))?;
+
+        let mut file = std::fs::File::create(&installer_path_clone)
+            .map_err(|e| format!("Error creando archivo temporal: {}", e))?;
+
+        let mut reader = response.into_reader();
+        std::io::copy(&mut reader, &mut file)
+            .map_err(|e| format!("Error guardando instalador: {}", e))?;
+
+        drop(file);
+
+        // Spawn directo del instalador. Los hooks NSIS usan "taskkill /F /IM stacklume.exe"
+        // SIN la bandera /T, por lo que no matan al instalador aunque sea hijo de la app.
+        std::process::Command::new(&installer_path_clone)
+            .spawn()
+            .map_err(|e| format!("Error ejecutando instalador: {}", e))?;
+
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| format!("Error interno: {}", e))?
+}
+
 /// Abre una URL externa en el navegador por defecto del sistema.
 /// Solo se permiten URLs con protocolo http o https.
 #[tauri::command]
@@ -662,6 +702,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            download_and_run_update,
             open_url,
             get_server_port,
             get_app_data_dir,

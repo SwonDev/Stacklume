@@ -3,7 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { isTauriWebView } from "@/lib/desktop";
 import { Download, RefreshCw, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+// GitHub API tiene CORS abierto (Access-Control-Allow-Origin: *).
+// La URL de descarga directa redirige a una CDN sin CORS → "Failed to fetch".
+const GITHUB_API_URL =
+  "https://api.github.com/repos/SwonDev/Stacklume/releases/latest";
 
 type UpdateState =
   | { phase: "idle" }
@@ -12,78 +18,119 @@ type UpdateState =
   | { phase: "ready" }
   | { phase: "error"; message: string };
 
+/** Compara versiones semver simples (MAJOR.MINOR.PATCH). */
+function isNewer(latest: string, current: string): boolean {
+  const p = (v: string) => v.split(".").map(Number);
+  const [la, lb, lc] = p(latest);
+  const [ca, cb, cc] = p(current);
+  if (la !== ca) return la > ca;
+  if (lb !== cb) return lb > cb;
+  return lc > cc;
+}
+
+/**
+ * Comprueba actualizaciones via GitHub API (CORS abierto) desde el WebView2.
+ * La versión actual se lee de NEXT_PUBLIC_APP_VERSION (incrustada en build time).
+ */
+async function runUpdateCheck(
+  onAvailable: (version: string, notes: string | null) => void,
+  onUpToDate?: () => void,
+) {
+  const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
+  const res = await fetch(GITHUB_API_URL, {
+    cache: "no-store",
+    headers: { Accept: "application/vnd.github.v3+json" },
+  });
+
+  if (!res.ok) throw new Error(`GitHub API: HTTP ${res.status}`);
+  const release = await res.json() as { tag_name: string; body?: string };
+  const latestVersion = release.tag_name.replace(/^v/, "");
+
+  if (isNewer(latestVersion, currentVersion)) {
+    onAvailable(latestVersion, release.body ?? null);
+  } else {
+    onUpToDate?.();
+  }
+}
+
 /**
  * Comprueba actualizaciones de Stacklume al arrancar (solo en modo desktop Tauri).
  * Muestra un toast no intrusivo en la esquina inferior derecha cuando hay
  * una nueva versión disponible. La descarga e instalación son silenciosas;
  * la app se reinicia automáticamente al terminar.
+ *
+ * También escucha el evento "stacklume:check-update-manual" para comprobaciones
+ * manuales desde el menú de configuración.
  */
 export function UpdateChecker() {
   const [state, setState] = useState<UpdateState>({ phase: "idle" });
   const [dismissed, setDismissed] = useState(false);
 
+  const checkForUpdate = useCallback((manual = false) => {
+    runUpdateCheck(
+      (version, notes) => {
+        setDismissed(false);
+        setState({ phase: "available", version, notes });
+      },
+      manual
+        ? () => toast.success("Ya tienes la última versión", { description: "Stacklume está al día." })
+        : undefined,
+    ).catch((err: unknown) => {
+      if (manual) {
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.error("No se pudo comprobar actualizaciones", { description: msg });
+      }
+    });
+  }, []);
+
+  // Comprobación automática 6 s tras el arranque
   useEffect(() => {
     if (!isTauriWebView()) return;
-
-    // Espera 6 s tras el arranque antes de consultar para no interferir con la carga inicial
-    const timer = setTimeout(async () => {
-      try {
-        const { check } = await import("@tauri-apps/plugin-updater");
-        const update = await check();
-        if (update?.available) {
-          setState({
-            phase: "available",
-            version: update.version,
-            notes: update.body ?? null,
-          });
-        }
-      } catch {
-        // Sin conexión o endpoint no disponible — fallo silencioso
-      }
-    }, 6000);
-
+    const timer = setTimeout(() => checkForUpdate(false), 6000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [checkForUpdate]);
+
+  // Escucha comprobaciones manuales desde SettingsDropdown
+  useEffect(() => {
+    if (!isTauriWebView()) return;
+    const handler = () => checkForUpdate(true);
+    window.addEventListener("stacklume:check-update-manual", handler);
+    return () => window.removeEventListener("stacklume:check-update-manual", handler);
+  }, [checkForUpdate]);
 
   const handleUpdate = useCallback(async () => {
     if (state.phase !== "available") return;
+    const { version } = state;
+
+    // URL directa al instalador NSIS en GitHub Releases
+    const installerUrl = `https://github.com/SwonDev/Stacklume/releases/download/v${version}/Stacklume_${version}_x64-setup.exe`;
+
+    setState({ phase: "downloading", progress: 0 });
 
     try {
-      const { check } = await import("@tauri-apps/plugin-updater");
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-
-      const update = await check();
-      if (!update?.available) return;
-
-      setState({ phase: "downloading", progress: 0 });
-
-      let downloaded = 0;
-      let total = 0;
-
-      await update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case "Started":
-            total = event.data.contentLength ?? 0;
-            break;
-          case "Progress":
-            downloaded += event.data.chunkLength;
-            setState({
-              phase: "downloading",
-              progress: total > 0 ? Math.round((downloaded / total) * 100) : 0,
-            });
-            break;
-          case "Finished":
-            setState({ phase: "ready" });
-            break;
-        }
-      });
-
-      // El instalador NSIS ya se ejecutó silenciosamente — relanzar la app
-      await relaunch();
-    } catch (err) {
-      setState({ phase: "error", message: String(err) });
+      // Usa el comando Rust propio (no plugin:updater) — no requiere ACL especial.
+      // ureq descarga el instalador a %TEMP%\StacklumeUpdate.exe y lo ejecuta.
+      // El hook NSIS del instalador cerrará Stacklume automáticamente.
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("download_and_run_update", { url: installerUrl });
+      setState({ phase: "ready" });
+    } catch {
+      // Fallback para versiones antiguas que no tienen download_and_run_update:
+      // abrir la página de releases en el navegador para descarga manual.
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("open_url", {
+          url: `https://github.com/SwonDev/Stacklume/releases/tag/v${version}`,
+        });
+        setState({
+          phase: "error",
+          message: "Descarga abierta en tu navegador. Ejecuta el instalador manualmente.",
+        });
+      } catch (e2) {
+        setState({ phase: "error", message: String(e2) });
+      }
     }
-  }, [state.phase]);
+  }, [state]);
 
   // No mostrar nada en modo web, ni si fue descartado, ni en estado idle
   if (!isTauriWebView() || dismissed || state.phase === "idle") {
@@ -117,7 +164,7 @@ export function UpdateChecker() {
           <div className="min-w-0">
             <p className="text-sm font-medium leading-tight truncate">
               {isDone
-                ? "Actualización instalada"
+                ? "Instalando actualización…"
                 : isError
                 ? "Error al actualizar"
                 : isDownloading
@@ -126,7 +173,7 @@ export function UpdateChecker() {
             </p>
             {state.phase === "available" && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Stacklume v{state.version}
+                v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"} → v{state.version}
               </p>
             )}
             {isError && (
@@ -153,12 +200,15 @@ export function UpdateChecker() {
         <div className="px-4 pb-2">
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-200"
-              style={{ width: `${state.progress}%` }}
+              className={cn(
+                "h-full rounded-full bg-primary",
+                state.progress === 0 ? "animate-pulse w-full" : "transition-all duration-200"
+              )}
+              style={state.progress > 0 ? { width: `${state.progress}%` } : undefined}
             />
           </div>
           <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
-            {state.progress > 0 ? `${state.progress}%` : "Iniciando…"}
+            {state.progress > 0 ? `${state.progress}%` : "Descargando instalador…"}
           </p>
         </div>
       )}
@@ -186,7 +236,7 @@ export function UpdateChecker() {
 
           {isDone && (
             <p className="text-xs text-muted-foreground">
-              Reiniciando la aplicación…
+              Instalador iniciado. La app se cerrará y actualizará automáticamente.
             </p>
           )}
 

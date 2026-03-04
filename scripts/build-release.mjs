@@ -92,7 +92,7 @@ if (!existsSync(sigPath)) {
       "-p", password,
       installerPath,
     ],
-    { encoding: "utf8", cwd: ROOT, stdio: "pipe" }
+    { encoding: "utf8", cwd: ROOT, stdio: "pipe", shell: true }
   );
 
   if (result.status !== 0) {

@@ -28,7 +28,7 @@ async function fetchWithCsrfRetry(
   return response;
 }
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system" | "midnight" | "ocean" | "forest" | "slate" | "crimson" | "aurora" | "arctic" | "sakura" | "lavender" | "mint";
 export type ViewDensity = "compact" | "normal" | "comfortable";
 export type ViewMode = "bento" | "kanban" | "list";
 export type DatabaseType = "sqlite" | "neon" | "unknown";

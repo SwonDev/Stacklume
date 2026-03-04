@@ -46,8 +46,8 @@ pnpm db:studio    # Open Drizzle Studio GUI
 
 # Tauri Desktop App
 pnpm tauri:dev         # Run desktop app in dev mode (Next.js via beforeDevCommand)
-pnpm tauri:build       # Build NSIS installer (runs build:desktop + cargo build --release)
-pnpm build:desktop     # Only build Next.js standalone + copy resources (no Rust compile)
+pnpm tauri:build       # Full release pipeline: build + sign .exe + generate update-manifest.json + upload to GitHub release
+pnpm build:desktop     # Only build Next.js standalone + copy resources (no Rust compile, no signing)
 pnpm db:sqlite:generate  # Generate SQLite migrations from schema.sqlite.ts
 pnpm db:sqlite:migrate   # Apply SQLite migrations
 ```
@@ -78,6 +78,7 @@ src-tauri/                  # Rust/Tauri desktop app
 └── resources/              # node/ (node.exe) + server/ (.next/standalone) — gitignored
 scripts/
 ├── build-desktop.mjs       # Full desktop pipeline: Next.js build → copy resources → update tauri.conf.json
+├── build-release.mjs       # Release pipeline: load signing key → tauri build → sign .exe → update-manifest.json → GitHub upload
 └── generate-icons.mjs      # Generate icon components from SVGs
 src/
 ├── app/                    # Next.js App Router
@@ -163,7 +164,16 @@ The app ships as a native Windows installer that bundles Next.js standalone + No
 
 **System tray**: Animated icon updated at 30fps via `TrayIconUpdater.tsx` (offscreen Three.js canvas → `update_tray_icon`). Closing the window hides to tray instead of quitting; tray menu has "Abrir Stacklume" / "Cerrar".
 
-**Installer output**: `src-tauri/target/release/bundle/nsis/Stacklume_0.2.0_x64-setup.exe`
+**Auto-updater**: `tauri-plugin-updater` + `tauri-plugin-process`. `UpdateChecker.tsx` (in `layout.tsx`) checks for updates 6s after startup. If a new version exists on GitHub releases, shows a toast with download progress and silent install via `downloadAndInstall()` + `relaunch()`. Update manifest: `https://github.com/SwonDev/Stacklume/releases/latest/download/update-manifest.json`. Signing key: `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in `.env.local`.
+
+**Release pipeline** (`pnpm tauri:build` → `scripts/build-release.mjs`):
+1. Loads signing keys from `.env.local`
+2. Runs `pnpm exec tauri build` (triggers `build:desktop` internally)
+3. Signs the `.exe` with `tauri signer sign -k <key> -p <password>`
+4. Generates `update-manifest.json` with version, download URL, and signature
+5. Uploads installer + `.sig` + manifest to GitHub release via `gh release upload --clobber`
+
+**Installer output**: `src-tauri/target/release/bundle/nsis/Stacklume_x.x.x_x64-setup.exe`
 
 ### Authentication
 
@@ -220,6 +230,7 @@ Eight Zustand stores handle different concerns:
 - **Game Development**: sprite-sheet, tilemap-editor, pathfinding, behavior-tree, skill-tree, dialogue-tree, particle-system, hitbox-editor, quest-designer, wave-spawner, inventory-grid, camera-shake, damage-calculator, level-progress, loot-table, rpg-stats, state-machine, easing-functions, bezier-curve, noise-generator, pixel-art, color-ramp, game-math, health-bar, physics-playground, input-mapper, achievement, name-generator, frame-rate, screen-resolution
 - **Organization & Productivity (Design/Dev)**: design-tokens, code-snippets, sprint-tasks, decision-log, eisenhower-matrix, standup-notes, mood-board, api-reference, meeting-notes, weekly-goals, parking-lot, pr-checklist, tech-debt, project-timeline, component-docs, wireframe, design-review, env-vars, git-commands
 - **Custom**: custom (multi-mode widget), voice-notes, prompt, rss-feed, steam-games, ip-info, uuid-generator
+- **Custom User** (`custom-user`): AI-generated widgets rendered in sandboxed `<iframe srcdoc>`. Backed by `customWidgetTypes` DB table.
 
 **Widget Properties:**
 - Type and size preset (maps to grid dimensions)
@@ -230,6 +241,33 @@ Eight Zustand stores handle different concerns:
 - Visual customization (backgroundColor, backgroundGradient, accentColor, opacity, isLocked)
 
 See `src/types/widget.ts` for type definitions and `src/stores/WIDGET_STORE_GUIDE.md` for detailed widget API documentation.
+
+### MCP Server & Custom Widgets
+
+**MCP endpoint**: `POST /api/mcp` — JSON-RPC 2.0, no external SDK. Auth via `Authorization: Bearer <mcpApiKey>` (configured in Settings). Added to `PUBLIC_API_ROUTES` and `CSRF_EXEMPT_ROUTES`.
+
+**23 tools**: widget CRUD, custom widget type CRUD, links CRUD, categories/tags/projects (read), settings.
+
+**Custom widget types** (`customWidgetTypes` table): AI creates a type with `htmlTemplate` (full HTML page), `configSchema`, `defaultConfig`, `defaultWidth/Height`. The `{{CONFIG_JSON}}` placeholder in the template is replaced with `JSON.stringify(config)` at render time. Widgets are rendered in `<iframe sandbox="allow-scripts" srcdoc={processedHtml}>`.
+
+**Widget postMessage protocol** (`CustomUserWidget.tsx` ↔ iframe):
+
+| Direction | Message type | Payload | Effect |
+|-----------|-------------|---------|--------|
+| iframe → parent | `stacklume:save` | `{ config: {...} }` | Saves config to DB via `useWidgetStore.getState().updateWidget()` |
+| parent → iframe | `stacklume:saved` | `{ success: boolean }` | Confirms save |
+| iframe → parent | `stacklume:get-config` | — | Requests current config |
+| parent → iframe | `stacklume:config` | `{ config: {...} }` | Returns current config |
+
+Iframe code pattern for self-persistence:
+```javascript
+const CONFIG = {{CONFIG_JSON}};
+function saveConfig(newConfig) {
+  window.parent.postMessage({ type: 'stacklume:save', config: newConfig }, '*');
+}
+```
+
+**Settings**: MCP can be toggled in Settings → "MCP". Toggle generates a random API key, displays Claude Desktop and Cursor config snippets.
 
 ### View Modes
 
