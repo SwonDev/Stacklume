@@ -32,7 +32,7 @@
 <br />
 <br />
 
-[![GitHub Release](https://img.shields.io/github/v/release/SwonDev/Stacklume?style=flat-square&color=d4a853&labelColor=0a1628&label=Última%20versión)](https://github.com/SwonDev/Stacklume/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/SwonDev/Stacklume?style=flat-square&color=d4a853&labelColor=0a1628&label=%C3%9Altima%20versi%C3%B3n)](https://github.com/SwonDev/Stacklume/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/SwonDev/Stacklume?style=flat-square&color=d4a853&labelColor=0a1628)](https://github.com/SwonDev/Stacklume)
 [![License MIT](https://img.shields.io/badge/Licencia-MIT-d4a853?style=flat-square&labelColor=0a1628)](LICENSE)
 
