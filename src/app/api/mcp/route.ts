@@ -383,6 +383,13 @@ FLUJO DE TRABAJO BÁSICO:
 ⚠️  IMPORTANTE — REFRESCO DE UI OBLIGATORIO:
 El dashboard carga los widgets en memoria al arrancar y NO detecta cambios externos automáticamente. Después de CUALQUIER operación de widget (add_widget, update_widget, remove_widget, add_custom_widget), el usuario DEBE refrescar la página manualmente (F5 / Ctrl+R / Cmd+R) para que los cambios sean visibles. SIEMPRE informa de esto al usuario tras cada operación de widget.
 
+⚠️  GESTIÓN DE DATOS EN WIDGETS PERSONALIZADOS (custom-user) — MUY IMPORTANTE:
+Los datos (items, listas, config) de los widgets custom-user NO se pueden editar desde la UI de Stacklume. No existe ningún formulario de edición manual de config en la app. Para añadir, modificar o eliminar datos en estos widgets debes:
+1. Llamar a list_widgets para obtener el widget_id y la config actual del widget
+2. Modificar la config con los nuevos datos (mantener _customTypeId intacto)
+3. Llamar a update_widget con { config: <nueva_config_completa> }
+NUNCA digas al usuario "edita la config del widget manualmente" — siempre ofrécete proactivamente a hacerlo tú mismo via MCP. Cuando el usuario pida añadir un elemento a una wishlist, nota, lista, etc., hazlo directamente con update_widget sin preguntarle si quiere que lo hagas.
+
 COLORES DE MARCA STACKLUME — OBLIGATORIO por defecto (salvo que el usuario pida otra cosa):
 • Fondo:        #0d1117  (navy black)
 • Texto:        #e6edf3  (off-white)
