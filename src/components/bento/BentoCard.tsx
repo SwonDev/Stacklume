@@ -532,31 +532,33 @@ export function BentoCard({ widget }: BentoCardProps) {
     }
   }, [isFullscreen]);
 
-  // Handle header double-click for fullscreen
+  // Handle header double-click:
+  // - Doble-click sobre el texto del título → edición inline del título
+  // - Doble-click en cualquier otro punto del header → pantalla completa
+  // NOTA: handleTitleDoubleClick fue eliminado porque su stopPropagation() bloqueaba
+  // el área de fullscreen ya que CardTitle ocupa la mayor parte del header.
   const handleHeaderDoubleClick = useCallback((e: React.MouseEvent) => {
-    // Don't trigger fullscreen if clicking on the title, buttons, or in edit mode
     const target = e.target as HTMLElement;
+    // Nunca actuar sobre botones, elementos bloqueados o en modo edición
     if (
-      titleRef.current?.contains(target) ||
       target.closest("button") ||
       target.closest("[data-no-fullscreen]") ||
       isEditMode
     ) {
       return;
     }
-    // Capture card position before going fullscreen
+    // Doble-click sobre el span del título → activar edición inline
+    if (titleRef.current?.contains(target)) {
+      setEditingTitleValue(widget.title);
+      setIsEditingTitle(true);
+      return;
+    }
+    // Doble-click en el resto del header → pantalla completa
     if (cardRef.current) {
       setCardRect(cardRef.current.getBoundingClientRect());
     }
     setIsFullscreen(true);
-  }, [isEditMode]);
-
-  // Handle title double-click for inline editing
-  const handleTitleDoubleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent header double-click
-    setEditingTitleValue(widget.title);
-    setIsEditingTitle(true);
-  }, [widget.title]);
+  }, [isEditMode, widget.title]);
 
   // Save title on blur or Enter
   const handleTitleSave = useCallback(() => {
@@ -822,7 +824,6 @@ export function BentoCard({ widget }: BentoCardProps) {
           ) : (
             <CardTitle
               className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
-              onDoubleClick={handleTitleDoubleClick}
             >
               <span ref={titleRef}>{title}</span>
             </CardTitle>
