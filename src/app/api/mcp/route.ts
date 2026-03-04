@@ -383,6 +383,14 @@ FLUJO DE TRABAJO BÁSICO:
 ⚠️  IMPORTANTE — REFRESCO DE UI OBLIGATORIO:
 El dashboard carga los widgets en memoria al arrancar y NO detecta cambios externos automáticamente. Después de CUALQUIER operación de widget (add_widget, update_widget, remove_widget, add_custom_widget), el usuario DEBE refrescar la página manualmente (F5 / Ctrl+R / Cmd+R) para que los cambios sean visibles. SIEMPRE informa de esto al usuario tras cada operación de widget.
 
+COLORES DE MARCA STACKLUME — OBLIGATORIO por defecto (salvo que el usuario pida otra cosa):
+• Fondo:        #0d1117  (navy black)
+• Texto:        #e6edf3  (off-white)
+• Acento gold:  #d4a520  (dorado) — usar en títulos, bordes de sección, highlights, SVG strokes
+• Navy oscuro:  #1a2332
+• Navy medio:   #243447  (ideal para tarjetas internas, paneles secundarios)
+• Scrollbars dorados (incluir SIEMPRE en widgets con overflow): ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#e6b822}
+
 GUÍA COMPLETA PARA WIDGETS HTML PERSONALIZADOS (create_custom_widget_type):
 • El template se renderiza dentro de un <iframe sandbox="allow-scripts"> — SIN acceso a red, localStorage, cookies ni DOM del padre.
 • PROHIBIDO: fetch(), XMLHttpRequest, import(), WebSocket, recursos externos (CDN, imágenes remotas). TODO debe estar inline.
@@ -395,11 +403,11 @@ const CONFIG = {{CONFIG_JSON}};
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 const ro = new ResizeObserver(([e]) => { canvas.width = e.contentRect.width; canvas.height = e.contentRect.height; draw(); });
 ro.observe(canvas);
-function draw() { /* tu lógica aquí */ }
+function draw() { /* tu lógica aquí — usa #d4a520 para líneas/textos destacados */ }
 </script></body></html>
 
 PLANTILLA HTML/CSS (copiar y adaptar):
-<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;padding:12px;height:100vh;overflow:auto}</style></head><body><div id="app"></div><script>const CONFIG = {{CONFIG_JSON}}; /* tu lógica aquí */</script></body></html>
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;padding:12px;height:100vh;overflow:auto}.accent{color:#d4a520}.card{background:#1a2332;border:1px solid #243447;border-radius:8px;padding:12px}</style></head><body><div id="app"></div><script>const CONFIG = {{CONFIG_JSON}}; /* tu lógica aquí */</script></body></html>
 
 TAMAÑOS: small=1×1, medium=2×2, large=4×3, wide=4×2, tall=2×3. Usa defaultWidth/defaultHeight para dimensiones exactas en la cuadrícula de 12 columnas.`,
         });

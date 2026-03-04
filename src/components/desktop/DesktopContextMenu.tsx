@@ -84,6 +84,25 @@ export function DesktopContextMenu() {
     if (!isTauri) return;
 
     const handleContextMenu = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+
+      // Solo interceptar en zonas vacías de la app.
+      // En widgets (react-grid-item) o elementos interactivos dejamos que
+      // el menú propio del componente (Radix ContextMenu) se encargue.
+      const isOnWidget =
+        el.closest(".react-grid-item") !== null ||
+        el.closest("[data-radix-context-menu-content]") !== null ||
+        el.closest("[data-radix-popper-content-wrapper]") !== null;
+      const isOnInteractive =
+        el.closest(
+          "button, a, input, textarea, select, [role='dialog'], [role='menu'], [role='listbox']"
+        ) !== null;
+      const isOnTitleBar = el.closest("[data-tauri-drag-region]") !== null;
+
+      if (isOnWidget || isOnInteractive || isOnTitleBar) {
+        return; // Dejar que el menú propio del componente lo maneje
+      }
+
       e.preventDefault();
       e.stopPropagation();
 

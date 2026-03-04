@@ -535,12 +535,14 @@ export function BentoCard({ widget }: BentoCardProps) {
   // Handle header double-click for fullscreen
   const handleHeaderDoubleClick = useCallback((e: React.MouseEvent) => {
     // Don't trigger fullscreen if clicking on the title, buttons, or in edit mode
+    // custom-user widgets usan un iframe que no puede reutilizarse en el overlay
     const target = e.target as HTMLElement;
     if (
       titleRef.current?.contains(target) ||
       target.closest("button") ||
       target.closest("[data-no-fullscreen]") ||
-      isEditMode
+      isEditMode ||
+      widget.type === "custom-user"
     ) {
       return;
     }

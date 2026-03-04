@@ -168,6 +168,8 @@ import {
   Link,
   Terminal,
   GitCompare,
+  Trash2,
+  StarOff,
 } from "lucide-react";
 import {
   Dialog,
@@ -205,6 +207,7 @@ import {
 } from "@/types/widget";
 import type { WidgetType, WidgetSize } from "@/types/widget";
 import { motion, AnimatePresence } from "motion/react";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
   type: z.enum([
@@ -1906,6 +1909,14 @@ export function AddWidgetModal() {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [customWidgetTypesList, setCustomWidgetTypesList] = useState<CustomWidgetTypeEntry[]>([]);
   const [isLoadingCustomTypes, setIsLoadingCustomTypes] = useState(false);
+  const [customFavorites, setCustomFavorites] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("stacklume-custom-widget-favorites");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   // Category order state for drag and drop
   const [categoryOrder, setCategoryOrder] = useState<string[]>(() => {
@@ -2086,6 +2097,46 @@ export function AddWidgetModal() {
       setIsLoading(false);
     }
   };
+
+  const handleToggleCustomFavorite = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCustomFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      try {
+        localStorage.setItem("stacklume-custom-widget-favorites", JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleDeleteCustomType = useCallback(async (customType: CustomWidgetTypeEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`¿Eliminar el tipo de widget "${customType.name}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`/api/custom-widget-types/${customType.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al eliminar");
+      setCustomWidgetTypesList((prev) => prev.filter((t) => t.id !== customType.id));
+      setCustomFavorites((prev) => {
+        const next = new Set(prev);
+        next.delete(customType.id);
+        try {
+          localStorage.setItem("stacklume-custom-widget-favorites", JSON.stringify([...next]));
+        } catch {}
+        return next;
+      });
+      toast.success(`Tipo "${customType.name}" eliminado`);
+    } catch {
+      toast.error("Error al eliminar el tipo de widget");
+    }
+  }, []);
 
   const onSubmit = async (values: FormValues) => {
     if (selectedTypes.length === 0) {
@@ -2379,27 +2430,65 @@ export function AddWidgetModal() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {filteredCustomTypes.map((customType) => (
-                      <motion.button
-                        key={customType.id}
-                        type="button"
-                        onClick={() => handleAddCustomType(customType)}
-                        disabled={isLoading}
-                        className="relative p-4 rounded-lg border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 flex flex-col items-center gap-2 text-center transition-all disabled:opacity-50"
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Puzzle className="w-6 h-6 text-primary/70" />
-                        <div>
-                          <p className="text-sm font-medium line-clamp-1">{customType.name}</p>
-                          {customType.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                              {customType.description}
-                            </p>
-                          )}
-                        </div>
-                        <Plus className="absolute top-2 right-2 w-4 h-4 text-primary/60" />
-                      </motion.button>
-                    ))}
+                    {[...filteredCustomTypes]
+                      .sort((a, b) => {
+                        const af = customFavorites.has(a.id) ? 0 : 1;
+                        const bf = customFavorites.has(b.id) ? 0 : 1;
+                        return af - bf;
+                      })
+                      .map((customType) => {
+                        const isFav = customFavorites.has(customType.id);
+                        return (
+                          <motion.div
+                            key={customType.id}
+                            className="relative group"
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleAddCustomType(customType)}
+                              disabled={isLoading}
+                              className="w-full p-4 pb-8 rounded-lg border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 flex flex-col items-center gap-2 text-center transition-all disabled:opacity-50"
+                            >
+                              <Puzzle className={cn("w-6 h-6", isFav ? "text-yellow-400" : "text-primary/70")} />
+                              <div>
+                                <p className="text-sm font-medium line-clamp-1">{customType.name}</p>
+                                {customType.description && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                    {customType.description}
+                                  </p>
+                                )}
+                              </div>
+                            </button>
+                            {/* Botones de acción */}
+                            <div className="absolute bottom-1.5 left-0 right-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleCustomFavorite(customType.id, e)}
+                                title={isFav ? "Quitar de favoritos" : "Marcar como favorito"}
+                                className={cn(
+                                  "p-1 rounded hover:bg-accent transition-colors",
+                                  isFav ? "text-yellow-400" : "text-muted-foreground"
+                                )}
+                              >
+                                {isFav ? (
+                                  <Star className="w-3.5 h-3.5 fill-current" />
+                                ) : (
+                                  <StarOff className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteCustomType(customType, e)}
+                                title="Eliminar tipo de widget"
+                                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                   </div>
                 )}
               </div>
