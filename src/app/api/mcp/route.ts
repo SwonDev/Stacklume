@@ -372,51 +372,192 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
           serverInfo: { name: "stacklume", version: "1.0.0" },
-          instructions: `Servidor MCP de Stacklume — dashboard de enlaces y widgets con bento grid (cuadrícula de 12 columnas).
+          instructions: `═══════════════════════════════════════════════════
+STACKLUME MCP — GUÍA COMPLETA DEL SERVIDOR
+═══════════════════════════════════════════════════
 
-FLUJO DE TRABAJO BÁSICO:
-1. get_app_info → resumen del estado actual
-2. list_widget_types → catálogo de 190+ tipos de widget built-in
-3. add_widget con el tipo elegido → añade widget al dashboard
-4. Para widgets HTML/CSS/JS propios: create_custom_widget_type → add_custom_widget
+STACKLUME es un dashboard personal de gestión de enlaces y widgets con bento grid.
+URL base: window.location.origin + "/api/mcp"
 
-⚠️  IMPORTANTE — REFRESCO DE UI OBLIGATORIO:
-El dashboard carga los widgets en memoria al arrancar y NO detecta cambios externos automáticamente. Después de CUALQUIER operación de widget (add_widget, update_widget, remove_widget, add_custom_widget), el usuario DEBE refrescar la página manualmente (F5 / Ctrl+R / Cmd+R) para que los cambios sean visibles. SIEMPRE informa de esto al usuario tras cada operación de widget.
+────────────────────────────────────────────────────
+ARQUITECTURA DEL DASHBOARD
+────────────────────────────────────────────────────
+• Bento grid de 12 columnas, filas dinámicas (~80px/fila)
+• Cada widget tiene: type, title, config (JSON), layout {x,y,w,h}, projectId
+• Proyectos = workspaces independientes (projectId null = Home)
+• Vistas disponibles: bento (drag&drop), kanban (columnas), list
 
-⚠️  GESTIÓN DE DATOS EN WIDGETS PERSONALIZADOS (custom-user) — MUY IMPORTANTE:
-Los datos (items, listas, config) de los widgets custom-user NO se pueden editar desde la UI de Stacklume. No existe ningún formulario de edición manual de config en la app. Para añadir, modificar o eliminar datos en estos widgets debes:
-1. Llamar a list_widgets para obtener el widget_id y la config actual del widget
-2. Modificar la config con los nuevos datos (mantener _customTypeId intacto)
-3. Llamar a update_widget con { config: <nueva_config_completa> }
-NUNCA digas al usuario "edita la config del widget manualmente" — siempre ofrécete proactivamente a hacerlo tú mismo via MCP. Cuando el usuario pida añadir un elemento a una wishlist, nota, lista, etc., hazlo directamente con update_widget sin preguntarle si quiere que lo hagas.
+TAMAÑOS DE WIDGET (presets):
+  small  = 2×2   | medium = 3×3   | large  = 4×4
+  wide   = 4×2   | tall   = 2×4
+  → Usa defaultWidth/defaultHeight para control exacto dentro de la cuadrícula de 12 cols
+  → Ejemplo: un widget de 6×3 ocupa media pantalla en horizontal
 
-COLORES DE MARCA STACKLUME — OBLIGATORIO por defecto (salvo que el usuario pida otra cosa):
-• Fondo:        #0d1117  (navy black)
-• Texto:        #e6edf3  (off-white)
-• Acento gold:  #d4a520  (dorado) — usar en títulos, bordes de sección, highlights, SVG strokes
-• Navy oscuro:  #1a2332
-• Navy medio:   #243447  (ideal para tarjetas internas, paneles secundarios)
-• Scrollbars dorados (incluir SIEMPRE en widgets con overflow): ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#e6b822}
+────────────────────────────────────────────────────
+TIPOS DE WIDGET
+────────────────────────────────────────────────────
+A) BUILT-IN (190+ tipos): widgets preconstruidos con su propia UI React.
+   Flujo: add_widget(type, title, size, config?)
+   Datos configurables vía config JSON — usa get_widget_type_schema(type) para ver campos.
+   Ejemplos de tipos:
+     Links:       favorites, recent, category, tag, quick-add, link-manager
+     Productiv.:  notes, todo, pomodoro, calendar, countdown, habit-tracker
+     Dev tools:   github-trending, github-search, mcp-explorer, deployment-status
+     Media:       youtube, spotify, embed, image, unsplash
+     Utilidades:  clock, weather, calculator, qr-code, color-palette, quote
+     Texto/Código: json-formatter, markdown-preview, regex-tester, jwt-decoder
+     Juegos:      sprite-sheet, pathfinding, pixel-art, physics-playground, particle-system
+     CSS gen.:    gradient-generator, glassmorphism, box-shadow-generator, css-animation
+     Org./Dev.:   code-snippets, api-reference, env-vars, git-commands, pr-checklist
 
-GUÍA COMPLETA PARA WIDGETS HTML PERSONALIZADOS (create_custom_widget_type):
-• El template se renderiza dentro de un <iframe sandbox="allow-scripts"> — SIN acceso a red, localStorage, cookies ni DOM del padre.
-• PROHIBIDO: fetch(), XMLHttpRequest, import(), WebSocket, recursos externos (CDN, imágenes remotas). TODO debe estar inline.
-• ACCESO A CONFIG: Escribe el literal {{CONFIG_JSON}} en el template — se sustituye por JSON.stringify(config) al renderizar. Uso: const CONFIG = {{CONFIG_JSON}};
-• CANVAS: Usa ResizeObserver para ajustar canvas.width/height al contenedor (sin esto el canvas queda en 0×0).
+B) CUSTOM-USER (widgets HTML/CSS/JS personalizados):
+   Flujo: create_custom_widget_type(name, htmlTemplate, ...) → add_custom_widget(customWidgetTypeId)
+   El tipo define el template; cada instancia tiene su propia config.
+   Los datos de instancia se pasan como {{CONFIG_JSON}} al renderizar.
+
+────────────────────────────────────────────────────
+CICLO DE VIDA DE UN WIDGET PERSONALIZADO (custom-user)
+────────────────────────────────────────────────────
+1. create_custom_widget_type → crea el tipo (htmlTemplate + defaultConfig + schema)
+2. add_custom_widget(customWidgetTypeId) → instancia en el dashboard
+3. Al renderizar: se hace <iframe sandbox="allow-scripts" srcdoc={html}>
+   donde {{CONFIG_JSON}} se sustituye por JSON.stringify(instanceConfig)
+4. Para actualizar DATOS de una instancia específica:
+   list_widgets → localizar widget_id → update_widget({config: nuevaConfig})
+5. Para actualizar el HTML/CSS/JS de TODAS las instancias de un tipo:
+   update_custom_widget_type(id, {htmlTemplate: nuevoTemplate})
+
+────────────────────────────────────────────────────
+⚠️  GESTIÓN DE DATOS EN WIDGETS PERSONALIZADOS — CRÍTICO
+────────────────────────────────────────────────────
+Los datos de widgets custom-user NO se pueden editar desde la UI de Stacklume
+(no existe formulario manual). El único canal para modificar config es el MCP.
+
+PATRÓN CORRECTO para añadir/modificar datos (ej: añadir item a una wishlist):
+  1. list_widgets → encontrar el widget por título/tipo
+  2. Leer config actual del widget (campo "config")
+  3. Modificar config: añadir/editar/borrar items en config.items[]
+  4. update_widget(widget_id, {config: configModificada})  ← SIEMPRE mantener _customTypeId
+  5. Informar al usuario que debe refrescar (F5)
+
+NUNCA decir al usuario "edita la config manualmente" — hazlo tú directamente.
+Cuando el usuario pida añadir/quitar datos de cualquier widget, ejecuta update_widget sin pedir confirmación.
+
+────────────────────────────────────────────────────
+⚠️  ESTADO EFÍMERO vs DATOS PERSISTENTES
+────────────────────────────────────────────────────
+El iframe sandbox NO tiene localStorage, cookies ni acceso al DOM padre.
+• Estado EFÍMERO (se pierde al refrescar iframe): filtro activo, elemento hovereado, animaciones
+• Datos PERSISTENTES: siempre en CONFIG → se recargan automáticamente al abrir el widget
+• Para "guardar" selecciones del usuario (ej: item marcado como comprado):
+  → el widget no puede comunicarse hacia fuera solo
+  → el usuario debe pedir explícitamente que actualices los datos vía update_widget
+  → diseña los widgets para que defaultConfig refleje el estado deseado
+
+────────────────────────────────────────────────────
+⚠️  REFRESCO DE UI OBLIGATORIO
+────────────────────────────────────────────────────
+El dashboard carga widgets en memoria al iniciar y NO auto-detecta cambios externos.
+Después de CUALQUIER add_widget / update_widget / remove_widget / add_custom_widget:
+→ El usuario DEBE refrescar la página (F5 / Ctrl+R / Cmd+R) para ver los cambios.
+→ SIEMPRE recuerda esto al usuario al final de cada operación de widget.
+
+────────────────────────────────────────────────────
+COLORES DE MARCA STACKLUME — OBLIGATORIO por defecto
+────────────────────────────────────────────────────
+Usar siempre salvo que el usuario indique otra cosa:
+  Fondo principal:  #0d1117  (navy black)
+  Texto principal:  #e6edf3  (off-white)
+  Acento dorado:    #d4a520  (usar en títulos, bordes destacados, SVG strokes, íconos)
+  Acento gold 2:    #e6b822  (hover del dorado)
+  Card oscura:      #111b27  (fondo de tarjetas internas)
+  Navy oscuro:      #1a2332  (paneles secundarios)
+  Navy medio:       #243447  (bordes, separadores)
+  Texto secundario: #8b949e  (muted, placeholders)
+  Verde éxito:      #3fb950
+  Rojo error:       #ff6b6b
+
+CSS SCROLLBARS DORADOS (incluir en TODO widget con overflow):
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#e6b822}
+
+────────────────────────────────────────────────────
+GUÍA HTML PARA WIDGETS PERSONALIZADOS
+────────────────────────────────────────────────────
+Sandbox: <iframe sandbox="allow-scripts"> — SIN red, localStorage, cookies ni DOM padre.
+PROHIBIDO: fetch(), XMLHttpRequest, import(), WebSocket, recursos externos (CDN).
+TODO debe ser inline: CSS, JS, SVG, fuentes (base64 si necesario).
+
+ACCESO A CONFIG: escribe el literal {{CONFIG_JSON}} en el template.
+  Se sustituye por JSON.stringify(instanceConfig) al renderizar.
+  Uso: const CONFIG = {{CONFIG_JSON}};
+  Siempre proporciona fallbacks: const items = (CONFIG && CONFIG.items) || [];
+
+REGLAS CRÍTICAS DE CSS:
+  • body { height: 100vh; overflow: hidden; } — el iframe toma el 100% del widget
+  • Si hay scroll: body { overflow: auto; } + scrollbars dorados obligatorios
+  • NUNCA usar position:fixed — el iframe ya es el viewport
+  • Usar display:flex + flex-direction:column en body para layouts verticales
+
+REGLAS CRÍTICAS DE JS:
+  • Canvas: usa ResizeObserver (el iframe no emite resize events al redimensionar el widget)
+  • IDs únicos en el DOM — no usar id="app" si el widget puede instanciarse varias veces
+  • Maneja undefined: const cfg = (typeof CONFIG !== 'undefined') ? CONFIG : {};
+  • requestAnimationFrame funciona normalmente dentro del iframe
 
 PLANTILLA CANVAS (copiar y adaptar):
 <!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;width:100%;height:100vh;overflow:hidden}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
-const CONFIG = {{CONFIG_JSON}};
-const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
-const ro = new ResizeObserver(([e]) => { canvas.width = e.contentRect.width; canvas.height = e.contentRect.height; draw(); });
+const CONFIG=(typeof {{CONFIG_JSON}}!=='undefined')?{{CONFIG_JSON}}:{};
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const ro=new ResizeObserver(([e])=>{canvas.width=e.contentRect.width;canvas.height=e.contentRect.height;draw();});
 ro.observe(canvas);
-function draw() { /* tu lógica aquí — usa #d4a520 para líneas/textos destacados */ }
+function draw(){ctx.fillStyle='#0d1117';ctx.fillRect(0,0,canvas.width,canvas.height);/* tu lógica — usa #d4a520 para highlights */}
 </script></body></html>
 
-PLANTILLA HTML/CSS (copiar y adaptar):
-<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;padding:12px;height:100vh;overflow:auto}.accent{color:#d4a520}.card{background:#1a2332;border:1px solid #243447;border-radius:8px;padding:12px}</style></head><body><div id="app"></div><script>const CONFIG = {{CONFIG_JSON}}; /* tu lógica aquí */</script></body></html>
+PLANTILLA HTML/CSS CON LISTA (copiar y adaptar):
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}.header{padding:10px 14px;border-bottom:1px solid #243447;flex-shrink:0;color:#d4a520;font-weight:700;font-size:13px}.list{flex:1;overflow-y:auto;padding:8px}.item{background:#111b27;border:1px solid #1e2d3d;border-radius:8px;padding:9px 11px;margin-bottom:5px}.footer{padding:8px 14px;border-top:1px solid #243447;flex-shrink:0;font-size:11px;color:#8b949e}</style></head><body>
+<div class="header" id="title">Widget</div>
+<div class="list" id="list"></div>
+<div class="footer" id="footer"></div>
+<script>
+const CONFIG=(typeof {{CONFIG_JSON}}!=='undefined')?{{CONFIG_JSON}}:{};
+const items=(CONFIG&&CONFIG.items)||[];
+document.getElementById('title').textContent=CONFIG.title||'Mi Widget';
+document.getElementById('list').innerHTML=items.map(it=>\`<div class="item">\${it.name||it}</div>\`).join('');
+document.getElementById('footer').textContent=items.length+' elementos';
+</script></body></html>
 
-TAMAÑOS: small=1×1, medium=2×2, large=4×3, wide=4×2, tall=2×3. Usa defaultWidth/defaultHeight para dimensiones exactas en la cuadrícula de 12 columnas.`,
+────────────────────────────────────────────────────
+BEST PRACTICES PARA WIDGETS INTERACTIVOS
+────────────────────────────────────────────────────
+• Diseña el widget para que CONFIG refleje el estado completo que quieres persistir
+  Ejemplo wishlist: items[].purchased = true/false — el usuario pide "marca X como comprado"
+  → tú actualizas config.items directamente con update_widget
+• Si el widget tiene muchos items, añade búsqueda/filtro en JS inline
+• Para contadores/estadísticas, calcúlalos desde CONFIG.items en render time
+• Evita estado global mutable — todo debe derivarse de CONFIG
+• Añade siempre un mensaje de estado vacío: if(items.length===0) mostrar placeholder
+
+────────────────────────────────────────────────────
+FLUJOS DE TRABAJO COMUNES
+────────────────────────────────────────────────────
+Crear widget nuevo:
+  get_app_info → (opcional) list_widget_types → add_widget O create_custom_widget_type + add_custom_widget
+
+Añadir ítem a widget existente (wishlist, lista de tareas, etc.):
+  list_widgets → leer config → modificar config.items → update_widget(id, {config: nuevaConfig})
+
+Actualizar template HTML/CSS/JS de tipo personalizado:
+  list_custom_widget_types → update_custom_widget_type(id, {htmlTemplate: nuevoTemplate})
+  → Todas las instancias existentes mostrarán el nuevo template al refrescar
+
+Gestionar enlaces (no widgets):
+  list_links / add_link / update_link / delete_link
+
+Gestión de workspaces:
+  list_projects → add_widget con projectId específico`,
         });
 
       case "tools/list":
