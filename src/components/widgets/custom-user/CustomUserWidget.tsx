@@ -5,6 +5,7 @@ import { Loader2, AlertCircle, Puzzle } from "lucide-react";
 import type { Widget } from "@/types/widget";
 import type { CustomUserWidgetConfig } from "@/types/widgets/configs";
 import type { CustomWidgetType } from "@/lib/db/schema";
+import { useWidgetStore } from "@/stores/widget-store";
 
 interface CustomUserWidgetProps {
   widget: Widget;
@@ -29,6 +30,8 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
   const [definition, setDefinition] = useState<CustomWidgetType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Config en runtime — null hasta que definition carga
+  const [runtimeConfig, setRuntimeConfig] = useState<Record<string, unknown> | null>(null);
 
   // Refs para el ResizeObserver externo
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,7 +59,13 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
         return res.json();
       })
       .then((data: CustomWidgetType) => {
-        if (!cancelled) setDefinition(data);
+        if (!cancelled) {
+          setDefinition(data);
+          // Inicializar runtimeConfig con la config del widget (sin _customTypeId)
+          const cfg = config ? { ...config } : {};
+          delete (cfg as Record<string, unknown>)._customTypeId;
+          setRuntimeConfig(cfg);
+        }
       })
       .catch((err) => {
         if (!cancelled && err.name !== "AbortError") {
@@ -103,6 +112,45 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
     return () => ro.disconnect();
   }, [definition]); // Se re-inicializa cuando carga la definición
 
+  // Listener bidireccional: recibe stacklume:save y stacklume:get-config del iframe
+  useEffect(() => {
+    const handle = async (ev: MessageEvent) => {
+      if (!ev.data?.type) return;
+
+      if (ev.data.type === "stacklume:save") {
+        const newCfg = { ...(ev.data.config as Record<string, unknown>) };
+        // Actualizar estado local inmediatamente → re-renderiza iframe con nuevos datos
+        setRuntimeConfig(newCfg);
+        // Persistir en DB via widget store (optimistic + PATCH /api/widgets)
+        const withMeta: Record<string, unknown> = { ...newCfg, _customTypeId: customTypeId };
+        try {
+          await useWidgetStore.getState().updateWidget(widget.id, {
+            config: withMeta as Record<string, unknown>,
+          });
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: "stacklume:saved", success: true },
+            "*"
+          );
+        } catch {
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: "stacklume:saved", success: false },
+            "*"
+          );
+        }
+      }
+
+      if (ev.data.type === "stacklume:get-config") {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "stacklume:config", config: runtimeConfig ?? {} },
+          "*"
+        );
+      }
+    };
+
+    window.addEventListener("message", handle);
+    return () => window.removeEventListener("message", handle);
+  }, [widget.id, customTypeId, runtimeConfig]);
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -125,14 +173,17 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
     );
   }
 
-  // Sustituir {{CONFIG_JSON}} con la config serializada
-  const userConfig = config ? { ...config } : {};
-  // Eliminar la meta-propiedad interna antes de pasar al template
-  delete (userConfig as Record<string, unknown>)._customTypeId;
+  // Usar runtimeConfig si está disponible (permite auto-guardado desde el iframe)
+  // Si runtimeConfig es null (cargando), usar config de props como fallback
+  const displayConfig = runtimeConfig ?? (() => {
+    const cfg = config ? { ...config } : {};
+    delete (cfg as Record<string, unknown>)._customTypeId;
+    return cfg;
+  })();
 
   const processedHtml = definition.htmlTemplate.replace(
     /\{\{CONFIG_JSON\}\}/g,
-    JSON.stringify(userConfig)
+    JSON.stringify(displayConfig)
   );
 
   return (

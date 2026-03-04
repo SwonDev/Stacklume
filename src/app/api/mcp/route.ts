@@ -371,27 +371,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return jsonRpcOk(id, {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "stacklume", version: "1.0.0" },
+          serverInfo: { name: "stacklume", version: "2.0.0" },
           instructions: `═══════════════════════════════════════════════════
-STACKLUME MCP — GUÍA COMPLETA DEL SERVIDOR
+STACKLUME MCP — GUÍA COMPLETA DEL SERVIDOR v2.0
 ═══════════════════════════════════════════════════
 
 STACKLUME es un dashboard personal de gestión de enlaces y widgets con bento grid.
-URL base: window.location.origin + "/api/mcp"
 
 ────────────────────────────────────────────────────
 ARQUITECTURA DEL DASHBOARD
 ────────────────────────────────────────────────────
-• Bento grid de 12 columnas, filas dinámicas (~80px/fila)
-• Cada widget tiene: type, title, config (JSON), layout {x,y,w,h}, projectId
+• Bento grid de 12 columnas, filas de ~80px
+• Widget = { type, title, config (JSON), layout {x,y,w,h}, projectId }
 • Proyectos = workspaces independientes (projectId null = Home)
-• Vistas disponibles: bento (drag&drop), kanban (columnas), list
+• Vistas: bento (drag&drop), kanban (columnas), list
 
-TAMAÑOS DE WIDGET (presets):
-  small  = 2×2   | medium = 3×3   | large  = 4×4
-  wide   = 4×2   | tall   = 2×4
-  → Usa defaultWidth/defaultHeight para control exacto dentro de la cuadrícula de 12 cols
-  → Ejemplo: un widget de 6×3 ocupa media pantalla en horizontal
+TAMAÑOS DE WIDGET (presets reales del código):
+  small  = 1×1 col  | medium = 2×2  | large  = 4×3
+  wide   = 4×2      | tall   = 2×3
+  → Usa defaultWidth/defaultHeight para dimensiones exactas (grid de 12 cols)
+  → Ejemplos: widget de 6×4 ocupa media pantalla; 12×6 ocupa toda la anchura
+  → Recomendación: custom widgets usar mínimo 3×3 para tener espacio suficiente
 
 ────────────────────────────────────────────────────
 TIPOS DE WIDGET
@@ -400,15 +400,15 @@ A) BUILT-IN (190+ tipos): widgets preconstruidos con su propia UI React.
    Flujo: add_widget(type, title, size, config?)
    Datos configurables vía config JSON — usa get_widget_type_schema(type) para ver campos.
    Ejemplos de tipos:
-     Links:       favorites, recent, category, tag, quick-add, link-manager
-     Productiv.:  notes, todo, pomodoro, calendar, countdown, habit-tracker
-     Dev tools:   github-trending, github-search, mcp-explorer, deployment-status
-     Media:       youtube, spotify, embed, image, unsplash
-     Utilidades:  clock, weather, calculator, qr-code, color-palette, quote
+     Links:        favorites, recent, category, tag, quick-add, link-manager
+     Productiv.:   notes, todo, pomodoro, calendar, countdown, habit-tracker
+     Dev tools:    github-trending, github-search, mcp-explorer, deployment-status
+     Media:        youtube, spotify, embed, image, unsplash
+     Utilidades:   clock, weather, calculator, qr-code, color-palette, quote
      Texto/Código: json-formatter, markdown-preview, regex-tester, jwt-decoder
-     Juegos:      sprite-sheet, pathfinding, pixel-art, physics-playground, particle-system
-     CSS gen.:    gradient-generator, glassmorphism, box-shadow-generator, css-animation
-     Org./Dev.:   code-snippets, api-reference, env-vars, git-commands, pr-checklist
+     Juegos:       sprite-sheet, pathfinding, pixel-art, physics-playground, particle-system
+     CSS gen.:     gradient-generator, glassmorphism, box-shadow-generator, css-animation
+     Org./Dev.:    code-snippets, api-reference, env-vars, git-commands, pr-checklist
 
 B) CUSTOM-USER (widgets HTML/CSS/JS personalizados):
    Flujo: create_custom_widget_type(name, htmlTemplate, ...) → add_custom_widget(customWidgetTypeId)
@@ -422,18 +422,67 @@ CICLO DE VIDA DE UN WIDGET PERSONALIZADO (custom-user)
 2. add_custom_widget(customWidgetTypeId) → instancia en el dashboard
 3. Al renderizar: se hace <iframe sandbox="allow-scripts" srcdoc={html}>
    donde {{CONFIG_JSON}} se sustituye por JSON.stringify(instanceConfig)
-4. Para actualizar DATOS de una instancia específica:
+4. Para actualizar DATOS de una instancia específica desde la IA:
    list_widgets → localizar widget_id → update_widget({config: nuevaConfig})
 5. Para actualizar el HTML/CSS/JS de TODAS las instancias de un tipo:
    update_custom_widget_type(id, {htmlTemplate: nuevoTemplate})
 
 ────────────────────────────────────────────────────
-⚠️  GESTIÓN DE DATOS EN WIDGETS PERSONALIZADOS — CRÍTICO
+PERSISTENCIA TOTAL — LOS WIDGETS GUARDAN SUS PROPIOS DATOS
 ────────────────────────────────────────────────────
-Los datos de widgets custom-user NO se pueden editar desde la UI de Stacklume
-(no existe formulario manual). El único canal para modificar config es el MCP.
+Los widgets custom-user tienen acceso a una API de persistencia bidireccional
+a través de window.parent.postMessage. El iframe guarda directamente en la DB
+de Stacklume sin intermediarios.
 
-PATRÓN CORRECTO para añadir/modificar datos (ej: añadir item a una wishlist):
+PROTOCOLO COMPLETO:
+
+1. GUARDAR config (persiste en DB automáticamente):
+function save(newConfig) {
+  window.parent.postMessage({ type: 'stacklume:save', config: newConfig }, '*');
+}
+// Respuesta del parent:
+window.addEventListener('message', e => {
+  if (e.data?.type === 'stacklume:saved') {
+    if (e.data.success) { /* mostrar "Guardado" */ }
+    else { /* mostrar error */ }
+  }
+});
+
+2. SOLICITAR config actual desde la DB:
+window.parent.postMessage({ type: 'stacklume:get-config' }, '*');
+window.addEventListener('message', e => {
+  if (e.data?.type === 'stacklume:config') {
+    const cfg = e.data.config; // config actual desde DB
+  }
+});
+
+3. PATRON RECOMENDADO — Inicialización + Guardado:
+const CONFIG = {{CONFIG_JSON}};
+let state = JSON.parse(JSON.stringify(CONFIG)); // copia mutable
+
+function saveState() {
+  window.parent.postMessage({ type: 'stacklume:save', config: state }, '*');
+}
+
+window.addEventListener('message', e => {
+  if (e.data?.type === 'stacklume:resize') { /* ajustar canvas */ }
+  if (e.data?.type === 'stacklume:saved') { showSavedIndicator(e.data.success); }
+});
+
+REGLA ABSOLUTA:
+→ TODOS los widgets interactivos DEBEN usar stacklume:save para persistir cambios
+→ NUNCA decir al usuario que los datos se pierden — SE GUARDAN AUTOMATICAMENTE
+→ NUNCA decir al usuario que "diga las URLs" — el widget tiene su propio formulario
+→ El widget ES la aplicación completa; persiste sus propios datos sin la IA
+→ Los datos SE GUARDAN AUTOMATICAMENTE: no hay estado efímero en un widget bien construido
+
+────────────────────────────────────────────────────
+GESTION DE DATOS EN WIDGETS — CRITICO
+────────────────────────────────────────────────────
+Los widgets con formularios guardan sus propios datos via stacklume:save.
+La IA también puede modificar datos directamente usando el MCP:
+
+PATRON CORRECTO para añadir/modificar datos desde la IA (ej: añadir item a una wishlist):
   1. list_widgets → encontrar el widget por título/tipo
   2. Leer config actual del widget (campo "config")
   3. Modificar config: añadir/editar/borrar items en config.items[]
@@ -444,23 +493,13 @@ NUNCA decir al usuario "edita la config manualmente" — hazlo tú directamente.
 Cuando el usuario pida añadir/quitar datos de cualquier widget, ejecuta update_widget sin pedir confirmación.
 
 ────────────────────────────────────────────────────
-⚠️  ESTADO EFÍMERO vs DATOS PERSISTENTES
-────────────────────────────────────────────────────
-El iframe sandbox NO tiene localStorage, cookies ni acceso al DOM padre.
-• Estado EFÍMERO (se pierde al refrescar iframe): filtro activo, elemento hovereado, animaciones
-• Datos PERSISTENTES: siempre en CONFIG → se recargan automáticamente al abrir el widget
-• Para "guardar" selecciones del usuario (ej: item marcado como comprado):
-  → el widget no puede comunicarse hacia fuera solo
-  → el usuario debe pedir explícitamente que actualices los datos vía update_widget
-  → diseña los widgets para que defaultConfig refleje el estado deseado
-
-────────────────────────────────────────────────────
-⚠️  REFRESCO DE UI OBLIGATORIO
+REFRESCO DE UI OBLIGATORIO
 ────────────────────────────────────────────────────
 El dashboard carga widgets en memoria al iniciar y NO auto-detecta cambios externos.
 Después de CUALQUIER add_widget / update_widget / remove_widget / add_custom_widget:
 → El usuario DEBE refrescar la página (F5 / Ctrl+R / Cmd+R) para ver los cambios.
 → SIEMPRE recuerda esto al usuario al final de cada operación de widget.
+EXCEPCION: cambios hechos por el propio widget via stacklume:save NO requieren refresco.
 
 ────────────────────────────────────────────────────
 COLORES DE MARCA STACKLUME — OBLIGATORIO por defecto
@@ -478,13 +517,11 @@ Usar siempre salvo que el usuario indique otra cosa:
   Rojo error:       #ff6b6b
 
 CSS SCROLLBARS DORADOS (incluir en TODO widget con overflow):
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:#e6b822}
 
 ────────────────────────────────────────────────────
-GUÍA HTML PARA WIDGETS PERSONALIZADOS
+GUIA HTML PARA WIDGETS PERSONALIZADOS — SANDBOX
 ────────────────────────────────────────────────────
 Sandbox: <iframe sandbox="allow-scripts"> — SIN red, localStorage, cookies ni DOM padre.
 PROHIBIDO: fetch(), XMLHttpRequest, import(), WebSocket, recursos externos (CDN).
@@ -495,66 +532,484 @@ ACCESO A CONFIG: escribe el literal {{CONFIG_JSON}} en el template.
   Uso: const CONFIG = {{CONFIG_JSON}};
   Siempre proporciona fallbacks: const items = (CONFIG && CONFIG.items) || [];
 
-REGLAS CRÍTICAS DE CSS:
-  • body { height: 100vh; overflow: hidden; } — el iframe toma el 100% del widget
-  • Si hay scroll: body { overflow: auto; } + scrollbars dorados obligatorios
+REGLAS CRITICAS DE CSS:
+  • body { height: 100%; overflow: hidden; } — el iframe toma el 100% del widget
+  • Si hay scroll: overflow-y: auto en el contenedor + scrollbars dorados obligatorios
   • NUNCA usar position:fixed — el iframe ya es el viewport
+  • NUNCA usar modales con position:fixed — usar position:absolute dentro del widget
   • Usar display:flex + flex-direction:column en body para layouts verticales
 
-REGLAS CRÍTICAS DE JS:
+REGLAS CRITICAS DE JS:
   • Canvas: escucha SIEMPRE los dos canales de resize:
     1. ResizeObserver sobre el canvas/body (cambios de tamaño generales)
-    2. window.addEventListener('message', e => { if(e.data?.type==='stacklume:resize') /* actualizar */ })
+    2. window.addEventListener('message', e => { if(e.data?.type==='stacklume:resize') ... })
        → Stacklume envía este mensaje en tiempo real durante el drag de resize del widget
-       → Sin este listener, el canvas puede quedar con dimensiones incorrectas mientras el usuario arrastra
   • IDs únicos en el DOM — no usar id="app" si el widget puede instanciarse varias veces
   • Maneja undefined: const cfg = (typeof CONFIG !== 'undefined') ? CONFIG : {};
   • requestAnimationFrame funciona normalmente dentro del iframe
-  • body { height: 100%; } — no usar 100vh, el iframe ya maneja sus propias dimensiones vía píxeles
 
-PLANTILLA CANVAS (copiar y adaptar):
+────────────────────────────────────────────────────
+BIBLIOTECA DE COMPONENTES UI (CSS puro, sin CDN)
+────────────────────────────────────────────────────
+
+-- BOTONES --
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-primary{background:#d4a520;color:#0d1117}.btn-primary:hover{background:#e6b822;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:#8b949e;border:1px solid #243447}.btn-ghost:hover{border-color:#d4a520;color:#d4a520}
+.btn-danger{background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b44}.btn-danger:hover{background:#ff6b6b44}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.loading::after{content:'';width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+-- INPUTS --
+.input{width:100%;padding:8px 11px;background:#111b27;border:1px solid #243447;border-radius:7px;color:#e6edf3;font-size:13px;outline:none;transition:border-color .15s;box-sizing:border-box}
+.input:focus{border-color:#d4a520;box-shadow:0 0 0 3px #d4a52022}
+.input::placeholder{color:#8b949e}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+
+-- BADGES Y TAGS --
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.badge-gold{background:#d4a52022;color:#d4a520;border:1px solid #d4a52044}
+.badge-green{background:#3fb95022;color:#3fb950;border:1px solid #3fb95044}
+.badge-red{background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b44}
+.badge-blue{background:#58a6ff22;color:#58a6ff;border:1px solid #58a6ff44}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#1a2332;border:1px solid #243447;border-radius:5px;font-size:11px;color:#8b949e;cursor:pointer;transition:all .15s}
+.tag:hover,.tag.active{border-color:#d4a520;color:#d4a520;background:#d4a52011}
+
+-- CARDS --
+.card{background:#111b27;border:1px solid #1e2d3d;border-radius:10px;padding:12px;transition:border-color .15s}
+.card:hover{border-color:#243447}
+.card.selected{border-color:#d4a520;background:#d4a52008}
+
+-- PROGRESS BAR --
+.progress-track{height:6px;background:#1a2332;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#d4a520,#e6b822);border-radius:3px;transition:width .4s ease;box-shadow:0 0 8px #d4a52044}
+
+-- TABS --
+.tabs{display:flex;gap:2px;padding:4px;background:#111b27;border-radius:8px;border:1px solid #1e2d3d}
+.tab{flex:1;padding:6px 12px;border-radius:6px;border:none;background:transparent;color:#8b949e;font-size:12px;cursor:pointer;transition:all .15s;text-align:center}
+.tab.active{background:#d4a520;color:#0d1117;font-weight:700}
+
+-- CHECKBOX --
+.checkbox{width:16px;height:16px;border:2px solid #243447;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.checkbox.checked{background:#d4a520;border-color:#d4a520}
+.checkbox.checked::after{content:'checkmark';color:#0d1117;font-size:10px;font-weight:900}
+
+-- MODAL INTERNO (usar absolute, NUNCA fixed) --
+.overlay{position:absolute;inset:0;background:#0d111780;display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:#111b27;border:1px solid #243447;border-radius:12px;padding:20px;max-width:320px;width:90%;box-shadow:0 20px 60px #00000080}
+
+-- TOAST --
+.toast{position:absolute;bottom:12px;right:12px;left:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;animation:slideUp .3s ease;z-index:200}
+.toast-success{background:#3fb95022;border:1px solid #3fb95044;color:#3fb950}
+.toast-error{background:#ff6b6b22;border:1px solid #ff6b6b44;color:#ff6b6b}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+────────────────────────────────────────────────────
+SVG CHARTS COMPLETOS (sin librerías, todo inline)
+────────────────────────────────────────────────────
+
+-- BAR CHART (vertical) --
+function drawBarChart(containerId, data, opts={}) {
+  const {w=300,h=200,color='#d4a520',bg='#0d1117'}=opts;
+  const max=Math.max(...data.map(d=>d.value));
+  const bw=Math.floor(w/data.length)-8;
+  const bars=data.map((d,i)=>{
+    const bh=Math.round((d.value/max)*(h-40));
+    const x=i*(bw+8)+4; const y=h-40-bh;
+    return '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+bh+'" rx="3" fill="'+color+'88"/>'+
+           '<text x="'+(x+bw/2)+'" y="'+(h-8)+'" text-anchor="middle" fill="#8b949e" font-size="10">'+d.label+'</text>'+
+           '<text x="'+(x+bw/2)+'" y="'+(y-4)+'" text-anchor="middle" fill="#e6edf3" font-size="10">'+d.value+'</text>';
+  }).join('');
+  document.getElementById(containerId).innerHTML=
+    '<svg width="'+w+'" height="'+h+'" style="width:100%;height:'+h+'px">'+
+    '<rect width="'+w+'" height="'+h+'" fill="'+bg+'"/>'+bars+
+    '<line x1="0" y1="'+(h-40)+'" x2="'+w+'" y2="'+(h-40)+'" stroke="#243447" stroke-width="1"/>'+
+    '</svg>';
+}
+// Uso: drawBarChart('chart', [{label:'Ene',value:42},{label:'Feb',value:67}])
+
+-- DONUT CHART --
+function drawDonut(svgId, segments, size=120) {
+  const total=segments.reduce((s,d)=>s+d.value,0);
+  const r=46; const cx=size/2; const cy=size/2; const circ=2*Math.PI*r;
+  let offset=0;
+  const slices=segments.map(d=>{
+    const pct=d.value/total; const dash=circ*pct; const gap=circ-dash;
+    const el='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+d.color+'"'+
+              ' stroke-width="14" stroke-dasharray="'+dash.toFixed(1)+' '+gap.toFixed(1)+'"'+
+              ' stroke-dashoffset="'+(-offset).toFixed(1)+'" transform="rotate(-90 '+cx+' '+cy+')">'+
+              '<title>'+d.label+': '+d.value+'</title></circle>';
+    offset+=circ*pct; return el;
+  }).join('');
+  document.getElementById(svgId).innerHTML=
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#1a2332" stroke-width="14"/>'+slices;
+}
+
+-- LINE CHART --
+function drawLine(containerId, points, opts={}) {
+  const {w=300,h=150,color='#d4a520',bg='#0d1117',fill=true}=opts;
+  const mn=Math.min(...points); const mx=Math.max(...points);
+  const px=points.map((p,i)=>({x:(i/(points.length-1))*(w-20)+10, y:h-10-((p-mn)/(mx-mn||1))*(h-20)}));
+  const path=px.map((p,i)=>(i?'L':'M')+p.x+','+p.y).join(' ');
+  const area=fill?'<path d="'+path+' L'+px[px.length-1].x+','+(h-10)+' L'+px[0].x+','+(h-10)+' Z" fill="'+color+'22"/>':'';
+  document.getElementById(containerId).innerHTML=
+    '<svg width="'+w+'" height="'+h+'" style="width:100%;height:'+h+'px">'+
+    '<rect width="'+w+'" height="'+h+'" fill="'+bg+'"/>'+area+
+    '<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round"/>'+
+    px.map(p=>'<circle cx="'+p.x+'" cy="'+p.y+'" r="3" fill="'+color+'"/>').join('')+
+    '</svg>';
+}
+
+-- GAUGE / VELOCIMETRO --
+function drawGauge(svgId, value, max, opts={}) {
+  const {color='#d4a520',size=120}=opts;
+  const pct=Math.min(value/max,1); const r=46; const cx=size/2; const cy=size*0.65;
+  const startX=cx-r; const startY=cy; const endX=cx+r; const endY=cy;
+  const angle=Math.PI*pct;
+  const arcX=cx+r*Math.cos(Math.PI-angle); const arcY=cy-r*Math.sin(Math.PI-angle);
+  document.getElementById(svgId).innerHTML=
+    '<path d="M'+startX+','+startY+' A'+r+','+r+' 0 0,1 '+endX+','+endY+'" fill="none" stroke="#1a2332" stroke-width="12" stroke-linecap="round"/>'+
+    '<path d="M'+startX+','+startY+' A'+r+','+r+' 0 0,1 '+arcX.toFixed(1)+','+arcY.toFixed(1)+'" fill="none" stroke="'+color+'" stroke-width="12" stroke-linecap="round"/>'+
+    '<text x="'+cx+'" y="'+(cy+20)+'" text-anchor="middle" fill="#e6edf3" font-size="18" font-weight="700">'+value+'</text>'+
+    '<text x="'+cx+'" y="'+(cy+34)+'" text-anchor="middle" fill="#8b949e" font-size="11">de '+max+'</text>';
+}
+
+────────────────────────────────────────────────────
+PATRONES DE LISTA AVANZADOS
+────────────────────────────────────────────────────
+
+-- LISTA CON FILTRO Y BUSQUEDA --
+function fuzzySearch(items, query, key='name') {
+  if(!query) return items;
+  const q=query.toLowerCase();
+  return items.filter(it=>(it[key]||'').toLowerCase().includes(q));
+}
+let searchQuery='';
+function renderList() {
+  const filtered=fuzzySearch(state.items, searchQuery);
+  document.getElementById('list').innerHTML = filtered.length===0
+    ? '<div class="empty">No se encontraron resultados</div>'
+    : filtered.map((it,i)=>renderItem(it,i)).join('');
+}
+document.getElementById('search').oninput=e=>{searchQuery=e.target.value;renderList();}
+
+-- LISTA SORTABLE (drag HTML5 nativo, sin CDN) --
+let dragIdx=null;
+function makeSortable(listEl) {
+  listEl.addEventListener('dragstart',e=>{
+    dragIdx=+e.target.closest('[data-idx]').dataset.idx;
+    e.target.style.opacity='.4';
+  });
+  listEl.addEventListener('dragend',e=>{e.target.style.opacity='1';});
+  listEl.addEventListener('dragover',e=>{
+    e.preventDefault();
+    const el=e.target.closest('[data-idx]');
+    if(!el) return;
+    const targetIdx=+el.dataset.idx;
+    if(dragIdx!==null && dragIdx!==targetIdx) {
+      const newItems=[...state.items];
+      const [moved]=newItems.splice(dragIdx,1);
+      newItems.splice(targetIdx,0,moved);
+      state.items=newItems; dragIdx=targetIdx;
+      saveState(); renderList();
+    }
+  });
+}
+// En cada item: <div data-idx="\${i}" draggable="true" class="item">...
+
+-- PAGINACION --
+let page=0; const PAGE_SIZE=10;
+function renderPage() {
+  const total=state.items.length; const pages=Math.ceil(total/PAGE_SIZE);
+  const slice=state.items.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
+  document.getElementById('list').innerHTML=slice.map(renderItem).join('');
+  document.getElementById('pagination').innerHTML=
+    '<button onclick="changePage(-1)" '+(page===0?'disabled':'')+'>prev</button>'+
+    '<span>'+(page+1)+' / '+pages+'</span>'+
+    '<button onclick="changePage(1)" '+(page>=pages-1?'disabled':'')+'>sig</button>';
+}
+function changePage(d){page=Math.max(0,Math.min(Math.ceil(state.items.length/PAGE_SIZE)-1,page+d));renderPage();}
+
+────────────────────────────────────────────────────
+FORMULARIOS CON PERSISTENCIA AUTOMATICA
+────────────────────────────────────────────────────
+Los datos persisten en DB SIN intervención de la IA usando stacklume:save.
+
+-- FORMULARIO COMPACTO (inline en header) --
+function addItem() {
+  const val=document.getElementById('inp').value.trim();
+  if(!val) return;
+  state.items=[...state.items, { id: Date.now(), name: val, done: false, createdAt: new Date().toISOString() }];
+  document.getElementById('inp').value='';
+  saveState();  // persiste en DB automaticamente
+  render();
+}
+
+-- FORMULARIO EXPANDIDO (modal interno con position:absolute) --
+function openAddModal() {
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('modal-name').focus();
+}
+function closeModal() { document.getElementById('overlay').style.display='none'; }
+function submitModal() {
+  const name=document.getElementById('modal-name').value.trim();
+  const price=parseFloat(document.getElementById('modal-price').value||'0');
+  if(!name) return;
+  state.items=[...state.items,{id:Date.now(),name,price,done:false}];
+  closeModal(); saveState(); render();
+}
+
+-- EDICION INLINE DE CAMPO --
+function editItem(idx, field, value) {
+  state.items=state.items.map((it,i)=>i===idx?{...it,[field]:value}:it);
+  saveState();
+}
+// En el HTML del item: <span contenteditable="true" onblur="editItem(\${i},'name',this.textContent)">\${it.name}</span>
+
+-- BORRAR ITEM --
+function deleteItem(idx) {
+  state.items=state.items.filter((_,i)=>i!==idx);
+  saveState(); render();
+}
+
+────────────────────────────────────────────────────
+UTILIDADES JS INLINE (sin CDN)
+────────────────────────────────────────────────────
+
+-- FORMATEO --
+const fmt={
+  currency:(n,c='EUR')=>new Intl.NumberFormat('es-ES',{style:'currency',currency:c,minimumFractionDigits:0,maximumFractionDigits:2}).format(n),
+  compact:(n)=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n),
+  pct:(n,total)=>total?Math.round(n/total*100)+'%':'0%',
+  dec:(n,d=1)=>n.toFixed(d),
+};
+
+-- FECHAS --
+const dateUtils={
+  fromNow:(iso)=>{
+    const diff=Date.now()-new Date(iso).getTime();
+    const m=Math.floor(diff/60000);
+    if(m<1)return'ahora mismo';if(m<60)return'hace '+m+'m';
+    const h=Math.floor(m/60);if(h<24)return'hace '+h+'h';
+    const d=Math.floor(h/24);if(d<7)return'hace '+d+'d';
+    return new Date(iso).toLocaleDateString('es-ES',{day:'2-digit',month:'short'});
+  },
+  format:(iso,opts={})=>new Date(iso).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric',...opts}),
+  isToday:(iso)=>new Date(iso).toDateString()===new Date().toDateString(),
+};
+
+-- ORDENACION --
+function sortBy(arr, field, asc=true) {
+  return [...arr].sort((a,b)=>{
+    const va=a[field]??''; const vb=b[field]??'';
+    const cmp=typeof va==='number'?va-vb:String(va).localeCompare(String(vb));
+    return asc?cmp:-cmp;
+  });
+}
+
+-- UTILIDADES --
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+const debounce=(fn,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};};
+const clone=obj=>JSON.parse(JSON.stringify(obj));
+
+────────────────────────────────────────────────────
+ANIMACIONES CSS (inline, sin CDN)
+────────────────────────────────────────────────────
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes slideRight{from{transform:translateX(-12px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+
+.item-new{animation:slideUp .25s ease}
+.skeleton{background:linear-gradient(90deg,#1a2332 25%,#243447 50%,#1a2332 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px}
+
+// Contador numérico animado
+function animateCounter(el, target, duration=800) {
+  const start=parseInt(el.textContent)||0; const startTime=performance.now();
+  const update=t=>{
+    const pct=Math.min((t-startTime)/duration,1);
+    const ease=1-Math.pow(1-pct,3);
+    el.textContent=Math.round(start+(target-start)*ease);
+    if(pct<1) requestAnimationFrame(update);
+  };
+  requestAnimationFrame(update);
+}
+
+────────────────────────────────────────────────────
+LAYOUTS AVANZADOS
+────────────────────────────────────────────────────
+
+-- SPLIT VIEW (lista + detalle) --
+body{display:grid;grid-template-columns:200px 1fr;grid-template-rows:auto 1fr;height:100%;overflow:hidden}
+.header{grid-column:1/-1}
+.sidebar{overflow-y:auto;border-right:1px solid #243447}
+.detail{overflow-y:auto;padding:12px}
+
+-- MINI KANBAN (3 columnas) --
+.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;height:100%;overflow:hidden}
+.column{display:flex;flex-direction:column;background:#111b27;border-radius:8px;overflow:hidden}
+.column-header{padding:8px 12px;font-size:11px;font-weight:700;letter-spacing:.05em;border-bottom:1px solid #1e2d3d}
+.column-body{flex:1;overflow-y:auto;padding:6px}
+.kanban-card{background:#1a2332;border:1px solid #1e2d3d;border-radius:7px;padding:8px;margin-bottom:5px;font-size:12px;cursor:grab;transition:border-color .15s}
+.kanban-card:hover{border-color:#d4a520}
+
+-- HEATMAP (tipo GitHub contributions) --
+function renderHeatmap(containerId, data) {
+  const today=new Date(); const weeks=14;
+  let html='<div style="display:grid;grid-template-rows:repeat(7,10px);grid-auto-flow:column;gap:2px">';
+  for(let w=weeks-1;w>=0;w--) {
+    for(let d=0;d<7;d++) {
+      const dt=new Date(today);
+      dt.setDate(dt.getDate()-(w*7+d));
+      const key=dt.toISOString().slice(0,10);
+      const v=data[key]||0;
+      const opacity=v===0?'0.1':v<3?'0.4':v<6?'0.7':'1';
+      html+='<div title="'+key+': '+v+'" style="width:10px;height:10px;background:#d4a520;opacity:'+opacity+';border-radius:2px"></div>';
+    }
+  }
+  document.getElementById(containerId).innerHTML=html+'</div>';
+}
+
+-- TIMELINE --
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#d4a520,#243447)}
+.timeline-item{position:relative;margin-bottom:14px;padding-left:4px}
+.timeline-item::before{content:'';position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:#d4a520;border:2px solid #0d1117}
+
+────────────────────────────────────────────────────
+PLANTILLA CANVAS (copiar y adaptar)
+────────────────────────────────────────────────────
 <!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;width:100%;height:100%;overflow:hidden}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="c"></canvas><script>
 const CONFIG=(typeof {{CONFIG_JSON}}!=='undefined')?{{CONFIG_JSON}}:{};
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 function resize(w,h){canvas.width=w||canvas.offsetWidth;canvas.height=h||canvas.offsetHeight;draw();}
-// ResizeObserver para cambios de tamaño generales
 new ResizeObserver(([e])=>resize(e.contentRect.width,e.contentRect.height)).observe(canvas);
-// postMessage de Stacklume: se dispara en tiempo real durante el drag de resize del widget
 window.addEventListener('message',e=>{if(e.data&&e.data.type==='stacklume:resize')resize(e.data.width,e.data.height);});
-function draw(){ctx.fillStyle='#0d1117';ctx.fillRect(0,0,canvas.width,canvas.height);/* tu lógica — usa #d4a520 para highlights */}
+function draw(){ctx.fillStyle='#0d1117';ctx.fillRect(0,0,canvas.width,canvas.height);/* usa #d4a520 para highlights */}
 </script></body></html>
 
-PLANTILLA HTML/CSS CON LISTA (copiar y adaptar):
-<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}.header{padding:10px 14px;border-bottom:1px solid #243447;flex-shrink:0;color:#d4a520;font-weight:700;font-size:13px}.list{flex:1;overflow-y:auto;padding:8px}.item{background:#111b27;border:1px solid #1e2d3d;border-radius:8px;padding:9px 11px;margin-bottom:5px}.footer{padding:8px 14px;border-top:1px solid #243447;flex-shrink:0;font-size:11px;color:#8b949e}</style></head><body>
-<div class="header" id="title">Widget</div>
+────────────────────────────────────────────────────
+PLANTILLA MAESTRA: WIDGET AUTO-SAVING COMPLETO
+────────────────────────────────────────────────────
+Esta plantilla incluye: parseo de CONFIG, persistencia via postMessage,
+estado vacío, formulario de añadir, lista de items, borrar items.
+Usar como base para CUALQUIER widget de lista/colección.
+
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#d4a520;border-radius:3px}
+body{background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;height:100%;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:10px 12px;border-bottom:1px solid #1e2d3d;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.title{font-size:13px;font-weight:700;color:#d4a520;flex:1}.count{font-size:11px;color:#8b949e}
+.add-row{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid #1e2d3d;flex-shrink:0}
+.inp{flex:1;padding:6px 10px;background:#111b27;border:1px solid #243447;border-radius:6px;color:#e6edf3;font-size:12px;outline:none;transition:border-color .15s}
+.inp:focus{border-color:#d4a520}.inp::placeholder{color:#8b949e55}
+.btn-add{padding:6px 12px;background:#d4a520;color:#0d1117;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-add:hover{background:#e6b822}
+.list{flex:1;overflow-y:auto;padding:6px}
+.item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#111b27;border:1px solid #1e2d3d;border-radius:7px;margin-bottom:5px;transition:border-color .15s}
+.item:hover{border-color:#243447}.item-name{flex:1;font-size:12px}
+.item-del{color:#8b949e;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;opacity:0;transition:opacity .15s}
+.item:hover .item-del{opacity:1}.item-del:hover{color:#ff6b6b}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;color:#8b949e;text-align:center;padding:20px}
+.empty-icon{font-size:28px;opacity:.4}
+.footer{padding:6px 12px;border-top:1px solid #1e2d3d;font-size:10px;color:#8b949e55;flex-shrink:0;text-align:right}
+.toast{position:absolute;bottom:8px;right:8px;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;animation:fadeIn .2s ease;z-index:50}
+.toast-ok{background:#3fb95022;border:1px solid #3fb95044;color:#3fb950}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+</style></head><body>
+<div class="header"><span class="title" id="wtitle">Mi Colección</span><span class="count" id="wcount"></span></div>
+<div class="add-row">
+  <input class="inp" id="inp" placeholder="Añadir nuevo item..." onkeydown="if(event.key==='Enter')addItem()">
+  <button class="btn-add" onclick="addItem()">+ Añadir</button>
+</div>
 <div class="list" id="list"></div>
-<div class="footer" id="footer"></div>
+<div class="footer">Stacklume Widget</div>
 <script>
 const CONFIG=(typeof {{CONFIG_JSON}}!=='undefined')?{{CONFIG_JSON}}:{};
-const items=(CONFIG&&CONFIG.items)||[];
-document.getElementById('title').textContent=CONFIG.title||'Mi Widget';
-document.getElementById('list').innerHTML=items.map(it=>\`<div class="item">\${it.name||it}</div>\`).join('');
-document.getElementById('footer').textContent=items.length+' elementos';
+let state={title:'Mi Colección',items:[],...CONFIG};
+function save(){window.parent.postMessage({type:'stacklume:save',config:state},'*');}
+window.addEventListener('message',e=>{
+  if(e.data?.type==='stacklume:resize'){}
+  if(e.data?.type==='stacklume:saved'&&e.data.success)showToast('Guardado','ok');
+});
+function addItem(){
+  const v=document.getElementById('inp').value.trim();
+  if(!v)return;
+  state.items=[...state.items,{id:Date.now(),name:v,done:false}];
+  document.getElementById('inp').value='';
+  save();render();
+}
+function deleteItem(id){state.items=state.items.filter(it=>it.id!==id);save();render();}
+function toggleItem(id){state.items=state.items.map(it=>it.id===id?{...it,done:!it.done}:it);save();render();}
+function render(){
+  document.getElementById('wtitle').textContent=state.title||'Mi Colección';
+  document.getElementById('wcount').textContent=state.items.length+' items';
+  const list=document.getElementById('list');
+  if(!state.items.length){
+    list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div>Sin items aún</div><div style="font-size:11px;margin-top:4px">Escribe arriba para añadir el primero</div></div>';
+  }else{
+    list.innerHTML=state.items.map(it=>
+      '<div class="item" style="animation:slideUp .2s ease">'+
+      '<span style="cursor:pointer;flex:1;display:flex;align-items:center;gap:6px" onclick="toggleItem('+it.id+')">'+
+      '<span style="opacity:'+(it.done?.4:1)+';text-decoration:'+(it.done?'line-through':'none')+
+      ';color:'+(it.done?'#8b949e':'#e6edf3')+'" class="item-name">'+(it.done?'✓ ':'')+it.name+'</span>'+
+      '</span>'+
+      '<button class="item-del" onclick="deleteItem('+it.id+')">×</button>'+
+      '</div>'
+    ).join('');
+  }
+}
+function showToast(msg,type){
+  const t=document.createElement('div');
+  t.className='toast toast-'+type;t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),1800);
+}
+render();
 </script></body></html>
+
+────────────────────────────────────────────────────
+REGLA DE ORO — WIDGETS COMPLETOS DESDE EL PRIMER MOMENTO
+────────────────────────────────────────────────────
+El htmlTemplate ES la aplicación completa. El widget funciona perfectamente con items:[].
+CORRECTO:
+  - Crear widget con defaultConfig: {items:[]} y HTML con estado vacío ("Tu lista está vacía")
+  - Tras crear: decir solo "He creado tu widget. Refresca la página (F5) para verlo."
+  - Si el usuario pide items CONCRETOS → agrégalos vía update_widget EN EL MISMO TURNO
+  - Los widgets con formularios guardan sus datos via stacklume:save automaticamente
+INCORRECTO:
+  - Crear widget y luego pedir "dime URLs para añadirlas" (el widget YA está completo)
+  - Crear widget y decir "ahora configúralo con datos" (no hay nada que configurar manualmente)
+  - Decir al usuario "puedes añadir items diciéndome X" como paso de configuración
+  - Hardcodear datos de ejemplo en el HTML en lugar de leerlos de CONFIG
+  - Decir al usuario que "los datos se pierden al refrescar" (se guardan automaticamente)
+
+REGLA: si el usuario pide "crea una lista de tareas" → créala con items:[] y formulario propio.
+       si el usuario pide "crea una lista con estas tareas: ..." → créala Y añade los items via update_widget.
 
 ────────────────────────────────────────────────────
 BEST PRACTICES PARA WIDGETS INTERACTIVOS
 ────────────────────────────────────────────────────
-• Diseña el widget para que CONFIG refleje el estado completo que quieres persistir
-  Ejemplo wishlist: items[].purchased = true/false — el usuario pide "marca X como comprado"
-  → tú actualizas config.items directamente con update_widget
-• Si el widget tiene muchos items, añade búsqueda/filtro en JS inline
-• Para contadores/estadísticas, calcúlalos desde CONFIG.items en render time
-• Evita estado global mutable — todo debe derivarse de CONFIG
-• Añade siempre un mensaje de estado vacío: if(items.length===0) mostrar placeholder
+• Todos los widgets interactivos usan stacklume:save para persistencia total
+• Añade busqueda/filtro JS inline si el widget puede tener muchos items
+• Para contadores/estadísticas, calcúlalos desde state.items en render time
+• Estado vacío completo con mensaje útil e icono descriptivo
+• El estado vacío debe mostrar QUE HACE el widget y como añadir el primer item
+• Incluye siempre un toast de confirmación tras guardar
+• Usa animación slideUp para items nuevos que aparecen en la lista
 
 ────────────────────────────────────────────────────
 FLUJOS DE TRABAJO COMUNES
 ────────────────────────────────────────────────────
 Crear widget nuevo:
-  get_app_info → (opcional) list_widget_types → add_widget O create_custom_widget_type + add_custom_widget
+  get_app_info → (opcional) list_widget_types → add_widget
+  O: create_custom_widget_type → add_custom_widget
 
-Añadir ítem a widget existente (wishlist, lista de tareas, etc.):
+Añadir ítem a widget existente desde la IA (wishlist, lista de tareas, etc.):
   list_widgets → leer config → modificar config.items → update_widget(id, {config: nuevaConfig})
 
 Actualizar template HTML/CSS/JS de tipo personalizado:
