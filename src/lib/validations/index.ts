@@ -435,7 +435,7 @@ export const widgetIdSchema = z.object({
 // ============================================================================
 
 // Valid setting enums
-const themeSchema = z.enum(['light', 'dark', 'system']);
+const themeSchema = z.enum(['light', 'dark', 'system', 'midnight', 'ocean', 'forest', 'slate', 'crimson', 'aurora', 'arctic', 'sakura', 'lavender', 'mint']);
 const viewDensitySchema = z.enum(['compact', 'normal', 'comfortable']);
 const viewModeSchema = z.enum(['bento', 'kanban', 'list']);
 

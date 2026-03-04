@@ -1,6 +1,8 @@
 "use client";
 
-import { Sun, Moon, Monitor, Grid2x2, MessageSquare, Zap, Settings, Download, Copy, LayoutGrid, Kanban, List, Volume2, VolumeX, Database, HardDrive, Cloud, CheckCircle2, AlertCircle, Loader2, Plug, RefreshCw, Eye, EyeOff, BookOpen } from "lucide-react";
+import { Monitor, Grid2x2, MessageSquare, Zap, Settings, Download, Copy, LayoutGrid, Kanban, List, Volume2, VolumeX, Database, HardDrive, Cloud, CheckCircle2, AlertCircle, Loader2, Plug, RefreshCw, Eye, EyeOff, BookOpen, ArrowUpCircle, Palette, Check, HelpCircle } from "lucide-react";
+import { isTauriWebView } from "@/lib/desktop";
+import { ONBOARDING_STORAGE_KEY } from "@/components/onboarding/OnboardingTour";
 import { McpDocsDialog } from "@/components/ui/McpDocsDialog";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -23,7 +25,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Slider } from "@/components/ui/slider";
-import { useSettingsStore } from "@/stores/settings-store";
+import { useSettingsStore, type Theme } from "@/stores/settings-store";
+import { cn } from "@/lib/utils";
 
 
 interface SettingsDropdownProps {
@@ -59,6 +62,8 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
   const [isCopyingKey, setIsCopyingKey] = useState(false);
   const [isRegeneratingKey, setIsRegeneratingKey] = useState(false);
   const [showMcpDocs, setShowMcpDocs] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const isDesktop = isTauriWebView();
 
   // Sync theme from store to next-themes on mount
   useEffect(() => {
@@ -67,7 +72,7 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
     }
   }, [storedTheme, currentTheme, setTheme]);
 
-  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
+  const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
     setStoredTheme(newTheme);
   };
@@ -87,6 +92,12 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
     await regenerateMcpApiKey();
     setIsRegeneratingKey(false);
     toast.success("API key regenerada");
+  };
+
+  const handleCheckUpdate = () => {
+    setIsCheckingUpdate(true);
+    window.dispatchEvent(new CustomEvent("stacklume:check-update-manual"));
+    setTimeout(() => setIsCheckingUpdate(false), 3000);
   };
 
   const handleCopyMcpConfig = async (format: "claude" | "cursor") => {
@@ -131,29 +142,114 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
           <p>Configuración</p>
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-56 max-h-[80vh] overflow-y-auto scrollbar-thin">
+      <DropdownMenuContent align="end" className="w-64 max-h-[80vh] overflow-y-auto scrollbar-thin">
         <DropdownMenuLabel className="text-xs font-semibold">Configuración</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {/* Theme Section */}
         <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">
-          <Sun className="w-3.5 h-3.5 inline mr-1.5" />
+          <Palette className="w-3.5 h-3.5 inline mr-1.5" />
           Tema
         </DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={currentTheme} onValueChange={(value) => handleThemeChange(value as "light" | "dark" | "system")}>
-          <DropdownMenuRadioItem value="light">
-            <Sun className="mr-2 h-4 w-4" />
-            Claro
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">
-            <Moon className="mr-2 h-4 w-4" />
-            Oscuro
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="system">
-            <Monitor className="mr-2 h-4 w-4" />
-            Sistema
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+
+        {/* Sistema */}
+        <div className="px-2 pb-1">
+          <button
+            onClick={() => handleThemeChange("system")}
+            className={cn(
+              "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
+              storedTheme === "system"
+                ? "bg-primary/15 text-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            )}
+          >
+            <Monitor className="w-3.5 h-3.5 shrink-0" />
+            <span>Sistema</span>
+            {storedTheme === "system" && <Check className="w-3 h-3 ml-auto text-primary" />}
+          </button>
+        </div>
+
+        {/* Dark themes */}
+        <div className="px-2 pb-1">
+          <p className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wide mb-1.5 px-1">Oscuros</p>
+          <div className="grid grid-cols-4 gap-1">
+            {[
+              { id: "dark" as Theme, label: "Naval", bg: "#0d1526", accent: "#d4a853" },
+              { id: "midnight" as Theme, label: "Noche", bg: "#0a0812", accent: "#a855f7" },
+              { id: "ocean" as Theme, label: "Océano", bg: "#09141e", accent: "#22d3ee" },
+              { id: "forest" as Theme, label: "Bosque", bg: "#091510", accent: "#4ade80" },
+              { id: "slate" as Theme, label: "Pizarra", bg: "#0f121a", accent: "#7da2c0" },
+              { id: "crimson" as Theme, label: "Carmesí", bg: "#11080a", accent: "#ef4444" },
+              { id: "aurora" as Theme, label: "Aurora", bg: "#060412", accent: "#34d399" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleThemeChange(t.id)}
+                title={t.label}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 p-1 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  storedTheme === t.id && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                )}
+              >
+                <div
+                  className="w-10 h-8 rounded-md relative overflow-hidden"
+                  style={{ backgroundColor: t.bg }}
+                >
+                  <div
+                    className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border border-white/20"
+                    style={{ backgroundColor: t.accent }}
+                  />
+                  {storedTheme === t.id && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <Check className="w-3 h-3 text-white drop-shadow" />
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9px] text-muted-foreground leading-none truncate w-full text-center">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Light themes */}
+        <div className="px-2 pb-2">
+          <p className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wide mb-1.5 px-1">Claros</p>
+          <div className="grid grid-cols-4 gap-1">
+            {[
+              { id: "light" as Theme, label: "Dorado", bg: "#f8f2e8", accent: "#d4a853" },
+              { id: "arctic" as Theme, label: "Ártico", bg: "#f5f8fc", accent: "#3b82f6" },
+              { id: "sakura" as Theme, label: "Sakura", bg: "#fdf5f5", accent: "#f43f5e" },
+              { id: "lavender" as Theme, label: "Lavanda", bg: "#f5f4fc", accent: "#8b5cf6" },
+              { id: "mint" as Theme, label: "Menta", bg: "#f3faf4", accent: "#22c55e" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleThemeChange(t.id)}
+                title={t.label}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 p-1 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  storedTheme === t.id && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                )}
+              >
+                <div
+                  className="w-10 h-8 rounded-md relative overflow-hidden border border-border/40"
+                  style={{ backgroundColor: t.bg }}
+                >
+                  <div
+                    className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: t.accent }}
+                  />
+                  {storedTheme === t.id && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                      <Check className="w-3 h-3 text-gray-700 drop-shadow" />
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9px] text-muted-foreground leading-none truncate w-full text-center">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <DropdownMenuSeparator />
 
@@ -263,6 +359,15 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
         <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">
           Herramientas
         </DropdownMenuLabel>
+        <DropdownMenuItem
+          onClick={() => {
+            localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+            window.location.reload();
+          }}
+        >
+          <HelpCircle className="mr-2 h-4 w-4" />
+          Reiniciar tutorial
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={onOpenImportExport}>
           <Download className="mr-2 h-4 w-4" />
           Importar / Exportar
@@ -271,6 +376,14 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
           <Copy className="mr-2 h-4 w-4" />
           Buscar duplicados
         </DropdownMenuItem>
+        {isDesktop && (
+          <DropdownMenuItem onClick={handleCheckUpdate} disabled={isCheckingUpdate}>
+            {isCheckingUpdate
+              ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              : <ArrowUpCircle className="mr-2 h-4 w-4" />}
+            Buscar actualizaciones
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
 
@@ -422,6 +535,13 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
               </div>
             </>
           )}
+        </div>
+
+        {/* Versión de la app */}
+        <div className="px-3 py-2 border-t border-border/40 mt-1">
+          <p className="text-[10px] text-muted-foreground/50 text-center select-none">
+            Stacklume v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"}
+          </p>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

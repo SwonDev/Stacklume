@@ -127,6 +127,10 @@ La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, 
 <td><img src="assets/icons/eye.svg" width="20" height="20" /></td>
 <td><strong>Privacidad total</strong> — Todos tus datos permanecen en tu equipo</td>
 </tr>
+<tr>
+<td><img src="assets/icons/sparkles.svg" width="20" height="20" /></td>
+<td><strong>Auto-actualización</strong> — Notificación y actualización silenciosa integrada</td>
+</tr>
 </table>
 
 > **Requisitos:** Windows 10/11 (64-bit). WebView2 Runtime (incluido en Windows 11; se instala automáticamente en Windows 10).
@@ -294,7 +298,7 @@ GITHUB_TOKEN=""
 | `pnpm dev` | Servidor de desarrollo |
 | `pnpm build` | Build de producción (web) |
 | `pnpm build:desktop` | Build standalone para desktop |
-| `pnpm tauri:build` | Compilar instalador NSIS (.exe) |
+| `pnpm tauri:build` | Build completo: compilar + firmar + subir a GitHub release |
 | `pnpm tauri:dev` | Modo desarrollo con ventana Tauri |
 | `pnpm lint` | Ejecutar ESLint |
 | `pnpm test` | Tests unitarios (Vitest) |

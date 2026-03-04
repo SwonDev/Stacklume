@@ -50,19 +50,34 @@ Instalar Rust: https://rustup.rs/
 pnpm install
 ```
 
-### 2. Build completo de una sola vez
+### 2. Build completo + firma + subida automática a GitHub
 
 ```bash
-pnpm build:desktop   # Compila Next.js standalone + prepara recursos
-pnpm tauri:build     # Compila Rust + genera instalador NSIS
+pnpm tauri:build
 ```
+
+Este único comando hace todo el pipeline:
+1. Carga `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` desde `.env.local`
+2. Ejecuta `pnpm build:desktop` (Next.js standalone + recursos)
+3. Compila el binario Rust y genera el instalador NSIS
+4. Firma el `.exe` con la clave minisign privada → genera `.exe.sig`
+5. Genera `update-manifest.json` con versión, URL y firma
+6. Sube los 3 archivos a la GitHub release del tag actual (con `--clobber`)
 
 El instalador queda en:
 ```
-src-tauri/target/release/bundle/nsis/Stacklume_0.1.0_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Stacklume_x.x.x_x64-setup.exe
 ```
 
-### 3. Modo desarrollo (sin instalar)
+### 3. Solo compilar Next.js + recursos (sin Rust)
+
+```bash
+pnpm build:desktop
+```
+
+Útil cuando solo hay cambios en frontend y quieres reusar el binario Rust previo.
+
+### 4. Modo desarrollo (sin instalar)
 
 ```bash
 pnpm tauri:dev
@@ -204,10 +219,10 @@ useLayoutEffect(() => { setIsTauri(isTauriWebView()); }, []);
 
 ---
 
-### 7. node.exe bloqueado al reinstalar / actualizar
+### 7. node.exe bloqueado al cerrar la ventana (cierre limpio)
 
-**Síntoma:** El instalador falla diciendo que `node.exe` está en uso.
-**Causa:** `std::mem::forget(child)` dejaba el proceso huérfano corriendo al cerrar la ventana Tauri.
+**Síntoma:** Al reinstalar después de usar la app, el instalador a veces falla porque `node.exe` sigue corriendo.
+**Causa:** `std::mem::forget(child)` dejaba el proceso huérfano al cerrar la ventana Tauri.
 **Fix en** `src-tauri/src/lib.rs`: guardar el `Child` en `ServerState` y matarlo en `on_window_event(Destroyed)`:
 ```rust
 struct ServerState {
@@ -224,7 +239,51 @@ WindowEvent::Destroyed => {
 
 ---
 
-### 8. Límite MAX\_PATH de Windows (260 chars) rompe NSIS
+### 8. NSIS falla con "Error abriendo archivo para escritura: node.exe" al reinstalar sobre app en ejecución
+
+**Síntoma:** Durante la instalación aparece el error "Error abriendo archivo para escritura: C:\...\resources\node\node.exe". El instalador aborta.
+**Causa:** Si Stacklume está abierto (o si crasheó sin limpiar su proceso hijo), `node.exe` sigue corriendo y bloqueando el archivo. NSIS intenta sobreescribirlo y falla.
+**Fix:** Añadir hooks NSIS que matan los procesos antes de copiar archivos:
+
+**A)** Crear `src-tauri/nsis/installer-hooks.nsh`:
+```nsis
+!macro NSIS_HOOK_PREINSTALL
+  nsExec::Exec 'taskkill /F /IM stacklume.exe /T'
+  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''*\Stacklume\*'' } | Stop-Process -Force"'
+  Sleep 1500
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+!macroend
+
+!macro NSIS_HOOK_PREUNINSTALL
+  nsExec::Exec 'taskkill /F /IM stacklume.exe /T'
+  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''*\Stacklume\*'' } | Stop-Process -Force"'
+  Sleep 1000
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+!macroend
+```
+
+**B)** Referenciar el archivo en `src-tauri/tauri.conf.json`:
+```json
+{
+  "bundle": {
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/installer-hooks.nsh"
+      }
+    }
+  }
+}
+```
+
+La macro `NSIS_HOOK_PREINSTALL` se ejecuta **antes** de que NSIS empiece a copiar archivos. El flag `/T` de `taskkill` mata también el árbol de procesos hijos (node.exe incluido).
+
+---
+
+### 9. Límite MAX\_PATH de Windows (260 chars) rompe NSIS
 
 **Síntoma:** `makensis` falla con error de ruta demasiado larga.
 **Causa:** `.pnpm/` genera rutas muy profundas incompatibles con el límite MAX\_PATH de Windows en NSIS.
@@ -232,7 +291,7 @@ WindowEvent::Destroyed => {
 
 ---
 
-### 9. `ilike` no está soportado en SQLite
+### 10. `ilike` no está soportado en SQLite
 
 **Síntoma:** Error SQL al buscar links en modo desktop.
 **Causa:** `ilike` es una función específica de PostgreSQL.
@@ -247,7 +306,7 @@ like(sql`LOWER(${links.title})`, `%${q.toLowerCase()}%`)
 
 ---
 
-### 10. SQLite no genera UUIDs automáticamente
+### 11. SQLite no genera UUIDs automáticamente
 
 **Síntoma:** Error de constraint al insertar registros (campo `id` nulo).
 **Causa:** `uuid().primaryKey().defaultRandom()` solo funciona en PostgreSQL.
@@ -260,7 +319,7 @@ db.insert(table).values({ id: generateId(), ...resto })
 
 ---
 
-### 11. vcruntime140.dll no encontrado en Windows sin VC++ Redistributable
+### 12. vcruntime140.dll no encontrado en Windows sin VC++ Redistributable
 
 **Síntoma:** La app instalada no arranca en PCs sin Visual C++ Redistributable.
 **Fix en** `scripts/build-desktop.mjs`: copiar las DLLs desde `C:\Windows\System32`:
@@ -273,12 +332,86 @@ for (const dll of dlls) {
 
 ---
 
+### 13. La app no arranca tras instalar — `unknown variant 'currentUser'`
+
+**Síntoma:** La ventana no aparece. El proceso muere silenciosamente al arrancar. Si se ejecuta `stacklume.exe` desde la terminal se ve:
+```
+panicked at ... PluginInitialization("updater", "Error deserializing 'plugins.updater' within your Tauri configuration: unknown variant `currentUser`, expected one of `basicUi`, `quiet`, `passive`")
+```
+**Causa:** En `tauri.conf.json` hay **dos** secciones con `installMode` y sus valores válidos son distintos. Es fácil confundirlos:
+
+| Sección | Valores válidos |
+|---------|----------------|
+| `bundle.windows.nsis.installMode` | `currentUser` · `perMachine` |
+| `plugins.updater.windows.installMode` | `basicUi` · `quiet` · `passive` |
+
+**Fix en** `src-tauri/tauri.conf.json`:
+```json
+{
+  "plugins": {
+    "updater": {
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
+  "bundle": {
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}
+```
+
+> Los logs de `%APPDATA%\com.stacklume.app\stacklume.log` estarán **vacíos** porque el panic ocurre antes de que lib.rs llegue a crear el archivo de log. Para diagnosticarlo hay que ejecutar `stacklume.exe` desde un terminal.
+
+---
+
+### 14. `pnpm tauri:build` falla en la firma con "Error al firmar: undefined"
+
+**Síntoma:** El build compila y genera el instalador correctamente, pero al llegar al paso de firma muestra:
+```
+[build-release] ✗ Error al firmar: undefined
+```
+El proceso termina con código de salida 1. No se genera el `.sig` ni el `update-manifest.json`. Los assets no se suben a GitHub.
+
+**Causa:** `spawnSync("pnpm", [...])` en `scripts/build-release.mjs` falla con `ENOENT` en Windows porque `pnpm` es un archivo `.cmd`, no un ejecutable nativo. `spawnSync` sin `shell: true` no puede encontrar archivos `.cmd`/`.bat`. Cuando `spawnSync` lanza un `ENOENT`, `result.stderr` y `result.stdout` son `undefined`, de ahí el mensaje confuso.
+
+**Síntoma secundario que enmascara el error:** Si existe un `.sig` de un build anterior con el mismo nombre (p.ej., tras un build parcialmente exitoso), la condición `if (!existsSync(sigPath))` es `false` y el paso de firma se salta. El problema solo se manifiesta en builds limpios.
+
+**Fix en** `scripts/build-release.mjs` — añadir `shell: true`:
+```js
+// ANTES (falla en Windows):
+const result = spawnSync("pnpm", ["exec", "tauri", "signer", "sign", ...args], {
+  encoding: "utf8", cwd: ROOT, stdio: "pipe"
+});
+
+// DESPUÉS (funciona):
+const result = spawnSync("pnpm", ["exec", "tauri", "signer", "sign", ...args], {
+  encoding: "utf8", cwd: ROOT, stdio: "pipe", shell: true
+});
+```
+
+**Para firmar manualmente sin recompilar todo** (útil si el instalador ya existe):
+```bash
+# Leer variables del .env.local y firmar directamente
+SIGNING_KEY=$(grep "^TAURI_SIGNING_PRIVATE_KEY=" .env.local | cut -d= -f2-)
+SIGNING_PASS=$(grep "^TAURI_SIGNING_PRIVATE_KEY_PASSWORD=" .env.local | cut -d= -f2-)
+pnpm exec tauri signer sign -k "$SIGNING_KEY" -p "$SIGNING_PASS" \
+  "src-tauri/target/release/bundle/nsis/Stacklume_X.Y.Z_x64-setup.exe"
+```
+
+---
+
 ## Estructura de archivos importantes
 
 ```
 STACKLUME/
 ├── scripts/
-│   ├── build-desktop.mjs       ← Pipeline de build completo
+│   ├── build-desktop.mjs       ← Next.js standalone + node.exe + DLLs
+│   ├── build-release.mjs       ← Pipeline completo: compilar + firmar + subir a GitHub
 │   └── generate-nsis-assets.mjs ← Genera BMP para el instalador NSIS
 ├── src-tauri/
 │   ├── src/
@@ -291,7 +424,8 @@ STACKLUME/
 │   ├── icons/                  ← Iconos generados (pnpm tauri icon)
 │   ├── nsis/
 │   │   ├── header.bmp          ← Imagen header del instalador (150×57)
-│   │   └── sidebar.bmp         ← Imagen sidebar del instalador (164×314)
+│   │   ├── sidebar.bmp         ← Imagen sidebar del instalador (164×314)
+│   │   └── installer-hooks.nsh ← Mata procesos antes de instalar/desinstalar (error #8)
 │   └── resources/              ← ¡GENERADO! No commitear
 │       ├── node/               ← node.exe + DLLs (92MB)
 │       └── server/             ← Next.js standalone (99MB)
@@ -321,7 +455,7 @@ STACKLUME/
 ```bash
 pnpm tauri:dev          # Desarrollo: Next.js dev + ventana Tauri
 pnpm build:desktop      # Build Next.js standalone para desktop
-pnpm tauri:build        # Compilar Rust + generar instalador NSIS
+pnpm tauri:build        # Build completo: compilar + firmar + subir a GitHub release
 pnpm db:sqlite:generate # Generar migraciones SQLite desde schema.sqlite.ts
 pnpm db:sqlite:migrate  # Aplicar migraciones SQLite
 ```
@@ -347,14 +481,125 @@ Si la app no arranca o da error, revisar:
 
 ---
 
+## Auto-updater (Tauri Plugin Updater)
+
+La app incluye un sistema de actualizaciones automáticas basado en `tauri-plugin-updater`. Al arrancar, comprueba si hay una versión nueva y muestra un toast con opción de instalar.
+
+### Cómo funciona
+
+1. `UpdateChecker.tsx` se monta en el layout (solo cuando `isTauriWebView()` es true)
+2. A los 6 segundos llama a `check()` de `@tauri-apps/plugin-updater`
+3. Tauri descarga `update-manifest.json` desde GitHub Releases y verifica la firma criptográfica con la clave pública embebida en `tauri.conf.json`
+4. Si hay versión nueva → toast con botón "Actualizar"
+5. Al confirmar: descarga el nuevo `.exe` con barra de progreso → instala silenciosamente → relanza la app
+6. Los datos en `%APPDATA%\com.stacklume.app\stacklume.db` nunca se tocan
+
+### Archivos involucrados
+
+| Archivo | Rol |
+|---------|-----|
+| `src/components/desktop/UpdateChecker.tsx` | Toast UI + lógica de descarga |
+| `src-tauri/tauri.conf.json` → `plugins.updater` | Clave pública + endpoint |
+| `src-tauri/capabilities/default.json` | Permisos `updater:default` + `process:allow-restart` |
+| `src-tauri/src/lib.rs` | Registro de plugins updater + process |
+| `scripts/build-release.mjs` | Firma el `.exe` y genera `update-manifest.json` |
+
+### ⚠️ Gotcha: `installMode` del updater ≠ `installMode` de NSIS
+
+En `tauri.conf.json` hay **dos** secciones con `installMode` y sus valores válidos son distintos:
+
+| Sección | Valores válidos |
+|---------|----------------|
+| `bundle.windows.nsis.installMode` | `currentUser` · `perMachine` |
+| `plugins.updater.windows.installMode` | `basicUi` · `quiet` · **`passive`** |
+
+Usar `currentUser` en la sección `plugins.updater` provoca un panic al arrancar la app:
+```
+Error deserializing 'plugins.updater': unknown variant `currentUser`, expected one of `basicUi`, `quiet`, `passive`
+```
+
+El valor correcto para actualizaciones silenciosas es **`passive`**.
+
+### Gestión de claves de firma
+
+Las actualizaciones usan firmas **minisign** para garantizar autenticidad.
+
+- **Clave pública** → embebida en `tauri.conf.json` (`plugins.updater.pubkey`). Es segura para commitear.
+- **Clave privada** → en `.env.local` como `TAURI_SIGNING_PRIVATE_KEY` (valor base64 del fichero `.key`). **Nunca commitear.**
+- **Contraseña** → en `.env.local` como `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. **Nunca commitear.**
+
+Para regenerar el par de claves (solo si se pierde la privada):
+```bash
+pnpm tauri signer generate -w my-signing-key.key
+# Actualizar tauri.conf.json → plugins.updater.pubkey con la nueva clave pública
+# Actualizar .env.local con la nueva clave privada y contraseña
+```
+
+### Publicar una nueva versión
+
+```bash
+# 1. Actualizar versión en los 3 ficheros:
+#    package.json → "version": "X.Y.Z"
+#    src-tauri/tauri.conf.json → "version": "X.Y.Z"
+#    src-tauri/Cargo.toml → version = "X.Y.Z"
+
+# 2. Crear el tag en git
+git tag vX.Y.Z && git push origin vX.Y.Z
+
+# 3. Crear la GitHub release vacía (para que el script pueda subir los assets)
+gh release create vX.Y.Z --title "Stacklume vX.Y.Z" --notes "..."
+
+# 4. Ejecutar el build completo (firma + upload automáticos)
+pnpm tauri:build
+```
+
+El script `build-release.mjs` detecta la release existente y sube automáticamente:
+- `Stacklume_X.Y.Z_x64-setup.exe` — instalador firmado
+- `Stacklume_X.Y.Z_x64-setup.exe.sig` — firma minisign
+- `update-manifest.json` — manifiesto de actualización
+
+### update-manifest.json
+
+```json
+{
+  "version": "0.3.1",
+  "notes": "Stacklume v0.3.1",
+  "pub_date": "2026-03-04T12:00:00.000Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/SwonDev/Stacklume/releases/download/v0.3.1/Stacklume_0.3.1_x64-setup.exe",
+      "signature": "<firma minisign base64>"
+    }
+  }
+}
+```
+
+---
+
 ## Checklist antes de publicar una nueva versión
 
+**Preparación:**
+- [ ] Versión actualizada en `package.json`, `tauri.conf.json` y `Cargo.toml`
 - [ ] `pnpm tsc --noEmit` sin errores
-- [ ] `pnpm build:desktop` completa sin errores
-- [ ] `pnpm tauri:build` genera el `.exe`
+- [ ] Tag git creado y subido (`git tag vX.Y.Z && git push origin vX.Y.Z`)
+- [ ] GitHub release creada con `gh release create vX.Y.Z ...`
+
+**Build:**
+- [ ] `pnpm tauri:build` completa sin errores
+- [ ] Log muestra "✓ Instalador firmado" o "✓ update-manifest.json generado"
+- [ ] Los 3 assets subidos a GitHub release: `.exe`, `.exe.sig`, `update-manifest.json`
+
+**Verificación funcional:**
 - [ ] Instalar el `.exe` en una máquina limpia (sin VC++ Redistributable instalado)
 - [ ] Ventana abre directamente al dashboard (sin pantalla de login)
 - [ ] TitleBar visible: botones close/minimize/maximize funcionan
 - [ ] Sin botón de "cerrar sesión" en el header
 - [ ] Añadir link, crear categoría, añadir widget → datos persisten al reiniciar
 - [ ] Desinstalar y volver a instalar → datos permanecen en `%APPDATA%`
+- [ ] **Con la app abierta**, ejecutar el instalador de nuevo → debe instalarse sin error de "archivo en uso"
+
+**Verificación del auto-updater:**
+- [ ] Instalar la versión anterior (`vX.Y.(Z-1)`)
+- [ ] Abrir la app → en ~6 segundos aparece toast "Nueva versión disponible"
+- [ ] Pulsar "Actualizar" → barra de progreso → app se relanza en la nueva versión
+- [ ] Datos intactos tras la actualización automática

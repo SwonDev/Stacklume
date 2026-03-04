@@ -2,17 +2,27 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import {
+  Sparkles,
+  LayoutGrid,
+  Bookmark,
+  Search,
+  PenLine,
+  LayoutDashboard,
+  Settings2,
+  Rocket,
+} from "lucide-react";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 
 const STORAGE_KEY = "stacklume-onboarding-completed";
 
-// Define tour steps
 export interface TourStep {
   id: string;
   targetSelector: string;
   title: string;
   description: string;
-  fallbackSelector?: string; // If primary selector not found
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  fallbackSelector?: string;
 }
 
 const DEFAULT_TOUR_STEPS: TourStep[] = [
@@ -20,65 +30,73 @@ const DEFAULT_TOUR_STEPS: TourStep[] = [
     id: "welcome",
     targetSelector: "[data-tour='header-logo']",
     fallbackSelector: "header",
-    title: "Bienvenido a Stacklume",
+    icon: Sparkles,
+    title: "¡Bienvenido a Stacklume!",
     description:
-      "Tu nuevo panel de control para organizar enlaces, herramientas y recursos de desarrollo. Te guiaremos por las funciones principales.",
+      "Tu panel de control personal para organizar enlaces, herramientas y recursos. Te guiamos por lo esencial en menos de un minuto.",
   },
   {
-    id: "add-widget",
+    id: "widgets",
     targetSelector: "[data-tour='add-widget-button']",
     fallbackSelector: "[data-slot='button']:has(svg)",
-    title: "Agregar Widgets",
+    icon: LayoutGrid,
+    title: "Tu librería de widgets",
     description:
-      "Haz clic aqui para agregar nuevos widgets a tu panel. Hay mas de 120 tipos disponibles: notas, relojes, calculadoras, herramientas de desarrollo y mucho mas.",
+      "Más de 120 tipos disponibles: notas, relojes, herramientas de desarrollo, gráficos SVG... y widgets personalizados creados por IA a través de la integración MCP.",
   },
   {
-    id: "add-link",
+    id: "links",
     targetSelector: "[data-tour='add-link-button']",
     fallbackSelector: "button:has(svg[class*='plus'])",
-    title: "Agregar Enlaces",
+    icon: Bookmark,
+    title: "Gestión de enlaces",
     description:
-      "Guarda tus enlaces favoritos rapidamente. Stacklume detecta automaticamente el tipo de contenido (YouTube, GitHub, Spotify, etc.) y extrae metadatos.",
+      "Guarda cualquier URL con un clic. Stacklume detecta automáticamente el tipo de contenido — YouTube, GitHub, Spotify, Steam — y extrae título, imagen y metadatos.",
   },
   {
     id: "search",
     targetSelector: "[data-tour='search-input']",
     fallbackSelector: "input[placeholder*='Buscar']",
-    title: "Buscar",
+    icon: Search,
+    title: "Búsqueda instantánea",
     description:
-      "Usa Cmd/Ctrl + K para abrir la busqueda rapidamente. Encuentra enlaces, widgets y categorias al instante.",
-  },
-  {
-    id: "view-modes",
-    targetSelector: "[data-tour='view-mode-toggle']",
-    fallbackSelector: "[data-slot='toggle-group']",
-    title: "Modos de Vista",
-    description:
-      "Alterna entre vista Bento (cuadricula arrastrable), Kanban (columnas) o Lista segun tu preferencia de trabajo.",
+      "Usa Ctrl+K (o Cmd+K en Mac) para abrir la búsqueda rápida. Encuentra cualquier enlace, widget o categoría al instante sin mover las manos del teclado.",
   },
   {
     id: "edit-mode",
     targetSelector: "[data-tour='edit-mode-button']",
     fallbackSelector: "button:has(svg[class*='pen'])",
-    title: "Modo Edicion",
+    icon: PenLine,
+    title: "Modo edición",
     description:
-      "Activa el modo edicion para reorganizar, redimensionar o eliminar widgets. Tus cambios se guardan automaticamente.",
+      "Activa el modo edición para reorganizar y redimensionar widgets libremente en la cuadrícula. Arrastra, ajusta el tamaño y bloquea posiciones. Los cambios se guardan automáticamente.",
+  },
+  {
+    id: "view-modes",
+    targetSelector: "[data-tour='settings-button']",
+    fallbackSelector: "[data-slot='dropdown-menu-trigger']",
+    icon: LayoutDashboard,
+    title: "Tres formas de ver tu espacio",
+    description:
+      "Desde Configuración → Modo de vista puedes cambiar entre Bento (cuadrícula libre), Kanban (columnas de flujo de trabajo) y Lista (vista detallada con filtros y ordenación).",
   },
   {
     id: "settings",
     targetSelector: "[data-tour='settings-button']",
     fallbackSelector: "[data-slot='dropdown-menu-trigger']",
-    title: "Configuracion",
+    icon: Settings2,
+    title: "Personalización total",
     description:
-      "Personaliza el tema, densidad de vista, atajos de teclado y mas. Aqui tambien puedes ver el estado de tu base de datos y configurar backups.",
+      "13 temas visuales (oscuros y claros), integración de IA vía MCP para Claude y Cursor, backups automáticos, gestión de proyectos y mucho más. Todo desde Configuración.",
   },
   {
-    id: "database",
-    targetSelector: "[data-tour='settings-button']",
-    fallbackSelector: "[data-slot='dropdown-menu-trigger']",
-    title: "Base de Datos",
+    id: "ready",
+    targetSelector: "[data-tour='header-logo']",
+    fallbackSelector: "header",
+    icon: Rocket,
+    title: "¡Todo listo para empezar!",
     description:
-      "Tus datos se guardan en Neon PostgreSQL (gratis). Si no configuraste una base de datos, tus datos se guardan localmente en el navegador. Puedes configurar la base de datos en cualquier momento desde Configuracion.",
+      "Ya tienes todo lo que necesitas. Puedes volver a este tutorial en cualquier momento desde Configuración → Reiniciar tutorial. ¡Disfruta de Stacklume!",
   },
 ];
 
@@ -86,7 +104,7 @@ interface OnboardingTourProps {
   steps?: TourStep[];
   onComplete?: () => void;
   onSkip?: () => void;
-  forceShow?: boolean; // For testing/demo purposes
+  forceShow?: boolean;
 }
 
 export function OnboardingTour({
@@ -99,7 +117,6 @@ export function OnboardingTour({
   const [currentStep, setCurrentStep] = useState(0);
   const [mounted, setMounted] = useState(false);
 
-  // Check if onboarding should be shown
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setMounted(true);
@@ -109,10 +126,8 @@ export function OnboardingTour({
         return;
       }
 
-      // Check localStorage for completion status
       const completed = localStorage.getItem(STORAGE_KEY);
       if (!completed) {
-        // Small delay to let the UI render first
         setTimeout(() => {
           setIsActive(true);
         }, 1000);
@@ -122,7 +137,6 @@ export function OnboardingTour({
     return () => cancelAnimationFrame(frame);
   }, [forceShow]);
 
-  // Define callbacks before the effect that uses them
   const handleNext = useCallback(() => {
     if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1);
@@ -149,7 +163,6 @@ export function OnboardingTour({
     onSkip?.();
   }, [onSkip]);
 
-  // Handle keyboard navigation
   useEffect(() => {
     if (!isActive) return;
 
@@ -178,7 +191,6 @@ export function OnboardingTour({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isActive, currentStep, steps.length, handleNext, handlePrevious, handleComplete, handleSkip]);
 
-  // Find valid selector for current step
   const getCurrentSelector = useCallback(() => {
     const step = steps[currentStep];
     const primaryTarget = document.querySelector(step.targetSelector);
@@ -209,12 +221,12 @@ export function OnboardingTour({
       onComplete={handleComplete}
       isFirst={currentStep === 0}
       isLast={currentStep === steps.length - 1}
+      icon={step.icon}
     />,
     document.body
   );
 }
 
-// Hook to control onboarding tour programmatically
 export function useOnboardingTour() {
   const [showTour, setShowTour] = useState(false);
 
@@ -246,5 +258,4 @@ export function useOnboardingTour() {
   };
 }
 
-// Export storage key for external use
 export { STORAGE_KEY as ONBOARDING_STORAGE_KEY };

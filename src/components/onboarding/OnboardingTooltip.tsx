@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settings-store";
-import { cn } from "@/lib/utils";
 
 export interface TooltipPosition {
   top: number;
@@ -25,66 +24,66 @@ export interface OnboardingTooltipProps {
   onComplete: () => void;
   isFirst: boolean;
   isLast: boolean;
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 }
 
-const TOOLTIP_OFFSET = 12;
+const TOOLTIP_OFFSET = 14;
 
-// Arrow component for tooltip positioning - moved outside to avoid recreation during render
 function TooltipArrow({ arrowPosition }: { arrowPosition: "top" | "bottom" | "left" | "right" | null }) {
   if (!arrowPosition) return null;
 
-  const arrowClasses = cn(
-    "absolute w-0 h-0 border-solid",
-    "border-transparent"
-  );
-
-  // Use hardcoded navy color for consistent branding
-  const arrowStyle = { borderColor: "transparent" };
+  const base: React.CSSProperties = {
+    position: "absolute",
+    width: 12,
+    height: 12,
+    background: "linear-gradient(145deg, #1a2744 0%, #1d2f54 100%)",
+    zIndex: 1,
+  };
 
   switch (arrowPosition) {
     case "top":
       return (
-        <div
-          className={cn(
-            arrowClasses,
-            "left-1/2 -translate-x-1/2 -top-2",
-            "border-b-8 border-x-8"
-          )}
-          style={{ ...arrowStyle, borderBottomColor: "#1a2744" }}
-        />
+        <div style={{
+          ...base,
+          top: -6,
+          left: "50%",
+          transform: "translateX(-50%) rotate(45deg)",
+          borderLeft: "1px solid rgba(42, 58, 92, 0.8)",
+          borderTop: "1px solid rgba(42, 58, 92, 0.8)",
+        }} />
       );
     case "bottom":
       return (
-        <div
-          className={cn(
-            arrowClasses,
-            "left-1/2 -translate-x-1/2 -bottom-2",
-            "border-t-8 border-x-8"
-          )}
-          style={{ ...arrowStyle, borderTopColor: "#1a2744" }}
-        />
+        <div style={{
+          ...base,
+          bottom: -6,
+          left: "50%",
+          transform: "translateX(-50%) rotate(45deg)",
+          borderRight: "1px solid rgba(42, 58, 92, 0.8)",
+          borderBottom: "1px solid rgba(42, 58, 92, 0.8)",
+        }} />
       );
     case "left":
       return (
-        <div
-          className={cn(
-            arrowClasses,
-            "top-1/2 -translate-y-1/2 -left-2",
-            "border-r-8 border-y-8"
-          )}
-          style={{ ...arrowStyle, borderRightColor: "#1a2744" }}
-        />
+        <div style={{
+          ...base,
+          left: -6,
+          top: "50%",
+          transform: "translateY(-50%) rotate(45deg)",
+          borderLeft: "1px solid rgba(42, 58, 92, 0.8)",
+          borderBottom: "1px solid rgba(42, 58, 92, 0.8)",
+        }} />
       );
     case "right":
       return (
-        <div
-          className={cn(
-            arrowClasses,
-            "top-1/2 -translate-y-1/2 -right-2",
-            "border-l-8 border-y-8"
-          )}
-          style={{ ...arrowStyle, borderLeftColor: "#1a2744" }}
-        />
+        <div style={{
+          ...base,
+          right: -6,
+          top: "50%",
+          transform: "translateY(-50%) rotate(45deg)",
+          borderRight: "1px solid rgba(42, 58, 92, 0.8)",
+          borderTop: "1px solid rgba(42, 58, 92, 0.8)",
+        }} />
       );
   }
 }
@@ -101,83 +100,71 @@ export function OnboardingTooltip({
   onComplete,
   isFirst,
   isLast,
+  icon: Icon,
 }: OnboardingTooltipProps) {
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Calculate position based on target element
   const calculatePosition = useCallback(() => {
     const target = document.querySelector(targetSelector);
     if (!target || !tooltipRef.current) return;
 
-    const targetRect = target.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
     const tooltipRect = tooltipRef.current.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    setTargetRect(targetRect);
+    setTargetRect(rect);
 
-    // Determine best position (prefer bottom, then top, then sides)
     let top = 0;
     let left = 0;
     let arrowPosition: "top" | "bottom" | "left" | "right" = "top";
 
-    // Try bottom
-    const bottomSpace = viewportHeight - targetRect.bottom;
-    const topSpace = targetRect.top;
+    const bottomSpace = viewportHeight - rect.bottom;
+    const topSpace = rect.top;
 
     if (bottomSpace >= tooltipRect.height + TOOLTIP_OFFSET) {
-      // Position below
-      top = targetRect.bottom + TOOLTIP_OFFSET;
-      left = targetRect.left + targetRect.width / 2 - tooltipRect.width / 2;
+      top = rect.bottom + TOOLTIP_OFFSET;
+      left = rect.left + rect.width / 2 - tooltipRect.width / 2;
       arrowPosition = "top";
     } else if (topSpace >= tooltipRect.height + TOOLTIP_OFFSET) {
-      // Position above
-      top = targetRect.top - tooltipRect.height - TOOLTIP_OFFSET;
-      left = targetRect.left + targetRect.width / 2 - tooltipRect.width / 2;
+      top = rect.top - tooltipRect.height - TOOLTIP_OFFSET;
+      left = rect.left + rect.width / 2 - tooltipRect.width / 2;
       arrowPosition = "bottom";
     } else {
-      // Position to the side with more space
-      const leftSpace = targetRect.left;
-      const rightSpace = viewportWidth - targetRect.right;
+      const leftSpace = rect.left;
+      const rightSpace = viewportWidth - rect.right;
 
       if (rightSpace >= tooltipRect.width + TOOLTIP_OFFSET) {
-        // Position right
-        top = targetRect.top + targetRect.height / 2 - tooltipRect.height / 2;
-        left = targetRect.right + TOOLTIP_OFFSET;
+        top = rect.top + rect.height / 2 - tooltipRect.height / 2;
+        left = rect.right + TOOLTIP_OFFSET;
         arrowPosition = "left";
       } else if (leftSpace >= tooltipRect.width + TOOLTIP_OFFSET) {
-        // Position left
-        top = targetRect.top + targetRect.height / 2 - tooltipRect.height / 2;
-        left = targetRect.left - tooltipRect.width - TOOLTIP_OFFSET;
+        top = rect.top + rect.height / 2 - tooltipRect.height / 2;
+        left = rect.left - tooltipRect.width - TOOLTIP_OFFSET;
         arrowPosition = "right";
       } else {
-        // Default to bottom with scroll adjustment
-        top = targetRect.bottom + TOOLTIP_OFFSET;
-        left = targetRect.left + targetRect.width / 2 - tooltipRect.width / 2;
+        top = rect.bottom + TOOLTIP_OFFSET;
+        left = rect.left + rect.width / 2 - tooltipRect.width / 2;
         arrowPosition = "top";
       }
     }
 
-    // Keep tooltip within viewport bounds
     left = Math.max(16, Math.min(left, viewportWidth - tooltipRect.width - 16));
     top = Math.max(16, Math.min(top, viewportHeight - tooltipRect.height - 16));
 
     setPosition({ top, left, arrowPosition });
   }, [targetSelector]);
 
-  // Recalculate on mount and window resize
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       calculatePosition();
     });
-
     const handleResize = () => calculatePosition();
     window.addEventListener("resize", handleResize);
     window.addEventListener("scroll", handleResize, true);
-
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", handleResize);
@@ -185,7 +172,6 @@ export function OnboardingTooltip({
     };
   }, [calculatePosition]);
 
-  // Scroll target into view
   useEffect(() => {
     const target = document.querySelector(targetSelector);
     if (target) {
@@ -193,21 +179,35 @@ export function OnboardingTooltip({
     }
   }, [targetSelector]);
 
+  const springTransition = { type: "spring" as const, stiffness: 250, damping: 28 };
+  const fastSpring = { type: "spring" as const, stiffness: 400, damping: 35 };
+
+  const highlightBoxShadow = reduceMotion
+    ? "0 0 0 3px rgba(212,168,83,0.4), 0 0 20px rgba(212,168,83,0.12)"
+    : [
+        "0 0 0 3px rgba(212,168,83,0.4), 0 0 20px rgba(212,168,83,0.12)",
+        "0 0 0 6px rgba(212,168,83,0.15), 0 0 36px rgba(212,168,83,0.22)",
+        "0 0 0 3px rgba(212,168,83,0.4), 0 0 20px rgba(212,168,83,0.12)",
+      ];
+
   return (
     <>
       {/* Spotlight overlay */}
       <div className="fixed inset-0 z-[3000] pointer-events-none">
-        {/* Dark overlay with cutout */}
         <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="spotlight-mask">
               <rect width="100%" height="100%" fill="white" />
               {targetRect && (
-                <rect
-                  x={targetRect.left - 8}
-                  y={targetRect.top - 8}
-                  width={targetRect.width + 16}
-                  height={targetRect.height + 16}
+                <motion.rect
+                  initial={false}
+                  animate={{
+                    x: targetRect.left - 8,
+                    y: targetRect.top - 8,
+                    width: targetRect.width + 16,
+                    height: targetRect.height + 16,
+                  }}
+                  transition={reduceMotion ? { duration: 0.1 } : springTransition}
                   rx="8"
                   fill="black"
                 />
@@ -217,137 +217,191 @@ export function OnboardingTooltip({
           <rect
             width="100%"
             height="100%"
-            fill="rgba(0, 0, 0, 0.7)"
+            fill="rgba(0, 0, 0, 0.74)"
             mask="url(#spotlight-mask)"
           />
         </svg>
 
-        {/* Highlight border around target */}
+        {/* Highlight border — animated position + continuous pulse */}
         {targetRect && (
           <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-            className="absolute rounded-lg"
-            style={{
+            className="absolute rounded-lg pointer-events-none"
+            initial={false}
+            animate={{
+              opacity: 1,
               top: targetRect.top - 8,
               left: targetRect.left - 8,
               width: targetRect.width + 16,
               height: targetRect.height + 16,
-              border: "2px solid #d4a853",
-              boxShadow: "0 0 0 4px rgba(212, 168, 83, 0.2)",
+              boxShadow: highlightBoxShadow,
+            }}
+            transition={
+              reduceMotion
+                ? { duration: 0.1 }
+                : {
+                    top: springTransition,
+                    left: springTransition,
+                    width: springTransition,
+                    height: springTransition,
+                    boxShadow: {
+                      repeat: Infinity,
+                      duration: 2.5,
+                      ease: "easeInOut",
+                      repeatType: "mirror" as const,
+                    },
+                  }
+            }
+            style={{
+              border: "2px solid rgba(212, 168, 83, 0.8)",
             }}
           />
         )}
       </div>
 
-      {/* Tooltip */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          ref={tooltipRef}
-          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
-          transition={{ duration: reduceMotion ? 0.1 : 0.2 }}
-          className="fixed z-[3001] w-[320px] rounded-lg shadow-xl pointer-events-auto"
-          style={{
-            ...(position
-              ? { top: position.top, left: position.left }
-              : { visibility: "hidden" as const }),
-            backgroundColor: "#1a2744",
-            border: "1px solid #2a3a5c",
-          }}
-        >
-          <TooltipArrow arrowPosition={position?.arrowPosition ?? null} />
+      {/* Tooltip card */}
+      <div
+        ref={tooltipRef}
+        className="fixed z-[3001] w-[380px] rounded-xl shadow-2xl pointer-events-auto overflow-hidden"
+        style={{
+          ...(position
+            ? { top: position.top, left: position.left }
+            : { visibility: "hidden" as const }),
+          background: "linear-gradient(145deg, #1a2744 0%, #1d2f54 100%)",
+          border: "1px solid rgba(42, 58, 92, 0.8)",
+          boxShadow: "0 24px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,168,83,0.08)",
+        }}
+      >
+        <TooltipArrow arrowPosition={position?.arrowPosition ?? null} />
 
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 pb-2">
-            <div className="flex items-center gap-2">
-              <span
-                className="text-xs font-medium px-2 py-0.5 rounded-full"
-                style={{ color: "#d4a853", backgroundColor: "rgba(212, 168, 83, 0.15)" }}
-              >
-                {step} / {totalSteps}
-              </span>
+        {/* Progress bar */}
+        <div
+          className="mx-4 mt-3 h-0.5 rounded-full overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.07)" }}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            style={{ backgroundColor: "#d4a853" }}
+            initial={false}
+            animate={{ width: `${(step / totalSteps) * 100}%` }}
+            transition={reduceMotion ? { duration: 0.1 } : { type: "spring", stiffness: 200, damping: 25 }}
+          />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center gap-2.5 px-4 pt-3 pb-0">
+          {Icon && (
+            <div
+              className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0"
+              style={{ background: "rgba(212,168,83,0.13)" }}
+            >
+              <Icon className="w-4 h-4" style={{ color: "#d4a853" }} />
             </div>
+          )}
+          <h3 className="text-sm font-semibold flex-1 leading-snug" style={{ color: "#eef2ff" }}>
+            {title}
+          </h3>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span
+              className="text-xs font-medium px-1.5 py-0.5 rounded-md"
+              style={{ color: "#d4a853", backgroundColor: "rgba(212, 168, 83, 0.11)" }}
+            >
+              {step}/{totalSteps}
+            </span>
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={onSkip}
-              className="h-6 w-6 hover:bg-white/10"
+              className="h-6 w-6"
               style={{ color: "#8b9dc3" }}
               aria-label="Saltar tour"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </Button>
           </div>
+        </div>
 
-          {/* Content */}
-          <div className="px-4 pb-2">
-            <h3 className="text-base font-semibold mb-1" style={{ color: "#f5f5f5" }}>
-              {title}
-            </h3>
-            <p className="text-sm" style={{ color: "#8b9dc3" }}>{description}</p>
-          </div>
-
-          {/* Progress dots */}
-          <div className="flex justify-center gap-1.5 py-2">
-            {Array.from({ length: totalSteps }).map((_, i) => (
-              <div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full transition-colors"
-                style={{ backgroundColor: i + 1 === step ? "#d4a853" : "rgba(139, 157, 195, 0.3)" }}
-              />
-            ))}
-          </div>
-
-          {/* Actions */}
-          <div
-            className="flex items-center justify-between p-4 pt-2"
-            style={{ borderTop: "1px solid #2a3a5c" }}
+        {/* Animated content per step */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={reduceMotion ? { duration: 0.1 } : fastSpring}
           >
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSkip}
-              className="hover:bg-white/10"
-              style={{ color: "#8b9dc3" }}
-            >
-              Saltar
-            </Button>
+            <div className="px-4 pt-2 pb-3">
+              <p className="text-sm leading-relaxed" style={{ color: "#c5cee0" }}>
+                {description}
+              </p>
+            </div>
 
-            <div className="flex items-center gap-2">
-              {!isFirst && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onPrevious}
-                  className="gap-1"
-                  style={{
-                    borderColor: "#2a3a5c",
-                    color: "#c5cee0",
-                    backgroundColor: "transparent"
+            {/* Progress dots */}
+            <div className="flex justify-center gap-1.5 pb-2">
+              {Array.from({ length: totalSteps }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="rounded-full"
+                  initial={false}
+                  animate={{
+                    width: i + 1 === step ? 18 : 6,
+                    backgroundColor:
+                      i + 1 === step ? "#d4a853" : "rgba(139, 157, 195, 0.22)",
                   }}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Anterior
-                </Button>
-              )}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.1 }
+                      : { type: "spring", stiffness: 300, damping: 25 }
+                  }
+                  style={{ height: 6 }}
+                />
+              ))}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Actions */}
+        <div
+          className="flex items-center justify-between px-4 py-2.5"
+          style={{ borderTop: "1px solid rgba(42, 58, 92, 0.5)" }}
+        >
+          <span className="text-xs" style={{ color: "rgba(139, 157, 195, 0.45)" }}>
+            ← → navegar · Esc saltar
+          </span>
+          <div className="flex items-center gap-1.5">
+            {!isFirst && (
               <Button
+                variant="outline"
                 size="sm"
-                onClick={isLast ? onComplete : onNext}
-                className="gap-1"
+                onClick={onPrevious}
+                className="gap-1 h-7 px-2.5"
                 style={{
-                  backgroundColor: "#d4a853",
-                  color: "#0a1628"
+                  borderColor: "rgba(42, 58, 92, 0.8)",
+                  color: "#c5cee0",
+                  backgroundColor: "transparent",
+                  fontSize: "0.75rem",
                 }}
               >
-                {isLast ? "Finalizar" : "Siguiente"}
-                {!isLast && <ChevronRight className="w-4 h-4" />}
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Ant.
               </Button>
-            </div>
+            )}
+            <Button
+              size="sm"
+              onClick={isLast ? onComplete : onNext}
+              className="gap-1 h-7 px-3"
+              style={{
+                backgroundColor: "#d4a853",
+                color: "#0a1628",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              {isLast ? "¡Empezar!" : "Siguiente"}
+              {!isLast && <ChevronRight className="w-3.5 h-3.5" />}
+            </Button>
           </div>
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </div>
     </>
   );
 }

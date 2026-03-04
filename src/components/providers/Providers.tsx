@@ -71,6 +71,7 @@ export function Providers({ children }: ProvidersProps) {
         defaultTheme="dark"
         enableSystem
         disableTransitionOnChange
+        themes={["system", "light", "dark", "midnight", "ocean", "forest", "slate", "crimson", "aurora", "arctic", "sakura", "lavender", "mint"]}
       >
         <MotionProvider>
           <TooltipProvider delayDuration={200}>

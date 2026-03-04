@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { readFileSync } from "fs";
 
 // Check if building for Electron or Tauri (standalone mode)
 const isDesktopMode = process.env.DESKTOP_MODE === "true";
+const appVersion = JSON.parse(readFileSync("./package.json", "utf-8")).version as string;
 const isElectronBuild = process.env.ELECTRON_BUILD === "true" || isDesktopMode;
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -28,6 +30,10 @@ const ContentSecurityPolicy = `
 `.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
+
   // Standalone output solo para desktop (Tauri/Electron).
   // Vercel gestiona su propio formato de salida; usar "standalone" en Vercel
   // produce lambdas sin funciones (output=[]) con Next.js 16 + Turbopack.
