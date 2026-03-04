@@ -23,6 +23,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
   Pencil,
   Settings,
   Copy,
@@ -33,6 +41,7 @@ import {
   Trash2,
   CheckIcon,
   AlertTriangle,
+  Code2,
 } from "lucide-react";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget, WidgetSize } from "@/types/widget";
@@ -359,6 +368,9 @@ export function WidgetContextMenu({
   const autoOrganizeWidgets = useWidgetStore((state) => state.autoOrganizeWidgets);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isConfigEditorOpen, setIsConfigEditorOpen] = React.useState(false);
+  const [configEditorValue, setConfigEditorValue] = React.useState("");
+  const [configEditorError, setConfigEditorError] = React.useState("");
 
   // Use widget's actual locked state
   const isLocked = widget.isLocked ?? false;
@@ -441,6 +453,31 @@ export function WidgetContextMenu({
     toggleLock(widget.id);
   };
 
+  const handleOpenConfigEditor = () => {
+    // Excluir _customTypeId y propiedades visuales del template JSON
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _customTypeId, widgetTheme, customBackground, customGradient, ...userConfig } = (widget.config ?? {}) as Record<string, unknown>;
+    setConfigEditorValue(JSON.stringify(userConfig, null, 2));
+    setConfigEditorError("");
+    setIsConfigEditorOpen(true);
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      const parsed = JSON.parse(configEditorValue);
+      // Reinyectar _customTypeId original
+      const merged = {
+        ...parsed,
+        _customTypeId: (widget.config as Record<string, unknown>)?._customTypeId,
+      };
+      await updateWidget(widget.id, { config: merged });
+      setIsConfigEditorOpen(false);
+      setConfigEditorError("");
+    } catch {
+      setConfigEditorError("JSON inválido — revisa la sintaxis antes de guardar.");
+    }
+  };
+
   const handleExportConfig = () => {
     const config = {
       type: widget.type,
@@ -493,6 +530,13 @@ export function WidgetContextMenu({
           <Settings className="mr-2 h-4 w-4" />
           Configure
         </ContextMenuItem>
+
+        {widget.type === "custom-user" && (
+          <ContextMenuItem onClick={handleOpenConfigEditor}>
+            <Code2 className="mr-2 h-4 w-4" />
+            Editar datos
+          </ContextMenuItem>
+        )}
 
         <ContextMenuItem onClick={() => duplicateWidget(widget.id)}>
           <Copy className="mr-2 h-4 w-4" />
@@ -642,6 +686,45 @@ export function WidgetContextMenu({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {/* Editor JSON de datos para widgets custom-user */}
+    <Dialog open={isConfigEditorOpen} onOpenChange={setIsConfigEditorOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Code2 className="w-4 h-4" />
+            Editar datos — {widget.title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Edita los datos del widget en formato JSON. Los campos internos del sistema se preservan automáticamente.
+          </p>
+          <textarea
+            className="w-full h-72 rounded-md border border-input bg-muted/40 px-3 py-2 font-mono text-xs text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring scrollbar-thin"
+            value={configEditorValue}
+            onChange={(e) => {
+              setConfigEditorValue(e.target.value);
+              setConfigEditorError("");
+            }}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+          {configEditorError && (
+            <p className="text-xs text-destructive">{configEditorError}</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setIsConfigEditorOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSaveConfig}>
+            Guardar cambios
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
