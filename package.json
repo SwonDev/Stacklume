@@ -1,6 +1,6 @@
 {
   "name": "stacklume",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "private": true,
   "author": "Stacklume",
   "description": "Link management dashboard with bento grid layout",
@@ -30,6 +30,7 @@
     "test:e2e:report": "playwright show-report",
     "generate:icons": "node scripts/generate-icons.mjs",
     "generate:installer": "node scripts/generate-installer-images.mjs",
+    "dev:tauri": "node scripts/dev-tauri.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "node scripts/build-release.mjs",
     "build:desktop": "node scripts/build-desktop.mjs",

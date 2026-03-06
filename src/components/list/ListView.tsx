@@ -1,17 +1,37 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { Link2Off, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListViewToolbar } from "./ListViewToolbar";
 import { CategorySection } from "./CategorySection";
+import { LinkListItemContent } from "./LinkListItem";
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useListViewStore } from "@/stores/list-view-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import type { Link, Category, LinkTag } from "@/lib/db/schema";
+
+// dnd-kit imports
+import {
+  DndContext,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 
 interface ListViewProps {
   className?: string;
@@ -22,6 +42,8 @@ export function ListView({ className }: ListViewProps) {
   const categories = useLinksStore((state) => state.categories);
   const linkTags = useLinksStore((state) => state.linkTags);
   const isLoading = useLinksStore((state) => state.isLoading);
+  const updateLink = useLinksStore((state) => state.updateLink);
+  const reorderLinks = useLinksStore((state) => state.reorderLinks);
   const activeFilter = useLayoutStore((state) => state.activeFilter);
   const searchQuery = useLayoutStore((state) => state.searchQuery);
   const sortBy = useListViewStore((state) => state.sortBy);
@@ -29,6 +51,22 @@ export function ListView({ className }: ListViewProps) {
   const showEmptyCategories = useListViewStore((state) => state.showEmptyCategories);
   const showUncategorized = useListViewStore((state) => state.showUncategorized);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+
+  // Drag state
+  const [activeLinkId, setActiveLinkId] = useState<string | null>(null);
+  const [overCategoryId, setOverCategoryId] = useState<string | null | undefined>(undefined);
+
+  // Sensors for drag detection
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Filter links based on active filter and search
   const filteredLinks = useMemo(() => {
@@ -119,6 +157,132 @@ export function ListView({ className }: ListViewProps) {
     return linkTags.filter((lt: LinkTag) => filteredLinkIds.has(lt.linkId));
   }, [filteredLinks, linkTags]);
 
+  // Build a map: linkId -> categoryId for quick lookup
+  const linkCategoryMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    filteredLinks.forEach((l) => map.set(l.id, l.categoryId));
+    return map;
+  }, [filteredLinks]);
+
+  // Get tag IDs for a link (used by DragOverlay)
+  const getLinkTagIds = useMemo(() => {
+    const tagMap = new Map<string, string[]>();
+    filteredLinkTags.forEach((lt) => {
+      const existing = tagMap.get(lt.linkId) || [];
+      tagMap.set(lt.linkId, [...existing, lt.tagId]);
+    });
+    return (linkId: string) => tagMap.get(linkId) || [];
+  }, [filteredLinkTags]);
+
+  // Resolve which categoryId the "over" element belongs to
+  const resolveTargetCategory = useCallback((overId: string): string | null | undefined => {
+    // Check if it's a droppable container
+    if (overId.startsWith("droppable-")) {
+      const catId = overId.replace("droppable-", "");
+      return catId === "uncategorized" ? null : catId;
+    }
+    // It's a link - look up its category
+    return linkCategoryMap.get(overId);
+  }, [linkCategoryMap]);
+
+  // Drag handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveLinkId(event.active.id as string);
+  }, []);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setOverCategoryId(undefined);
+      return;
+    }
+    const targetCat = resolveTargetCategory(over.id as string);
+    setOverCategoryId(targetCat);
+  }, [resolveTargetCategory]);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveLinkId(null);
+    setOverCategoryId(undefined);
+
+    if (!over) return;
+
+    const draggedLinkId = active.id as string;
+    const sourceCategoryId = linkCategoryMap.get(draggedLinkId);
+    if (sourceCategoryId === undefined) return; // link not found
+
+    const overId = over.id as string;
+    const targetCategoryId = resolveTargetCategory(overId);
+    if (targetCategoryId === undefined) return;
+
+    const isDroppableContainer = overId.startsWith("droppable-");
+
+    if (sourceCategoryId === targetCategoryId) {
+      // Same category → reorder within
+      if (isDroppableContainer) return; // dropped on own category header, nothing to do
+      const categoryLinks = linksByCategory.get(targetCategoryId) || [];
+      const sorted = [...categoryLinks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const oldIndex = sorted.findIndex((l) => l.id === draggedLinkId);
+      const newIndex = sorted.findIndex((l) => l.id === overId);
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const newOrder = arrayMove(sorted, oldIndex, newIndex);
+        reorderLinks(newOrder.map((l) => l.id), targetCategoryId);
+      }
+    } else {
+      // Cross-category move
+      // 1. Update category in local state immediately
+      updateLink(draggedLinkId, { categoryId: targetCategoryId });
+
+      // 2. Persist category change via API
+      try {
+        await fetch(`/api/links/${draggedLinkId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...getCsrfHeaders(),
+          },
+          credentials: "include",
+          body: JSON.stringify({ categoryId: targetCategoryId }),
+        });
+      } catch (error) {
+        console.error("Error moving link to category:", error);
+        // Revert on error
+        updateLink(draggedLinkId, { categoryId: sourceCategoryId });
+        return;
+      }
+
+      // 3. Build new order for target category
+      const targetLinks = linksByCategory.get(targetCategoryId) || [];
+      const sorted = [...targetLinks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const existingIds = sorted.map((l) => l.id);
+
+      if (!isDroppableContainer) {
+        // Dropped on a specific link → insert at that position
+        const insertIndex = existingIds.indexOf(overId);
+        if (insertIndex !== -1) {
+          existingIds.splice(insertIndex, 0, draggedLinkId);
+        } else {
+          existingIds.push(draggedLinkId);
+        }
+      } else {
+        // Dropped on category container → append at end
+        existingIds.push(draggedLinkId);
+      }
+
+      reorderLinks(existingIds, targetCategoryId);
+    }
+  }, [linkCategoryMap, linksByCategory, resolveTargetCategory, updateLink, reorderLinks]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveLinkId(null);
+    setOverCategoryId(undefined);
+  }, []);
+
+  // Get the active link for overlay
+  const activeLink = activeLinkId
+    ? filteredLinks.find((l) => l.id === activeLinkId)
+    : null;
+
   // Loading state
   if (isLoading) {
     return (
@@ -151,7 +315,7 @@ export function ListView({ className }: ListViewProps) {
             </div>
             <h3 className="font-semibold text-lg mb-2">No hay enlaces</h3>
             <p className="text-sm text-muted-foreground">
-              Anade tu primer enlace usando el boton + en la barra lateral o el widget de agregar rapido.
+              Añade tu primer enlace usando el botón + en la barra lateral o el widget de agregar rápido.
             </p>
           </motion.div>
         </div>
@@ -179,7 +343,7 @@ export function ListView({ className }: ListViewProps) {
             </div>
             <h3 className="font-semibold text-lg mb-2">Sin resultados</h3>
             <p className="text-sm text-muted-foreground">
-              No se encontraron enlaces que coincidan con los filtros actuales. Intenta ajustar tu busqueda.
+              No se encontraron enlaces que coincidan con los filtros actuales. Intenta ajustar tu búsqueda.
             </p>
           </motion.div>
         </div>
@@ -197,37 +361,62 @@ export function ListView({ className }: ListViewProps) {
         className="flex-shrink-0 mb-3"
       />
 
-      {/* Scrollable content */}
+      {/* Scrollable content with unified DndContext */}
       <ScrollArea className="flex-1">
-        <div className="space-y-3 pb-4">
-          {/* Render categories in order */}
-          {sortedCategories.map((category: Category) => {
-            const categoryLinks = linksByCategory.get(category.id) || [];
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="space-y-3 pb-4">
+            {/* Render categories in order */}
+            {sortedCategories.map((category: Category) => {
+              const categoryLinks = linksByCategory.get(category.id) || [];
 
-            // Skip empty categories if not showing them
-            if (categoryLinks.length === 0 && !showEmptyCategories) {
-              return null;
-            }
+              // Skip empty categories if not showing them (unless drag is active over this category)
+              if (categoryLinks.length === 0 && !showEmptyCategories && overCategoryId !== category.id) {
+                return null;
+              }
 
-            return (
+              return (
+                <CategorySection
+                  key={category.id}
+                  category={category}
+                  links={categoryLinks}
+                  linkTags={filteredLinkTags}
+                  isDragActiveOverThis={activeLinkId !== null && overCategoryId === category.id && linkCategoryMap.get(activeLinkId) !== category.id}
+                />
+              );
+            })}
+
+            {/* Uncategorized section */}
+            {showUncategorized && (
               <CategorySection
-                key={category.id}
-                category={category}
-                links={categoryLinks}
+                category={null}
+                links={linksByCategory.get(null) || []}
                 linkTags={filteredLinkTags}
+                isDragActiveOverThis={activeLinkId !== null && overCategoryId === null && linkCategoryMap.get(activeLinkId) !== null}
               />
-            );
-          })}
+            )}
+          </div>
 
-          {/* Uncategorized section */}
-          {showUncategorized && (
-            <CategorySection
-              category={null}
-              links={linksByCategory.get(null) || []}
-              linkTags={filteredLinkTags}
-            />
-          )}
-        </div>
+          {/* Single DragOverlay for the entire list */}
+          <DragOverlay dropAnimation={{
+            duration: 200,
+            easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+          }}>
+            {activeLink ? (
+              <LinkListItemContent
+                link={activeLink}
+                linkTagIds={getLinkTagIds(activeLink.id)}
+                isOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </ScrollArea>
     </div>
   );
