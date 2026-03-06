@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   isTauriWebView,
   minimizeTauriWindow,
@@ -12,22 +12,12 @@ import {
  * Hook para detectar si se está corriendo en Electron o Tauri y acceder a sus APIs
  */
 export function useElectron() {
-  const [isElectron, setIsElectron] = useState(false);
-  const [isTauri, setIsTauri] = useState(false);
+  const [isElectron] = useState(
+    () => window.isElectron === true || window.electronAPI?.isElectron === true
+  );
+  const [isTauri] = useState(() => isTauriWebView());
   const [platform, setPlatform] = useState<NodeJS.Platform | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
-
-  // useLayoutEffect: corre síncrono antes del primer paint → sin flash del botón logout
-  useLayoutEffect(() => {
-    // Detectar Electron
-    const electronCheck =
-      window.isElectron === true || window.electronAPI?.isElectron === true;
-    setIsElectron(electronCheck);
-
-    // Detectar Tauri (lee window.__DESKTOP_MODE__ inyectado por layout.tsx)
-    const tauriCheck = isTauriWebView();
-    setIsTauri(tauriCheck);
-  }, []);
 
   // Info de plataforma Electron (async, no crítico)
   useEffect(() => {

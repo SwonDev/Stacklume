@@ -41,7 +41,9 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
 
   useEffect(() => {
     if (!customTypeId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError("ID de tipo de widget no configurado");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoading(false);
       return;
     }

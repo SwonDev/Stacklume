@@ -1,26 +1,23 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 const STORAGE_KEY = "stacklume-search-history";
 const MAX_ITEMS = 10;
 
 export function useSearchHistory() {
-  const [history, setHistory] = useState<string[]>([]);
-
-  useEffect(() => {
+  const [history, setHistory] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setHistory(parsed);
-        }
+        const parsed = JSON.parse(saved) as unknown;
+        if (Array.isArray(parsed)) return parsed as string[];
       }
     } catch {
       // localStorage no disponible o datos corruptos
     }
-  }, []);
+    return [];
+  });
 
   const addToHistory = useCallback((query: string) => {
     const trimmed = query.trim();
