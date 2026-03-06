@@ -135,8 +135,13 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&ids=${coins.join(",")}&order=market_cap_desc&sparkline=false`
       );
 
+      if (response.status === 429) {
+        setError("Límite de API alcanzado. Espera unos minutos antes de actualizar.");
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error("Failed to fetch crypto data");
+        throw new Error(`Error de API: ${response.status}`);
       }
 
       const data = await response.json();

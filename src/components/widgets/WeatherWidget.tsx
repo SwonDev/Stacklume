@@ -85,17 +85,18 @@ const fetchWeatherData = async (lat: number, lon: number, locationName: string):
     );
     const data = await response.json();
 
-    if (data.current) {
-      return {
-        location: locationName,
-        temperature: Math.round(data.current.temperature_2m),
-        condition: getConditionFromCode(data.current.weather_code),
-        humidity: data.current.relative_humidity_2m,
-        windSpeed: Math.round(data.current.wind_speed_10m),
-        feelsLike: Math.round(data.current.apparent_temperature),
-      };
+    if (!data || !data.current) {
+      throw new Error("Respuesta de API inválida");
     }
-    return null;
+
+    return {
+      location: locationName,
+      temperature: Math.round(data.current.temperature_2m),
+      condition: getConditionFromCode(data.current.weather_code),
+      humidity: data.current.relative_humidity_2m,
+      windSpeed: Math.round(data.current.wind_speed_10m),
+      feelsLike: Math.round(data.current.apparent_temperature),
+    };
   } catch (error) {
     console.error("Weather fetch error:", error);
     return null;
@@ -150,6 +151,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
   const { updateWidget } = useWidgetStore();
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [locationInput, setLocationInput] = useState("");
   const [useGeolocation, setUseGeolocation] = useState(false);
@@ -172,6 +174,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
 
   const loadWeatherForCoordinates = async (lat: number, lon: number, locationName: string) => {
     setIsLoading(true);
+    setWeatherError(null);
     try {
       const data = await fetchWeatherData(lat, lon, locationName);
       if (data) {
@@ -179,6 +182,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
       }
     } catch (error) {
       console.error("Error loading weather:", error);
+      setWeatherError(error instanceof Error ? error.message : "Error al cargar el tiempo");
     } finally {
       setIsLoading(false);
     }
@@ -186,6 +190,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
 
   const loadWeatherForLocation = async (location: string) => {
     setIsLoading(true);
+    setWeatherError(null);
     try {
       const geoData = await geocodeCity(location);
       if (geoData) {
@@ -205,9 +210,11 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
         }
       } else {
         console.error("Could not find location:", location);
+        setWeatherError(`No se encontró la ubicación: ${location}`);
       }
     } catch (error) {
       console.error("Error loading weather:", error);
+      setWeatherError(error instanceof Error ? error.message : "Error al cargar el tiempo");
     } finally {
       setIsLoading(false);
     }
@@ -334,6 +341,24 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
               Usar mi ubicación
             </Button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (weatherError && !isLoading) {
+    return (
+      <div className="@container h-full w-full">
+        <div className="flex flex-col items-center justify-center h-full gap-3 p-4 text-center">
+          <Cloud className="w-8 h-8 text-muted-foreground opacity-40" />
+          <p className="text-sm text-destructive">{weatherError}</p>
+          <Button size="sm" variant="outline" onClick={() => {
+            const savedLocation = widget.config?.location as string | undefined;
+            loadWeatherForLocation(savedLocation || "Madrid");
+          }}>
+            <RefreshCw className="w-3 h-3 mr-2" />
+            Reintentar
+          </Button>
         </div>
       </div>
     );

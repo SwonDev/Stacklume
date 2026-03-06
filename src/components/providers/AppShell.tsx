@@ -12,11 +12,22 @@ import { EditWidgetModal } from "@/components/modals/EditWidgetModal";
 import { AddTagModal } from "@/components/modals/AddTagModal";
 import { ManageCategoriesModal } from "@/components/modals/ManageCategoriesModal";
 import { ManageTagsModal } from "@/components/modals/ManageTagsModal";
+import { ShareCollectionDialog } from "@/components/modals/ShareCollectionDialog";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { CommandPalette } from "@/components/command-palette/CommandPalette";
+import { ReminderChecker } from "@/components/providers/ReminderChecker";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { isTauriWebView, openExternalUrl } from "@/lib/desktop";
 import { TrayIconUpdater } from "./TrayIconUpdater";
+import { useLinksStore } from "@/stores/links-store";
+
+// Tipo para el evento de compartir colección
+interface ShareCollectionEventDetail {
+  type: "category" | "tag";
+  referenceId: string;
+  name: string;
+}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -28,6 +39,32 @@ const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const openAddLinkModal = useLinksStore((s) => s.openAddLinkModal);
+
+  // Estado para el diálogo de compartir colección
+  const [shareDialogState, setShareDialogState] = useState<{
+    open: boolean;
+    type: "category" | "tag";
+    referenceId: string;
+    name: string;
+  }>({ open: false, type: "category", referenceId: "", name: "" });
+
+  // Escuchar evento global para abrir el diálogo de compartir colección
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<ShareCollectionEventDetail>).detail;
+      if (detail?.type && detail?.referenceId && detail?.name) {
+        setShareDialogState({
+          open: true,
+          type: detail.type,
+          referenceId: detail.referenceId,
+          name: detail.name,
+        });
+      }
+    };
+    window.addEventListener("stacklume:share-collection", handler);
+    return () => window.removeEventListener("stacklume:share-collection", handler);
+  }, []);
 
   // Check if current route is an auth route (no shell needed)
   const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route));
@@ -76,6 +113,22 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, []);
 
+  // Escuchar evento "stacklume:quick-add" de Tauri (atajo global Ctrl+Shift+L y menú bandeja)
+  useEffect(() => {
+    if (!isTauriWebView()) return;
+
+    let unlisten: (() => void) | undefined;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen("stacklume:quick-add", () => {
+        openAddLinkModal();
+      }).then((fn) => {
+        unlisten = fn;
+      });
+    });
+
+    return () => { unlisten?.(); };
+  }, [openAddLinkModal]);
+
   // For auth routes, just render children without shell
   if (isAuthRoute) {
     return <>{children}</>;
@@ -123,6 +176,16 @@ export function AppShell({ children }: AppShellProps) {
           <AddTagModal />
           <ManageCategoriesModal />
           <ManageTagsModal />
+          <ShareCollectionDialog
+            type={shareDialogState.type}
+            referenceId={shareDialogState.referenceId}
+            name={shareDialogState.name}
+            open={shareDialogState.open}
+            onOpenChange={(open) =>
+              setShareDialogState((prev) => ({ ...prev, open }))
+            }
+          />
+          <CommandPalette />
         </>
       )}
 
@@ -134,6 +197,9 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Onboarding tour for first-time users */}
           <OnboardingTour />
+
+          {/* Verificador de recordatorios */}
+          <ReminderChecker />
         </>
       )}
 

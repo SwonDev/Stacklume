@@ -558,10 +558,13 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    const { url } = await request.json();
-
-    if (!url) {
-      return NextResponse.json({ error: "URL es requerida" }, { status: 400 });
+    const body = await request.json();
+    if (!body?.url || typeof body.url !== 'string') {
+      return NextResponse.json({ error: "URL requerida" }, { status: 400 });
+    }
+    const url = body.url.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return NextResponse.json({ error: "Solo se permiten URLs http/https" }, { status: 400 });
     }
 
     log.debug({ url }, "Scrape request received");

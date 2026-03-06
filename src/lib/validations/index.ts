@@ -74,7 +74,7 @@ const optionalNullableUrlSchema = z
 
 // Create link request body
 export const createLinkSchema = z.object({
-  url: urlSchema,
+  url: httpUrlSchema,
   title: z.string().min(1, 'Title is required').max(255, 'Title must be 255 characters or less'),
   description: z.string().optional(),
   imageUrl: optionalNullableUrlSchema,
@@ -93,7 +93,7 @@ export const createLinkSchema = z.object({
 
 // Update link request body (all fields optional except ID)
 export const updateLinkSchema = z.object({
-  url: urlSchema.optional(),
+  url: httpUrlSchema.optional(),
   title: z.string().min(1, 'Title cannot be empty').max(255, 'Title must be 255 characters or less').optional(),
   description: z.string().nullable().optional(),
   imageUrl: urlSchema.nullable().optional(),
@@ -108,6 +108,9 @@ export const updateLinkSchema = z.object({
   platform: z.string().max(50, 'Platform must be 50 characters or less').nullable().optional(),
   contentType: z.string().max(30, 'Content type must be 30 characters or less').nullable().optional(),
   platformColor: z.string().max(20, 'Platform color must be 20 characters or less').nullable().optional(),
+  isRead: z.boolean().optional(),
+  notes: z.string().max(2000, 'Notes must be 2000 characters or less').nullable().optional(),
+  reminderAt: isoDateSchema.nullable().optional(),
 });
 
 // Link ID param
@@ -381,7 +384,14 @@ const widgetTypeSchema = z.enum([
 const widgetSizeSchema = z.enum(['small', 'medium', 'large', 'wide', 'tall']);
 
 // Widget config schema (flexible object for different widget types)
-const widgetConfigSchema = z.record(z.string(), z.unknown()).optional();
+// Limitado a 100 claves para evitar payloads excesivamente grandes
+const widgetConfigSchema = z
+  .record(z.string(), z.unknown())
+  .refine(
+    (val) => Object.keys(val).length <= 100,
+    { message: "Config demasiado grande (máx 100 claves)" }
+  )
+  .optional();
 
 // Layout position schema
 const _layoutPositionSchema = z.object({
@@ -435,9 +445,17 @@ export const widgetIdSchema = z.object({
 // ============================================================================
 
 // Valid setting enums
-const themeSchema = z.enum(['light', 'dark', 'system', 'midnight', 'ocean', 'forest', 'slate', 'crimson', 'aurora', 'arctic', 'sakura', 'lavender', 'mint']);
+const themeSchema = z.enum(['light', 'dark', 'system', 'midnight', 'ocean', 'forest', 'slate', 'crimson', 'aurora', 'arctic', 'sakura', 'lavender', 'mint', 'nordic', 'catppuccin', 'tokyo', 'rosepine', 'gruvbox', 'solarized', 'solardark', 'vampire', 'cement', 'stone', 'steel']);
 const viewDensitySchema = z.enum(['compact', 'normal', 'comfortable']);
 const viewModeSchema = z.enum(['bento', 'kanban', 'list']);
+
+// Extended settings enums
+const languageSchema = z.enum(['es', 'en']);
+const thumbnailSizeSchema = z.enum(['small', 'medium', 'large', 'none']);
+const sidebarDensitySchema = z.enum(['compact', 'normal', 'comfortable']);
+const linkClickBehaviorSchema = z.enum(['new-tab', 'same-tab']);
+const defaultSortFieldSchema = z.enum(['createdAt', 'updatedAt', 'title', 'order']);
+const defaultSortOrderSchema = z.enum(['asc', 'desc']);
 
 // Update settings request body
 export const updateSettingsSchema = z.object({
@@ -449,6 +467,17 @@ export const updateSettingsSchema = z.object({
   // MCP server settings
   mcpEnabled: z.boolean().optional(),
   mcpApiKey: z.string().max(64).nullable().optional(),
+  // Extended settings
+  language: languageSchema.optional(),
+  gridColumns: z.number().int().min(1).max(24).optional(),
+  sidebarAlwaysVisible: z.boolean().optional(),
+  defaultSortField: defaultSortFieldSchema.optional(),
+  defaultSortOrder: defaultSortOrderSchema.optional(),
+  thumbnailSize: thumbnailSizeSchema.optional(),
+  sidebarDensity: sidebarDensitySchema.optional(),
+  autoBackupInterval: z.number().int().min(0).max(365).optional(),
+  confirmBeforeDelete: z.boolean().optional(),
+  linkClickBehavior: linkClickBehaviorSchema.optional(),
 });
 
 // ============================================================================
@@ -478,7 +507,7 @@ export const IMPORT_LIMITS = {
 // rechaza null con solo .optional() (que admite undefined pero no null).
 const importLinkItemSchema = z.object({
   id: z.string().uuid().optional(),   // ID original — necesario para mapear linkTags
-  url: urlSchema,
+  url: httpUrlSchema,
   title: z.string().min(1).max(255),
   description: z.string().max(5000).nullish(),
   imageUrl: urlSchema.nullish(),
@@ -543,7 +572,7 @@ export const importDataSchema = z.object({
 
 // Schema for a single imported link (simplified version for bulk URL imports)
 export const importedLinkSchema = z.object({
-  url: z.string().url('Invalid URL format'),
+  url: httpUrlSchema,
   title: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
@@ -644,10 +673,17 @@ export const sortSchema = z.object({
 export const linkFilterSchema = z.object({
   categoryId: z.string().uuid().optional(),
   tagId: z.string().uuid().optional(),
+  // IDs de etiquetas separados por coma: "id1,id2,id3"
+  tagIds: z.string().optional(),
+  // Lógica de combinación para múltiples etiquetas
+  tagLogic: z.enum(["AND", "OR"]).optional().default("OR"),
   isFavorite: z.coerce.boolean().optional(),
   platform: z.string().optional(),
   contentType: z.string().optional(),
   search: z.string().optional(),
+  // Filtros de rango de fecha (ISO 8601 con offset)
+  dateFrom: z.string().optional().nullable(),
+  dateTo: z.string().optional().nullable(),
 });
 
 // ============================================================================
@@ -703,3 +739,4 @@ export type LayoutItemInput = z.infer<typeof layoutItemSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type SortInput = z.infer<typeof sortSchema>;
 export type LinkFilterInput = z.infer<typeof linkFilterSchema>;
+export type TagLogic = "AND" | "OR";

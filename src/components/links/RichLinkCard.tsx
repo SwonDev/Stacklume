@@ -17,6 +17,7 @@ import {
   Wrench,
   Globe,
   Pencil,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Link } from "@/lib/db/schema";
@@ -186,9 +187,22 @@ export function RichLinkCard({
               />
             )}
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm line-clamp-2 group-hover/link:text-primary transition-colors">
-                {link.title}
-              </h4>
+              <div className="flex items-start gap-1">
+                <h4 className="font-medium text-sm line-clamp-2 group-hover/link:text-primary transition-colors flex-1">
+                  {link.title}
+                </h4>
+                {(link as { healthStatus?: string }).healthStatus === "broken" && (
+                  <span title="Enlace roto" className="text-destructive flex-shrink-0 mt-0.5">
+                    <WifiOff className="h-3 w-3" />
+                  </span>
+                )}
+                {(link as { isRead?: boolean | null }).isRead === false && (
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0 mt-1"
+                    title="Sin leer"
+                  />
+                )}
+              </div>
               {link.description && (
                 <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                   {link.description}
@@ -264,6 +278,17 @@ export function RichLinkCard({
           <h4 className="font-medium text-sm truncate group-hover/link:text-primary transition-colors">
             {link.title}
           </h4>
+          {(link as { healthStatus?: string }).healthStatus === "broken" && (
+            <span title="Enlace roto" className="text-destructive flex-shrink-0">
+              <WifiOff className="h-3 w-3" />
+            </span>
+          )}
+          {(link as { isRead?: boolean | null }).isRead === false && (
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"
+              title="Sin leer"
+            />
+          )}
           {/* Interactive favorite star */}
           <button
             type="button"

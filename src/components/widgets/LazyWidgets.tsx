@@ -193,6 +193,8 @@ const CronBuilderWidget = lazy(() => import("./CronBuilderWidget").then(m => ({ 
 const DiffViewerWidget = lazy(() => import("./DiffViewerWidget").then(m => ({ default: m.DiffViewerWidget })));
 const PasswordManagerWidget = lazy(() => import("./PasswordManagerWidget").then(m => ({ default: m.PasswordManagerWidget })));
 const CustomUserWidget = lazy(() => import("./custom-user/CustomUserWidget").then(m => ({ default: m.CustomUserWidget })));
+const LinkHealthDashboardWidget = lazy(() => import("./LinkHealthDashboardWidget").then(m => ({ default: m.LinkHealthDashboardWidget })));
+const RemindersWidget = lazy(() => import("./RemindersWidget").then(m => ({ default: m.RemindersWidget })));
 
 // Map of widget types to their lazy components
 const widgetMap: Record<string, LazyWidgetComponent> = {
@@ -383,6 +385,8 @@ const widgetMap: Record<string, LazyWidgetComponent> = {
   "diff-viewer": DiffViewerWidget,
   "password-manager": PasswordManagerWidget,
   "custom-user": CustomUserWidget,
+  "link-health-dashboard": LinkHealthDashboardWidget,
+  "reminders": RemindersWidget,
 };
 
 // Skeleton variant mapping based on widget type
@@ -533,6 +537,8 @@ function getSkeletonVariant(widgetType: string): "list" | "stats" | "clock" | "n
     case "cron-builder":
     case "diff-viewer":
     case "password-manager":
+    case "link-health-dashboard":
+    case "reminders":
       return "notes";
     case "favorites":
     case "recent":
@@ -774,6 +780,8 @@ export {
   DiffViewerWidget,
   PasswordManagerWidget,
   CustomUserWidget,
+  LinkHealthDashboardWidget,
+  RemindersWidget,
 };
 
 // List of special widget types that use LazyWidgetRenderer
@@ -827,4 +835,7 @@ export const specialWidgetTypes = [
   "password-manager",
   // Custom user widgets (HTML/CSS/JS via iframe)
   "custom-user",
+  // Link management & reminders
+  "link-health-dashboard",
+  "reminders",
 ];

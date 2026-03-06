@@ -62,6 +62,7 @@ import { LazyWidgetRenderer, specialWidgetTypes } from "@/components/widgets/Laz
 import { WidgetErrorBoundary } from "@/components/providers/ErrorBoundary";
 import { WidgetContextMenu } from "@/components/widgets/WidgetContextMenu";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
 
 interface BentoCardProps {
   widget: Widget;
@@ -296,6 +297,10 @@ const LinkItem = memo(function LinkItem({
 export function BentoCard({ widget }: BentoCardProps) {
   // Use selectors ONLY for state values, not functions (prevents re-render loops)
   const isEditMode = useLayoutStore((state) => state.isEditMode);
+  const prefersReducedMotion = useReducedMotion();
+  const isSelecting = useMultiSelect((state) => state.isSelecting);
+  const selectedIds = useMultiSelect((state) => state.selectedIds);
+  const isSelected = isSelecting && selectedIds.has(widget.id);
   const links = useLinksStore((state) => state.links);
   const categories = useLinksStore((state) => state.categories);
   const tags = useLinksStore((state) => state.tags);
@@ -630,7 +635,7 @@ export function BentoCard({ widget }: BentoCardProps) {
                     "flex items-center rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors w-full",
                     "gap-1 p-1 @[160px]:gap-1.5 @[160px]:p-1.5 @[200px]:gap-2 @[200px]:p-2"
                   )}
-                  whileHover={{ x: 2 }}
+                  whileHover={prefersReducedMotion ? undefined : { x: 2 }}
                 >
                   <FolderOpen className={cn(
                     "flex-shrink-0",
@@ -749,6 +754,8 @@ export function BentoCard({ widget }: BentoCardProps) {
           "h-full w-full flex flex-col overflow-hidden group relative !gap-0 !py-0",
           isEditMode && !widget.isLocked && "ring-2 ring-primary/30",
           isEditMode && widget.isLocked && "ring-2 ring-amber-500/30",
+          // Multi-select selection highlight
+          isSelected && "ring-2 ring-blue-500",
           // Remove glass class when theme or custom background is applied
           !widget.config?.widgetTheme && !widget.config?.customBackground && !widget.config?.customGradient && "glass",
           // Add themed class for scoped styling
@@ -783,6 +790,28 @@ export function BentoCard({ widget }: BentoCardProps) {
             <span className="text-xs font-medium">Bloqueado</span>
           </div>
         </div>
+      )}
+
+      {/* Multi-select checkbox - shown only in selection mode */}
+      {isSelecting && (
+        <>
+          {/* Semi-transparent overlay when selected */}
+          {isSelected && (
+            <div className="absolute inset-0 z-10 bg-blue-500/10 pointer-events-none rounded-[inherit]" />
+          )}
+          <div className="absolute top-2 left-2 z-20">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {
+                useMultiSelect.getState().toggleItem(widget.id);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-4 h-4 cursor-pointer accent-blue-500 rounded"
+              data-no-edit-trigger
+            />
+          </div>
+        </>
       )}
 
       <CardHeader
@@ -1014,6 +1043,8 @@ function FullscreenOverlay({
   widgetType: string;
   children: React.ReactNode;
 }) {
+  const prefersReducedMotion = useReducedMotion();
+
   // Calculate initial position based on card rect
   const initialStyle = cardRect
     ? {
@@ -1051,17 +1082,17 @@ function FullscreenOverlay({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
             onClick={onClose}
           />
 
           {/* Fullscreen Card */}
           <motion.div
             className="fixed z-[1000] glass flex flex-col overflow-hidden"
-            initial={initialStyle}
+            initial={prefersReducedMotion ? fullscreenStyle : initialStyle}
             animate={fullscreenStyle}
-            exit={initialStyle}
-            transition={{
+            exit={prefersReducedMotion ? fullscreenStyle : initialStyle}
+            transition={prefersReducedMotion ? { duration: 0 } : {
               type: "spring",
               stiffness: 300,
               damping: 30,
@@ -1072,32 +1103,32 @@ function FullscreenOverlay({
             {/* Header */}
             <motion.div
               className="flex items-center justify-between px-6 py-4 border-b border-border/50 flex-shrink-0"
-              initial={{ opacity: 0, y: -10 }}
+              initial={prefersReducedMotion ? {} : { opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ delay: 0.15, duration: 0.2 }}
+              exit={prefersReducedMotion ? {} : { opacity: 0, y: -10 }}
+              transition={{ delay: prefersReducedMotion ? 0 : 0.15, duration: prefersReducedMotion ? 0 : 0.2 }}
             >
               <div className="flex items-center gap-3">
                 <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
+                  initial={prefersReducedMotion ? {} : { scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.2, duration: 0.3 }}
+                  transition={{ delay: prefersReducedMotion ? 0 : 0.2, duration: prefersReducedMotion ? 0 : 0.3 }}
                 >
                   {icon}
                 </motion.div>
                 <motion.h2
                   className="text-xl font-semibold text-gold-gradient"
-                  initial={{ opacity: 0, x: -10 }}
+                  initial={prefersReducedMotion ? {} : { opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.25, duration: 0.3 }}
+                  transition={{ delay: prefersReducedMotion ? 0 : 0.25, duration: prefersReducedMotion ? 0 : 0.3 }}
                 >
                   {title}
                 </motion.h2>
               </div>
               <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
+                initial={prefersReducedMotion ? {} : { opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.3 }}
+                transition={{ delay: prefersReducedMotion ? 0 : 0.2, duration: prefersReducedMotion ? 0 : 0.3 }}
               >
                 <Button
                   variant="ghost"
@@ -1118,10 +1149,10 @@ function FullscreenOverlay({
                   ? "p-0 overflow-hidden"
                   : "p-6 overflow-hidden"
               )}
-              initial={{ opacity: 0 }}
+              initial={prefersReducedMotion ? {} : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ delay: 0.1, duration: 0.3 }}
+              exit={prefersReducedMotion ? {} : { opacity: 0 }}
+              transition={{ delay: prefersReducedMotion ? 0 : 0.1, duration: prefersReducedMotion ? 0 : 0.3 }}
             >
               {/* Link-based widgets need ScrollArea wrapper, special widgets handle their own scroll */}
               {["favorites", "recent", "category", "tag", "categories"].includes(widgetType) ? (
@@ -1140,10 +1171,10 @@ function FullscreenOverlay({
             {/* Footer hint */}
             <motion.div
               className="flex items-center justify-center py-3 border-t border-border/50 text-muted-foreground text-sm flex-shrink-0"
-              initial={{ opacity: 0, y: 10 }}
+              initial={prefersReducedMotion ? {} : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ delay: 0.3, duration: 0.2 }}
+              exit={prefersReducedMotion ? {} : { opacity: 0, y: 10 }}
+              transition={{ delay: prefersReducedMotion ? 0 : 0.3, duration: prefersReducedMotion ? 0 : 0.2 }}
             >
               <kbd className="px-2 py-1 bg-secondary/50 rounded text-xs font-mono mr-2 border border-border/50">Esc</kbd>
               <span>para minimizar</span>

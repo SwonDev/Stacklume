@@ -188,7 +188,9 @@ export function AddCategoryModal() {
                         : "hover:ring-1 hover:ring-muted-foreground/30"
                     }`}
                     style={{ backgroundColor: color.hex }}
-                    title={color.name}
+                    title={`Seleccionar color ${color.name}`}
+                    aria-label={`Seleccionar color ${color.name}`}
+                    aria-pressed={selectedColor === color.hex}
                   />
                 ))}
               </div>

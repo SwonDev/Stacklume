@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Twitter, ExternalLink, RefreshCw, Settings, X } from "lucide-react";
+import { Twitter, ExternalLink, RefreshCw, Settings, X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWidgetStore } from "@/stores/widget-store";
@@ -24,6 +24,9 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [inputUsername, setInputUsername] = useState(username);
   const [embedKey, setEmbedKey] = useState(0);
+  const [embedError, setEmbedError] = useState(false);
+
+  const embedOrigin = typeof window !== "undefined" ? window.location.origin : "https://stacklume.vercel.app";
 
   // Save username to widget config
   const handleSave = useCallback(() => {
@@ -35,6 +38,7 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
       };
       useWidgetStore.getState().updateWidget(widget.id, { config: updatedConfig as Record<string, unknown> });
       setIsConfiguring(false);
+      setEmbedError(false);
       setEmbedKey((prev) => prev + 1);
     }
   }, [inputUsername, config, widget.id]);
@@ -51,6 +55,7 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
 
   // Refresh embed
   const handleRefresh = useCallback(() => {
+    setEmbedError(false);
     setEmbedKey((prev) => prev + 1);
   }, []);
 
@@ -171,17 +176,33 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
           </div>
         ) : (
           <div className="h-full w-full overflow-auto" key={embedKey}>
-            {/* Twitter Timeline Embed using iframe */}
-            <iframe
-              src={`https://syndication.twitter.com/srv/timeline-profile/screen-name/${username}?dnt=true&embedId=twitter-widget&frame=false&hideBorder=true&hideFooter=true&hideHeader=true&hideScrollBar=false&origin=https://localhost&theme=${embedTheme}&transparent=true`}
-              className="h-full w-full border-0"
-              title={`Twitter timeline de @${username}`}
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-              style={{
-                colorScheme: embedTheme,
-                minHeight: "400px",
-              }}
-            />
+            {embedError ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-4 text-center">
+                <AlertTriangle className="h-8 w-8 opacity-40" />
+                <p className="text-sm">Los embeds de Twitter requieren conexión y pueden no cargarse</p>
+                <a
+                  href={`https://twitter.com/${username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary underline underline-offset-2"
+                >
+                  Ver perfil en Twitter
+                </a>
+              </div>
+            ) : (
+              /* Twitter Timeline Embed using iframe */
+              <iframe
+                src={`https://syndication.twitter.com/srv/timeline-profile/screen-name/${username}?dnt=true&embedId=twitter-widget&frame=false&hideBorder=true&hideFooter=true&hideHeader=true&hideScrollBar=false&origin=${encodeURIComponent(embedOrigin)}&theme=${embedTheme}&transparent=true`}
+                className="h-full w-full border-0"
+                title={`Twitter timeline de @${username}`}
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                style={{
+                  colorScheme: embedTheme,
+                  minHeight: "400px",
+                }}
+                onError={() => setEmbedError(true)}
+              />
+            )}
           </div>
         )}
       </div>

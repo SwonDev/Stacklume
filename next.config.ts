@@ -64,7 +64,7 @@ const nextConfig: NextConfig = {
     // Disable image optimization for standalone/Electron builds
     // Next.js image optimization requires a running server with Sharp
     // which doesn't work well in Electron's standalone mode
-    unoptimized: isElectronBuild || isProduction,
+    unoptimized: isDesktopMode,
     remotePatterns: [
       {
         protocol: "https",

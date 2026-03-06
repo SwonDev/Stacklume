@@ -630,7 +630,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
 
           {/* Kanban Columns */}
           <ScrollArea className="flex-1">
-            <div className="flex gap-4 p-4 h-full min-h-[500px]">
+            <div className="flex gap-4 p-4 h-full min-h-[500px] snap-x snap-mandatory">
               <SortableContext
                 items={columns.map((c) => c.id)}
                 strategy={horizontalListSortingStrategy}

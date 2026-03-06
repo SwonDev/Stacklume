@@ -65,9 +65,16 @@ export function RedditWidget({ widget }: RedditWidgetProps) {
             {
               headers: {
                 "Accept": "application/json",
+                "User-Agent": "Stacklume/1.0 (link manager; opensource)",
               },
             }
           );
+
+          if (response.status === 429) {
+            setError("Reddit está limitando las solicitudes. Intenta en unos minutos.");
+            setLoading(false);
+            return;
+          }
 
           if (!response.ok) {
             console.warn(`Error al obtener r/${subreddit}: ${response.status}`);

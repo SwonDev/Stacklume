@@ -108,6 +108,22 @@ export function BentoGrid({ className }: BentoGridProps) {
     });
   }, [widgets, currentProjectId]);
 
+  // Preprocessing: O(1) lookups en vez de O(n) por widget
+  const linkTagMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    linkTags.forEach((lt) => {
+      if (!map.has(lt.tagId)) map.set(lt.tagId, new Set<string>());
+      map.get(lt.tagId)!.add(lt.linkId);
+    });
+    return map;
+  }, [linkTags]);
+
+  const linkByIdMap = useMemo(() => {
+    const map = new Map<string, typeof links[number]>();
+    links.forEach((l) => map.set(l.id, l));
+    return map;
+  }, [links]);
+
   // Filter widgets based on active filter and search query
   const filteredWidgets = useMemo(() => {
     // Helper to get links for a widget
@@ -124,11 +140,11 @@ export function BentoGrid({ className }: BentoGridProps) {
         return links.filter((l: Link) => l.categoryId === widget.categoryId);
       }
       if (widget.type === "tag" && widget.tagId) {
-        // Get links for tag directly using linkTags data (avoid store function)
-        const tagLinkIds = linkTags
-          .filter((lt: { linkId: string; tagId: string }) => lt.tagId === widget.tagId)
-          .map((lt: { linkId: string; tagId: string }) => lt.linkId);
-        return links.filter((l: Link) => tagLinkIds.includes(l.id));
+        // O(1) lookup usando el mapa preprocesado
+        const tagLinkIdSet = linkTagMap.get(widget.tagId) ?? new Set<string>();
+        return Array.from(tagLinkIdSet)
+          .map((id) => linkByIdMap.get(id))
+          .filter((l): l is NonNullable<typeof l> => l != null);
       }
       return [];
     };
@@ -183,14 +199,19 @@ export function BentoGrid({ className }: BentoGridProps) {
       });
     } else if (activeFilter.type === "tag" && activeFilter.id) {
       // Show only: the specific tag widget, or widgets with links that have that tag
-      const tagLinkIds = linkTags
-        .filter((lt: { linkId: string; tagId: string }) => lt.tagId === activeFilter.id)
-        .map((lt: { linkId: string; tagId: string }) => lt.linkId);
+      // O(1) lookup usando el mapa preprocesado
+      const tagLinkIdSet = linkTagMap.get(activeFilter.id) ?? new Set<string>();
 
       filtered = projectWidgets.filter((widget: Widget) => {
         if (widget.type === "tag" && widget.tagId === activeFilter.id) return true;
         const widgetLinks = getWidgetLinks(widget);
-        return widgetLinks.some((link: Link) => tagLinkIds.includes(link.id));
+        return widgetLinks.some((link: Link) => tagLinkIdSet.has(link.id));
+      });
+    } else if (activeFilter.type === "unread") {
+      // Show only widgets that contain unread links
+      filtered = projectWidgets.filter((widget: Widget) => {
+        const widgetLinks = getWidgetLinks(widget);
+        return widgetLinks.some((link: Link) => !link.isRead);
       });
     }
 
@@ -200,7 +221,7 @@ export function BentoGrid({ className }: BentoGridProps) {
     }
 
     return filtered;
-  }, [projectWidgets, activeFilter, deferredSearchQuery, links, linkTags]);
+  }, [projectWidgets, activeFilter, deferredSearchQuery, links, linkTags, linkTagMap, linkByIdMap]);
 
   // Generate responsive layouts for all breakpoints
   const layouts = useMemo(() => {

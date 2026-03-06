@@ -13,7 +13,7 @@ const updateCustomWidgetTypeSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   category: z.string().max(50).optional(),
   icon: z.string().max(50).optional(),
-  htmlTemplate: z.string().min(1).optional(),
+  htmlTemplate: z.string().min(1).max(200000, "Template demasiado grande (máx 200KB)").optional(),
   configSchema: z.record(z.string(), z.unknown()).nullable().optional(),
   defaultConfig: z.record(z.string(), z.unknown()).nullable().optional(),
   defaultWidth: z.number().int().min(1).max(12).optional(),

@@ -180,12 +180,8 @@ export function DesignInspirationWidget({ widget }: DesignInspirationWidgetProps
         ? INSPIRATION_CATEGORIES.find((c) => c.id === category)?.query || "design"
         : "ui+ux+design";
 
-      const response = await fetch(
-        `https://api.unsplash.com/photos/random?query=${query}&count=10&client_id=demo`,
-        {
-          headers: { "Accept-Version": "v1" },
-        }
-      );
+      const params = new URLSearchParams({ query, count: "10" });
+      const response = await fetch(`/api/unsplash-proxy?${params.toString()}`);
 
       if (response.ok) {
         const data = await response.json();

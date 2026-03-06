@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon } from "lucide-react";
+import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen } from "lucide-react";
 import { TagSelector } from "@/components/ui/tag-selector";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { CategorySelector } from "@/components/ui/category-selector";
@@ -39,6 +39,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useLinksStore } from "@/stores/links-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
@@ -48,6 +49,9 @@ const formSchema = z.object({
   description: z.string().optional(),
   categoryId: z.string().optional(),
   isFavorite: z.boolean(),
+  isRead: z.boolean(),
+  reminderAt: z.string().optional().nullable(),
+  notes: z.string().max(2000, "Máximo 2000 caracteres").optional().nullable(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -67,6 +71,7 @@ export function EditLinkModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -76,8 +81,13 @@ export function EditLinkModal() {
       description: "",
       categoryId: "",
       isFavorite: false,
+      isRead: false,
+      reminderAt: null,
+      notes: null,
     },
   });
+
+  const { formState: { isDirty } } = form;
 
   // Update form when selectedLink changes
   useEffect(() => {
@@ -88,6 +98,11 @@ export function EditLinkModal() {
         description: selectedLink.description || "",
         categoryId: selectedLink.categoryId || "",
         isFavorite: selectedLink.isFavorite ?? false,
+        isRead: (selectedLink as Record<string, unknown>).isRead as boolean ?? false,
+        reminderAt: (selectedLink as Record<string, unknown>).reminderAt
+          ? String((selectedLink as Record<string, unknown>).reminderAt)
+          : null,
+        notes: (selectedLink as Record<string, unknown>).notes as string | null ?? null,
       });
       // Load current tags for this link
       const currentTagIds = linkTags
@@ -152,6 +167,19 @@ export function EditLinkModal() {
           }
         }
 
+        // Resetear el formulario con los valores guardados para limpiar isDirty
+        form.reset({
+          url: updatedLink.url,
+          title: updatedLink.title,
+          description: updatedLink.description || "",
+          categoryId: updatedLink.categoryId || "",
+          isFavorite: updatedLink.isFavorite ?? false,
+          isRead: updatedLink.isRead ?? false,
+          reminderAt: updatedLink.reminderAt
+            ? String(updatedLink.reminderAt)
+            : null,
+          notes: updatedLink.notes ?? null,
+        });
         toast.success("Enlace actualizado correctamente");
         closeEditLinkModal();
       } else {
@@ -197,8 +225,27 @@ export function EditLinkModal() {
     closeEditLinkModal();
   };
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isDirty) {
+      setShowDiscardDialog(true);
+      return;
+    }
+    if (!open) {
+      handleClose();
+    }
+  };
+
+  const handleCancelWithCheck = () => {
+    if (isDirty) {
+      setShowDiscardDialog(true);
+    } else {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={isEditLinkModalOpen} onOpenChange={handleClose}>
+    <>
+    <Dialog open={isEditLinkModalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg glass">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -336,6 +383,82 @@ export function EditLinkModal() {
               )}
             />
 
+            {/* Opciones avanzadas */}
+            <Separator className="my-2" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <BookOpen className="w-4 h-4" />
+                <span>Opciones avanzadas</span>
+              </div>
+
+              {/* isRead */}
+              <FormField
+                control={form.control}
+                name="isRead"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2">
+                    <FormControl>
+                      <Button
+                        type="button"
+                        variant={field.value ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => field.onChange(!field.value)}
+                        className="gap-1.5"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        {field.value ? "Marcado como leído" : "Marcar como leído"}
+                      </Button>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* reminderAt */}
+              <FormField
+                control={form.control}
+                name="reminderAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Recordatorio</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        value={
+                          field.value
+                            ? new Date(field.value).toISOString().slice(0, 16)
+                            : ""
+                        }
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        className="bg-background"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* notes */}
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notas privadas</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Añade notas privadas sobre este enlace..."
+                        className="resize-none bg-background"
+                        rows={3}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             {/* Actions */}
             <div className="flex justify-between pt-2">
               <AlertDialog>
@@ -375,7 +498,7 @@ export function EditLinkModal() {
               </AlertDialog>
 
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={handleClose}>
+                <Button type="button" variant="ghost" onClick={handleCancelWithCheck}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={isLoading}>
@@ -390,5 +513,31 @@ export function EditLinkModal() {
         </Form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Descartar cambios?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tienes cambios sin guardar. Si cierras ahora, se perderán.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setShowDiscardDialog(false)}>
+            Seguir editando
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setShowDiscardDialog(false);
+              handleClose();
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Descartar cambios
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, links, linkTags, withRetry, type NewLink, createPaginatedResponse, generateId, getCurrentDatabaseType } from "@/lib/db";
-import { desc, asc, count, isNull, eq, and, inArray, like, ilike, or } from "drizzle-orm";
-import { paginationSchema, createLinkSchema, validateRequest, linkFilterSchema, sortSchema } from "@/lib/validations";
+import { desc, asc, count, isNull, eq, and, inArray, like, ilike, or, gte, lte } from "drizzle-orm";
+import { paginationSchema, createLinkSchema, validateRequest, linkFilterSchema, sortSchema, type TagLogic } from "@/lib/validations";
 import { createModuleLogger } from "@/lib/logger";
 import { z } from "zod";
 
@@ -22,44 +22,52 @@ const getLinksQuerySchema = paginationSchema
 /**
  * GET /api/links
  *
- * Fetch links with optional pagination, filtering, and sorting.
+ * Obtiene enlaces con paginación, filtros y orden.
  *
- * Query Parameters:
- * - categoryId: Filter by category UUID
- * - tagId: Filter by tag UUID (joins with linkTags)
- * - isFavorite: Filter by favorite status (true/false)
- * - platform: Filter by platform type
- * - contentType: Filter by content type
- * - search: Simple text search in title/description
- * - sortBy: Field to sort by (createdAt, updatedAt, title, order)
- * - sortOrder: Sort direction (asc, desc)
- * - page: Page number (default: 1)
- * - limit: Results per page (default: 20, max: 100)
+ * Parámetros de consulta:
+ * - categoryId: Filtra por UUID de categoría
+ * - tagId: Filtra por UUID de etiqueta (una sola, compatible con versiones anteriores)
+ * - tagIds: IDs de etiquetas separados por coma: "id1,id2,id3"
+ * - tagLogic: "AND" (todos) | "OR" (alguno) — defecto "OR"
+ * - isFavorite: Filtra por estado favorito (true/false)
+ * - platform: Filtra por plataforma
+ * - contentType: Filtra por tipo de contenido
+ * - search: Búsqueda de texto en título/descripción
+ * - dateFrom: Fecha de inicio ISO 8601 (ej: 2024-01-01T00:00:00Z)
+ * - dateTo: Fecha de fin ISO 8601
+ * - sortBy: Campo de orden (createdAt, updatedAt, title, order)
+ * - sortOrder: Dirección (asc, desc)
+ * - page: Número de página (defecto: 1)
+ * - limit: Resultados por página (defecto: 50, máx: 100)
  *
- * For backwards compatibility, if no pagination params are provided,
- * returns all links without pagination wrapper.
+ * Nota de compatibilidad: cuando no hay parámetros de paginación ni filtros,
+ * devuelve todos los enlaces sin envoltorio de paginación (compatibilidad con
+ * el fetch inicial de page.tsx). En cualquier otro caso siempre pagina.
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Check if any query params are provided (for backwards compatibility)
+    // Detectar si hay parámetros de consulta (compatibilidad hacia atrás)
     const hasPageParam = searchParams.has("page");
     const hasLimitParam = searchParams.has("limit");
     const hasFilterParams =
       searchParams.has("categoryId") ||
       searchParams.has("tagId") ||
+      searchParams.has("tagIds") ||
       searchParams.has("isFavorite") ||
       searchParams.has("platform") ||
       searchParams.has("contentType") ||
       searchParams.has("search") ||
       searchParams.has("sortBy") ||
-      searchParams.has("sortOrder");
+      searchParams.has("sortOrder") ||
+      searchParams.has("dateFrom") ||
+      searchParams.has("dateTo");
 
     const useAdvancedQuery = hasPageParam || hasLimitParam || hasFilterParams;
 
     if (!useAdvancedQuery) {
-      // Backwards compatibility: return all links if no query params
+      // Compatibilidad hacia atrás: devuelve todos los enlaces sin paginación
       const allLinks = await withRetry(
         () =>
           db
@@ -72,10 +80,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(allLinks);
     }
 
-    // Parse query parameters
+    // Construir objeto de parámetros brutos
     const rawParams = {
       categoryId: searchParams.get("categoryId") || undefined,
       tagId: searchParams.get("tagId") || undefined,
+      tagIds: searchParams.get("tagIds") || undefined,
+      tagLogic: searchParams.get("tagLogic") || undefined,
       isFavorite: searchParams.get("isFavorite") || undefined,
       platform: searchParams.get("platform") || undefined,
       contentType: searchParams.get("contentType") || undefined,
@@ -84,9 +94,11 @@ export async function GET(request: NextRequest) {
       sortOrder: searchParams.get("sortOrder") || undefined,
       page: searchParams.get("page") || undefined,
       limit: searchParams.get("limit") || undefined,
+      dateFrom: searchParams.get("dateFrom") || undefined,
+      dateTo: searchParams.get("dateTo") || undefined,
     };
 
-    // Validate parameters
+    // Validar parámetros
     const validation = validateRequest(getLinksQuerySchema, rawParams);
     if (!validation.success) {
       return NextResponse.json(
@@ -107,14 +119,22 @@ export async function GET(request: NextRequest) {
       sortOrder,
       page,
       limit,
+      dateFrom,
+      dateTo,
     } = params;
+
+    // Parsear tagIds y tagLogic directamente del schema validado
+    const tagIdsRaw = params.tagIds;
+    const tagLogic: TagLogic = (params.tagLogic as TagLogic) ?? "OR";
+    const tagIds = tagIdsRaw ? tagIdsRaw.split(",").filter(Boolean) : [];
+
     const offset = (page - 1) * limit;
 
-    // Build conditions array - always exclude soft-deleted
+    // Construir condiciones — siempre excluir registros soft-deleted
     const conditions: ReturnType<typeof eq>[] = [];
     conditions.push(isNull(links.deletedAt));
 
-    // Add optional filters
+    // Filtros opcionales
     if (categoryId) {
       conditions.push(eq(links.categoryId, categoryId));
     }
@@ -131,8 +151,8 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(links.contentType, contentType));
     }
 
-    // Handle tag filtering - requires join with linkTags
-    if (tagId) {
+    // Filtro por etiqueta única (tagId — compatibilidad)
+    if (tagId && tagIds.length === 0) {
       const taggedLinkIds = await withRetry(
         () =>
           db
@@ -145,18 +165,61 @@ export async function GET(request: NextRequest) {
       const linkIds = taggedLinkIds.map((lt) => lt.linkId);
 
       if (linkIds.length === 0) {
-        // No links have this tag, return empty result
         return NextResponse.json(createPaginatedResponse([], page, limit, 0));
       }
 
       conditions.push(inArray(links.id, linkIds));
     }
 
-    // Handle simple search (for full-text search, use /api/links/search)
-    // This is a lightweight filter, not full search
+    // Filtro por múltiples etiquetas (tagIds)
+    if (tagIds.length > 0) {
+      if (tagLogic === "OR") {
+        // OR: enlaces que tengan AL MENOS UNA de las etiquetas
+        const taggedRows = await withRetry(
+          () =>
+            db
+              .selectDistinct({ linkId: linkTags.linkId })
+              .from(linkTags)
+              .where(inArray(linkTags.tagId, tagIds)),
+          { operationName: "fetch multi-tag link IDs (OR)" }
+        );
+        const linkIds = taggedRows.map((r) => r.linkId);
+        if (linkIds.length === 0) {
+          return NextResponse.json(createPaginatedResponse([], page, limit, 0));
+        }
+        conditions.push(inArray(links.id, linkIds));
+      } else {
+        // AND: enlaces que tengan TODAS las etiquetas
+        // Estrategia: obtener links para cada tag y calcular la intersección
+        const setsOfIds: string[][] = await Promise.all(
+          tagIds.map(async (tid) => {
+            const rows = await withRetry(
+              () =>
+                db
+                  .select({ linkId: linkTags.linkId })
+                  .from(linkTags)
+                  .where(eq(linkTags.tagId, tid)),
+              { operationName: "fetch tag link IDs (AND)" }
+            );
+            return rows.map((r) => r.linkId);
+          })
+        );
+        // Intersección de todos los conjuntos
+        const intersection = setsOfIds.reduce((acc, set) => {
+          const setB = new Set(set);
+          return acc.filter((id) => setB.has(id));
+        });
+        if (intersection.length === 0) {
+          return NextResponse.json(createPaginatedResponse([], page, limit, 0));
+        }
+        conditions.push(inArray(links.id, intersection));
+      }
+    }
+
+    // Filtro de búsqueda de texto
+    // ilike es solo PostgreSQL; en SQLite usamos like (case-insensitive para ASCII)
     if (search) {
       const searchPattern = `%${search}%`;
-      // ilike es solo PostgreSQL; en SQLite usamos like (case-insensitive por defecto para ASCII)
       if (getCurrentDatabaseType() === "sqlite") {
         conditions.push(
           or(
@@ -174,7 +237,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Determine sort column and order
+    // Filtros de rango de fecha
+    if (dateFrom) {
+      const parsedFrom = new Date(dateFrom);
+      if (!isNaN(parsedFrom.getTime())) {
+        conditions.push(gte(links.createdAt, parsedFrom));
+      }
+    }
+    if (dateTo) {
+      const parsedTo = new Date(dateTo);
+      if (!isNaN(parsedTo.getTime())) {
+        conditions.push(lte(links.createdAt, parsedTo));
+      }
+    }
+
+    // Columna y dirección de orden
     const sortColumn = {
       createdAt: links.createdAt,
       updatedAt: links.updatedAt,
@@ -184,10 +261,10 @@ export async function GET(request: NextRequest) {
 
     const orderFn = sortOrder === "asc" ? asc : desc;
 
-    // Build the where clause
+    // Cláusula WHERE
     const whereClause = and(...conditions);
 
-    // Fetch paginated data and total count in parallel
+    // Datos paginados y total en paralelo
     const [paginatedLinks, [{ value: total }]] = await Promise.all([
       withRetry(
         () =>
@@ -208,7 +285,7 @@ export async function GET(request: NextRequest) {
 
     log.debug(
       {
-        filters: { categoryId, tagId, isFavorite, platform, contentType, search },
+        filters: { categoryId, tagId, tagIds, tagLogic, isFavorite, platform, contentType, search, dateFrom, dateTo },
         sorting: { sortBy, sortOrder },
         pagination: { page, limit, offset },
         resultsCount: paginatedLinks.length,
@@ -219,7 +296,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(createPaginatedResponse(paginatedLinks, page, limit, total));
   } catch (error) {
-    log.error({ error, operation: "GET" }, "Error fetching links");
+    log.error({ error, operation: "GET" }, "Error fetching enlaces");
     return NextResponse.json({ error: "Error al obtener enlaces" }, { status: 500 });
   }
 }

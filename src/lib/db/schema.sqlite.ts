@@ -153,6 +153,10 @@ export const links = sqliteTable(
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),
     healthStatus: text("health_status"),
+    // Read / reminder fields
+    isRead: integer("is_read", { mode: "boolean" }).default(false),
+    notes: text("notes"),
+    reminderAt: integer("reminder_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     index("idx_links_user_id").on(table.userId),
@@ -166,6 +170,9 @@ export const links = sqliteTable(
     index("idx_links_health_status").on(table.healthStatus),
     index("idx_links_category_created_at").on(table.categoryId, table.createdAt),
     index("idx_links_user_created_at").on(table.userId, table.createdAt),
+    // Performance indexes for read status and favorites filtering
+    index("idx_links_is_read").on(table.isRead),
+    index("idx_links_user_favorite").on(table.userId, table.isFavorite),
   ]
 );
 
@@ -252,6 +259,7 @@ export const widgets = sqliteTable(
   (table) => [
     index("idx_widgets_user_id").on(table.userId),
     index("idx_widgets_project_id").on(table.projectId),
+    index("idx_widgets_project_created_at").on(table.projectId, table.createdAt),
   ]
 );
 

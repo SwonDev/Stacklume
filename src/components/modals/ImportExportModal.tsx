@@ -15,6 +15,7 @@ import {
   Globe,
   Sparkles,
   Puzzle,
+  Rss,
 } from "lucide-react";
 import {
   Dialog,
@@ -31,6 +32,8 @@ import {
   generateVisualHTML,
   generatePDFHTML,
   generateNetscapeHTML,
+  generateMarkdownExport,
+  generateOPMLExport,
 } from "@/lib/export-utils";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
@@ -162,6 +165,54 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
     } catch (error) {
       console.error("PDF Export error:", error);
       toast.error("Error al exportar PDF");
+    } finally {
+      setIsExporting(false);
+      setExportingType(null);
+    }
+  };
+
+  const handleExportMarkdown = () => {
+    setIsExporting(true);
+    setExportingType("markdown");
+    try {
+      const mdData = generateMarkdownExport({ links, categories, tags, linkTags });
+      const blob = new Blob([mdData], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `stacklume-${new Date().toISOString().split("T")[0]}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Exportación Markdown completada");
+    } catch (error) {
+      console.error("Markdown export error:", error);
+      toast.error("Error al exportar Markdown");
+    } finally {
+      setIsExporting(false);
+      setExportingType(null);
+    }
+  };
+
+  const handleExportOPML = () => {
+    setIsExporting(true);
+    setExportingType("opml");
+    try {
+      const content = generateOPMLExport({ links, categories, tags, linkTags });
+      const blob = new Blob([content], { type: "application/xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `stacklume-${new Date().toISOString().split("T")[0]}.opml`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Exportación OPML completada");
+    } catch (error) {
+      console.error("OPML export error:", error);
+      toast.error("Error al exportar OPML");
     } finally {
       setIsExporting(false);
       setExportingType(null);
@@ -384,6 +435,26 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       bgColor: "bg-blue-500/10",
       hoverBg: "group-hover:bg-blue-500",
       onClick: handleExportJSON,
+    },
+    {
+      id: "markdown",
+      title: "Markdown (.md)",
+      description: "Lista de enlaces en formato Markdown por categorías",
+      icon: FileCode,
+      color: "text-teal-500",
+      bgColor: "bg-teal-500/10",
+      hoverBg: "group-hover:bg-teal-500",
+      onClick: handleExportMarkdown,
+    },
+    {
+      id: "opml",
+      title: "OPML",
+      description: "Compatible con lectores RSS y gestores de marcadores",
+      icon: Rss,
+      color: "text-amber-500",
+      bgColor: "bg-amber-500/10",
+      hoverBg: "group-hover:bg-amber-500",
+      onClick: handleExportOPML,
     },
   ];
 

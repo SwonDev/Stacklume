@@ -28,7 +28,7 @@ async function fetchWithCsrfRetry(
   return response;
 }
 
-export type Theme = "light" | "dark" | "system" | "midnight" | "ocean" | "forest" | "slate" | "crimson" | "aurora" | "arctic" | "sakura" | "lavender" | "mint";
+export type Theme = "light" | "dark" | "system" | "midnight" | "ocean" | "forest" | "slate" | "crimson" | "aurora" | "arctic" | "sakura" | "lavender" | "mint" | "nordic" | "catppuccin" | "tokyo" | "rosepine" | "gruvbox" | "solarized" | "solardark" | "vampire" | "cement" | "stone" | "steel";
 export type ViewDensity = "compact" | "normal" | "comfortable";
 export type ViewMode = "bento" | "kanban" | "list";
 export type DatabaseType = "sqlite" | "neon" | "unknown";
@@ -53,6 +53,7 @@ interface SettingsState {
   showTooltips: boolean;
   reduceMotion: boolean;
   stickerSoundVolume: number; // 0-100 (0 = muted)
+  language: string; // "es" | "en"
 
   // MCP server settings
   mcpEnabled: boolean;
@@ -91,6 +92,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   showTooltips: true,
   reduceMotion: false,
   stickerSoundVolume: 50, // 0-100 (default 50%)
+  language: "es",
   mcpEnabled: false,
   mcpApiKey: null,
   databaseInfo: null,

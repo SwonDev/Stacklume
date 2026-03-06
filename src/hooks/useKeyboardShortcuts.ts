@@ -43,23 +43,17 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Handle '?' shortcut — open keyboard shortcuts modal (no modifier, not in input)
+      if (event.key === "?" && !isModifier && !isInputField) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("stacklume:open-shortcuts"));
+        return;
+      }
+
       // Other shortcuts require modifier key
       if (!isModifier) return;
 
       switch (event.key.toLowerCase()) {
-        case "k":
-          // Cmd+K: Focus search (clear current filter and open search)
-          event.preventDefault();
-          // Focus the search input in the header
-          const searchInput = document.querySelector<HTMLInputElement>(
-            'input[placeholder*="Buscar"]'
-          );
-          if (searchInput) {
-            searchInput.focus();
-            searchInput.select();
-          }
-          break;
-
         case "n":
           // Cmd+N: New link (only if not in input field)
           if (!isInputField) {

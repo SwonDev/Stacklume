@@ -5,6 +5,7 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "single-instance:default",
     "shell:allow-execute",
     "shell:allow-spawn",
     "shell:allow-kill",
@@ -12,6 +13,12 @@
     "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
-    "process:allow-restart"
+    "process:allow-restart",
+    "window-state:allow-restore",
+    "window-state:allow-save-window-state",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-unregister-all"
   ]
 }

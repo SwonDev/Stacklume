@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "scope": "/",
   "icons": [
     {
@@ -59,7 +59,22 @@
     }
   ],
   "categories": ["productivity", "utilities", "developer tools"],
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-1.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Stacklume - Vista principal"
+    },
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Stacklume - Vista móvil"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Add Link",

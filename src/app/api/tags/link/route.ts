@@ -48,6 +48,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if association already exists
+    const existing = await withRetry(
+      () => db.select().from(linkTags).where(and(eq(linkTags.linkId, linkId), eq(linkTags.tagId, tagId))).limit(1),
+      { operationName: "check existing link-tag" }
+    );
+
+    if (existing.length > 0) {
+      return NextResponse.json(existing[0], { status: 200 });
+    }
+
     const [created] = await withRetry(
       () => db.insert(linkTags).values({ linkId, tagId }).returning(),
       { operationName: "add tag to link" }

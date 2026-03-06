@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, links, categories, withRetry, type NewLink, type NewCategory, generateId } from "@/lib/db";
 import { htmlImportSchema, validateRequest, IMPORT_LIMITS } from "@/lib/validations";
+import { checkRateLimit, getClientIdentifier } from "@/lib/rate-limit";
 
 /**
  * Sanitizes a string by removing potentially dangerous HTML/scripts
@@ -177,12 +178,25 @@ function parseBookmarksHtml(html: string): {
   return { bookmarks, errors };
 }
 
-// TODO: Add rate limiting middleware to prevent abuse
-// Consider using @upstash/ratelimit or similar for production
-
 // POST - Import HTML bookmarks
 export async function POST(request: NextRequest) {
   try {
+    // Verificar Content-Length si está disponible
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "Archivo demasiado grande (máx 5MB)" }, { status: 413 });
+    }
+
+    // Rate limiting por IP
+    const identifier = getClientIdentifier(request);
+    const rateLimitResult = await checkRateLimit(identifier, "import");
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes de importación. Inténtalo más tarde." },
+        { status: 429 }
+      );
+    }
+
     // Get raw HTML content
     let html: string;
     try {

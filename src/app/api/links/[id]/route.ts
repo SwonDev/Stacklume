@@ -68,12 +68,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (validatedData.isFavorite !== undefined) updateData.isFavorite = validatedData.isFavorite;
     if (validatedData.siteName !== undefined) updateData.siteName = validatedData.siteName;
     if (validatedData.author !== undefined) updateData.author = validatedData.author;
-    if (validatedData.publishedAt !== undefined) updateData.publishedAt = validatedData.publishedAt;
+    if (validatedData.publishedAt !== undefined) updateData.publishedAt = validatedData.publishedAt ? new Date(validatedData.publishedAt) : null;
     if (validatedData.source !== undefined) updateData.source = validatedData.source;
     if (validatedData.sourceId !== undefined) updateData.sourceId = validatedData.sourceId;
     if (validatedData.platform !== undefined) updateData.platform = validatedData.platform;
     if (validatedData.contentType !== undefined) updateData.contentType = validatedData.contentType;
     if (validatedData.platformColor !== undefined) updateData.platformColor = validatedData.platformColor;
+    if (validatedData.isRead !== undefined) updateData.isRead = validatedData.isRead;
+    if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
+    if (validatedData.reminderAt !== undefined) updateData.reminderAt = validatedData.reminderAt ? new Date(validatedData.reminderAt) : null;
 
     const [updated] = await withRetry(
       () => db.update(links).set(updateData).where(eq(links.id, id)).returning(),

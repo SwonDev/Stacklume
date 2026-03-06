@@ -250,9 +250,10 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
     let show_item = MenuItemBuilder::with_id("show", "Abrir Stacklume").build(app)?;
+    let add_link_item = MenuItemBuilder::with_id("add-link", "Añadir enlace rápido").build(app)?;
     let quit_item = MenuItemBuilder::with_id("quit", "Cerrar").build(app)?;
     let menu = MenuBuilder::new(app)
-        .items(&[&show_item, &quit_item])
+        .items(&[&show_item, &add_link_item, &quit_item])
         .build()?;
 
     TrayIconBuilder::with_id("main")
@@ -264,6 +265,14 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.set_focus();
+                }
+            }
+            "add-link" => {
+                use tauri::Emitter;
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                    let _ = w.emit("stacklume:quick-add", ());
                 }
             }
             "quit" => app.exit(0),
@@ -292,9 +301,20 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_single_instance::init(|app, _args, _cwd| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            })
+        )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(ServerState {
             port: Mutex::new(7878),
             #[cfg(not(dev))]
@@ -305,6 +325,27 @@ pub fn run() {
         .setup(|app| {
             // Crear system tray (dev y prod)
             setup_tray(app)?;
+
+            // Registrar atajos globales (best-effort)
+            {
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                use tauri::Emitter;
+                let app_handle = app.handle().clone();
+                let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+S", move |_app, _shortcut, _event| {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                });
+                let app_handle2 = app.handle().clone();
+                let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+L", move |_app, _shortcut, _event| {
+                    if let Some(w) = app_handle2.get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                        let _ = w.emit("stacklume:quick-add", ());
+                    }
+                });
+            }
 
             // ── MODO DEV ────────────────────────────────────────────────────────
             #[cfg(dev)]

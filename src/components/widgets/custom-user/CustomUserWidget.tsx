@@ -181,10 +181,32 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
     return cfg;
   })();
 
-  const processedHtml = definition.htmlTemplate.replace(
+  // Bloquear templates excesivamente grandes antes de procesar
+  if (definition.htmlTemplate.length > 200000) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+        <AlertCircle className="w-6 h-6 text-destructive" />
+        <p className="text-xs text-muted-foreground">Widget demasiado grande para renderizar</p>
+      </div>
+    );
+  }
+
+  const CSP_META =
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src *;">`;
+
+  let processedHtml = definition.htmlTemplate.replace(
     /\{\{CONFIG_JSON\}\}/g,
     JSON.stringify(displayConfig)
   );
+
+  // Inyectar CSP meta tag justo después de <head> (o al inicio si no hay <head>)
+  const headIndex = processedHtml.search(/<head[\s>]/i);
+  if (headIndex !== -1) {
+    const insertAt = processedHtml.indexOf(">", headIndex) + 1;
+    processedHtml = processedHtml.slice(0, insertAt) + CSP_META + processedHtml.slice(insertAt);
+  } else {
+    processedHtml = CSP_META + processedHtml;
+  }
 
   return (
     <div ref={containerRef} className="relative w-full h-full">

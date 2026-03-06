@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   createBackup,
   listBackups,
@@ -8,6 +9,8 @@ import { db, generateId } from "@/lib/db";
 import { userBackups } from "@/lib/db/schema";
 import type { BackupData } from "@/lib/db/schema";
 import { DEFAULT_USER_ID } from "@/lib/auth-utils";
+
+const backupTypeSchema = z.enum(["manual", "auto", "export"]).default("manual");
 
 function getUserId(): string {
   return DEFAULT_USER_ID;
@@ -93,10 +96,23 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Validar backupType con Zod
+    const backupTypeResult = backupTypeSchema.safeParse(body.backupType ?? "manual");
+    if (!backupTypeResult.success) {
+      return NextResponse.json(
+        {
+          error: `Tipo de backup inválido. Debe ser uno de: manual, auto, export. Recibido: "${body.backupType}"`,
+          details: backupTypeResult.error.issues,
+        },
+        { status: 400 }
+      );
+    }
+    const backupType = backupTypeResult.data;
+
     // Create a new backup
     const options = {
       userId,
-      backupType: (body.backupType || "manual") as "manual" | "auto" | "export",
+      backupType,
       includeLinks: body.includeLinks !== false,
       includeCategories: body.includeCategories !== false,
       includeTags: body.includeTags !== false,

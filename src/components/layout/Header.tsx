@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { Search as SearchLucide, LayoutGrid, Sparkles, Trash2, PenLine, X, Sticker, LogOut } from "lucide-react";
+import { Search as SearchLucide, LayoutGrid, Sparkles, Trash2, PenLine, X, Sticker, LogOut, ShieldCheck } from "lucide-react";
 // Temporarily using static icons instead of animated ones due to motion/react 19 compatibility
 import { Menu, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -31,8 +31,11 @@ import {
 } from "@/components/ui/sheet";
 import { ImportExportModal } from "@/components/modals/ImportExportModal";
 import { DuplicatesModal } from "@/components/modals/DuplicatesModal";
+import { HealthCheckModal } from "@/components/modals/HealthCheckModal";
+import { KeyboardShortcutsModal } from "@/components/modals/KeyboardShortcutsModal";
 import { SettingsDropdown } from "@/components/ui/SettingsDropdown";
 import { OfflineBadge } from "@/components/ui/OfflineIndicator";
+import { SyncIndicator } from "@/components/layout/SyncIndicator";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useWidgetStore } from "@/stores/widget-store";
@@ -41,10 +44,12 @@ import { StickerBook } from "@/components/stickers";
 import { motion, AnimatePresence } from "motion/react";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useElectron } from "@/hooks/useElectron";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 export function Header() {
   const router = useRouter();
   const { isDesktop } = useElectron();
+  const prefersReducedMotion = useReducedMotion();
 
   // Use selectors ONLY for state values, not functions (prevents re-render loops)
   const searchQuery = useLayoutStore((state) => state.searchQuery);
@@ -58,9 +63,27 @@ export function Header() {
   // openAddWidgetModal, autoOrganizeWidgets, clearAllWidgets -> useWidgetStore.getState()
   // openStickerBook, closeStickerBook -> useStickerStore.getState()
 
+  // Estado local para debounce en el campo de búsqueda del escritorio
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sincronizar cuando searchQuery cambia externamente (p. ej. al limpiar con Escape)
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  // Debounce: propagar al store 300 ms después de que el usuario deje de escribir
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      useLayoutStore.getState().setSearchQuery(localSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
   // Modal states
   const [showImportExport, setShowImportExport] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [healthCheckOpen, setHealthCheckOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileSearchValue, setMobileSearchValue] = useState(searchQuery);
   const [isMounted, setIsMounted] = useState(false);
@@ -71,6 +94,13 @@ export function Header() {
   // Hydration guard
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  // Listen for the keyboard shortcut event dispatched by useKeyboardShortcuts
+  useEffect(() => {
+    const handler = () => setShortcutsOpen(true);
+    window.addEventListener("stacklume:open-shortcuts", handler);
+    return () => window.removeEventListener("stacklume:open-shortcuts", handler);
   }, []);
 
   // Handle logout
@@ -148,7 +178,12 @@ export function Header() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>Buscar</p>
+              <div className="flex items-center gap-2">
+                <span>Buscar</span>
+                <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </div>
             </TooltipContent>
           </Tooltip>
 
@@ -159,8 +194,8 @@ export function Header() {
               type="search"
               placeholder="Buscar..."
               className="h-8 w-40 md:w-48 bg-secondary/50 pl-8 text-sm focus:w-56 md:focus:w-64 transition-all"
-              value={searchQuery}
-              onChange={(e) => useLayoutStore.getState().setSearchQuery(e.target.value)}
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
               aria-label="Buscar enlaces"
             />
           </div>
@@ -169,14 +204,14 @@ export function Header() {
         {/* Center - Logo */}
         <motion.div
           className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={prefersReducedMotion ? undefined : { opacity: 0, y: -10 }}
+          animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           data-tour="header-logo"
         >
           <motion.div
             className="h-6 w-6 rounded-md bg-primary flex items-center justify-center overflow-hidden"
-            whileHover={{ scale: 1.05 }}
+            whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
           >
             <img
               src="/logo.svg"
@@ -205,7 +240,12 @@ export function Header() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>Añadir enlace</p>
+              <div className="flex items-center gap-2">
+                <span>Añadir enlace</span>
+                <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                  <span className="text-xs">⌘</span>N
+                </kbd>
+              </div>
             </TooltipContent>
           </Tooltip>
 
@@ -252,9 +292,9 @@ export function Header() {
           <AnimatePresence>
             {isEditMode && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
+                initial={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.8 }}
+                animate={prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.2 }}
                 className="flex items-center gap-1"
               >
@@ -341,6 +381,27 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
 
+          {/* Sync status indicator */}
+          <SyncIndicator />
+
+          {/* Health check button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                onClick={() => setHealthCheckOpen(true)}
+                aria-label="Verificar salud de enlaces"
+              >
+                <ShieldCheck size={16} aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Verificar salud de enlaces</p>
+            </TooltipContent>
+          </Tooltip>
+
           {/* Offline status indicator */}
           <OfflineBadge />
 
@@ -375,6 +436,8 @@ export function Header() {
       {/* Modals */}
       <ImportExportModal open={showImportExport} onOpenChange={setShowImportExport} />
       <DuplicatesModal open={showDuplicates} onOpenChange={setShowDuplicates} />
+      <HealthCheckModal open={healthCheckOpen} onOpenChange={setHealthCheckOpen} />
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       {/* Sticker Book - only render when mounted to prevent hydration issues */}
       {isMounted && isStickerBookOpen && <StickerBook onClose={() => useStickerStore.getState().closeStickerBook()} />}

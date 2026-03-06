@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, links, categories, tags, widgets, withRetry } from "@/lib/db";
-import { isNotNull, eq } from "drizzle-orm";
+import { isNotNull, eq, and } from "drizzle-orm";
 
 // Valid item types for trash operations
 type TrashItemType = "link" | "category" | "tag" | "widget";
@@ -181,11 +181,11 @@ export async function DELETE(request: NextRequest) {
 
     let deleted: unknown = null;
 
-    // Permanently delete the item
+    // Permanently delete the item — solo si está en papelera (deletedAt IS NOT NULL)
     switch (type) {
       case "link": {
         const [deletedLink] = await withRetry(
-          () => db.delete(links).where(eq(links.id, id)).returning(),
+          () => db.delete(links).where(and(eq(links.id, id), isNotNull(links.deletedAt))).returning(),
           { operationName: "hard delete link" }
         );
         deleted = deletedLink;
@@ -193,7 +193,7 @@ export async function DELETE(request: NextRequest) {
       }
       case "category": {
         const [deletedCategory] = await withRetry(
-          () => db.delete(categories).where(eq(categories.id, id)).returning(),
+          () => db.delete(categories).where(and(eq(categories.id, id), isNotNull(categories.deletedAt))).returning(),
           { operationName: "hard delete category" }
         );
         deleted = deletedCategory;
@@ -201,7 +201,7 @@ export async function DELETE(request: NextRequest) {
       }
       case "tag": {
         const [deletedTag] = await withRetry(
-          () => db.delete(tags).where(eq(tags.id, id)).returning(),
+          () => db.delete(tags).where(and(eq(tags.id, id), isNotNull(tags.deletedAt))).returning(),
           { operationName: "hard delete tag" }
         );
         deleted = deletedTag;
@@ -209,7 +209,7 @@ export async function DELETE(request: NextRequest) {
       }
       case "widget": {
         const [deletedWidget] = await withRetry(
-          () => db.delete(widgets).where(eq(widgets.id, id)).returning(),
+          () => db.delete(widgets).where(and(eq(widgets.id, id), isNotNull(widgets.deletedAt))).returning(),
           { operationName: "hard delete widget" }
         );
         deleted = deletedWidget;
@@ -219,7 +219,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!deleted) {
       return NextResponse.json(
-        { error: "Elemento no encontrado" },
+        { error: "Elemento no encontrado o no está en la papelera" },
         { status: 404 }
       );
     }

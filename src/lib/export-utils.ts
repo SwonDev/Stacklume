@@ -1489,3 +1489,109 @@ export function generateNetscapeHTML(data: ExportData): string {
 
   return html;
 }
+
+// Generate Markdown export
+export function generateOPMLExport(data: ExportData): string {
+  const { links, categories } = data;
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
+  // Agrupar enlaces por categoría
+  const byCategory = new Map<string, Link[]>();
+  byCategory.set("__uncategorized__", []);
+
+  for (const link of links) {
+    const key = link.categoryId ?? "__uncategorized__";
+    if (!byCategory.has(key)) byCategory.set(key, []);
+    byCategory.get(key)!.push(link);
+  }
+
+  const escapeXml = (str: string) =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<opml version="2.0">',
+    "  <head>",
+    "    <title>Stacklume Export</title>",
+    `    <dateCreated>${new Date().toUTCString()}</dateCreated>`,
+    "  </head>",
+    "  <body>",
+  ];
+
+  for (const [catId, catLinks] of byCategory) {
+    if (catLinks.length === 0) continue;
+    const catName =
+      catId === "__uncategorized__"
+        ? "Sin categoría"
+        : (categoryMap.get(catId) ?? "Desconocida");
+    lines.push(`    <outline text="${escapeXml(catName)}">`);
+    for (const link of catLinks) {
+      const title = escapeXml(link.title ?? link.url);
+      const url = escapeXml(link.url);
+      const desc = link.description
+        ? ` description="${escapeXml(link.description)}"`
+        : "";
+      lines.push(
+        `      <outline type="link" text="${title}" url="${url}"${desc}/>`
+      );
+    }
+    lines.push("    </outline>");
+  }
+
+  lines.push("  </body>", "</opml>");
+  return lines.join("\n");
+}
+
+export function generateMarkdownExport(data: ExportData): string {
+  const { links, categories, tags, linkTags } = data;
+  const exportDate = formatDate(new Date());
+
+  let md = `# Stacklume — Exportación de enlaces\n\n`;
+  md += `> Exportado el ${exportDate} · ${links.length} enlace${links.length !== 1 ? "s" : ""}\n\n`;
+
+  // Group by category
+  const categorized = new Map<string, Link[]>();
+  const uncategorized: Link[] = [];
+
+  links.forEach((link) => {
+    if (link.categoryId) {
+      const existing = categorized.get(link.categoryId) || [];
+      existing.push(link);
+      categorized.set(link.categoryId, existing);
+    } else {
+      uncategorized.push(link);
+    }
+  });
+
+  const sortedCategories = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  sortedCategories.forEach((cat) => {
+    const catLinks = categorized.get(cat.id) || [];
+    if (catLinks.length === 0) return;
+
+    md += `## ${cat.name}\n\n`;
+    catLinks.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach((link) => {
+      const linkTagNames = getTagsForLink(link.id, linkTags, tags).map((t) => `#${t.name}`).join(" ");
+      const desc = link.description ? ` — ${link.description}` : "";
+      const tagsStr = linkTagNames ? ` ${linkTagNames}` : "";
+      md += `- [${link.title}](${link.url})${desc}${tagsStr}\n`;
+    });
+    md += "\n";
+  });
+
+  if (uncategorized.length > 0) {
+    md += `## Sin categoría\n\n`;
+    uncategorized.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach((link) => {
+      const linkTagNames = getTagsForLink(link.id, linkTags, tags).map((t) => `#${t.name}`).join(" ");
+      const desc = link.description ? ` — ${link.description}` : "";
+      const tagsStr = linkTagNames ? ` ${linkTagNames}` : "";
+      md += `- [${link.title}](${link.url})${desc}${tagsStr}\n`;
+    });
+  }
+
+  return md;
+}

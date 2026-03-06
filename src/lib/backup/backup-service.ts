@@ -11,7 +11,24 @@ import {
   type BackupData,
   type UserBackup,
 } from "@/lib/db/schema";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, isNull, or, inArray } from "drizzle-orm";
+
+/** Convert unknown value to Date (backup JSON stores dates as ISO strings) */
+function toDate(val: unknown, fallback?: Date): Date {
+  if (val instanceof Date) return val;
+  if (typeof val === "string" || typeof val === "number") {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return fallback ?? new Date();
+}
+
+/** Convert unknown value to Date or null */
+function toDateOrNull(val: unknown): Date | null {
+  if (val == null) return null;
+  const d = toDate(val, undefined as unknown as Date);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 const BACKUP_VERSION = "1.0.0";
 const MAX_BACKUPS_PER_USER = 10;
@@ -55,13 +72,19 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
     data: {},
   };
 
+  // Helper: match userId = X OR userId IS NULL (desktop mode may not set userId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function userFilter(col: any) {
+    return or(eq(col, userId), isNull(col))!;
+  }
+
   // Fetch links (excluding soft-deleted)
   if (includeLinks) {
     const userLinks = await db
       .select()
       .from(links)
       .where(and(
-        eq(links.userId, userId),
+        userFilter(links.userId),
         isNull(links.deletedAt)
       ));
     backupData.data.links = userLinks.map(({ userId: _userId, ...link }) => link);
@@ -73,7 +96,7 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
       .select()
       .from(categories)
       .where(and(
-        eq(categories.userId, userId),
+        userFilter(categories.userId),
         isNull(categories.deletedAt)
       ));
     backupData.data.categories = userCategories.map(({ userId: _userId, ...cat }) => cat);
@@ -85,23 +108,19 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
       .select()
       .from(tags)
       .where(and(
-        eq(tags.userId, userId),
+        userFilter(tags.userId),
         isNull(tags.deletedAt)
       ));
     backupData.data.tags = userTags.map(({ userId: _userId, ...tag }) => tag);
 
     // Also fetch link-tag associations if we have both links and tags
+    // Solo incluimos linkTags de links activos (sin deletedAt)
     if (includeLinks && backupData.data.links?.length) {
-      const linkIds = backupData.data.links.map(l => l.id);
-      const _userLinkTags = await db
-        .select()
-        .from(linkTags)
-        .where(eq(linkTags.linkId, linkIds[0])); // This is a simplification, ideally use IN query
-
-      // Actually, let's fetch all link tags and filter
-      const allLinkTags = await db.select().from(linkTags);
-      const linkIdSet = new Set(linkIds);
-      backupData.data.linkTags = allLinkTags.filter(lt => linkIdSet.has(lt.linkId));
+      const activeLinkIds = backupData.data.links.map(l => l.id);
+      const allLinkTags = activeLinkIds.length > 0
+        ? await db.select().from(linkTags).where(inArray(linkTags.linkId, activeLinkIds))
+        : [];
+      backupData.data.linkTags = allLinkTags;
     }
   }
 
@@ -111,7 +130,7 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
       .select()
       .from(widgets)
       .where(and(
-        eq(widgets.userId, userId),
+        userFilter(widgets.userId),
         isNull(widgets.deletedAt)
       ));
     backupData.data.widgets = userWidgets.map(({ userId: _userId, ...widget }) => widget);
@@ -123,7 +142,7 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
       .select()
       .from(projects)
       .where(and(
-        eq(projects.userId, userId),
+        userFilter(projects.userId),
         isNull(projects.deletedAt)
       ));
     backupData.data.projects = userProjects.map(({ userId: _userId, ...project }) => project);
@@ -213,8 +232,9 @@ export async function deleteBackup(userId: string, backupId: string): Promise<bo
 }
 
 /**
- * Restores data from a backup
- * Note: This is a simplified version. Full implementation would need transactions and conflict resolution.
+ * Restores data from a backup.
+ * Handles date conversion (JSON stores ISO strings, DB expects Date objects),
+ * pre-fetches existing IDs to skip duplicates, and revives soft-deleted items.
  */
 export async function restoreBackup(options: RestoreBackupOptions): Promise<{
   success: boolean;
@@ -245,96 +265,291 @@ export async function restoreBackup(options: RestoreBackupOptions): Promise<{
 
   const data = backup.backupData as BackupData;
 
-  // If replace mode, we'd need to soft-delete existing data first
-  // For safety, we only support merge mode in this initial implementation
   if (mergeMode === "replace") {
     errors.push("Replace mode not yet implemented. Using merge mode instead.");
   }
 
-  // Restore categories first (links depend on them)
-  if (data.data.categories?.length) {
-    for (const cat of data.data.categories) {
-      try {
-        await db.insert(categories).values({
-          ...cat,
-          userId,
-        }).onConflictDoNothing();
-        restored.categories++;
-      } catch (_err) {
-        errors.push(`Failed to restore category: ${cat.name}`);
-      }
-    }
+  // Helper: match userId = X OR userId IS NULL (desktop mode may not set userId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function userOr(col: any) {
+    return or(eq(col, userId), isNull(col))!;
   }
 
-  // Restore tags
-  if (data.data.tags?.length) {
-    for (const tag of data.data.tags) {
-      try {
-        await db.insert(tags).values({
-          ...tag,
-          userId,
-        }).onConflictDoNothing();
-        restored.tags++;
-      } catch (_err) {
-        errors.push(`Failed to restore tag: ${tag.name}`);
-      }
+  // Pre-fetch existing IDs (including soft-deleted) so we can skip/revive
+  const [existingCats, existingTags, existingProjects, existingLinks, existingWidgets] =
+    await Promise.all([
+      data.data.categories?.length
+        ? db.select({ id: categories.id, deletedAt: categories.deletedAt }).from(categories).where(userOr(categories.userId))
+        : Promise.resolve([]),
+      data.data.tags?.length
+        ? db.select({ id: tags.id, deletedAt: tags.deletedAt }).from(tags).where(userOr(tags.userId))
+        : Promise.resolve([]),
+      data.data.projects?.length
+        ? db.select({ id: projects.id, deletedAt: projects.deletedAt }).from(projects).where(userOr(projects.userId))
+        : Promise.resolve([]),
+      data.data.links?.length
+        ? db.select({ id: links.id, deletedAt: links.deletedAt }).from(links).where(userOr(links.userId))
+        : Promise.resolve([]),
+      data.data.widgets?.length
+        ? db.select({ id: widgets.id, deletedAt: widgets.deletedAt }).from(widgets).where(userOr(widgets.userId))
+        : Promise.resolve([]),
+    ]);
+
+  // Build sets: active IDs (skip) and soft-deleted IDs (revive via UPDATE)
+  function buildSets(rows: { id: string; deletedAt: Date | null }[]) {
+    const active = new Set<string>();
+    const softDeleted = new Set<string>();
+    for (const r of rows) {
+      if (r.deletedAt) softDeleted.add(r.id);
+      else active.add(r.id);
     }
+    return { active, softDeleted };
   }
 
-  // Restore projects
-  if (data.data.projects?.length) {
-    for (const project of data.data.projects) {
-      try {
-        await db.insert(projects).values({
-          ...project,
-          userId,
-        }).onConflictDoNothing();
-        restored.projects++;
-      } catch (_err) {
-        errors.push(`Failed to restore project: ${project.name}`);
-      }
-    }
-  }
+  const catSets = buildSets(existingCats);
+  const tagSets = buildSets(existingTags);
+  const projectSets = buildSets(existingProjects);
+  const linkSets = buildSets(existingLinks);
+  const widgetSets = buildSets(existingWidgets);
 
-  // Restore links
-  if (data.data.links?.length) {
-    for (const link of data.data.links) {
-      try {
-        await db.insert(links).values({
-          ...link,
-          userId,
-        }).onConflictDoNothing();
-        restored.links++;
-      } catch (_err) {
-        errors.push(`Failed to restore link: ${link.title}`);
-      }
-    }
-  }
-
-  // Restore widgets
-  if (data.data.widgets?.length) {
-    for (const widget of data.data.widgets) {
-      try {
-        await db.insert(widgets).values({
-          ...widget,
-          userId,
-        }).onConflictDoNothing();
-        restored.widgets++;
-      } catch (_err) {
-        errors.push(`Failed to restore widget: ${widget.title}`);
-      }
-    }
-  }
-
-  // Restore link-tags associations
+  // Also track existing linkTag combos
+  const existingLinkTagKeys = new Set<string>();
   if (data.data.linkTags?.length) {
-    for (const lt of data.data.linkTags) {
-      try {
-        await db.insert(linkTags).values(lt).onConflictDoNothing();
-      } catch {
-        // Silently ignore link-tag restore failures
+    const allLT = await db.select().from(linkTags);
+    for (const lt of allLT) existingLinkTagKeys.add(`${lt.linkId}:${lt.tagId}`);
+  }
+
+  // Ejecutar todos los writes en una transacción para atomicidad
+  try {
+    await (db as unknown as { transaction: (fn: (tx: typeof db) => Promise<void>) => Promise<void> }).transaction(async (tx) => {
+      // Restore categories first (links depend on them)
+      if (data.data.categories?.length) {
+        for (const cat of data.data.categories) {
+          try {
+            if (catSets.active.has(cat.id)) continue; // already exists, skip
+            if (catSets.softDeleted.has(cat.id)) {
+              // Revive soft-deleted item
+              await tx.update(categories).set({
+                name: cat.name,
+                description: cat.description ?? null,
+                icon: cat.icon ?? null,
+                color: cat.color ?? null,
+                order: cat.order ?? 0,
+                updatedAt: new Date(),
+                deletedAt: null,
+              }).where(eq(categories.id, cat.id));
+            } else {
+              await tx.insert(categories).values({
+                id: cat.id,
+                userId,
+                name: cat.name,
+                description: cat.description ?? null,
+                icon: cat.icon ?? null,
+                color: cat.color ?? null,
+                order: cat.order ?? 0,
+                createdAt: toDate(cat.createdAt),
+                updatedAt: toDate(cat.updatedAt),
+                deletedAt: null,
+              }).onConflictDoNothing();
+            }
+            restored.categories++;
+          } catch (_err) {
+            errors.push(`Failed to restore category: ${cat.name}`);
+          }
+        }
       }
-    }
+
+      // Restore tags
+      if (data.data.tags?.length) {
+        for (const tag of data.data.tags) {
+          try {
+            if (tagSets.active.has(tag.id)) continue;
+            if (tagSets.softDeleted.has(tag.id)) {
+              await tx.update(tags).set({
+                name: tag.name,
+                color: tag.color ?? null,
+                order: tag.order ?? 0,
+                deletedAt: null,
+              }).where(eq(tags.id, tag.id));
+            } else {
+              await tx.insert(tags).values({
+                id: tag.id,
+                userId,
+                name: tag.name,
+                color: tag.color ?? null,
+                order: tag.order ?? 0,
+                createdAt: toDate(tag.createdAt),
+                deletedAt: null,
+              }).onConflictDoNothing();
+            }
+            restored.tags++;
+          } catch (_err) {
+            errors.push(`Failed to restore tag: ${tag.name}`);
+          }
+        }
+      }
+
+      // Restore projects
+      if (data.data.projects?.length) {
+        for (const project of data.data.projects) {
+          try {
+            if (projectSets.active.has(project.id)) continue;
+            if (projectSets.softDeleted.has(project.id)) {
+              await tx.update(projects).set({
+                name: project.name,
+                description: project.description ?? null,
+                icon: project.icon ?? "Folder",
+                color: project.color ?? "#6366f1",
+                order: project.order ?? 0,
+                updatedAt: new Date(),
+                deletedAt: null,
+              }).where(eq(projects.id, project.id));
+            } else {
+              await tx.insert(projects).values({
+                id: project.id,
+                userId,
+                name: project.name,
+                description: project.description ?? null,
+                icon: project.icon ?? "Folder",
+                color: project.color ?? "#6366f1",
+                order: project.order ?? 0,
+                isDefault: project.isDefault ?? false,
+                createdAt: toDate(project.createdAt),
+                updatedAt: toDate(project.updatedAt),
+                deletedAt: null,
+              }).onConflictDoNothing();
+            }
+            restored.projects++;
+          } catch (_err) {
+            errors.push(`Failed to restore project: ${project.name}`);
+          }
+        }
+      }
+
+      // Restore links
+      if (data.data.links?.length) {
+        for (const link of data.data.links) {
+          try {
+            if (linkSets.active.has(link.id)) continue;
+            if (linkSets.softDeleted.has(link.id)) {
+              await tx.update(links).set({
+                url: link.url,
+                title: link.title,
+                description: link.description ?? null,
+                imageUrl: link.imageUrl ?? null,
+                faviconUrl: link.faviconUrl ?? null,
+                categoryId: link.categoryId ?? null,
+                isFavorite: link.isFavorite ?? false,
+                siteName: link.siteName ?? null,
+                author: link.author ?? null,
+                publishedAt: toDateOrNull(link.publishedAt),
+                source: link.source ?? null,
+                sourceId: link.sourceId ?? null,
+                platform: link.platform ?? null,
+                contentType: link.contentType ?? null,
+                platformColor: link.platformColor ?? null,
+                order: link.order ?? 0,
+                updatedAt: new Date(),
+                deletedAt: null,
+              }).where(eq(links.id, link.id));
+            } else {
+              await tx.insert(links).values({
+                id: link.id,
+                userId,
+                url: link.url,
+                title: link.title,
+                description: link.description ?? null,
+                imageUrl: link.imageUrl ?? null,
+                faviconUrl: link.faviconUrl ?? null,
+                categoryId: link.categoryId ?? null,
+                isFavorite: link.isFavorite ?? false,
+                siteName: link.siteName ?? null,
+                author: link.author ?? null,
+                publishedAt: toDateOrNull(link.publishedAt),
+                source: link.source ?? null,
+                sourceId: link.sourceId ?? null,
+                platform: link.platform ?? null,
+                contentType: link.contentType ?? null,
+                platformColor: link.platformColor ?? null,
+                order: link.order ?? 0,
+                createdAt: toDate(link.createdAt),
+                updatedAt: toDate(link.updatedAt),
+                deletedAt: null,
+                lastCheckedAt: toDateOrNull(link.lastCheckedAt),
+                healthStatus: link.healthStatus ?? null,
+              }).onConflictDoNothing();
+            }
+            restored.links++;
+          } catch (_err) {
+            errors.push(`Failed to restore link: ${link.title}`);
+          }
+        }
+      }
+
+      // Restore widgets
+      if (data.data.widgets?.length) {
+        for (const widget of data.data.widgets) {
+          try {
+            if (widgetSets.active.has(widget.id)) continue;
+            if (widgetSets.softDeleted.has(widget.id)) {
+              await tx.update(widgets).set({
+                type: widget.type,
+                title: widget.title ?? null,
+                size: widget.size ?? "medium",
+                config: widget.config ?? null,
+                layoutX: widget.layoutX ?? 0,
+                layoutY: widget.layoutY ?? 0,
+                layoutW: widget.layoutW ?? 2,
+                layoutH: widget.layoutH ?? 2,
+                isVisible: widget.isVisible ?? true,
+                updatedAt: new Date(),
+                deletedAt: null,
+              }).where(eq(widgets.id, widget.id));
+            } else {
+              await tx.insert(widgets).values({
+                id: widget.id,
+                userId,
+                projectId: widget.projectId ?? null,
+                type: widget.type,
+                title: widget.title ?? null,
+                size: widget.size ?? "medium",
+                categoryId: widget.categoryId ?? null,
+                tagId: widget.tagId ?? null,
+                tags: widget.tags ?? null,
+                config: widget.config ?? null,
+                layoutX: widget.layoutX ?? 0,
+                layoutY: widget.layoutY ?? 0,
+                layoutW: widget.layoutW ?? 2,
+                layoutH: widget.layoutH ?? 2,
+                isVisible: widget.isVisible ?? true,
+                createdAt: toDate(widget.createdAt),
+                updatedAt: toDate(widget.updatedAt),
+                deletedAt: null,
+              }).onConflictDoNothing();
+            }
+            restored.widgets++;
+          } catch (_err) {
+            errors.push(`Failed to restore widget: ${widget.title}`);
+          }
+        }
+      }
+
+      // Restore link-tags associations
+      if (data.data.linkTags?.length) {
+        for (const lt of data.data.linkTags) {
+          try {
+            const key = `${lt.linkId}:${lt.tagId}`;
+            if (existingLinkTagKeys.has(key)) continue;
+            await tx.insert(linkTags).values(lt).onConflictDoNothing();
+          } catch {
+            // Silently ignore link-tag restore failures
+          }
+        }
+      }
+    });
+  } catch (txError) {
+    console.error("[restoreBackup] Error en la transacción:", txError);
+    errors.push("Error en la transacción de restauración. Algunos datos pueden no haberse restaurado.");
   }
 
   return {
@@ -355,11 +570,12 @@ async function cleanupOldBackups(userId: string): Promise<void> {
     .where(eq(userBackups.userId, userId))
     .orderBy(desc(userBackups.createdAt));
 
-  // If we have more than the max, delete the oldest ones
+  // Si hay más del máximo, eliminar los más antiguos en un solo batch delete
   if (allBackups.length > MAX_BACKUPS_PER_USER) {
     const backupsToDelete = allBackups.slice(MAX_BACKUPS_PER_USER);
-    for (const backup of backupsToDelete) {
-      await db.delete(userBackups).where(eq(userBackups.id, backup.id));
+    const idsToDelete = backupsToDelete.map(b => b.id);
+    if (idsToDelete.length > 0) {
+      await db.delete(userBackups).where(inArray(userBackups.id, idsToDelete));
     }
   }
 }

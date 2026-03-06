@@ -42,6 +42,11 @@ const PRIVATE_IP_RANGES = [
   /^192\.0\.2\./,              // 192.0.2.0/24 (TEST-NET-1)
   /^198\.51\.100\./,           // 198.51.100.0/24 (TEST-NET-2)
   /^203\.0\.113\./,            // 203.0.113.0/24 (TEST-NET-3)
+
+  // IPv6-mapped IPv4 private addresses (bypass via ::ffff: notation)
+  /^::ffff:(127\.|10\.|192\.168\.|169\.254\.)/i,  // ::ffff:127.x, ::ffff:10.x, etc.
+  /^::ffff:0:(127\.|10\.|192\.168\.)/i,            // Forma alternativa de mapeo IPv6
+  /^ff[0-9a-f]{2}:/i,                              // IPv6 multicast (ff00::/8)
 ];
 
 /**

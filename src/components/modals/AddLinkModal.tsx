@@ -100,6 +100,7 @@ export function AddLinkModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
+  const [fromClipboard, setFromClipboard] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -136,6 +137,28 @@ export function AddLinkModal() {
         form.setValue("description", prefillLinkData.description);
       }
     }
+  }, [isAddLinkModalOpen, prefillLinkData, form]);
+
+  // Auto-fill URL from clipboard when modal opens (solo si el campo está vacío)
+  useEffect(() => {
+    if (!isAddLinkModalOpen) {
+      setFromClipboard(false);
+      return;
+    }
+    if (prefillLinkData?.url) return; // ya hay datos de prefill
+
+    const tryClipboard = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && /^https?:\/\//i.test(text.trim()) && !form.getValues("url")) {
+          form.setValue("url", text.trim());
+          setFromClipboard(true);
+        }
+      } catch {
+        // Permiso denegado o API no disponible — ignorar silenciosamente
+      }
+    };
+    void tryClipboard();
   }, [isAddLinkModalOpen, prefillLinkData, form]);
 
   // Auto-scrape when URL changes
@@ -317,12 +340,22 @@ export function AddLinkModal() {
                         placeholder="https://ejemplo.com"
                         {...field}
                         className="pr-10"
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (fromClipboard) setFromClipboard(false);
+                        }}
                       />
                       {isScraping && (
                         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary" />
                       )}
                     </div>
                   </FormControl>
+                  {fromClipboard && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <History className="w-3 h-3" />
+                      URL detectada del portapapeles
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

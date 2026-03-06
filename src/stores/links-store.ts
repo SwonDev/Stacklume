@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import Fuse from "fuse.js";
 import type { Link, Category, Tag } from "@/lib/db/schema";
 import { normalizeUrlForComparison } from "@/lib/url-utils";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
@@ -92,7 +93,13 @@ interface LinksState {
   // Export/Import
   exportToJSON: () => string;
   exportToHTML: () => string;
+
+  // Búsqueda fuzzy en cliente
+  fuzzySearch: (query: string) => Link[];
 }
+
+// AbortController para cancelar refreshAllData obsoletos
+let _refreshAbortController: AbortController | null = null;
 
 export const useLinksStore = create<LinksState>((set, get) => ({
   // Links
@@ -407,13 +414,21 @@ export const useLinksStore = create<LinksState>((set, get) => ({
   },
 
   // Refresh all data from API — cache: "no-store" para evitar que WebView2 devuelva datos cacheados
+  // AbortController cancela llamadas obsoletas si se lanzan dos refreshes seguidos
   refreshAllData: async () => {
+    // Cancelar la petición anterior si sigue en curso
+    if (_refreshAbortController) {
+      _refreshAbortController.abort();
+    }
+    _refreshAbortController = new AbortController();
+    const { signal } = _refreshAbortController;
+
     try {
       const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
-        fetch("/api/links", { credentials: "include", cache: "no-store" }),
-        fetch("/api/categories", { credentials: "include", cache: "no-store" }),
-        fetch("/api/tags", { credentials: "include", cache: "no-store" }),
-        fetch("/api/link-tags", { credentials: "include", cache: "no-store" }),
+        fetch("/api/links", { credentials: "include", cache: "no-store", signal }),
+        fetch("/api/categories", { credentials: "include", cache: "no-store", signal }),
+        fetch("/api/tags", { credentials: "include", cache: "no-store", signal }),
+        fetch("/api/link-tags", { credentials: "include", cache: "no-store", signal }),
       ]);
       const [newLinks, newCategories, newTags, newLinkTags] = await Promise.all([
         linksRes.json(),
@@ -424,6 +439,7 @@ export const useLinksStore = create<LinksState>((set, get) => ({
       // Actualización atómica — un solo re-render en lugar de cuatro
       set({ links: newLinks, categories: newCategories, tags: newTags, linkTags: newLinkTags });
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
       console.error("[refreshAllData] Error al recargar datos:", error);
     }
   },
@@ -440,6 +456,21 @@ export const useLinksStore = create<LinksState>((set, get) => ({
       linkTags: state.linkTags,
     };
     return JSON.stringify(exportData, null, 2);
+  },
+
+  // Búsqueda fuzzy en cliente — no reemplaza la búsqueda del servidor, es adicional
+  fuzzySearch: (query) => {
+    const { links } = get();
+    if (!query.trim()) return links;
+
+    const fuse = new Fuse(links, {
+      keys: ["title", "url", "description"],
+      threshold: 0.4,
+      minMatchCharLength: 2,
+      ignoreLocation: true,
+    });
+
+    return fuse.search(query).map((result) => result.item);
   },
 
   exportToHTML: () => {

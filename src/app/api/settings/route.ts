@@ -64,7 +64,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { theme, viewDensity, viewMode, showTooltips, reduceMotion, mcpEnabled, mcpApiKey } = validation.data;
+    const validated = validation.data;
 
     // Check if settings exist
     const [existing] = await withRetry(
@@ -78,11 +78,11 @@ export async function PUT(request: NextRequest) {
         () => db.insert(userSettings).values({
           id: generateId(),
           userId: DEFAULT_USER_ID,
-          theme: theme ?? "system",
-          viewDensity: viewDensity ?? "normal",
-          viewMode: viewMode ?? "bento",
-          showTooltips: showTooltips ?? true,
-          reduceMotion: reduceMotion ?? false,
+          theme: validated.theme ?? "system",
+          viewDensity: validated.viewDensity ?? "normal",
+          viewMode: validated.viewMode ?? "bento",
+          showTooltips: validated.showTooltips ?? true,
+          reduceMotion: validated.reduceMotion ?? false,
           createdAt: new Date(),
           updatedAt: new Date(),
         }).returning(),
@@ -92,18 +92,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(newSettings);
     }
 
-    // Update existing settings
+    // Update existing settings — only set fields that were provided
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
     };
 
-    if (theme !== undefined) updateData.theme = theme;
-    if (viewDensity !== undefined) updateData.viewDensity = viewDensity;
-    if (viewMode !== undefined) updateData.viewMode = viewMode;
-    if (showTooltips !== undefined) updateData.showTooltips = showTooltips;
-    if (reduceMotion !== undefined) updateData.reduceMotion = reduceMotion;
-    if (mcpEnabled !== undefined) updateData.mcpEnabled = mcpEnabled;
-    if (mcpApiKey !== undefined) updateData.mcpApiKey = mcpApiKey;
+    for (const [key, value] of Object.entries(validated)) {
+      if (value !== undefined) updateData[key] = value;
+    }
 
     const [updated] = await withRetry(
       () => db.update(userSettings).set(updateData).where(eq(userSettings.userId, DEFAULT_USER_ID)).returning(),

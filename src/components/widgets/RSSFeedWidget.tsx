@@ -121,8 +121,7 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
 
       for (const feedUrl of feedUrls) {
         try {
-          // Use allorigins.win CORS proxy
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
+          const proxyUrl = `/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`;
           const response = await fetch(proxyUrl);
 
           if (!response.ok) {

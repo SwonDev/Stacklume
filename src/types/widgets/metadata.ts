@@ -1692,6 +1692,24 @@ export const WIDGET_TYPE_METADATA: Record<WidgetType, WidgetTypeMetadata> = {
     defaultTitle: 'Widget personalizado',
     configurable: false,
   },
+  'link-health-dashboard': {
+    type: 'link-health-dashboard',
+    label: 'Health Dashboard',
+    description: 'Monitor de salud de enlaces',
+    icon: 'Shield',
+    defaultSize: 'medium',
+    defaultTitle: 'Salud de enlaces',
+    configurable: false,
+  },
+  'reminders': {
+    type: 'reminders',
+    label: 'Recordatorios',
+    description: 'Recordatorios pendientes de enlaces',
+    icon: 'Bell',
+    defaultSize: 'medium',
+    defaultTitle: 'Recordatorios',
+    configurable: false,
+  },
 };
 
 // Type alias for WidgetConfig - used for functions that return widget configs
@@ -2805,6 +2823,12 @@ export function getDefaultWidgetConfig(type: WidgetType): WidgetConfigOptions {
       return { entries: [] };
 
     case 'custom-user':
+      return {};
+
+    case 'link-health-dashboard':
+      return {};
+
+    case 'reminders':
       return {};
 
     default:

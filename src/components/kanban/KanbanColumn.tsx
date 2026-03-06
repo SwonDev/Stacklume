@@ -233,7 +233,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
   }
 
   return (
-    <div className="flex flex-col h-full min-w-[300px] max-w-[350px] flex-shrink-0">
+    <div className="flex flex-col h-full min-w-[300px] max-w-[350px] flex-shrink-0 snap-start">
       {/* Column Header - Gold themed border */}
       <div
         className={cn(

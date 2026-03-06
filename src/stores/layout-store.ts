@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { LayoutItem } from "@/lib/db/schema";
 
 // Filter types
-export type FilterType = "all" | "favorites" | "recent" | "category" | "tag";
+export type FilterType = "all" | "favorites" | "recent" | "category" | "tag" | "unread";
 
 export interface ActiveFilter {
   type: FilterType;

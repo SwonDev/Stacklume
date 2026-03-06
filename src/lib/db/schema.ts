@@ -180,6 +180,10 @@ export const links = pgTable(
     // Health check fields
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }), // Last time the link was checked
     healthStatus: varchar("health_status", { length: 20 }), // ok, redirect, broken, timeout
+    // Read / reminder fields
+    isRead: boolCol("is_read").default(false),
+    notes: text("notes"),
+    reminderAt: timestamp("reminder_at", { withTimezone: true }),
   },
   (table) => ({
     userIdIdx: index("idx_links_user_id").on(table.userId),
@@ -196,6 +200,9 @@ export const links = pgTable(
     categoryCreatedAtIdx: index("idx_links_category_created_at").on(table.categoryId, table.createdAt),
     // Composite index for user filtering with date sorting
     userCreatedAtIdx: index("idx_links_user_created_at").on(table.userId, table.createdAt),
+    // Performance indexes for read status and favorites filtering
+    isReadIdx: index("idx_links_is_read").on(table.isRead),
+    userFavoriteIdx: index("idx_links_user_favorite").on(table.userId, table.isFavorite),
   })
 );
 
@@ -285,6 +292,7 @@ export const widgets = pgTable(
   (table) => ({
     userIdIdx: index("idx_widgets_user_id").on(table.userId),
     projectIdIdx: index("idx_widgets_project_id").on(table.projectId),
+    projectCreatedAtIdx: index("idx_widgets_project_created_at").on(table.projectId, table.createdAt),
   })
 );
 

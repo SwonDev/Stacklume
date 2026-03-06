@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown, BookOpen, Trash2 } from "lucide-react";
+import { TrashView } from "@/components/trash/TrashView";
 import { AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -312,6 +313,28 @@ export function Sidebar() {
   const setActiveProject = useProjectsStore((state) => state.setActiveProject);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
 
+  // Papelera
+  const [trashOpen, setTrashOpen] = useState(false);
+
+  // Gradient scroll indicator
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+
+  const updateScrollIndicator = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setHasMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollIndicator();
+    const ro = new ResizeObserver(updateScrollIndicator);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateScrollIndicator]);
+
   // Drag state for categories and tags
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [activeTagId, setActiveTagId] = useState<string | null>(null);
@@ -342,6 +365,7 @@ export function Sidebar() {
 
   const favoriteCount = links.filter((l: Link) => l.isFavorite).length;
   const recentCount = Math.min(links.length, 10);
+  const unreadCount = links.filter((l: Link) => !l.isRead).length;
 
   // Sensors for drag detection
   const sensors = useSensors(
@@ -368,6 +392,11 @@ export function Sidebar() {
 
   const handleRecentClick = () => {
     setActiveFilter({ type: "recent", label: "Recientes" });
+    setSidebarOpen(false);
+  };
+
+  const handleUnreadClick = () => {
+    setActiveFilter({ type: "unread", label: "Sin leer" });
     setSidebarOpen(false);
   };
 
@@ -474,7 +503,12 @@ export function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-none">
+          <div className="relative flex-1 min-h-0">
+          <div
+            ref={scrollRef}
+            className="h-full overflow-y-auto px-3 py-4 scrollbar-none"
+            onScroll={updateScrollIndicator}
+          >
             <div className="space-y-1">
               <NavItem
                 icon={<Home className="h-4 w-4" />}
@@ -496,6 +530,15 @@ export function Sidebar() {
                 isActive={activeFilter.type === "recent"}
                 onClick={handleRecentClick}
               />
+              {unreadCount > 0 && (
+                <NavItem
+                  icon={<BookOpen className="h-4 w-4" />}
+                  label="Sin leer"
+                  count={unreadCount}
+                  isActive={activeFilter.type === "unread"}
+                  onClick={handleUnreadClick}
+                />
+              )}
             </div>
 
             <Separator className="my-4 bg-sidebar-border" />
@@ -684,9 +727,29 @@ export function Sidebar() {
               )}
             </CollapsibleSection>
           </div>
+          {/* Gradient fade-out cuando hay más contenido debajo */}
+          {hasMoreBelow && (
+            <div
+              className="pointer-events-none absolute bottom-0 left-0 right-0 h-10"
+              style={{
+                background: "linear-gradient(to top, var(--sidebar) 0%, transparent 100%)",
+              }}
+            />
+          )}
+          </div>
 
           {/* Footer */}
-          <div className="border-t border-sidebar-border px-4 py-3">
+          <div className="border-t border-sidebar-border px-4 py-3 space-y-2">
+            <button
+              onClick={() => {
+                setTrashOpen(true);
+                setSidebarOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="flex-1 text-left">Papelera</span>
+            </button>
             <p className="text-xs text-sidebar-foreground/40 text-center">
               {links.length} enlaces guardados
             </p>
@@ -697,6 +760,9 @@ export function Sidebar() {
       {/* Project Modals */}
       <AddProjectModal />
       <EditProjectModal />
+
+      {/* Papelera */}
+      <TrashView open={trashOpen} onOpenChange={setTrashOpen} />
     </Sheet>
   );
 }

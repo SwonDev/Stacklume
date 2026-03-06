@@ -171,6 +171,9 @@ import {
   Trash2,
   StarOff,
   Download,
+  // Health & Reminders widget icons
+  Shield,
+  Bell,
 } from "lucide-react";
 import {
   Dialog,
@@ -407,6 +410,8 @@ const formSchema = z.object({
     "diff-viewer",
     "password-manager",
     "custom-user",
+    "link-health-dashboard",
+    "reminders",
   ]),
   title: z.string().min(1, "El título es obligatorio"),
   size: z.enum(["small", "medium", "large", "wide", "tall"]),
@@ -1533,6 +1538,18 @@ const widgetTypeOptions: Array<{
     description: "Almacena logins, usuarios y contraseñas con acceso a las webs",
     icon: KeyRound,
   },
+  {
+    type: "link-health-dashboard",
+    label: "Health Dashboard",
+    description: "Monitor de salud de tus enlaces",
+    icon: Shield,
+  },
+  {
+    type: "reminders",
+    label: "Recordatorios",
+    description: "Recordatorios pendientes de enlaces",
+    icon: Bell,
+  },
 ];
 
 // Size options in Spanish
@@ -1566,14 +1583,14 @@ const WIDGET_CATEGORIES: WidgetCategory[] = [
     label: "Productividad",
     icon: Clock,
     color: "green",
-    widgets: ["clock", "notes", "progress", "pomodoro", "calendar", "todo", "countdown", "habit-tracker", "weather", "quote", "custom"],
+    widgets: ["clock", "notes", "progress", "pomodoro", "calendar", "todo", "countdown", "habit-tracker", "weather", "quote", "custom", "reminders"],
   },
   {
     id: "analytics",
     label: "Analítica",
     icon: BarChart3,
     color: "purple",
-    widgets: ["stats", "link-analytics", "github-activity", "bookmark-growth", "reading-streak", "tag-cloud", "rss-feed"],
+    widgets: ["stats", "link-analytics", "github-activity", "bookmark-growth", "reading-streak", "tag-cloud", "rss-feed", "link-health-dashboard"],
   },
   {
     id: "external",

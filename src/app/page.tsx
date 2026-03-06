@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { BentoGrid } from "@/components/bento/BentoGrid";
 import { KanbanBoard } from "@/components/kanban";
 import { ListView } from "@/components/list";
@@ -9,6 +10,28 @@ import { StickerLayer } from "@/components/stickers";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
+
+// ---------------------------------------------------------------------------
+// Componente auxiliar: procesa los shortcuts PWA en la URL (?action=…)
+// Debe estar dentro de <Suspense> porque usa useSearchParams en App Router.
+// ---------------------------------------------------------------------------
+function PwaActionHandler() {
+  const searchParams = useSearchParams();
+  const openAddLinkModal = useLinksStore((state) => state.openAddLinkModal);
+
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "add-link") {
+      // Pequeño delay para que la app cargue primero
+      const timer = setTimeout(() => {
+        openAddLinkModal();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, openAddLinkModal]);
+
+  return null;
+}
 
 export default function Home() {
   const setLinks = useLinksStore((state) => state.setLinks);
@@ -81,6 +104,11 @@ export default function Home() {
 
   return (
     <>
+      {/* Procesador de shortcuts PWA (?action=add-link, etc.) */}
+      <Suspense fallback={null}>
+        <PwaActionHandler />
+      </Suspense>
+
       {/* Loading screen - covers everything until ready */}
       <LoadingScreen isLoading={!isAppReady} minDuration={600} />
 

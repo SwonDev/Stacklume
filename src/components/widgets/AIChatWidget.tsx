@@ -9,14 +9,17 @@ import {
   Sparkles,
   Copy,
   Check,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { cn } from "@/lib/utils";
 
 interface AIChatWidgetProps {
@@ -34,45 +37,46 @@ interface AIChatWidgetConfig {
   chatMessages?: ChatMessage[];
 }
 
-// Simulated AI responses based on keywords
+// ─── Respuestas simuladas (fallback sin MCP) ──────────────────────────────────
+
 const AI_RESPONSES: Record<string, string[]> = {
   hola: [
-    "Hola! Soy tu asistente de IA simulado. Puedo ayudarte a organizar tus pensamientos.",
-    "Hola! Aunque soy una IA simulada, puedo ser util para hacer brainstorming.",
-    "Hola! Estoy aqui para ayudarte. Que tienes en mente?",
+    "¡Hola! Soy tu asistente de IA simulado. Puedo ayudarte a organizar tus pensamientos.",
+    "¡Hola! Aunque soy una IA simulada, puedo ser útil para hacer brainstorming.",
+    "¡Hola! Estoy aquí para ayudarte. ¿Qué tienes en mente?",
   ],
   ayuda: [
-    "Puedo ayudarte con:\n- Lluvia de ideas\n- Organizar pensamientos\n- Tomar notas rapidas\n- Recordatorios simples\n\nEscribe lo que necesites!",
-    "Soy un chat simulado, pero puedo ser util para:\n- Escribir borradores\n- Hacer listas\n- Reflexionar sobre ideas",
+    "Puedo ayudarte con:\n- Lluvia de ideas\n- Organizar pensamientos\n- Tomar notas rápidas\n- Recordatorios simples\n\n¡Escribe lo que necesites!",
+    "Soy un chat simulado, pero puedo ser útil para:\n- Escribir borradores\n- Hacer listas\n- Reflexionar sobre ideas",
   ],
   gracias: [
-    "De nada! Estoy aqui cuando me necesites.",
-    "Un placer ayudar! Cualquier cosa, aqui estoy.",
-    "No hay de que! Sigue explorando tus ideas.",
+    "¡De nada! Estoy aquí cuando me necesites.",
+    "¡Un placer ayudar! Cualquier cosa, aquí estoy.",
+    "¡No hay de qué! Sigue explorando tus ideas.",
   ],
   ideas: [
-    "Algunas tecnicas para generar ideas:\n1. Brainstorming libre\n2. Mind mapping\n3. Pregunta 'Por que?' 5 veces\n4. Invierte el problema\n5. Combina conceptos aleatorios",
-    "Para nuevas ideas, intenta:\n- Escribir sin juzgar\n- Cambiar de ambiente\n- Buscar inspiracion en otros campos",
+    "Algunas técnicas para generar ideas:\n1. Brainstorming libre\n2. Mind mapping\n3. Pregunta '¿Por qué?' 5 veces\n4. Invierte el problema\n5. Combina conceptos aleatorios",
+    "Para nuevas ideas, intenta:\n- Escribir sin juzgar\n- Cambiar de ambiente\n- Buscar inspiración en otros campos",
   ],
   productividad: [
-    "Consejos de productividad:\n1. Usa la tecnica Pomodoro\n2. Prioriza con la matriz Eisenhower\n3. Bloquea tiempo para trabajo profundo\n4. Revisa y ajusta tus metas semanalmente",
-    "Para ser mas productivo:\n- Define 3 tareas clave al dia\n- Minimiza distracciones\n- Toma descansos regulares",
+    "Consejos de productividad:\n1. Usa la técnica Pomodoro\n2. Prioriza con la matriz Eisenhower\n3. Bloquea tiempo para trabajo profundo\n4. Revisa y ajusta tus metas semanalmente",
+    "Para ser más productivo:\n- Define 3 tareas clave al día\n- Minimiza distracciones\n- Toma descansos regulares",
   ],
   proyecto: [
-    "Para planificar un proyecto:\n1. Define el objetivo final\n2. Divide en tareas pequenas\n3. Establece fechas limite\n4. Identifica dependencias\n5. Revisa el progreso regularmente",
-    "Estructura tu proyecto:\n- Vision y objetivos\n- Milestones principales\n- Tareas semanales\n- Metricas de exito",
+    "Para planificar un proyecto:\n1. Define el objetivo final\n2. Divide en tareas pequeñas\n3. Establece fechas límite\n4. Identifica dependencias\n5. Revisa el progreso regularmente",
+    "Estructura tu proyecto:\n- Visión y objetivos\n- Milestones principales\n- Tareas semanales\n- Métricas de éxito",
   ],
   codigo: [
-    "Tips de programacion:\n1. Escribe codigo limpio y legible\n2. Usa control de versiones\n3. Haz pruebas unitarias\n4. Documenta lo importante\n5. Refactoriza regularmente",
-    "Mejores practicas:\n- KISS: Mantenlo simple\n- DRY: No te repitas\n- SOLID: Principios de diseno\n- Code review: Aprende de otros",
+    "Tips de programación:\n1. Escribe código limpio y legible\n2. Usa control de versiones\n3. Haz pruebas unitarias\n4. Documenta lo importante\n5. Refactoriza regularmente",
+    "Mejores prácticas:\n- KISS: Mantenlo simple\n- DRY: No te repitas\n- SOLID: Principios de diseño\n- Code review: Aprende de otros",
   ],
   default: [
-    "Interesante! Cuentame mas sobre eso.",
-    "Entiendo. Que mas puedo ayudarte con ese tema?",
-    "Buena pregunta! Aunque soy una IA simulada, puedo ayudarte a explorar esa idea.",
-    "Me parece un tema fascinante. Quieres profundizar?",
-    "AI respuesta simulada: He procesado tu mensaje. En que mas puedo asistirte?",
-    "Tomo nota de eso. Tienes mas ideas relacionadas?",
+    "¡Interesante! Cuéntame más sobre eso.",
+    "Entiendo. ¿En qué más puedo ayudarte con ese tema?",
+    "Buena pregunta. ¿Quieres profundizar en esa idea?",
+    "Me parece un tema fascinante. ¿Quieres explorar más?",
+    "He procesado tu mensaje. ¿En qué más puedo asistirte?",
+    "Tomo nota de eso. ¿Tienes más ideas relacionadas?",
   ],
 };
 
@@ -80,20 +84,143 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
 }
 
-function getAIResponse(userMessage: string): string {
-  const lowerMessage = userMessage.toLowerCase();
-
-  // Check for keywords
+function getSimulatedResponse(userMessage: string): string {
+  const lower = userMessage.toLowerCase();
   for (const [keyword, responses] of Object.entries(AI_RESPONSES)) {
-    if (keyword !== "default" && lowerMessage.includes(keyword)) {
+    if (keyword !== "default" && lower.includes(keyword)) {
       return responses[Math.floor(Math.random() * responses.length)];
     }
   }
-
-  // Default response
   const defaultResponses = AI_RESPONSES.default;
   return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
 }
+
+// ─── Detector de intención MCP ────────────────────────────────────────────────
+
+interface McpIntent {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+function detectIntent(message: string): McpIntent | null {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("cuántos enlaces") || lower.includes("cuantos enlaces") || lower.includes("total de enlaces")) {
+    return { tool: "list_links", args: { limit: 1000 } };
+  }
+  if (lower.includes("favorito")) {
+    return { tool: "list_links", args: { limit: 10 } };
+  }
+  if (lower.includes("categoría") || lower.includes("categoria") || lower.includes("categorias") || lower.includes("categorías")) {
+    return { tool: "list_categories", args: {} };
+  }
+  if (lower.includes("etiqueta") || lower.includes("tag")) {
+    return { tool: "list_tags", args: {} };
+  }
+  if (lower.includes("widget")) {
+    return { tool: "list_widgets", args: {} };
+  }
+  if (lower.includes("proyecto") || lower.includes("workspace")) {
+    return { tool: "list_projects", args: {} };
+  }
+  if (lower.includes("estadística") || lower.includes("estadistica") || lower.includes("resumen") || lower.includes("info")) {
+    return { tool: "get_app_info", args: {} };
+  }
+  return null;
+}
+
+interface McpToolResult {
+  content?: Array<{ type: string; text: string }>;
+  isError?: boolean;
+}
+
+async function callMcp(
+  tool: string,
+  args: Record<string, unknown>,
+  apiKey: string
+): Promise<McpToolResult> {
+  const response = await fetch("/api/mcp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: Date.now(),
+      method: "tools/call",
+      params: { name: tool, arguments: args },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error del servidor MCP: ${response.status}`);
+  }
+
+  const json = await response.json();
+  if (json.error) {
+    throw new Error(json.error.message ?? "Error desconocido del MCP");
+  }
+
+  return json.result as McpToolResult;
+}
+
+function formatMcpResponse(tool: string, result: McpToolResult, originalMessage: string): string {
+  try {
+    const text = result.content?.[0]?.text ?? "Sin respuesta";
+    const data = JSON.parse(text);
+    const lower = originalMessage.toLowerCase();
+
+    if (tool === "get_app_info") {
+      const { stats } = data;
+      return `Tu dashboard tiene:\n• ${stats.links} enlaces\n• ${stats.categories} categorías\n• ${stats.tags} etiquetas\n• ${stats.widgets} widgets\n• ${stats.projects} proyectos`;
+    }
+
+    if (tool === "list_links") {
+      if (lower.includes("cuántos") || lower.includes("cuantos") || lower.includes("total")) {
+        const count = Array.isArray(data) ? data.length : (data.total ?? data.links?.length ?? "?");
+        return `Tienes ${count} enlaces guardados en total.`;
+      }
+      const links = Array.isArray(data) ? data : (data.links ?? []);
+      if (links.length === 0) return "No tienes enlaces guardados aún.";
+      const list = links.slice(0, 8).map((l: { title?: string; url?: string }) => `• ${l.title || l.url}`).join("\n");
+      return `Tus enlaces recientes:\n${list}${links.length > 8 ? `\n…y ${links.length - 8} más` : ""}`;
+    }
+
+    if (tool === "list_categories") {
+      const cats = Array.isArray(data) ? data : (data.categories ?? []);
+      if (cats.length === 0) return "No tienes categorías creadas aún.";
+      const list = cats.map((c: { name?: string }) => `• ${c.name}`).join("\n");
+      return `Tus categorías (${cats.length}):\n${list}`;
+    }
+
+    if (tool === "list_tags") {
+      const tagList = Array.isArray(data) ? data : (data.tags ?? []);
+      if (tagList.length === 0) return "No tienes etiquetas creadas aún.";
+      const list = tagList.map((t: { name?: string }) => `• ${t.name}`).join("\n");
+      return `Tus etiquetas (${tagList.length}):\n${list}`;
+    }
+
+    if (tool === "list_widgets") {
+      const ws = Array.isArray(data) ? data : (data.widgets ?? []);
+      if (ws.length === 0) return "No tienes widgets en el dashboard.";
+      return `Tienes ${ws.length} widget${ws.length !== 1 ? "s" : ""} en el dashboard.`;
+    }
+
+    if (tool === "list_projects") {
+      const ps = Array.isArray(data) ? data : (data.projects ?? []);
+      if (ps.length === 0) return "Solo tienes el espacio Home disponible.";
+      const list = ps.map((p: { name?: string }) => `• ${p.name}`).join("\n");
+      return `Tus proyectos (${ps.length}):\n${list}`;
+    }
+
+    return text.length > 300 ? text.slice(0, 300) + "…" : text;
+  } catch {
+    return result.content?.[0]?.text ?? "No pude interpretar la respuesta.";
+  }
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export function AIChatWidget({ widget }: AIChatWidgetProps) {
   const [inputValue, setInputValue] = useState("");
@@ -101,6 +228,11 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const mcpEnabled = useSettingsStore((s) => s.mcpEnabled);
+  const mcpApiKey = useSettingsStore((s) => s.mcpApiKey);
+
+  const isUsingRealAI = mcpEnabled && !!mcpApiKey;
 
   const config = widget.config as AIChatWidgetConfig | undefined;
   const messages = config?.chatMessages || [];
@@ -120,14 +252,16 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
   // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollContainer = scrollAreaRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]"
+      );
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
   }, [messages, isTyping]);
 
-  const handleSendMessage = useCallback(() => {
+  const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: ChatMessage = {
@@ -137,27 +271,62 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
       timestamp: new Date().toISOString(),
     };
 
-    // Add user message
     const updatedMessages = [...messages, userMessage];
     updateConfig({ chatMessages: updatedMessages });
     setInputValue("");
-
-    // Simulate AI typing
     setIsTyping(true);
 
-    // Generate and add AI response after a delay
-    setTimeout(() => {
-      const aiResponse: ChatMessage = {
-        id: generateId(),
-        role: "assistant",
-        content: getAIResponse(userMessage.content),
-        timestamp: new Date().toISOString(),
-      };
+    if (isUsingRealAI && mcpApiKey) {
+      // Intento MCP real
+      try {
+        const intent = detectIntent(userMessage.content);
 
-      updateConfig({ chatMessages: [...updatedMessages, aiResponse] });
-      setIsTyping(false);
-    }, 800 + Math.random() * 700);
-  }, [inputValue, messages, updateConfig]);
+        let responseText: string;
+
+        if (intent) {
+          const result = await callMcp(intent.tool, intent.args, mcpApiKey);
+          if (result.isError) {
+            responseText = `Error al consultar los datos: ${result.content?.[0]?.text ?? "error desconocido"}`;
+          } else {
+            responseText = formatMcpResponse(intent.tool, result, userMessage.content);
+          }
+        } else {
+          responseText =
+            "No entendí esa pregunta. Puedo ayudarte con:\n• ¿Cuántos enlaces tienes?\n• Mostrar categorías\n• Listar etiquetas\n• Ver tus proyectos\n• Resumen del dashboard";
+        }
+
+        const aiResponse: ChatMessage = {
+          id: generateId(),
+          role: "assistant",
+          content: responseText,
+          timestamp: new Date().toISOString(),
+        };
+        updateConfig({ chatMessages: [...updatedMessages, aiResponse] });
+      } catch (error) {
+        const aiResponse: ChatMessage = {
+          id: generateId(),
+          role: "assistant",
+          content: `Error al conectar con MCP: ${error instanceof Error ? error.message : "error desconocido"}. Verifica que MCP esté habilitado en Configuración.`,
+          timestamp: new Date().toISOString(),
+        };
+        updateConfig({ chatMessages: [...updatedMessages, aiResponse] });
+      } finally {
+        setIsTyping(false);
+      }
+    } else {
+      // Respuesta simulada con delay
+      setTimeout(() => {
+        const aiResponse: ChatMessage = {
+          id: generateId(),
+          role: "assistant",
+          content: getSimulatedResponse(userMessage.content),
+          timestamp: new Date().toISOString(),
+        };
+        updateConfig({ chatMessages: [...updatedMessages, aiResponse] });
+        setIsTyping(false);
+      }, 800 + Math.random() * 700);
+    }
+  }, [inputValue, messages, updateConfig, isUsingRealAI, mcpApiKey]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -182,7 +351,7 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
     }
   };
 
-  // Empty state
+  // Estado vacío
   if (messages.length === 0 && !isTyping) {
     return (
       <div className="@container h-full w-full">
@@ -191,25 +360,61 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center mb-3 @md:w-14 @md:h-14">
               <Bot className="w-6 h-6 text-white @md:w-7 @md:h-7" />
             </div>
-            <p className="text-sm font-medium mb-1 @md:text-base">Chat IA Simulado</p>
-            <p className="text-xs text-muted-foreground mb-4 max-w-[200px] @md:text-sm @md:max-w-[250px]">
-              Haz preguntas, lluvia de ideas o toma notas conversacionales
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-medium @md:text-base">
+                {isUsingRealAI ? "Chat IA con MCP" : "Chat IA Simulado"}
+              </p>
+              {isUsingRealAI ? (
+                <Badge variant="default" className="text-[9px] h-4 px-1.5 bg-violet-500 hover:bg-violet-500">
+                  <Zap className="w-2.5 h-2.5 mr-0.5" />
+                  IA Real
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+                  Demo
+                </Badge>
+              )}
+            </div>
+            {isUsingRealAI ? (
+              <p className="text-xs text-muted-foreground mb-4 max-w-[220px] @md:text-sm @md:max-w-[260px]">
+                Pregúntame sobre tus enlaces, categorías o el estado de tu dashboard
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mb-4 max-w-[200px] @md:text-sm @md:max-w-[250px]">
+                Haz preguntas, lluvia de ideas o toma notas conversacionales.{" "}
+                <span className="text-primary/80">Activa MCP en Configuración para usar IA real.</span>
+              </p>
+            )}
             <div className="flex flex-wrap gap-2 justify-center">
-              {["hola", "ideas", "ayuda"].map((suggestion) => (
-                <Button
-                  key={suggestion}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => {
-                    setInputValue(suggestion);
-                    inputRef.current?.focus();
-                  }}
-                >
-                  {suggestion}
-                </Button>
-              ))}
+              {isUsingRealAI
+                ? ["¿Cuántos enlaces tengo?", "Ver categorías", "Resumen del dashboard"].map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() => {
+                        setInputValue(suggestion);
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      {suggestion}
+                    </Button>
+                  ))
+                : ["hola", "ideas", "ayuda"].map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() => {
+                        setInputValue(suggestion);
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      {suggestion}
+                    </Button>
+                  ))}
             </div>
           </div>
 
@@ -249,6 +454,16 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
               <Bot className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="text-xs font-medium @sm:text-sm">Chat IA</span>
+            {isUsingRealAI ? (
+              <Badge variant="default" className="text-[9px] h-4 px-1.5 bg-violet-500 hover:bg-violet-500">
+                <Zap className="w-2.5 h-2.5 mr-0.5" />
+                IA Real
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+                Demo
+              </Badge>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -319,7 +534,7 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
               ))}
             </AnimatePresence>
 
-            {/* Typing indicator */}
+            {/* Indicador de escritura */}
             {isTyping && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}

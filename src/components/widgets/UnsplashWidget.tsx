@@ -119,20 +119,11 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
     setError(null);
 
     try {
-      // Using Unsplash Source API (no API key required for random photos)
-      // Note: For production, you should use the official API with an API key
-      const queryParam = query && query !== "random" ? `&query=${encodeURIComponent(query)}` : "";
-      const orientationParam = `&orientation=${orientation}`;
+      const params = new URLSearchParams();
+      if (query && query !== "random") params.set("query", query);
+      params.set("orientation", orientation);
 
-      // Using the random photo endpoint via a CORS proxy
-      const response = await fetch(
-        `https://api.unsplash.com/photos/random?client_id=demo${queryParam}${orientationParam}`,
-        {
-          headers: {
-            "Accept-Version": "v1",
-          },
-        }
-      );
+      const response = await fetch(`/api/unsplash-proxy?${params.toString()}`);
 
       if (!response.ok) {
         // Fallback to picsum if Unsplash fails

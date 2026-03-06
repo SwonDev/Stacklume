@@ -54,6 +54,7 @@ interface WidgetState {
   removeWidget: (id: string) => Promise<void>;
   duplicateWidget: (id: string) => Promise<void>;
   toggleLock: (id: string) => Promise<void>;
+  toggleFavoriteWidget: (widgetId: string) => void;
   clearAllWidgets: () => Promise<void>;
 
   // Widget reordering and layout sync
@@ -409,6 +410,17 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
     console.log('Widget lock toggled:', id, '→', newLockedState ? 'locked' : 'unlocked');
   },
 
+  toggleFavoriteWidget: (widgetId) => {
+    // Los widgets no tienen campo isFavorite en la DB actualmente,
+    // así que lo guardamos en el config del widget
+    const widget = get().widgets.find((w) => w.id === widgetId);
+    if (!widget) return;
+    const isFavorite = !(widget.config as any)?.isFavorite;
+    get().updateWidget(widgetId, {
+      config: { ...(widget.config as object), isFavorite }
+    });
+  },
+
   clearAllWidgets: async () => {
     // Store original widgets for rollback
     const originalWidgets = get().widgets;
@@ -711,6 +723,8 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
       'diff-viewer': -114,
       'password-manager': -115,
       'custom-user': -116,
+      'reminders': 85,
+      'link-health-dashboard': 57,
     };
 
     const sortedWidgets = [...projectWidgets].sort((a, b) => {
@@ -847,7 +861,8 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
     const layoutSlots = getHarmoniousLayout(count);
 
     const grid: boolean[][] = [];
-    const maxRows = 100;
+    const widgetsToOrganize = sortedWidgets;
+    const maxRows = Math.max(30, Math.ceil(widgetsToOrganize.length * 3) + 10);
     for (let y = 0; y < maxRows; y++) {
       grid[y] = new Array(COLS).fill(false);
     }

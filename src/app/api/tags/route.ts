@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, tags, withRetry, type NewTag, createPaginatedResponse, generateId } from "@/lib/db";
-import { asc, eq, count, isNull } from "drizzle-orm";
+import { asc, eq, count, isNull, and, or } from "drizzle-orm";
 import { paginationSchema, createTagSchema, updateTagSchema, validateRequest } from "@/lib/validations";
 
 // GET all tags with optional pagination
@@ -89,6 +89,25 @@ export async function POST(request: NextRequest) {
     }
 
     const validatedData = validation.data;
+
+    // Check for duplicate tag name (unique index on (userId, name) doesn't work when userId is NULL)
+    const existing = await withRetry(
+      () => db.select({ id: tags.id }).from(tags).where(
+        and(
+          eq(tags.name, validatedData.name),
+          isNull(tags.deletedAt),
+          or(isNull(tags.userId), eq(tags.userId, "default"))
+        )
+      ).limit(1),
+      { operationName: "check duplicate tag name" }
+    );
+
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { error: "Ya existe una etiqueta con ese nombre" },
+        { status: 409 }
+      );
+    }
 
     const newTag: NewTag = {
       id: generateId(),
