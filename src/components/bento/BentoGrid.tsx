@@ -221,7 +221,7 @@ export function BentoGrid({ className }: BentoGridProps) {
     }
 
     return filtered;
-  }, [projectWidgets, activeFilter, deferredSearchQuery, links, linkTags, linkTagMap, linkByIdMap]);
+  }, [projectWidgets, activeFilter, deferredSearchQuery, links, linkTagMap, linkByIdMap]);
 
   // Generate responsive layouts for all breakpoints
   const layouts = useMemo(() => {

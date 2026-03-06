@@ -14,7 +14,6 @@ import {
   Maximize2,
   X,
   LayoutDashboard,
-  Settings,
 } from "lucide-react";
 import { useElectron } from "@/hooks/useElectron";
 import { isTauriWebView } from "@/lib/desktop";

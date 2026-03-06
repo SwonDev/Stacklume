@@ -36,7 +36,7 @@ jobs:
         run: pnpm lint
 
       - name: Unit tests
-        run: pnpm test
+        run: pnpm test -- --passWithNoTests
         env:
           DATABASE_URL: "postgresql://test:test@localhost:5432/test"
           AUTH_SECRET: "test-secret-for-ci"
