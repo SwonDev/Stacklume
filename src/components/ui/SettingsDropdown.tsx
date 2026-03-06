@@ -181,6 +181,13 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
               { id: "slate" as Theme, label: "Pizarra", bg: "#0f121a", accent: "#7da2c0" },
               { id: "crimson" as Theme, label: "Carmesí", bg: "#11080a", accent: "#ef4444" },
               { id: "aurora" as Theme, label: "Aurora", bg: "#060412", accent: "#34d399" },
+              { id: "nordic" as Theme, label: "Nordic", bg: "#2e3440", accent: "#88c0d0" },
+              { id: "catppuccin" as Theme, label: "Catppuccin", bg: "#1e1e2e", accent: "#cba6f7" },
+              { id: "tokyo" as Theme, label: "Tokyo", bg: "#1a1b26", accent: "#7aa2f7" },
+              { id: "rosepine" as Theme, label: "Rosé Pine", bg: "#191724", accent: "#f6c177" },
+              { id: "gruvbox" as Theme, label: "Gruvbox", bg: "#282828", accent: "#d79921" },
+              { id: "solardark" as Theme, label: "Solar Dark", bg: "#002b36", accent: "#268bd2" },
+              { id: "vampire" as Theme, label: "Vampire", bg: "#100e17", accent: "#ff5e5e" },
             ].map((t) => (
               <button
                 key={t.id}
@@ -221,6 +228,10 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates }: Setti
               { id: "sakura" as Theme, label: "Sakura", bg: "#fdf5f5", accent: "#f43f5e" },
               { id: "lavender" as Theme, label: "Lavanda", bg: "#f5f4fc", accent: "#8b5cf6" },
               { id: "mint" as Theme, label: "Menta", bg: "#f3faf4", accent: "#22c55e" },
+              { id: "solarized" as Theme, label: "Solarized", bg: "#fdf6e3", accent: "#268bd2" },
+              { id: "cement" as Theme, label: "Cemento", bg: "#e8e8e8", accent: "#607080" },
+              { id: "stone" as Theme, label: "Piedra", bg: "#f5f2ed", accent: "#8b7355" },
+              { id: "steel" as Theme, label: "Acero", bg: "#f0f4f8", accent: "#4a7fa5" },
             ].map((t) => (
               <button
                 key={t.id}
