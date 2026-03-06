@@ -141,7 +141,10 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       updated_at INTEGER NOT NULL,
       deleted_at INTEGER,
       last_checked_at INTEGER,
-      health_status TEXT
+      health_status TEXT,
+      is_read INTEGER DEFAULT 0,
+      notes TEXT,
+      reminder_at INTEGER
     )`,
     `CREATE INDEX IF NOT EXISTS idx_links_user_id ON links(user_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url)`,
@@ -154,6 +157,8 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
     `CREATE INDEX IF NOT EXISTS idx_links_health_status ON links(health_status)`,
     `CREATE INDEX IF NOT EXISTS idx_links_category_created_at ON links(category_id, created_at)`,
     `CREATE INDEX IF NOT EXISTS idx_links_user_created_at ON links(user_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_links_is_read ON links(is_read)`,
+    `CREATE INDEX IF NOT EXISTS idx_links_user_favorite ON links(user_id, is_favorite)`,
     `CREATE TABLE IF NOT EXISTS tags (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
@@ -277,6 +282,27 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `ALTER TABLE user_settings ADD COLUMN mcp_api_key TEXT`,
       description: "user_settings.mcp_api_key",
+    },
+    // v0.3.18 — Campos de lectura y recordatorio en enlaces
+    {
+      sql: `ALTER TABLE links ADD COLUMN is_read INTEGER DEFAULT 0`,
+      description: "links.is_read",
+    },
+    {
+      sql: `ALTER TABLE links ADD COLUMN notes TEXT`,
+      description: "links.notes",
+    },
+    {
+      sql: `ALTER TABLE links ADD COLUMN reminder_at INTEGER`,
+      description: "links.reminder_at",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_links_is_read ON links(is_read)`,
+      description: "idx_links_is_read",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_links_user_favorite ON links(user_id, is_favorite)`,
+      description: "idx_links_user_favorite",
     },
   ];
 
