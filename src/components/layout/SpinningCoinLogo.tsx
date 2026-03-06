@@ -28,7 +28,8 @@ function CoinModel({ rotationSpeed = 3.5 }: CoinModelProps) {
     groupRef.current.scale.setScalar(scale);
     groupRef.current.position.sub(center.multiplyScalar(scale));
 
-    // Ajustar cámara
+    // Ajustar cámara — mutación directa requerida por Three.js/R3F
+    // eslint-disable-next-line react-hooks/immutability
     (camera as THREE.PerspectiveCamera).fov = 50;
     camera.updateProjectionMatrix();
   }, [camera, scene]);

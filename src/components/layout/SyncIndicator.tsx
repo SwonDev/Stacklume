@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Cloud, CloudOff, Loader2 } from "lucide-react";
+import { CloudOff, Loader2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -31,11 +31,6 @@ export function notifySyncStatus(status: SyncStatus) {
 export function SyncIndicator() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<SyncStatus>("saved");
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   // Suscribirse al sistema de eventos de sincronización
   useEffect(() => {
@@ -60,9 +55,6 @@ export function SyncIndicator() {
       return () => clearTimeout(timer);
     }
   }, [status]);
-
-  // No renderizar antes de la hidratación
-  if (!isMounted) return null;
 
   // En estado "saved" no se muestra nada para no ocupar espacio
   if (status === "saved") return null;

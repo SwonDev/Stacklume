@@ -17,6 +17,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useElectron } from "@/hooks/useElectron";
+import { isTauriWebView } from "@/lib/desktop";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
@@ -58,7 +59,11 @@ interface MenuState {
 export function DesktopContextMenu() {
   const { isTauri, minimizeWindow, maximizeWindow, closeWindow } = useElectron();
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => {
+    const z = isTauriWebView() ? readZoom() : 1;
+    if (isTauriWebView()) document.documentElement.style.zoom = `${z}`;
+    return z;
+  });
   const menuRef = useRef<HTMLDivElement>(null);
 
   const openAddWidgetModal = useWidgetStore((s) => s.openAddWidgetModal);
@@ -66,14 +71,6 @@ export function DesktopContextMenu() {
   const isEditMode = useLayoutStore((s) => s.isEditMode);
   const toggleEditMode = useLayoutStore((s) => s.toggleEditMode);
   const refreshAllData = useLinksStore((s) => s.refreshAllData);
-
-  // Aplicar zoom guardado al montar
-  useEffect(() => {
-    if (!isTauri) return;
-    const z = readZoom();
-    setZoom(z);
-    document.documentElement.style.zoom = `${z}`;
-  }, [isTauri]);
 
   const hideMenu = useCallback(() => {
     setMenu((m) => ({ ...m, visible: false }));
