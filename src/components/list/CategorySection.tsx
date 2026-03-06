@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronRight,
@@ -19,28 +19,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { SortableLinkListItem, LinkListItemContent } from "./LinkListItem";
+import { SortableLinkListItem } from "./LinkListItem";
 import { useListViewStore } from "@/stores/list-view-store";
 import { useSettingsStore } from "@/stores/settings-store";
-import { useLinksStore } from "@/stores/links-store";
 import type { Link, Category, LinkTag } from "@/lib/db/schema";
 
 // dnd-kit imports
+import { useDroppable } from "@dnd-kit/core";
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  DragStartEvent,
-  DragOverlay,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
@@ -49,6 +36,7 @@ interface CategorySectionProps {
   links: Link[];
   linkTags: LinkTag[];
   className?: string;
+  isDragActiveOverThis?: boolean;
 }
 
 // Color mapping for category colors
@@ -82,22 +70,24 @@ export function CategorySection({
   links,
   linkTags,
   className,
+  isDragActiveOverThis = false,
 }: CategorySectionProps) {
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const toggleCategoryCollapsed = useListViewStore((state) => state.toggleCategoryCollapsed);
-  const reorderLinks = useLinksStore((state) => state.reorderLinks);
-
-  // Drag state
-  const [activeLinkId, setActiveLinkId] = useState<string | null>(null);
 
   const categoryId = category?.id || "uncategorized";
+  const droppableId = `droppable-${categoryId}`;
+
+  // Make this section a droppable target for cross-category drag
+  const { setNodeRef, isOver } = useDroppable({
+    id: droppableId,
+  });
 
   // Subscribe directly to the collapsed state for this category
-  // This ensures the component re-renders when collapsedCategories changes
   const isCollapsed = useListViewStore((state) =>
     state.collapsedCategories.includes(categoryId)
   );
-  const categoryName = category?.name || "Sin categoria";
+  const categoryName = category?.name || "Sin categoría";
   const categoryColor = category?.color || "gray";
   const colorClass = categoryColorClasses[categoryColor] || "bg-gray-500";
 
@@ -105,45 +95,6 @@ export function CategorySection({
   const sortedLinks = useMemo(() => {
     return [...links].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [links]);
-
-  // Sensors for drag detection
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Drag handlers
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveLinkId(event.active.id as string);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveLinkId(null);
-
-    if (over && active.id !== over.id) {
-      const oldIndex = sortedLinks.findIndex((l) => l.id === active.id);
-      const newIndex = sortedLinks.findIndex((l) => l.id === over.id);
-      const newOrder = arrayMove(sortedLinks, oldIndex, newIndex);
-      const orderedIds = newOrder.map((l) => l.id);
-      reorderLinks(orderedIds, category?.id || null);
-    }
-  };
-
-  const handleDragCancel = () => {
-    setActiveLinkId(null);
-  };
-
-  // Get active link for overlay
-  const activeLink = activeLinkId
-    ? sortedLinks.find((l) => l.id === activeLinkId)
-    : null;
 
   // Get tag IDs for each link
   const getLinkTagIds = useMemo(() => {
@@ -168,10 +119,22 @@ export function CategorySection({
     navigator.clipboard.writeText(urls);
   };
 
-  if (links.length === 0) return null;
+  // Show drop indicator when dragging over this category from another
+  const showDropIndicator = isDragActiveOverThis || isOver;
+
+  if (links.length === 0 && !isDragActiveOverThis) return null;
 
   return (
-    <div className={cn("border border-border/50 rounded-lg overflow-hidden bg-card/50 group", className)}>
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "border rounded-lg overflow-hidden bg-card/50 group transition-colors duration-200",
+        showDropIndicator
+          ? "border-primary/60 bg-primary/5 ring-1 ring-primary/30"
+          : "border-border/50",
+        className
+      )}
+    >
       {/* Category Header */}
       <div className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
         {/* Clickable area for collapse */}
@@ -220,31 +183,33 @@ export function CategorySection({
         </button>
 
         {/* Actions dropdown - outside the button */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex-shrink-0"
-              title="Mas opciones"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleOpenAll}>
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Abrir todos ({links.length})
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleCopyAllUrls}>
-              <Copy className="w-4 h-4 mr-2" />
-              Copiar todas las URLs
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {links.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex-shrink-0"
+                title="Más opciones"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleOpenAll}>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir todos ({links.length})
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyAllUrls}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar todas las URLs
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
-      {/* Links list with drag and drop */}
+      {/* Links list */}
       <AnimatePresence initial={false}>
         {!isCollapsed && (
           <motion.div
@@ -256,43 +221,36 @@ export function CategorySection({
             className="overflow-hidden"
           >
             <div className="border-t border-border/50">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragCancel={handleDragCancel}
+              <SortableContext
+                items={sortedLinks.map((l) => l.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <SortableContext
-                  items={sortedLinks.map((l) => l.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {sortedLinks.map((link) => (
-                    <SortableLinkListItem
-                      key={link.id}
-                      link={link}
-                      linkTagIds={getLinkTagIds(link.id)}
-                    />
-                  ))}
-                </SortableContext>
+                {sortedLinks.map((link) => (
+                  <SortableLinkListItem
+                    key={link.id}
+                    link={link}
+                    linkTagIds={getLinkTagIds(link.id)}
+                  />
+                ))}
+              </SortableContext>
 
-                <DragOverlay dropAnimation={{
-                  duration: 200,
-                  easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
-                }}>
-                  {activeLink ? (
-                    <LinkListItemContent
-                      link={activeLink}
-                      linkTagIds={getLinkTagIds(activeLink.id)}
-                      isOverlay
-                    />
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
+              {/* Drop zone indicator for empty categories during drag */}
+              {sortedLinks.length === 0 && isDragActiveOverThis && (
+                <div className="flex items-center justify-center py-6 text-sm text-primary/70">
+                  Soltar aquí para mover a esta categoría
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Drop indicator on collapsed categories */}
+      {isCollapsed && showDropIndicator && (
+        <div className="border-t border-primary/30 px-4 py-2 text-xs text-primary/70 text-center">
+          Soltar para mover aquí
+        </div>
+      )}
     </div>
   );
 }
