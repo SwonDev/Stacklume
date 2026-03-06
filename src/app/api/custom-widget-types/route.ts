@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, withRetry, generateId } from "@/lib/db";
 import { customWidgetTypes } from "@/lib/db/schema";
-import { isNull, eq, desc } from "drizzle-orm";
+import { isNull, desc } from "drizzle-orm";
 import { createModuleLogger } from "@/lib/logger";
 import { z } from "zod";
 import { validateRequest } from "@/lib/validations";

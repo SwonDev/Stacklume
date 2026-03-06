@@ -415,7 +415,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
     // así que lo guardamos en el config del widget
     const widget = get().widgets.find((w) => w.id === widgetId);
     if (!widget) return;
-    const isFavorite = !(widget.config as any)?.isFavorite;
+    const isFavorite = !(widget.config as Record<string, unknown>)?.isFavorite;
     get().updateWidget(widgetId, {
       config: { ...(widget.config as object), isFavorite }
     });

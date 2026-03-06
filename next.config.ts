@@ -5,8 +5,6 @@ import { readFileSync } from "fs";
 // Check if building for Electron or Tauri (standalone mode)
 const isDesktopMode = process.env.DESKTOP_MODE === "true";
 const appVersion = JSON.parse(readFileSync("./package.json", "utf-8")).version as string;
-const isElectronBuild = process.env.ELECTRON_BUILD === "true" || isDesktopMode;
-const isProduction = process.env.NODE_ENV === "production";
 
 /**
  * Content Security Policy (CSP) Configuration

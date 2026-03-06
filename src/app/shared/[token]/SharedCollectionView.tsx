@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   FolderOpen,
   Tag,
@@ -279,12 +280,12 @@ export function SharedCollectionView({ token }: SharedCollectionViewProps) {
                 : error.message}
           </p>
           <div className="pt-4">
-            <a
+            <Link
               href="/"
               className="text-sm text-primary hover:underline"
             >
               Ir a Stacklume
-            </a>
+            </Link>
           </div>
         </motion.div>
       </div>
@@ -343,13 +344,13 @@ export function SharedCollectionView({ token }: SharedCollectionViewProps) {
             </div>
 
             {/* Branding */}
-            <a
+            <Link
               href="/"
               className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors flex items-center gap-1.5"
             >
               <span className="hidden sm:inline">Compartido con</span>
               <span className="font-semibold text-foreground/60">Stacklume</span>
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -395,9 +396,9 @@ export function SharedCollectionView({ token }: SharedCollectionViewProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-xs text-muted-foreground/40">
             Colección compartida mediante{" "}
-            <a href="/" className="hover:text-muted-foreground transition-colors">
+            <Link href="/" className="hover:text-muted-foreground transition-colors">
               Stacklume
-            </a>
+            </Link>
           </p>
         </div>
       </footer>

@@ -22,7 +22,6 @@ import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { openExternalUrl } from "@/lib/desktop";
 import { useTranslation } from "@/lib/i18n";
 import {
-  Search,
   Link2,
   FolderOpen,
   Tag,
@@ -39,7 +38,6 @@ import {
   Moon,
   Monitor,
   Palette,
-  Settings,
   ArrowRight,
   X,
   Activity,
