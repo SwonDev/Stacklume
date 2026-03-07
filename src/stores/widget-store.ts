@@ -64,6 +64,9 @@ interface WidgetState {
   // Smart auto-organization (reorganizes + resizes for harmony)
   autoOrganizeWidgets: () => void;
 
+  // Contador que sube con cada auto-organización para forzar remount del grid
+  autoOrganizeVersion: number;
+
   // Project filtering actions
   setCurrentProjectId: (id: string | null) => void;
   getFilteredWidgets: () => Widget[];
@@ -171,6 +174,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
   isLoading: false,
   isInitialized: false,
   currentProjectId: null, // Start with Home view
+  autoOrganizeVersion: 0,
 
   // Initialize widgets from database
   initWidgets: async () => {
@@ -517,6 +521,19 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
     const COLS = useSettingsStore.getState().gridColumns || 12;
 
+    // Calcular el máximo de filas que caben en el viewport para evitar scroll vertical
+    const viewDensityValue = useSettingsStore.getState().viewDensity || 'normal';
+    const rowConfigs = {
+      compact:     { rowHeight: 80,  margin: 6  },
+      normal:      { rowHeight: 100, margin: 8  },
+      comfortable: { rowHeight: 120, margin: 12 },
+    };
+    const { rowHeight: rh, margin: mg } =
+      rowConfigs[viewDensityValue as keyof typeof rowConfigs] ?? rowConfigs.normal;
+    // Descontar ~80px de header + padding; usar 900 como fallback seguro
+    const viewportH = (typeof window !== 'undefined' ? window.innerHeight : 900) - 80;
+    const maxTotalRows = Math.max(4, Math.floor(viewportH / (rh + mg)));
+
     const typePriority: Record<WidgetType, number> = {
       'favorites': 100,
       'recent': 90,
@@ -728,11 +745,22 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
     }
 
     const getHarmoniousLayout = (widgetCount: number): LayoutSlot[] => {
-      // Dynamic helpers based on actual COLS
       const half = Math.floor(COLS / 2);
 
-      // Build row helper: distribute COLS evenly among `perRow` widgets
-      const row = (perRow: number, h: number, size: WidgetSize): LayoutSlot[] => {
+      // Nº de filas que usa cada patrón (para calcular h dinámico)
+      const numRowsForCount: Record<number, number> = {
+        1: 1, 2: 1, 3: 1,
+        4: 2, 5: 2, 6: 2, 7: 2, 8: 2,
+        9: 3, 10: 3, 12: 3,
+        11: 4,
+      };
+      const numRows = numRowsForCount[widgetCount] ?? Math.ceil(widgetCount / 4);
+
+      // h que hace que todo quepa en el viewport: clampado entre 2 y 4
+      const h = Math.min(4, Math.max(2, Math.floor(maxTotalRows / numRows)));
+
+      // Helper: fila de `perRow` widgets distribuidos sobre COLS columnas
+      const row = (perRow: number, size: WidgetSize = 'medium'): LayoutSlot[] => {
         const base = Math.floor(COLS / perRow);
         const remainder = COLS % perRow;
         return Array.from({ length: perRow }, (_, i) => ({
@@ -743,65 +771,42 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
       };
 
       const patterns: Record<number, LayoutSlot[]> = {
-        1: [{ w: half, h: 4, size: 'large' }],
-        2: [
-          { w: half, h: 3, size: 'wide' },
-          { w: COLS - half, h: 3, size: 'wide' },
-        ],
-        3: row(3, 3, 'medium'),
-        4: [
-          ...row(2, 3, 'wide'),
-          ...row(2, 3, 'wide'),
-        ],
-        5: [
-          ...row(3, 3, 'medium'),
-          ...row(2, 3, 'wide'),
-        ],
-        6: [
-          ...row(3, 3, 'medium'),
-          ...row(3, 3, 'medium'),
-        ],
-        7: [
-          ...row(3, 3, 'medium'),
-          ...row(4, 3, 'medium'),
-        ],
-        8: [
-          ...row(4, 3, 'medium'),
-          ...row(4, 3, 'medium'),
-        ],
-        9: [
-          ...row(3, 3, 'medium'),
-          ...row(3, 3, 'medium'),
-          ...row(3, 3, 'medium'),
-        ],
-        10: [
-          ...row(3, 3, 'medium'),
-          ...row(3, 3, 'medium'),
-          ...row(4, 3, 'medium'),
-        ],
-        11: [
-          ...row(3, 3, 'medium'),
-          ...row(3, 3, 'medium'),
-          ...row(3, 3, 'medium'),
-          ...row(2, 2, 'wide'),
-        ],
-        12: [
-          ...row(4, 3, 'medium'),
-          ...row(4, 3, 'medium'),
-          ...row(4, 3, 'medium'),
-        ],
+        1:  [{ w: half, h, size: 'large' }],
+        2:  [{ w: half, h, size: 'wide' }, { w: COLS - half, h, size: 'wide' }],
+        3:  row(3),
+        4:  [...row(2, 'wide'), ...row(2, 'wide')],
+        5:  [...row(3), ...row(2, 'wide')],
+        6:  [...row(3), ...row(3)],
+        7:  [...row(3), ...row(4)],
+        8:  [...row(4), ...row(4)],
+        9:  [...row(3), ...row(3), ...row(3)],
+        10: [...row(3), ...row(3), ...row(4)],
+        11: [...row(3), ...row(3), ...row(3), ...row(2, 'wide')],
+        12: [...row(4), ...row(4), ...row(4)],
       };
 
       if (widgetCount <= 12 && patterns[widgetCount]) {
         return patterns[widgetCount];
       }
 
-      // For >12 widgets: fill rows of ~4, distributing COLS evenly
+      // Para >12 widgets: 4 por fila, mismo h calculado
+      const numRowsExtra = Math.ceil(widgetCount / 4);
+      const hExtra = Math.min(4, Math.max(2, Math.floor(maxTotalRows / numRowsExtra)));
+      const rowExtra = (perRow: number): LayoutSlot[] => {
+        const base = Math.floor(COLS / perRow);
+        const rem = COLS % perRow;
+        return Array.from({ length: perRow }, (_, i) => ({
+          w: base + (i < rem ? 1 : 0),
+          h: hExtra,
+          size: 'medium' as WidgetSize,
+        }));
+      };
+
       const slots: LayoutSlot[] = [];
       let remaining = widgetCount;
       while (remaining > 0) {
         const perRow = Math.min(remaining, 4);
-        slots.push(...row(perRow, 3, 'medium'));
+        slots.push(...rowExtra(perRow));
         remaining -= perRow;
       }
 
@@ -871,7 +876,8 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
     const allOrganizedWidgets = [...organizedProjectWidgets, ...otherProjectWidgets];
 
-    set({ widgets: allOrganizedWidgets });
+    // Incrementar versión para forzar remount del grid en BentoGrid
+    set({ widgets: allOrganizedWidgets, autoOrganizeVersion: get().autoOrganizeVersion + 1 });
 
     // Save to DB (only the organized project widgets)
     const layouts = organizedProjectWidgets.map(w => ({

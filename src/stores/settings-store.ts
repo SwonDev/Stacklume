@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useListViewStore } from "@/stores/list-view-store";
+import type { SortBy } from "@/stores/list-view-store";
 
 /**
  * Helper to make API requests with CSRF token retry logic.
@@ -196,6 +198,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
   setDefaultSortField: async (defaultSortField) => {
     set({ defaultSortField });
+    // Sync to list-view-store (skip "order" which doesn't exist there)
+    if (defaultSortField !== "order") {
+      useListViewStore.getState().setSortBy(defaultSortField as SortBy);
+    }
     try {
       await fetchWithCsrfRetry("/api/settings", {
         method: "PUT",
@@ -208,6 +214,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
   setDefaultSortOrder: async (defaultSortOrder) => {
     set({ defaultSortOrder });
+    // Sync to list-view-store
+    useListViewStore.getState().setSortOrder(defaultSortOrder);
     try {
       await fetchWithCsrfRetry("/api/settings", {
         method: "PUT",

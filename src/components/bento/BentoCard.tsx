@@ -63,6 +63,7 @@ import { WidgetErrorBoundary } from "@/components/providers/ErrorBoundary";
 import { WidgetContextMenu } from "@/components/widgets/WidgetContextMenu";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
+import { useSettingsStore } from "@/stores/settings-store";
 
 interface BentoCardProps {
   widget: Widget;
@@ -124,6 +125,18 @@ const LinkItem = memo(function LinkItem({
 }: LinkItemProps) {
   const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
+  const thumbnailSize = useSettingsStore((state) => state.thumbnailSize);
+  const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
+  const showThumbnail = thumbnailSize !== "none";
+
+  // Thumbnail size classes based on setting
+  const thumbSizeClass =
+    thumbnailSize === "small"
+      ? "w-5 h-5 @[160px]:w-6 @[160px]:h-6 @[200px]:w-7 @[200px]:h-7 @[280px]:w-7 @[280px]:h-7"
+      : thumbnailSize === "large"
+        ? "w-8 h-8 @[160px]:w-9 @[160px]:h-9 @[200px]:w-11 @[200px]:h-11 @[280px]:w-12 @[280px]:h-12"
+        : "w-6 h-6 @[160px]:w-7 @[160px]:h-7 @[200px]:w-8 @[200px]:h-8 @[280px]:w-9 @[280px]:h-9"; // medium (default)
+
   const hostname = useMemo(() => {
     try {
       return new URL(url).hostname.replace("www.", "");
@@ -147,7 +160,7 @@ const LinkItem = memo(function LinkItem({
   return (
     <motion.a
       href={isEditMode ? undefined : url}
-      target={isEditMode ? undefined : "_blank"}
+      target={isEditMode ? undefined : (linkClickBehavior === "same-tab" ? "_self" : "_blank")}
       rel={isEditMode ? undefined : "noopener noreferrer"}
       onClick={handleClick}
       className={cn(
@@ -160,45 +173,44 @@ const LinkItem = memo(function LinkItem({
       )}
       whileHover={hoverAnimation}
     >
-      {/* Favicon or Image - Responsive sizing */}
-      <div className={cn(
-        "flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center",
-        "w-6 h-6 @[160px]:w-7 @[160px]:h-7 @[200px]:w-8 @[200px]:h-8 @[280px]:w-9 @[280px]:h-9"
-      )}>
-        {imageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={imageUrl}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-        ) : null}
-        {faviconUrl && !imageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={faviconUrl}
-            alt=""
-            className={cn(
-              "w-3 h-3 @[160px]:w-3.5 @[160px]:h-3.5 @[200px]:w-4 @[200px]:h-4"
-            )}
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-        ) : null}
-        <ExternalLink className={cn(
-          "text-muted-foreground",
-          "w-2.5 h-2.5 @[160px]:w-3 @[160px]:h-3 @[200px]:w-3.5 @[200px]:h-3.5",
-          (imageUrl || faviconUrl) && "hidden"
-        )} />
-      </div>
+      {/* Favicon or Image - Size controlled by thumbnailSize setting */}
+      {showThumbnail && (
+        <div className={cn(
+          "flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center",
+          thumbSizeClass
+        )}>
+          {imageUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={imageUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          {faviconUrl && !imageUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={faviconUrl}
+              alt=""
+              className="w-1/2 h-1/2 object-contain"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <ExternalLink className={cn(
+            "text-muted-foreground w-1/3 h-1/3",
+            (imageUrl || faviconUrl) && "hidden"
+          )} />
+        </div>
+      )}
 
       {/* Content - Adaptive visibility */}
       <div className="flex-1 min-w-0">
@@ -278,22 +290,6 @@ const LinkItem = memo(function LinkItem({
         )} />
       )}
     </motion.a>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison function for memo
-  // Only re-render if these specific props change
-  return (
-    prevProps.id === nextProps.id &&
-    prevProps.title === nextProps.title &&
-    prevProps.description === nextProps.description &&
-    prevProps.url === nextProps.url &&
-    prevProps.imageUrl === nextProps.imageUrl &&
-    prevProps.faviconUrl === nextProps.faviconUrl &&
-    prevProps.isFavorite === nextProps.isFavorite &&
-    prevProps.isEditMode === nextProps.isEditMode &&
-    prevProps.isThemed === nextProps.isThemed
-    // Note: onEdit callback is intentionally excluded as it's recreated on each render
-    // but the underlying behavior doesn't change
   );
 });
 
