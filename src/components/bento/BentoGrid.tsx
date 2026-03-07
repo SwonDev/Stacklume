@@ -43,6 +43,7 @@ export function BentoGrid({ className }: BentoGridProps) {
   const linkTags = useLinksStore((state) => state.linkTags);
   const viewDensity = useSettingsStore((state) => state.viewDensity);
   const gridColumns = useSettingsStore((state) => state.gridColumns);
+  const sidebarAlwaysVisible = useSettingsStore((state) => state.sidebarAlwaysVisible);
   const [mounted, setMounted] = useState(false);
   const [currentBreakpoint, setCurrentBreakpoint] = useState<Breakpoint>("lg");
 
@@ -82,6 +83,16 @@ export function BentoGrid({ className }: BentoGridProps) {
     });
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Cuando la sidebar fija se activa/desactiva, el contenedor del grid cambia de ancho
+  // por el pl-72 aplicado en AppShell. WidthProvider solo escucha window.resize,
+  // no cambios de padding CSS, así que forzamos un resize event tras el reflow del DOM.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [sidebarAlwaysVisible]);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
