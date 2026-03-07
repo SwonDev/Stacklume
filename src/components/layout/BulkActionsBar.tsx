@@ -120,7 +120,7 @@ export function BulkActionsBar() {
 
   return (
     <AnimatePresence>
-      {isSelecting && count > 0 && (
+      {isSelecting && (
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -131,7 +131,7 @@ export function BulkActionsBar() {
           aria-label="Acciones en lote"
         >
           <span className="text-sm font-medium mr-2 whitespace-nowrap">
-            {count} seleccionado{count > 1 ? "s" : ""}
+            {count > 0 ? `${count} seleccionado${count > 1 ? "s" : ""}` : "Seleccionar enlaces"}
           </span>
 
           <div className="flex items-center gap-1">
@@ -152,6 +152,8 @@ export function BulkActionsBar() {
               </TooltipContent>
             </Tooltip>
 
+            {/* Acciones que requieren selección */}
+            {count > 0 && (<>
             {/* Marcar como favoritos */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -219,6 +221,7 @@ export function BulkActionsBar() {
                 <p>Eliminar</p>
               </TooltipContent>
             </Tooltip>
+            </>)}
           </div>
 
           {/* Cancelar */}
