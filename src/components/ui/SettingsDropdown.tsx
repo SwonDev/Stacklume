@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, ExternalLink, Trash2, MessageSquare, Zap, Volume2, VolumeX,
   ArrowUpDown, Eye, EyeOff, Copy, RefreshCw, BookOpen, CheckCircle2,
   AlertCircle, Loader2, Cloud, HardDrive, Plug, ArrowUpCircle, HelpCircle,
-  Activity, Download, List,
+  Activity, Download, List, Keyboard,
 } from "lucide-react";
 import { isTauriWebView } from "@/lib/desktop";
 import { ONBOARDING_STORAGE_KEY } from "@/components/onboarding/OnboardingTour";
@@ -77,6 +77,7 @@ const CATEGORIES = [
   { id: "preferencias",labelKey: "settings.preferences", descKey: "settings.preferencesDesc", icon: SlidersHorizontal,color: "text-violet-500", bg: "bg-violet-500/10" },
   { id: "backups",     labelKey: "settings.backups",     descKey: "settings.backupsDesc",     icon: Save,             color: "text-teal-500",   bg: "bg-teal-500/10"   },
   { id: "herramientas",labelKey: "settings.tools",       descKey: "settings.toolsDesc",       icon: Wrench,           color: "text-green-500",  bg: "bg-green-500/10"  },
+  { id: "atajos",      labelKey: "settings.shortcuts",   descKey: "settings.shortcutsDesc",   icon: Keyboard,         color: "text-yellow-500", bg: "bg-yellow-500/10" },
   { id: "mcp",         labelKey: "settings.mcp",         descKey: "settings.mcpDesc",         icon: Plug,             color: "text-cyan-500",   bg: "bg-cyan-500/10"   },
   { id: "sistema",     labelKey: "settings.system",      descKey: "settings.systemDesc",      icon: Database,         color: "text-orange-500", bg: "bg-orange-500/10" },
 ] as const;
@@ -91,37 +92,72 @@ function ThemeSwatch({ themes, storedTheme, onSelect, light }: {
   light?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5">
-      {themes.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => onSelect(t.id as Theme)}
-          title={t.label}
-          className={cn(
-            "flex flex-col items-center gap-0.5 p-1 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            storedTheme === t.id && "ring-2 ring-primary ring-offset-1 ring-offset-background"
-          )}
-        >
-          <div
-            className={cn("w-full aspect-[5/4] rounded-md relative overflow-hidden", light && "border border-border/40")}
-            style={{ backgroundColor: t.bg }}
-          >
-            <div
-              className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full"
-              style={{
-                backgroundColor: t.accent,
-                ...(light ? {} : { borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", borderStyle: "solid" }),
-              }}
-            />
-            {storedTheme === t.id && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                <Check className="w-3 h-3 text-white drop-shadow" />
-              </div>
+    <div className="grid grid-cols-4 gap-2">
+      {themes.map((t) => {
+        const isSelected = storedTheme === t.id;
+        const lo = light ? "rgba(0,0,0," : "rgba(255,255,255,";
+        return (
+          <button
+            key={t.id}
+            onClick={() => onSelect(t.id as Theme)}
+            title={t.label}
+            className={cn(
+              "flex flex-col items-center gap-1 p-1.5 rounded-xl transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              isSelected
+                ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                : "hover:bg-secondary/60"
             )}
-          </div>
-          <span className="text-[9px] text-muted-foreground leading-none truncate w-full text-center">{t.label}</span>
-        </button>
-      ))}
+          >
+            {/* Mini UI preview */}
+            <div
+              className={cn("w-full aspect-[5/4] rounded-lg overflow-hidden relative", light && "border border-black/10")}
+              style={{ backgroundColor: t.bg }}
+            >
+              {/* Sidebar strip */}
+              <div
+                className="absolute left-0 top-0 bottom-0"
+                style={{ width: "27%", backgroundColor: `${lo}0.06)`, borderRight: `1px solid ${t.accent}28` }}
+              />
+              {/* Sidebar active item */}
+              <div className="absolute rounded-sm" style={{ left: "4%", top: "17%", width: "17%", height: "7%", backgroundColor: t.accent, opacity: 0.95 }} />
+              {/* Sidebar inactive items */}
+              <div className="absolute rounded-sm" style={{ left: "4%", top: "29%", width: "15%", height: "5%", backgroundColor: `${lo}0.22)` }} />
+              <div className="absolute rounded-sm" style={{ left: "4%", top: "38%", width: "13%", height: "5%", backgroundColor: `${lo}0.16)` }} />
+              <div className="absolute rounded-sm" style={{ left: "4%", top: "47%", width: "16%", height: "5%", backgroundColor: `${lo}0.12)` }} />
+
+              {/* Header */}
+              <div
+                className="absolute right-0 top-0"
+                style={{ left: "27%", height: "17%", backgroundColor: `${lo}0.03)`, borderBottom: `1px solid ${lo}0.07)` }}
+              />
+              {/* Header accent button */}
+              <div className="absolute rounded-sm" style={{ right: "5%", top: "4%", width: "14%", height: "9%", backgroundColor: t.accent, opacity: 0.9 }} />
+
+              {/* Content cards */}
+              <div className="absolute rounded-sm" style={{ left: "31%", top: "23%", right: "5%", height: "19%", backgroundColor: `${lo}0.08)` }} />
+              {/* Accent dot in first card */}
+              <div className="absolute rounded-full" style={{ left: "34%", top: "28%", width: "7%", height: "9%", backgroundColor: t.accent, opacity: 0.8 }} />
+              <div className="absolute rounded-sm" style={{ left: "31%", top: "47%", right: "5%", height: "14%", backgroundColor: `${lo}0.06)` }} />
+              <div className="absolute rounded-sm" style={{ left: "31%", top: "66%", right: "5%", height: "14%", backgroundColor: `${lo}0.04)` }} />
+
+              {/* Selection overlay */}
+              {isSelected && (
+                <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: `${t.accent}20` }}>
+                  <div className="rounded-full flex items-center justify-center shadow-sm" style={{ width: 18, height: 18, backgroundColor: t.accent }}>
+                    <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+                  </div>
+                </div>
+              )}
+            </div>
+            <span className={cn(
+              "text-[9px] leading-none truncate w-full text-center transition-colors",
+              isSelected ? "text-primary font-semibold" : "text-muted-foreground"
+            )}>
+              {t.label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -743,6 +779,75 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
               </button>
+            ))}
+          </div>
+        );
+      }
+
+      case "atajos": {
+        const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+        const mod = isMac ? "⌘" : "Ctrl";
+
+        const shortcutGroups = [
+          {
+            titleKey: "settings.shortcutsGlobal",
+            shortcuts: [
+              { keys: `${mod} + K`, descKey: "settings.shortcutSearch" },
+              { keys: `${mod} + N`, descKey: "settings.shortcutNewLink" },
+              { keys: `${mod} + Z`, descKey: "settings.shortcutUndo" },
+              { keys: `${mod} + Shift + Z`, descKey: "settings.shortcutRedo" },
+              { keys: "Escape", descKey: "settings.shortcutEscape" },
+            ],
+          },
+          {
+            titleKey: "settings.shortcutsKanban",
+            shortcuts: [
+              { keys: `${mod} + M`, descKey: "settings.shortcutManageColumns" },
+              { keys: `${mod} + J`, descKey: "settings.shortcutCollapseToggle" },
+              { keys: `${mod} + Shift + C`, descKey: "settings.shortcutNewColumn" },
+              { keys: `${mod} + Shift + N`, descKey: "settings.shortcutNewWidget" },
+              { keys: "/", descKey: "settings.shortcutFocusSearch" },
+              { keys: "N", descKey: "settings.shortcutQuickWidget" },
+              { keys: "C", descKey: "settings.shortcutQuickColumn" },
+            ],
+          },
+          {
+            titleKey: "settings.shortcutsBento",
+            shortcuts: [
+              { keys: "Space / Enter", descKey: "settings.shortcutDragMode" },
+              { keys: "← → ↑ ↓", descKey: "settings.shortcutMoveWidget" },
+              { keys: "Home / End", descKey: "settings.shortcutMoveEdge" },
+              { keys: "PgUp / PgDn", descKey: "settings.shortcutMove5Rows" },
+              { keys: "Escape", descKey: "settings.shortcutCancelDrag" },
+            ],
+          },
+          {
+            titleKey: "settings.shortcutsOnboarding",
+            shortcuts: [
+              { keys: "← →", descKey: "settings.shortcutOnboardingNav" },
+              { keys: "Escape", descKey: "settings.shortcutSkipTour" },
+            ],
+          },
+        ];
+
+        return (
+          <div className="p-3 space-y-3">
+            {shortcutGroups.map(({ titleKey, shortcuts }) => (
+              <div key={titleKey}>
+                <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wider mb-1.5">
+                  {t(titleKey)}
+                </p>
+                <div className="space-y-0.5">
+                  {shortcuts.map(({ keys, descKey }) => (
+                    <div key={descKey} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-muted/30 transition-colors">
+                      <span className="text-xs text-foreground/80">{t(descKey)}</span>
+                      <kbd className="ml-2 shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted border border-border/50 text-muted-foreground">
+                        {keys}
+                      </kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         );

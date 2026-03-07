@@ -4,6 +4,7 @@ import type { Widget, WidgetType, WidgetSize } from "@/types/widget";
 import { WIDGET_SIZE_PRESETS, WIDGET_TYPE_METADATA, getDefaultWidgetConfig } from "@/types/widget";
 import type { Layout } from "react-grid-layout";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useSettingsStore } from "@/stores/settings-store";
 
 /**
  * Helper to make API requests with CSRF token retry logic.
@@ -514,7 +515,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
     if (projectWidgets.length === 0) return;
 
-    const COLS = 12;
+    const COLS = useSettingsStore.getState().gridColumns || 12;
 
     const typePriority: Record<WidgetType, number> = {
       'favorites': 100,
@@ -727,106 +728,67 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
     }
 
     const getHarmoniousLayout = (widgetCount: number): LayoutSlot[] => {
+      // Dynamic helpers based on actual COLS
+      const half = Math.floor(COLS / 2);
+
+      // Build row helper: distribute COLS evenly among `perRow` widgets
+      const row = (perRow: number, h: number, size: WidgetSize): LayoutSlot[] => {
+        const base = Math.floor(COLS / perRow);
+        const remainder = COLS % perRow;
+        return Array.from({ length: perRow }, (_, i) => ({
+          w: base + (i < remainder ? 1 : 0),
+          h,
+          size,
+        }));
+      };
+
       const patterns: Record<number, LayoutSlot[]> = {
-        1: [{ w: 6, h: 4, size: 'large' }],
+        1: [{ w: half, h: 4, size: 'large' }],
         2: [
-          { w: 6, h: 3, size: 'wide' },
-          { w: 6, h: 3, size: 'wide' },
+          { w: half, h: 3, size: 'wide' },
+          { w: COLS - half, h: 3, size: 'wide' },
         ],
-        3: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-        ],
+        3: row(3, 3, 'medium'),
         4: [
-          { w: 6, h: 3, size: 'wide' },
-          { w: 6, h: 3, size: 'wide' },
-          { w: 6, h: 3, size: 'wide' },
-          { w: 6, h: 3, size: 'wide' },
+          ...row(2, 3, 'wide'),
+          ...row(2, 3, 'wide'),
         ],
         5: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 6, h: 3, size: 'wide' },
-          { w: 6, h: 3, size: 'wide' },
+          ...row(3, 3, 'medium'),
+          ...row(2, 3, 'wide'),
         ],
         6: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
+          ...row(3, 3, 'medium'),
+          ...row(3, 3, 'medium'),
         ],
         7: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
+          ...row(3, 3, 'medium'),
+          ...row(4, 3, 'medium'),
         ],
         8: [
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
+          ...row(4, 3, 'medium'),
+          ...row(4, 3, 'medium'),
         ],
         9: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
+          ...row(3, 3, 'medium'),
+          ...row(3, 3, 'medium'),
+          ...row(3, 3, 'medium'),
         ],
         10: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
+          ...row(3, 3, 'medium'),
+          ...row(3, 3, 'medium'),
+          ...row(4, 3, 'medium'),
         ],
         11: [
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 4, h: 3, size: 'medium' },
-          { w: 6, h: 2, size: 'wide' },
-          { w: 6, h: 2, size: 'wide' },
+          ...row(3, 3, 'medium'),
+          ...row(3, 3, 'medium'),
+          ...row(3, 3, 'medium'),
+          ...row(2, 2, 'wide'),
         ],
         12: [
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
-          { w: 3, h: 3, size: 'medium' },
+          ...row(4, 3, 'medium'),
+          ...row(4, 3, 'medium'),
+          ...row(4, 3, 'medium'),
         ],
       };
 
@@ -834,12 +796,13 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
         return patterns[widgetCount];
       }
 
+      // For >12 widgets: fill rows of ~4, distributing COLS evenly
       const slots: LayoutSlot[] = [];
-      const widgetsPerRow = Math.ceil(widgetCount / Math.ceil(widgetCount / 4));
-      const widthPerWidget = Math.floor(COLS / widgetsPerRow);
-
-      for (let i = 0; i < widgetCount; i++) {
-        slots.push({ w: widthPerWidget, h: 3, size: 'medium' });
+      let remaining = widgetCount;
+      while (remaining > 0) {
+        const perRow = Math.min(remaining, 4);
+        slots.push(...row(perRow, 3, 'medium'));
+        remaining -= perRow;
       }
 
       return slots;

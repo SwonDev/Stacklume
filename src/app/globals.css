@@ -993,6 +993,34 @@
     @apply bg-background text-foreground;
   }
 
+  /* ── Scrollbar global — se adapta al tema activo via CSS variables ── */
+  html {
+    scrollbar-color: var(--primary) var(--secondary);
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: var(--secondary);
+  }
+
   /* Dark mode as default */
   html {
     color-scheme: dark;
@@ -1020,12 +1048,11 @@
   }
 }
 
-/* Custom scrollbar for the bento grid items */
+/* Custom scrollbar para elementos específicos (bento grid, widgets, etc.) */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    /* Color dorado hardcoded para mantener consistencia en todos los temas oscuros */
-    scrollbar-color: oklch(0.75 0.14 85) oklch(0.20 0.04 250);
+    scrollbar-color: var(--primary) var(--secondary);
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -1034,66 +1061,17 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: oklch(0.20 0.04 250);
+    background: var(--secondary);
     border-radius: 3px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: oklch(0.75 0.14 85);
+    background: var(--primary);
     border-radius: 3px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.82 0.12 85);
-  }
-
-  /* Scrollbar para temas claros (dorado sobre crema) */
-  .light .scrollbar-thin,
-  .solarized .scrollbar-thin,
-  .arctic .scrollbar-thin,
-  .sakura .scrollbar-thin,
-  .lavender .scrollbar-thin,
-  .mint .scrollbar-thin,
-  .cement .scrollbar-thin,
-  .stone .scrollbar-thin,
-  .steel .scrollbar-thin {
-    scrollbar-color: oklch(0.65 0.16 80) oklch(0.92 0.01 80);
-  }
-
-  .light .scrollbar-thin::-webkit-scrollbar-track,
-  .solarized .scrollbar-thin::-webkit-scrollbar-track,
-  .arctic .scrollbar-thin::-webkit-scrollbar-track,
-  .sakura .scrollbar-thin::-webkit-scrollbar-track,
-  .lavender .scrollbar-thin::-webkit-scrollbar-track,
-  .mint .scrollbar-thin::-webkit-scrollbar-track,
-  .cement .scrollbar-thin::-webkit-scrollbar-track,
-  .stone .scrollbar-thin::-webkit-scrollbar-track,
-  .steel .scrollbar-thin::-webkit-scrollbar-track {
-    background: oklch(0.92 0.01 80);
-  }
-
-  .light .scrollbar-thin::-webkit-scrollbar-thumb,
-  .solarized .scrollbar-thin::-webkit-scrollbar-thumb,
-  .arctic .scrollbar-thin::-webkit-scrollbar-thumb,
-  .sakura .scrollbar-thin::-webkit-scrollbar-thumb,
-  .lavender .scrollbar-thin::-webkit-scrollbar-thumb,
-  .mint .scrollbar-thin::-webkit-scrollbar-thumb,
-  .cement .scrollbar-thin::-webkit-scrollbar-thumb,
-  .stone .scrollbar-thin::-webkit-scrollbar-thumb,
-  .steel .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: oklch(0.65 0.16 80);
-  }
-
-  .light .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .solarized .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .arctic .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .sakura .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .lavender .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .mint .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .cement .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .stone .scrollbar-thin::-webkit-scrollbar-thumb:hover,
-  .steel .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.70 0.14 85);
+    background: var(--accent);
   }
 
   /* Hidden scrollbar - keeps scroll functionality but hides the bar */
@@ -1280,6 +1258,12 @@
 .react-grid-item.resizing {
   z-index: 10;
   will-change: width, height;
+  transition: none !important;
+}
+
+.react-grid-item.resizing > div {
+  pointer-events: none;
+  contain: strict;
 }
 
 .react-grid-item.react-draggable-dragging {

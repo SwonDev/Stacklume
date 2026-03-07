@@ -68,6 +68,8 @@ export function BentoGrid({ className }: BentoGridProps) {
 
   // Track if we're in the middle of a user-initiated drag/resize
   const isUserInteracting = useRef(false);
+  // Track whether the current interaction is a resize (skip intermediate saves)
+  const isResizing = useRef(false);
   // Track the last saved layout to avoid duplicate saves
   const lastSavedLayoutRef = useRef<string>("");
 
@@ -210,11 +212,11 @@ export function BentoGrid({ className }: BentoGridProps) {
     return generateResponsiveLayouts(filteredWidgets);
   }, [filteredWidgets]);
 
-  // Handle layout changes from user interaction (drag/resize)
+  // Handle layout changes from user interaction (drag only — resize saves in handleResizeStop)
   const handleLayoutChange = useCallback(
     (currentLayout: Layout[], allLayouts: { [key: string]: Layout[] }) => {
-      // Only save if user is actively interacting (in edit mode and dragging/resizing)
-      if (!isEditMode || !isUserInteracting.current) return;
+      // Only save if user is actively dragging (not resizing — resize saves on stop)
+      if (!isEditMode || !isUserInteracting.current || isResizing.current) return;
 
       // Get the layout for the current breakpoint
       const layoutToSave = allLayouts[currentBreakpoint] || currentLayout;
@@ -280,15 +282,17 @@ export function BentoGrid({ className }: BentoGridProps) {
     [isEditMode, announcements]
   );
 
-  // Handle resize start
+  // Handle resize start — mark resizing to skip intermediate layout saves
   const handleResizeStart = useCallback(() => {
     isUserInteracting.current = true;
+    isResizing.current = true;
   }, []);
 
-  // Handle resize stop
+  // Handle resize stop — save final layout
   const handleResizeStop = useCallback(
     (layout: Layout[]) => {
       isUserInteracting.current = false;
+      isResizing.current = false;
 
       if (!isEditMode) return;
 

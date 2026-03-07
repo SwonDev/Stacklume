@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 export type SortBy = "createdAt" | "title" | "updatedAt";
 export type SortOrder = "asc" | "desc";
+export type CategorySortBy = "manual" | "alphabetical" | "linkCount" | "lastUsed";
 
 interface ListViewState {
   // Hydration state
@@ -16,11 +17,17 @@ interface ListViewState {
   expandAll: () => void;
   isCategoryCollapsed: (categoryId: string) => boolean;
 
-  // Sort options
+  // Sort options (links)
   sortBy: SortBy;
   sortOrder: SortOrder;
   setSortBy: (sort: SortBy) => void;
   setSortOrder: (order: SortOrder) => void;
+
+  // Sort options (categories)
+  categorySortBy: CategorySortBy;
+  categorySortOrder: SortOrder;
+  setCategorySortBy: (sort: CategorySortBy) => void;
+  setCategorySortOrder: (order: SortOrder) => void;
 
   // Local search (supplements global search)
   localSearchQuery: string;
@@ -33,6 +40,10 @@ interface ListViewState {
   // Group uncategorized links
   showUncategorized: boolean;
   setShowUncategorized: (show: boolean) => void;
+
+  // Position of uncategorized section among sorted categories (index in combined list)
+  uncategorizedPosition: number;
+  setUncategorizedPosition: (pos: number) => void;
 }
 
 export const useListViewStore = create<ListViewState>()(
@@ -46,9 +57,12 @@ export const useListViewStore = create<ListViewState>()(
       collapsedCategories: [],
       sortBy: "createdAt",
       sortOrder: "desc",
+      categorySortBy: "manual",
+      categorySortOrder: "asc",
       localSearchQuery: "",
       showEmptyCategories: false,
       showUncategorized: true,
+      uncategorizedPosition: 9999,
 
       // Toggle category collapsed state
       toggleCategoryCollapsed: (categoryId: string) => {
@@ -87,6 +101,16 @@ export const useListViewStore = create<ListViewState>()(
         set({ sortOrder });
       },
 
+      // Set category sort field
+      setCategorySortBy: (categorySortBy: CategorySortBy) => {
+        set({ categorySortBy });
+      },
+
+      // Set category sort order
+      setCategorySortOrder: (categorySortOrder: SortOrder) => {
+        set({ categorySortOrder });
+      },
+
       // Set local search query
       setLocalSearchQuery: (localSearchQuery: string) => {
         set({ localSearchQuery });
@@ -101,6 +125,11 @@ export const useListViewStore = create<ListViewState>()(
       setShowUncategorized: (showUncategorized: boolean) => {
         set({ showUncategorized });
       },
+
+      // Set uncategorized position
+      setUncategorizedPosition: (uncategorizedPosition: number) => {
+        set({ uncategorizedPosition });
+      },
     }),
     {
       name: "stacklume-list-view",
@@ -109,11 +138,53 @@ export const useListViewStore = create<ListViewState>()(
         collapsedCategories: state.collapsedCategories,
         sortBy: state.sortBy,
         sortOrder: state.sortOrder,
+        categorySortBy: state.categorySortBy,
+        categorySortOrder: state.categorySortOrder,
         showEmptyCategories: state.showEmptyCategories,
         showUncategorized: state.showUncategorized,
+        uncategorizedPosition: state.uncategorizedPosition,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        if (state) {
+          // Validate rehydrated state fields
+          if (!Array.isArray(state.collapsedCategories)) {
+            state.collapsedCategories = [];
+          } else {
+            state.collapsedCategories = state.collapsedCategories.filter(
+              (id): id is string => typeof id === "string"
+            );
+          }
+
+          const validSortBy: SortBy[] = ["createdAt", "title", "updatedAt"];
+          if (!validSortBy.includes(state.sortBy as SortBy)) {
+            state.sortBy = "createdAt";
+          }
+
+          const validSortOrder: SortOrder[] = ["asc", "desc"];
+          if (!validSortOrder.includes(state.sortOrder as SortOrder)) {
+            state.sortOrder = "desc";
+          }
+
+          const validCategorySortBy: CategorySortBy[] = ["manual", "alphabetical", "linkCount", "lastUsed"];
+          if (!validCategorySortBy.includes(state.categorySortBy as CategorySortBy)) {
+            state.categorySortBy = "manual";
+          }
+          if (!validSortOrder.includes(state.categorySortOrder as SortOrder)) {
+            state.categorySortOrder = "asc";
+          }
+
+          if (typeof state.showEmptyCategories !== "boolean") {
+            state.showEmptyCategories = false;
+          }
+          if (typeof state.showUncategorized !== "boolean") {
+            state.showUncategorized = true;
+          }
+          if (typeof state.uncategorizedPosition !== "number" || state.uncategorizedPosition < 0) {
+            state.uncategorizedPosition = 9999;
+          }
+
+          state.setHasHydrated(true);
+        }
       },
     }
   )

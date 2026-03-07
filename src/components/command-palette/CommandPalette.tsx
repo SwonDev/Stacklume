@@ -113,7 +113,7 @@ export function CommandPalette({ onOpenImportExport, onOpenDuplicates, onOpenHea
           {onOpenImportExport && (
             <CommandItem onSelect={() => runAndClose(onOpenImportExport)}>
               <Download className="mr-2 h-4 w-4" />
-              {t("settings.tools.importExport")}
+              {t("commandPalette.importExport")}
             </CommandItem>
           )}
           {onOpenDuplicates && (

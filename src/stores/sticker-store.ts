@@ -361,6 +361,34 @@ export const useStickerStore = create<StickerState>()(
         placedStickers: state.placedStickers,
         maxZIndex: state.maxZIndex,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+
+        // Validate placedStickers is an array of objects with expected shape
+        if (!Array.isArray(state.placedStickers)) {
+          state.placedStickers = [];
+        } else {
+          state.placedStickers = state.placedStickers.filter(
+            (s): s is PlacedSticker => {
+              if (typeof s !== "object" || s === null) return false;
+              const obj = s as unknown as Record<string, unknown>;
+              return (
+                typeof obj.id === "string" &&
+                typeof obj.stickerId === "string" &&
+                typeof obj.filename === "string" &&
+                typeof obj.x === "number" &&
+                typeof obj.y === "number" &&
+                typeof obj.zIndex === "number"
+              );
+            }
+          );
+        }
+
+        // Validate maxZIndex
+        if (typeof state.maxZIndex !== "number" || !Number.isFinite(state.maxZIndex)) {
+          state.maxZIndex = 1000;
+        }
+      },
     }
   )
 );

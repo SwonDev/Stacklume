@@ -23,12 +23,13 @@ const log = createModuleLogger("api/mcp");
 // ─── Comparación de tokens en tiempo constante ────────────────────────────────
 
 function safeTokenEqual(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b || a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
+  if (!a || !b) return false;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nodeCrypto = require("crypto") as typeof import("crypto");
+  // Hash both to fixed-length buffers to prevent length leaks
+  const hashA = nodeCrypto.createHash("sha256").update(a).digest();
+  const hashB = nodeCrypto.createHash("sha256").update(b).digest();
+  return nodeCrypto.timingSafeEqual(hashA, hashB);
 }
 
 // ─── Definiciones de herramientas (JSON Schema) ───────────────────────────────
@@ -345,7 +346,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!settings?.mcpEnabled) {
     return NextResponse.json(
       { error: "El servidor MCP está desactivado. Actívalo en Configuración → Servidor MCP." },
-      { status: 503, headers: mcpHeaders() }
+      { status: 503, headers: mcpHeaders(request) }
     );
   }
 
@@ -353,7 +354,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     log.warn("MCP: intento de acceso con token inválido");
     return NextResponse.json(
       { error: "Token de autenticación inválido o ausente" },
-      { status: 401, headers: mcpHeaders() }
+      { status: 401, headers: mcpHeaders(request) }
     );
   }
 
@@ -362,11 +363,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     body = await request.json();
   } catch {
-    return jsonRpcError(null, -32700, "Parse error");
+    return jsonRpcError(null, -32700, "Parse error", request);
   }
 
   if (!body || typeof body !== "object") {
-    return jsonRpcError(null, -32600, "Invalid request");
+    return jsonRpcError(null, -32600, "Invalid request", request);
   }
 
   const rpc = body as Record<string, unknown>;
@@ -375,7 +376,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const params = (rpc.params as Record<string, unknown>) || {};
 
   if (!method) {
-    return jsonRpcError(id, -32600, "Missing method");
+    return jsonRpcError(id, -32600, "Missing method", request);
   }
 
   log.info({ method }, "MCP tool call");
@@ -1037,27 +1038,27 @@ Gestionar enlaces (no widgets):
 
 Gestión de workspaces:
   list_projects → add_widget con projectId específico`,
-        });
+        }, request);
 
       case "tools/list":
-        return jsonRpcOk(id, { tools: TOOL_DEFINITIONS });
+        return jsonRpcOk(id, { tools: TOOL_DEFINITIONS }, request);
 
       case "tools/call": {
         const toolName = params.name as string;
         const toolArgs = (params.arguments as Record<string, unknown>) || {};
         const result = await callTool(toolName, toolArgs);
-        return jsonRpcOk(id, result);
+        return jsonRpcOk(id, result, request);
       }
 
       case "ping":
-        return jsonRpcOk(id, {});
+        return jsonRpcOk(id, {}, request);
 
       default:
-        return jsonRpcError(id, -32601, `Method not found: ${method}`);
+        return jsonRpcError(id, -32601, `Method not found: ${method}`, request);
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     log.error({ error, method }, "MCP handler error");
-    return jsonRpcError(id, -32603, `Internal error: ${msg}`);
+    return jsonRpcError(id, -32603, `Internal error: ${msg}`, request);
   }
 }

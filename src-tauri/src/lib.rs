@@ -75,21 +75,21 @@ fn create_job_for_child(child_pid: u32) -> isize {
 use std::net::TcpListener;
 
 /// Busca un puerto TCP libre usando asignación del OS (port 0) para evitar
-/// puertos predecibles. Fallback a rango efímero si falla.
+/// puertos predecibles. Intenta múltiples veces antes de usar fallback.
 #[cfg(not(dev))]
 fn find_free_port() -> u16 {
-    // Pedir al OS un puerto libre aleatorio (bind a port 0)
-    if let Ok(listener) = TcpListener::bind("127.0.0.1:0") {
-        if let Ok(addr) = listener.local_addr() {
-            return addr.port();
+    // Intentar 50 veces que el OS asigne un puerto libre aleatorio (bind a port 0).
+    // Cada intento puede devolver un puerto distinto; esto es mucho más fiable
+    // y menos predecible que iterar un rango fijo.
+    for _ in 0..50 {
+        if let Ok(listener) = TcpListener::bind("127.0.0.1:0") {
+            if let Ok(addr) = listener.local_addr() {
+                return addr.port();
+            }
         }
     }
-    // Fallback: probar puertos en rango efímero
-    for port in 49152u16..49162 {
-        if TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok() {
-            return port;
-        }
-    }
+    // Último recurso (extremadamente improbable): devolver un puerto del rango efímero.
+    eprintln!("[Stacklume] WARN: No se pudo obtener puerto libre del OS tras 50 intentos, usando fallback 49152");
     49152
 }
 
@@ -601,7 +601,7 @@ pub fn run() {
                             ),
                             node_ok = node_ok,
                             server_ok = server_ok,
-                            log = log_path.display()
+                            log = log_path.file_name().unwrap_or_default().to_string_lossy()
                         );
                         if let Ok(url) = html.parse::<tauri::Url>() {
                             let _ = window.navigate(url);
@@ -761,7 +761,7 @@ pub fn run() {
                                     "</div></body></html>"
                                 ),
                                 e = e,
-                                log = log_path.display()
+                                log = log_path.file_name().unwrap_or_default().to_string_lossy()
                             );
                             if let Ok(url) = html.parse::<tauri::Url>() {
                                 let _ = window.navigate(url);
@@ -837,7 +837,7 @@ pub fn run() {
                                 ),
                                 port = port,
                                 tail = encoded_tail,
-                                log = log_path2.display()
+                                log = log_path2.file_name().unwrap_or_default().to_string_lossy()
                             );
                             if let Ok(url) = html.parse::<tauri::Url>() {
                                 let rn = window.navigate(url);

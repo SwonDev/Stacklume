@@ -17,6 +17,11 @@ const translations: Record<string, Record<string, string>> = {
 export function useTranslation() {
   const language = useSettingsStore((state) => state.language) || "es";
 
+  /**
+   * WARNING: Interpolated values are NOT HTML-escaped.
+   * Do NOT use the return value with dangerouslySetInnerHTML.
+   * React JSX auto-escapes, so normal usage in JSX is safe.
+   */
   const t = (key: TranslationKey | string, params?: Record<string, string | number>): string => {
     let value = translations[language]?.[key] ?? translations.es[key] ?? key;
     if (params) {
