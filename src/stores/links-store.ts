@@ -67,6 +67,10 @@ interface LinksState {
   addLinkTag: (linkId: string, tagId: string) => void;
   removeLinkTag: (linkId: string, tagId: string) => void;
 
+  // Link-Category associations (multi-category support)
+  linkCategories: Array<{ linkId: string; categoryId: string }>;
+  setLinkCategories: (linkCategories: Array<{ linkId: string; categoryId: string }>) => void;
+
   // Helper to get tags for a specific link
   getTagsForLink: (linkId: string) => Tag[];
 
@@ -307,6 +311,10 @@ export const useLinksStore = create<LinksState>((set, get) => ({
       ),
     })),
 
+  // Link-Category associations (multi-category support)
+  linkCategories: [],
+  setLinkCategories: (linkCategories) => set({ linkCategories }),
+
   // Helper to get tags for a specific link
   getTagsForLink: (linkId) => {
     const state = get();
@@ -409,20 +417,22 @@ export const useLinksStore = create<LinksState>((set, get) => ({
   // Refresh all data from API — cache: "no-store" para evitar que WebView2 devuelva datos cacheados
   refreshAllData: async () => {
     try {
-      const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
+      const [linksRes, categoriesRes, tagsRes, linkTagsRes, linkCategoriesRes] = await Promise.all([
         fetch("/api/links", { credentials: "include", cache: "no-store" }),
         fetch("/api/categories", { credentials: "include", cache: "no-store" }),
         fetch("/api/tags", { credentials: "include", cache: "no-store" }),
         fetch("/api/link-tags", { credentials: "include", cache: "no-store" }),
+        fetch("/api/link-categories", { credentials: "include", cache: "no-store" }),
       ]);
-      const [newLinks, newCategories, newTags, newLinkTags] = await Promise.all([
+      const [newLinks, newCategories, newTags, newLinkTags, newLinkCategories] = await Promise.all([
         linksRes.json(),
         categoriesRes.json(),
         tagsRes.json(),
         linkTagsRes.json(),
+        linkCategoriesRes.ok ? linkCategoriesRes.json() : [],
       ]);
-      // Actualización atómica — un solo re-render en lugar de cuatro
-      set({ links: newLinks, categories: newCategories, tags: newTags, linkTags: newLinkTags });
+      // Actualización atómica — un solo re-render en lugar de cinco
+      set({ links: newLinks, categories: newCategories, tags: newTags, linkTags: newLinkTags, linkCategories: newLinkCategories });
     } catch (error) {
       console.error("[refreshAllData] Error al recargar datos:", error);
     }

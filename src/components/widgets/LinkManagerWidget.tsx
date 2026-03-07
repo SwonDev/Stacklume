@@ -30,7 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLinksStore } from "@/stores/links-store";
-import { useWidgetStore } from "@/stores/widget-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Widget } from "@/types/widget";
 import type { Link } from "@/lib/db/schema";
 import { LinkManagerList } from "./link-manager/LinkManagerList";
@@ -46,13 +47,17 @@ type SortBy = "createdAt" | "title" | "updatedAt";
 type SortOrder = "asc" | "desc";
 
 export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
+  const { t } = useTranslation();
+  const defaultSortField = useSettingsStore((state) => state.defaultSortField);
+  const defaultSortOrder = useSettingsStore((state) => state.defaultSortOrder);
+
   // State
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDeferredValue(searchQuery);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<SortBy>("createdAt");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [sortBy, setSortBy] = useState<SortBy>((defaultSortField === "order" ? "createdAt" : defaultSortField) as SortBy);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(defaultSortOrder as SortOrder);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -65,7 +70,6 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
   const linkTags = useLinksStore((state) => state.linkTags);
   const reorderLinks = useLinksStore((state) => state.reorderLinks);
   const openEditLinkModal = useLinksStore((state) => state.openEditLinkModal);
-  const _updateWidget = useWidgetStore((state) => state.updateWidget);
 
   // Create linkTags map for quick lookup
   const linkTagsMap = useMemo(() => {
@@ -223,7 +227,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar enlaces..."
+            placeholder={t("linkManager.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-9"
@@ -235,24 +239,24 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-9">
               <Filter className="w-4 h-4 mr-2" />
-              Filtros
+              {t("linkManager.filters")}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Filtrar por</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("linkManager.filterBy")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
 
             <DropdownMenuCheckboxItem
               checked={showFavoritesOnly}
               onCheckedChange={setShowFavoritesOnly}
             >
-              Solo favoritos
+              {t("linkManager.favoritesOnly")}
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Categoría</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("linkManager.category")}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={categoryFilter || ""} onValueChange={(v) => setCategoryFilter(v || null)}>
-              <DropdownMenuRadioItem value="">Todas</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="">{t("linkManager.all")}</DropdownMenuRadioItem>
               {categories.map((cat) => (
                 <DropdownMenuRadioItem key={cat.id} value={cat.id}>
                   {cat.name}
@@ -261,9 +265,9 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
             </DropdownMenuRadioGroup>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Etiqueta</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("linkManager.tag")}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={tagFilter || ""} onValueChange={(v) => setTagFilter(v || null)}>
-              <DropdownMenuRadioItem value="">Todas</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="">{t("linkManager.all")}</DropdownMenuRadioItem>
               {tags.map((tag) => (
                 <DropdownMenuRadioItem key={tag.id} value={tag.id}>
                   {tag.name}
@@ -278,21 +282,21 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-9">
               <SortAsc className="w-4 h-4 mr-2" />
-              Ordenar
+              {t("linkManager.sort")}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("linkManager.sortBy")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-              <DropdownMenuRadioItem value="createdAt">Fecha creación</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="updatedAt">Fecha actualización</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="title">Título</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="createdAt">{t("linkManager.dateCreated")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="updatedAt">{t("linkManager.dateUpdated")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="title">{t("linkManager.titleLabel")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup value={sortOrder} onValueChange={(v) => setSortOrder(v as SortOrder)}>
-              <DropdownMenuRadioItem value="asc">Ascendente</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="desc">Descendente</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="asc">{t("linkManager.ascending")}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="desc">{t("linkManager.descending")}</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -304,7 +308,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={() => setViewMode("list")}
-            title="Vista de lista"
+            title={t("linkManager.listView")}
           >
             <List className="w-4 h-4" />
           </Button>
@@ -313,7 +317,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={() => setViewMode("grid")}
-            title="Vista de cuadrícula"
+            title={t("linkManager.gridView")}
           >
             <Grid3x3 className="w-4 h-4" />
           </Button>
@@ -322,7 +326,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={() => setViewMode("table")}
-            title="Vista de tabla"
+            title={t("linkManager.tableView")}
           >
             <TableIcon className="w-4 h-4" />
           </Button>
@@ -387,6 +391,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
               <div className="bg-card border border-primary/50 rounded-md shadow-xl p-2 opacity-95 max-w-[200px]">
                 <div className="flex items-center gap-2">
                   {activeLink.faviconUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={activeLink.faviconUrl}
                       alt=""
@@ -407,7 +412,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-3 p-3 border-t border-border/50 bg-primary/10">
           <span className="text-sm font-medium">
-            {selectedIds.size} enlace{selectedIds.size > 1 ? "s" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}
+            {selectedIds.size === 1 ? t("linkManager.selectedSingular") : t("linkManager.selectedPlural", { count: selectedIds.size })}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -415,7 +420,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
               size="sm"
               onClick={() => setSelectedIds(new Set())}
             >
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button
               variant="default"
@@ -425,7 +430,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
                 console.log("Bulk action with:", Array.from(selectedIds));
               }}
             >
-              Acciones
+              {t("linkManager.actions")}
             </Button>
           </div>
         </div>

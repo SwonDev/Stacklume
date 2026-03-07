@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "motion/react";
+import { useSettingsStore } from "@/stores/settings-store";
 import {
   Star,
   ExternalLink,
@@ -19,6 +20,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import type { Link } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -46,22 +48,22 @@ const contentTypeIcons: Record<ContentType, typeof Play> = {
   website: Globe,
 };
 
-// Content type labels in Spanish
-const contentTypeLabels: Record<ContentType, string> = {
-  video: "Video",
-  game: "Juego",
-  music: "Música",
-  code: "Código",
-  article: "Artículo",
-  social: "Social",
-  shopping: "Tienda",
-  image: "Imagen",
-  document: "Documento",
-  tool: "Herramienta",
-  website: "Web",
+// Content type label keys for i18n
+const contentTypeLabelKeys: Record<ContentType, string> = {
+  video: "contentType.video",
+  game: "contentType.game",
+  music: "contentType.music",
+  code: "contentType.code",
+  article: "contentType.article",
+  social: "contentType.social",
+  shopping: "contentType.shopping",
+  image: "contentType.image",
+  document: "contentType.document",
+  tool: "contentType.tool",
+  website: "contentType.website",
 };
 
-export function RichLinkCard({
+export const RichLinkCard = memo(function RichLinkCard({
   link,
   isEditMode = false,
   onEdit,
@@ -69,6 +71,18 @@ export function RichLinkCard({
   variant = "default",
   showImage = true,
 }: RichLinkCardProps) {
+  const { t } = useTranslation();
+  const thumbnailSize = useSettingsStore((state) => state.thumbnailSize);
+  const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
+
+  // thumbnailSize="none" hides all images; other values scale the preview
+  const effectiveShowImage = thumbnailSize !== "none" && showImage;
+  const linkTarget = isEditMode ? undefined : (linkClickBehavior === "same-tab" ? "_self" : "_blank");
+  const thumbnailHeightClass =
+    thumbnailSize === "small" ? "aspect-[3/1]" :
+    thumbnailSize === "large" ? "aspect-[4/3]" :
+    "aspect-video"; // medium (default)
+
   const hostname = useMemo(() => {
     try {
       return new URL(link.url).hostname.replace("www.", "");
@@ -95,7 +109,7 @@ export function RichLinkCard({
     return (
       <motion.a
         href={isEditMode ? undefined : link.url}
-        target={isEditMode ? undefined : "_blank"}
+        target={linkTarget}
         rel={isEditMode ? undefined : "noopener noreferrer"}
         onClick={handleClick}
         className={cn(
@@ -107,8 +121,9 @@ export function RichLinkCard({
         whileHover={{ scale: isEditMode ? 1.02 : 1.01 }}
       >
         {/* Large Image Preview */}
-        {showImage && link.imageUrl && (
-          <div className="relative aspect-video w-full overflow-hidden bg-secondary">
+        {effectiveShowImage && link.imageUrl && (
+          <div className={cn("relative w-full overflow-hidden bg-secondary", thumbnailHeightClass)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={link.imageUrl}
               alt={link.title}
@@ -133,7 +148,7 @@ export function RichLinkCard({
                 style={{ backgroundColor: platformColor }}
               >
                 <ContentIcon className="w-3 h-3" />
-                {link.siteName || contentTypeLabels[contentType]}
+                {link.siteName || t(contentTypeLabelKeys[contentType])}
               </div>
             )}
             {/* Interactive Favorite star */}
@@ -151,7 +166,7 @@ export function RichLinkCard({
                   ? "bg-black/20 backdrop-blur-sm"
                   : "bg-black/30 backdrop-blur-sm opacity-0 group-hover/link:opacity-100"
               )}
-              title={link.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+              title={link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
             >
               <Star className={cn(
                 "w-5 h-5 drop-shadow-lg transition-colors",
@@ -164,7 +179,7 @@ export function RichLinkCard({
             {isEditMode && (
               <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-primary/90 text-primary-foreground text-xs flex items-center gap-1 opacity-0 group-hover/link:opacity-100 transition-opacity">
                 <Pencil className="w-3 h-3" />
-                Editar
+                {t("richLink.edit")}
               </div>
             )}
           </div>
@@ -175,6 +190,7 @@ export function RichLinkCard({
           <div className="flex items-start gap-2">
             {/* Favicon */}
             {link.faviconUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={link.faviconUrl}
                 alt=""
@@ -214,7 +230,7 @@ export function RichLinkCard({
   return (
     <motion.a
       href={isEditMode ? undefined : link.url}
-      target={isEditMode ? undefined : "_blank"}
+      target={linkTarget}
       rel={isEditMode ? undefined : "noopener noreferrer"}
       onClick={handleClick}
       className={cn(
@@ -229,6 +245,7 @@ export function RichLinkCard({
       {/* Thumbnail or Favicon */}
       <div className="flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center w-10 h-10">
         {showImage && link.imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.imageUrl}
             alt=""
@@ -241,6 +258,7 @@ export function RichLinkCard({
           />
         ) : null}
         {link.faviconUrl && !(showImage && link.imageUrl) ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.faviconUrl}
             alt=""
@@ -277,7 +295,7 @@ export function RichLinkCard({
               "focus:outline-none focus-visible:ring-1 focus-visible:ring-primary",
               !link.isFavorite && "opacity-0 group-hover/link:opacity-60 hover:!opacity-100"
             )}
-            title={link.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+            title={link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
           >
             <Star className={cn(
               "w-3 h-3 transition-colors",
@@ -295,7 +313,7 @@ export function RichLinkCard({
               style={{ backgroundColor: platformColor }}
             >
               <ContentIcon className="w-2.5 h-2.5" />
-              {contentTypeLabels[contentType]}
+              {t(contentTypeLabelKeys[contentType])}
             </span>
           )}
           <span className="text-xs text-muted-foreground truncate">
@@ -312,7 +330,20 @@ export function RichLinkCard({
       )}
     </motion.a>
   );
-}
+}, (prev, next) => {
+  return prev.link.id === next.link.id
+    && prev.link.title === next.link.title
+    && prev.link.url === next.link.url
+    && prev.link.isFavorite === next.link.isFavorite
+    && prev.link.imageUrl === next.link.imageUrl
+    && prev.link.faviconUrl === next.link.faviconUrl
+    && prev.link.categoryId === next.link.categoryId
+    && prev.link.description === next.link.description
+    && prev.link.platform === next.link.platform
+    && prev.isEditMode === next.isEditMode
+    && prev.variant === next.variant
+    && prev.showImage === next.showImage;
+});
 
 // Grid variant for displaying multiple rich links
 export function RichLinkGrid({

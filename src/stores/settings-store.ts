@@ -3,34 +3,59 @@ import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 /**
  * Helper to make API requests with CSRF token retry logic.
+ * Dispatches sync events consumed by SyncIndicator.
  */
 async function fetchWithCsrfRetry(
   url: string,
   options: RequestInit,
   retried = false
 ): Promise<Response> {
-  const response = await fetch(url, {
-    ...options,
-    credentials: "include",
-    headers: {
-      ...options.headers,
-      ...getCsrfHeaders(),
-    },
-  });
-
-  if (response.status === 403 && !retried) {
-    console.log("CSRF token expired or missing, refreshing...");
-    await fetch("/api/settings", { credentials: "include" });
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return fetchWithCsrfRetry(url, options, true);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("stacklume:sync-start"));
   }
+  try {
+    const response = await fetch(url, {
+      ...options,
+      credentials: "include",
+      headers: {
+        ...options.headers,
+        ...getCsrfHeaders(),
+      },
+    });
 
-  return response;
+    if (response.status === 403 && !retried) {
+      console.log("CSRF token expired or missing, refreshing...");
+      await fetch("/api/settings", { credentials: "include" });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return fetchWithCsrfRetry(url, options, true);
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(response.ok ? "stacklume:sync-done" : "stacklume:sync-error"));
+    }
+    return response;
+  } catch (error) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("stacklume:sync-error"));
+    }
+    throw error;
+  }
 }
 
-export type Theme = "light" | "dark" | "system" | "midnight" | "ocean" | "forest" | "slate" | "crimson" | "aurora" | "arctic" | "sakura" | "lavender" | "mint";
+export type Theme =
+  | "light" | "dark" | "system"
+  | "midnight" | "ocean" | "forest" | "slate" | "crimson" | "aurora"
+  | "nordic" | "catppuccin" | "tokyo" | "rosepine" | "gruvbox" | "solardark" | "vampire"
+  | "solarized"
+  | "arctic" | "sakura" | "lavender" | "mint"
+  | "cement" | "stone" | "steel";
 export type ViewDensity = "compact" | "normal" | "comfortable";
 export type ViewMode = "bento" | "kanban" | "list";
+export type Language = "es" | "en";
+export type SortField = "createdAt" | "updatedAt" | "title" | "order";
+export type SortOrder = "asc" | "desc";
+export type ThumbnailSize = "none" | "small" | "medium" | "large";
+export type LinkClickBehavior = "new-tab" | "same-tab";
 export type DatabaseType = "sqlite" | "neon" | "unknown";
 
 interface DatabaseInfo {
@@ -66,6 +91,18 @@ interface SettingsState {
   isLoading: boolean;
   isInitialized: boolean;
 
+  // Extended settings (localStorage-only)
+  language: Language;
+  gridColumns: number;
+  sidebarAlwaysVisible: boolean;
+  defaultSortField: SortField;
+  defaultSortOrder: SortOrder;
+  thumbnailSize: ThumbnailSize;
+  sidebarDensity: ViewDensity;
+  autoBackupInterval: number; // 0=off, 1=daily, 7=weekly, 30=monthly
+  confirmBeforeDelete: boolean;
+  linkClickBehavior: LinkClickBehavior;
+
   // Actions
   setTheme: (theme: Theme) => void;
   setViewDensity: (density: ViewDensity) => void;
@@ -74,6 +111,16 @@ interface SettingsState {
   setReduceMotion: (reduce: boolean) => void;
   setStickerSoundVolume: (volume: number) => void;
   fetchDatabaseInfo: () => Promise<void>;
+  setLanguage: (lang: Language) => void;
+  setGridColumns: (cols: number) => void;
+  setSidebarAlwaysVisible: (v: boolean) => void;
+  setDefaultSortField: (f: SortField) => void;
+  setDefaultSortOrder: (o: SortOrder) => void;
+  setThumbnailSize: (s: ThumbnailSize) => void;
+  setSidebarDensity: (d: ViewDensity) => void;
+  setAutoBackupInterval: (days: number) => void;
+  setConfirmBeforeDelete: (v: boolean) => void;
+  setLinkClickBehavior: (b: LinkClickBehavior) => void;
 
   // MCP actions
   setMcpEnabled: (enabled: boolean) => Promise<void>;
@@ -98,6 +145,140 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   isLoading: false,
   isInitialized: false,
 
+  // Extended defaults (loaded from DB in initSettings)
+  language: "es",
+  gridColumns: 12,
+  sidebarAlwaysVisible: false,
+  defaultSortField: "createdAt",
+  defaultSortOrder: "desc",
+  thumbnailSize: "medium",
+  sidebarDensity: "normal",
+  autoBackupInterval: 0,
+  confirmBeforeDelete: true,
+  linkClickBehavior: "new-tab",
+
+  // Extended settings — persisted to DB
+  setLanguage: async (language) => {
+    set({ language });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language }),
+      });
+    } catch (error) {
+      console.error("Error saving language:", error);
+    }
+  },
+  setGridColumns: async (gridColumns) => {
+    set({ gridColumns });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gridColumns }),
+      });
+    } catch (error) {
+      console.error("Error saving grid columns:", error);
+    }
+  },
+  setSidebarAlwaysVisible: async (sidebarAlwaysVisible) => {
+    set({ sidebarAlwaysVisible });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sidebarAlwaysVisible }),
+      });
+    } catch (error) {
+      console.error("Error saving sidebar always visible:", error);
+    }
+  },
+  setDefaultSortField: async (defaultSortField) => {
+    set({ defaultSortField });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ defaultSortField }),
+      });
+    } catch (error) {
+      console.error("Error saving default sort field:", error);
+    }
+  },
+  setDefaultSortOrder: async (defaultSortOrder) => {
+    set({ defaultSortOrder });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ defaultSortOrder }),
+      });
+    } catch (error) {
+      console.error("Error saving default sort order:", error);
+    }
+  },
+  setThumbnailSize: async (thumbnailSize) => {
+    set({ thumbnailSize });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thumbnailSize }),
+      });
+    } catch (error) {
+      console.error("Error saving thumbnail size:", error);
+    }
+  },
+  setSidebarDensity: async (sidebarDensity) => {
+    set({ sidebarDensity });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sidebarDensity }),
+      });
+    } catch (error) {
+      console.error("Error saving sidebar density:", error);
+    }
+  },
+  setAutoBackupInterval: async (autoBackupInterval) => {
+    set({ autoBackupInterval });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoBackupInterval }),
+      });
+    } catch (error) {
+      console.error("Error saving auto backup interval:", error);
+    }
+  },
+  setConfirmBeforeDelete: async (confirmBeforeDelete) => {
+    set({ confirmBeforeDelete });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmBeforeDelete }),
+      });
+    } catch (error) {
+      console.error("Error saving confirm before delete:", error);
+    }
+  },
+  setLinkClickBehavior: async (linkClickBehavior) => {
+    set({ linkClickBehavior });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkClickBehavior }),
+      });
+    } catch (error) {
+      console.error("Error saving link click behavior:", error);
+    }
+  },
+
   // Initialize settings from database
   initSettings: async () => {
     if (get().isInitialized) return;
@@ -115,6 +296,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           reduceMotion: settings.reduceMotion,
           mcpEnabled: settings.mcpEnabled ?? false,
           mcpApiKey: settings.mcpApiKey ?? null,
+          language: (settings.language as Language) ?? "es",
+          gridColumns: settings.gridColumns ?? 12,
+          sidebarAlwaysVisible: settings.sidebarAlwaysVisible ?? false,
+          defaultSortField: (settings.defaultSortField as SortField) ?? "createdAt",
+          defaultSortOrder: (settings.defaultSortOrder as SortOrder) ?? "desc",
+          thumbnailSize: (settings.thumbnailSize as ThumbnailSize) ?? "medium",
+          sidebarDensity: (settings.sidebarDensity as ViewDensity) ?? "normal",
+          autoBackupInterval: settings.autoBackupInterval ?? 0,
+          confirmBeforeDelete: settings.confirmBeforeDelete ?? true,
+          linkClickBehavior: (settings.linkClickBehavior as LinkClickBehavior) ?? "new-tab",
           isInitialized: true,
         });
       }
@@ -271,7 +462,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
 }));
 
-// Initialize sticker sound volume from localStorage on hydration
+// Initialize stickerSoundVolume from localStorage (kept local-only)
 if (typeof window !== "undefined") {
   const savedVolume = localStorage.getItem("stacklume-sticker-sound-volume");
   if (savedVolume !== null) {

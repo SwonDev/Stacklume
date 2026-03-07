@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useEffect, useState } from "react";
 import { useElectron } from "@/hooks/useElectron";
+import { isTauriWebView } from "@/lib/desktop";
 
 /**
  * Barra de título personalizada estilo macOS para el modo desktop (Tauri v2).
@@ -9,7 +10,13 @@ import { useElectron } from "@/hooks/useElectron";
  * Solo se renderiza dentro del WebView de Tauri.
  */
 export function DesktopTitleBar() {
-  const { isTauri, minimizeWindow, maximizeWindow, closeWindow } = useElectron();
+  const { minimizeWindow, maximizeWindow, closeWindow } = useElectron();
+  // useSyncExternalStore: SSR-safe, sin setState en effect, compatible con React Compiler
+  const isTauri = useSyncExternalStore(
+    () => () => {},
+    () => isTauriWebView(),
+    () => false
+  );
   const [isMaximized, setIsMaximized] = useState(false);
   const [isGroupHovered, setIsGroupHovered] = useState(false);
 

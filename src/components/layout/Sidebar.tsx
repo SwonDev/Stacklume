@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown, Share2 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -10,15 +10,22 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useProjectsStore } from "@/stores/projects-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { AddProjectModal, EditProjectModal } from "@/components/projects/ProjectDialog";
+import { ShareCollectionDialog } from "@/components/modals/ShareCollectionDialog";
+import { useTranslation } from "@/lib/i18n";
 import type { Link, Category, Tag } from "@/lib/db/schema";
 import dynamic from "next/dynamic";
 
-const SpinningCoinLogo = dynamic(
-  () => import("./SpinningCoinLogo").then((m) => ({ default: m.SpinningCoinLogo })),
-  { ssr: false }
-);
+const spinningCoinImport = () => import("./SpinningCoinLogo").then((m) => ({ default: m.SpinningCoinLogo }));
+const SpinningCoinLogo = dynamic(spinningCoinImport, { ssr: false });
+
+// Precargar el módulo Three.js + GLB al cargar este módulo (no al abrir la sidebar)
+if (typeof window !== "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  requestIdleCallback?.(() => spinningCoinImport()) ?? setTimeout(() => spinningCoinImport(), 1000);
+}
 import { motion } from "motion/react";
 
 // dnd-kit imports
@@ -112,8 +119,8 @@ function CollapsibleSection({ title, isCollapsed, onToggle, count, actions, chil
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden"
+            transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden will-change-[height,opacity]"
           >
             {children}
           </motion.div>
@@ -172,15 +179,13 @@ function NavItemContent({ icon, label, count, isActive, onClick, colorIndicator,
 
 function NavItem({ icon, label, count, isActive, onClick, colorIndicator }: NavItemProps) {
   return (
-    <motion.button
+    <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-[colors,transform] duration-150 hover:translate-x-1 active:scale-[0.98] ${
         isActive
           ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-secondary hover:text-foreground"
       }`}
-      whileHover={{ x: 4 }}
-      whileTap={{ scale: 0.98 }}
     >
       {colorIndicator && (
         <div className={`w-2 h-2 rounded-full ${colorIndicator} flex-shrink-0`} />
@@ -192,7 +197,7 @@ function NavItem({ icon, label, count, isActive, onClick, colorIndicator }: NavI
           {count}
         </Badge>
       )}
-    </motion.button>
+    </button>
   );
 }
 
@@ -202,9 +207,11 @@ interface SortableCategoryProps {
   linkCount: number;
   isActive: boolean;
   onClick: () => void;
+  onShare: (category: Category) => void;
 }
 
-function SortableCategoryItem({ category, linkCount, isActive, onClick }: SortableCategoryProps) {
+function SortableCategoryItem({ category, linkCount, isActive, onClick, onShare }: SortableCategoryProps) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -225,7 +232,7 @@ function SortableCategoryItem({ category, linkCount, isActive, onClick }: Sortab
       style={style}
       {...attributes}
       {...listeners}
-      className="touch-manipulation cursor-default"
+      className="touch-manipulation cursor-default group/share relative"
     >
       <NavItemContent
         icon={<FolderOpen className="h-4 w-4" />}
@@ -235,6 +242,13 @@ function SortableCategoryItem({ category, linkCount, isActive, onClick }: Sortab
         onClick={onClick}
         isDragging={isDragging}
       />
+      <button
+        onClick={(e) => { e.stopPropagation(); onShare(category); }}
+        className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+        title={t("sidebar.shareCategory")}
+      >
+        <Share2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -246,9 +260,11 @@ interface SortableTagProps {
   isActive: boolean;
   onClick: () => void;
   colorClass: string;
+  onShare: (tag: Tag) => void;
 }
 
-function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass }: SortableTagProps) {
+function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass, onShare }: SortableTagProps) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -269,7 +285,7 @@ function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass }: Sort
       style={style}
       {...attributes}
       {...listeners}
-      className="touch-manipulation cursor-default"
+      className="touch-manipulation cursor-default group/share relative"
     >
       <NavItemContent
         icon={<TagIcon className="h-4 w-4" />}
@@ -280,6 +296,13 @@ function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass }: Sort
         colorIndicator={colorClass}
         isDragging={isDragging}
       />
+      <button
+        onClick={(e) => { e.stopPropagation(); onShare(tag); }}
+        className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+        title={t("sidebar.shareTag")}
+      >
+        <Share2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -295,22 +318,31 @@ interface CollapsedSections {
 
 export function Sidebar() {
   const sidebarOpen = useLayoutStore((state) => state.sidebarOpen);
-  const setSidebarOpen = useLayoutStore((state) => state.setSidebarOpen);
+  const sidebarAlwaysVisible = useSettingsStore((state) => state.sidebarAlwaysVisible);
+  const sidebarDensity = useSettingsStore((state) => state.sidebarDensity);
   const activeFilter = useLayoutStore((state) => state.activeFilter);
-  const setActiveFilter = useLayoutStore((state) => state.setActiveFilter);
-  const clearFilter = useLayoutStore((state) => state.clearFilter);
   const categories = useLinksStore((state) => state.categories);
   const links = useLinksStore((state) => state.links);
   const tags = useLinksStore((state) => state.tags);
   const linkTags = useLinksStore((state) => state.linkTags);
-  const setAddCategoryModalOpen = useLinksStore((state) => state.setAddCategoryModalOpen);
-  const setAddTagModalOpen = useLinksStore((state) => state.setAddTagModalOpen);
-  const setManageCategoriesModalOpen = useLinksStore((state) => state.setManageCategoriesModalOpen);
-  const setManageTagsModalOpen = useLinksStore((state) => state.setManageTagsModalOpen);
-  const reorderCategories = useLinksStore((state) => state.reorderCategories);
-  const reorderTags = useLinksStore((state) => state.reorderTags);
-  const setActiveProject = useProjectsStore((state) => state.setActiveProject);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
+  const { t } = useTranslation();
+
+  // Share dialog state
+  const [shareDialogState, setShareDialogState] = useState<{
+    open: boolean;
+    type: "category" | "tag";
+    referenceId: string;
+    name: string;
+  }>({ open: false, type: "category", referenceId: "", name: "" });
+
+  const handleCategoryShare = useCallback((category: Category) => {
+    setShareDialogState({ open: true, type: "category", referenceId: category.id, name: category.name });
+  }, []);
+
+  const handleTagShare = useCallback((tag: Tag) => {
+    setShareDialogState({ open: true, type: "tag", referenceId: tag.id, name: tag.name });
+  }, []);
 
   // Drag state for categories and tags
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -340,8 +372,26 @@ export function Sidebar() {
     setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const favoriteCount = links.filter((l: Link) => l.isFavorite).length;
+  const favoriteCount = useMemo(() => links.filter((l: Link) => l.isFavorite).length, [links]);
   const recentCount = Math.min(links.length, 10);
+
+  const categoryLinkCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const l of links) {
+      if (l.categoryId) {
+        counts[l.categoryId] = (counts[l.categoryId] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [links]);
+
+  const tagLinkCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const lt of linkTags) {
+      counts[(lt as { tagId: string }).tagId] = (counts[(lt as { tagId: string }).tagId] || 0) + 1;
+    }
+    return counts;
+  }, [linkTags]);
 
   // Sensors for drag detection
   const sensors = useSensors(
@@ -356,43 +406,39 @@ export function Sidebar() {
   );
 
   const handleHomeClick = () => {
-    clearFilter();
-    setActiveProject(null);
-    setSidebarOpen(false);
+    useLayoutStore.getState().clearFilter();
+    useProjectsStore.getState().setActiveProject(null);
+    useLayoutStore.getState().setSidebarOpen(false);
   };
 
   const handleFavoritesClick = () => {
-    setActiveFilter({ type: "favorites", label: "Favoritos" });
-    setSidebarOpen(false);
+    useLayoutStore.getState().setActiveFilter({ type: "favorites", label: t("sidebar.favorites") });
+    useLayoutStore.getState().setSidebarOpen(false);
   };
 
   const handleRecentClick = () => {
-    setActiveFilter({ type: "recent", label: "Recientes" });
-    setSidebarOpen(false);
+    useLayoutStore.getState().setActiveFilter({ type: "recent", label: t("sidebar.recent") });
+    useLayoutStore.getState().setSidebarOpen(false);
   };
 
   const handleCategoryClick = (category: Category) => {
     if (!activeCategoryId) {
-      setActiveFilter({ type: "category", id: category.id, label: category.name });
-      setSidebarOpen(false);
+      useLayoutStore.getState().setActiveFilter({ type: "category", id: category.id, label: category.name });
+      useLayoutStore.getState().setSidebarOpen(false);
     }
   };
 
   const handleTagClick = (tag: Tag) => {
     if (!activeTagId) {
-      setActiveFilter({ type: "tag", id: tag.id, label: tag.name });
-      setSidebarOpen(false);
+      useLayoutStore.getState().setActiveFilter({ type: "tag", id: tag.id, label: tag.name });
+      useLayoutStore.getState().setSidebarOpen(false);
     }
   };
 
-  // Calculate link count per tag
-  const getTagLinkCount = (tagId: string) => {
-    return linkTags.filter((lt: { linkId: string; tagId: string }) => lt.tagId === tagId).length;
-  };
+  const getTagLinkCount = useCallback((tagId: string) => tagLinkCounts[tagId] || 0, [tagLinkCounts]);
 
-  // Sort categories and tags by order
-  const sortedCategories = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const sortedTags = [...tags].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sortedCategories = useMemo(() => [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [categories]);
+  const sortedTags = useMemo(() => [...tags].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tags]);
 
   // Category drag handlers
   const handleCategoryDragStart = (event: DragStartEvent) => {
@@ -407,7 +453,7 @@ export function Sidebar() {
       const oldIndex = sortedCategories.findIndex((c) => c.id === active.id);
       const newIndex = sortedCategories.findIndex((c) => c.id === over.id);
       const newOrder = arrayMove(sortedCategories, oldIndex, newIndex);
-      reorderCategories(newOrder.map((c) => c.id));
+      useLinksStore.getState().reorderCategories(newOrder.map((c) => c.id));
     }
   };
 
@@ -428,7 +474,7 @@ export function Sidebar() {
       const oldIndex = sortedTags.findIndex((t) => t.id === active.id);
       const newIndex = sortedTags.findIndex((t) => t.id === over.id);
       const newOrder = arrayMove(sortedTags, oldIndex, newIndex);
-      reorderTags(newOrder.map((t) => t.id));
+      useLinksStore.getState().reorderTags(newOrder.map((t) => t.id));
     }
   };
 
@@ -445,13 +491,17 @@ export function Sidebar() {
     : null;
 
   return (
-    <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <Sheet
+      open={sidebarAlwaysVisible || sidebarOpen}
+      onOpenChange={sidebarAlwaysVisible ? undefined : (open) => useLayoutStore.getState().setSidebarOpen(open)}
+      modal={!sidebarAlwaysVisible}
+    >
       <SheetContent
         side="left"
-        className="w-72 p-0 bg-sidebar border-r border-sidebar-border [&>button]:hidden"
+        className="w-72 p-0 bg-sidebar border-r border-sidebar-border [&>button]:hidden contain-content"
       >
-        <SheetTitle className="sr-only">Menú de navegación</SheetTitle>
-        <SheetDescription className="sr-only">Navega por categorías y enlaces guardados</SheetDescription>
+        <SheetTitle className="sr-only">{t("sidebar.navTitle")}</SheetTitle>
+        <SheetDescription className="sr-only">{t("sidebar.navDescription")}</SheetDescription>
         <div className="flex h-full flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border">
@@ -463,35 +513,37 @@ export function Sidebar() {
                 Stacklume
               </span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-sidebar-foreground/60 hover:text-sidebar-foreground"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {!sidebarAlwaysVisible && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                onClick={() => useLayoutStore.getState().setSidebarOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           {/* Navigation */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-none">
+          <div className={`flex-1 overflow-y-auto scrollbar-none ${sidebarDensity === "compact" ? "px-2 py-2" : sidebarDensity === "comfortable" ? "px-4 py-5" : "px-3 py-4"}`}>
             <div className="space-y-1">
               <NavItem
                 icon={<Home className="h-4 w-4" />}
-                label="Inicio"
+                label={t("sidebar.home")}
                 isActive={activeFilter.type === "all" && activeProjectId === null}
                 onClick={handleHomeClick}
               />
               <NavItem
                 icon={<Star className="h-4 w-4" />}
-                label="Favoritos"
+                label={t("sidebar.favorites")}
                 count={favoriteCount}
                 isActive={activeFilter.type === "favorites"}
                 onClick={handleFavoritesClick}
               />
               <NavItem
                 icon={<Clock className="h-4 w-4" />}
-                label="Recientes"
+                label={t("sidebar.recent")}
                 count={recentCount}
                 isActive={activeFilter.type === "recent"}
                 onClick={handleRecentClick}
@@ -510,7 +562,7 @@ export function Sidebar() {
 
             {/* Categories with drag and drop */}
             <CollapsibleSection
-              title="Categorías"
+              title={t("sidebar.categories")}
               isCollapsed={collapsedSections.categories}
               onToggle={() => toggleSection("categories")}
               count={categories.length}
@@ -521,10 +573,10 @@ export function Sidebar() {
                     size="icon"
                     className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
                     onClick={() => {
-                      setManageCategoriesModalOpen(true);
-                      setSidebarOpen(false);
+                      useLinksStore.getState().setManageCategoriesModalOpen(true);
+                      useLayoutStore.getState().setSidebarOpen(false);
                     }}
-                    title="Gestionar categorías"
+                    title={t("sidebar.manageCategories")}
                   >
                     <Settings className="h-3 w-3" />
                   </Button>
@@ -533,10 +585,10 @@ export function Sidebar() {
                     size="icon"
                     className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
                     onClick={() => {
-                      setAddCategoryModalOpen(true);
-                      setSidebarOpen(false);
+                      useLinksStore.getState().setAddCategoryModalOpen(true);
+                      useLayoutStore.getState().setSidebarOpen(false);
                     }}
-                    title="Nueva categoría"
+                    title={t("sidebar.newCategory")}
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
@@ -555,16 +607,14 @@ export function Sidebar() {
                   strategy={verticalListSortingStrategy}
                 >
                   {sortedCategories.map((category: Category) => {
-                    const categoryLinkCount = links.filter(
-                      (l: Link) => l.categoryId === category.id
-                    ).length;
                     return (
                       <SortableCategoryItem
                         key={category.id}
                         category={category}
-                        linkCount={categoryLinkCount}
+                        linkCount={categoryLinkCounts[category.id] || 0}
                         isActive={activeFilter.type === "category" && activeFilter.id === category.id}
                         onClick={() => handleCategoryClick(category)}
+                        onShare={handleCategoryShare}
                       />
                     );
                   })}
@@ -578,7 +628,7 @@ export function Sidebar() {
                     <NavItemContent
                       icon={<FolderOpen className="h-4 w-4" />}
                       label={activeCategory.name}
-                      count={links.filter((l: Link) => l.categoryId === activeCategory.id).length}
+                      count={categoryLinkCounts[activeCategory.id] || 0}
                       isActive={activeFilter.type === "category" && activeFilter.id === activeCategory.id}
                       onClick={() => {}}
                       isOverlay
@@ -589,7 +639,7 @@ export function Sidebar() {
 
               {categories.length === 0 && (
                 <p className="px-3 py-2 text-xs text-sidebar-foreground/40">
-                  No hay categorías creadas
+                  {t("sidebar.noCategories")}
                 </p>
               )}
             </CollapsibleSection>
@@ -598,7 +648,7 @@ export function Sidebar() {
 
             {/* Tags section with drag and drop */}
             <CollapsibleSection
-              title="Etiquetas"
+              title={t("sidebar.tags")}
               isCollapsed={collapsedSections.tags}
               onToggle={() => toggleSection("tags")}
               count={tags.length}
@@ -609,10 +659,10 @@ export function Sidebar() {
                     size="icon"
                     className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
                     onClick={() => {
-                      setManageTagsModalOpen(true);
-                      setSidebarOpen(false);
+                      useLinksStore.getState().setManageTagsModalOpen(true);
+                      useLayoutStore.getState().setSidebarOpen(false);
                     }}
-                    title="Gestionar etiquetas"
+                    title={t("sidebar.manageTags")}
                   >
                     <Settings className="h-3 w-3" />
                   </Button>
@@ -621,10 +671,10 @@ export function Sidebar() {
                     size="icon"
                     className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
                     onClick={() => {
-                      setAddTagModalOpen(true);
-                      setSidebarOpen(false);
+                      useLinksStore.getState().setAddTagModalOpen(true);
+                      useLayoutStore.getState().setSidebarOpen(false);
                     }}
-                    title="Nueva etiqueta"
+                    title={t("sidebar.newTag")}
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
@@ -654,6 +704,7 @@ export function Sidebar() {
                         isActive={activeFilter.type === "tag" && activeFilter.id === tag.id}
                         onClick={() => handleTagClick(tag)}
                         colorClass={colorClass}
+                        onShare={handleTagShare}
                       />
                     );
                   })}
@@ -679,7 +730,7 @@ export function Sidebar() {
 
               {tags.length === 0 && (
                 <p className="px-3 py-2 text-xs text-sidebar-foreground/40">
-                  Sin etiquetas
+                  {t("sidebar.noTags")}
                 </p>
               )}
             </CollapsibleSection>
@@ -688,7 +739,7 @@ export function Sidebar() {
           {/* Footer */}
           <div className="border-t border-sidebar-border px-4 py-3">
             <p className="text-xs text-sidebar-foreground/40 text-center">
-              {links.length} enlaces guardados
+              {t("sidebar.savedLinks", { count: links.length })}
             </p>
           </div>
         </div>
@@ -697,6 +748,15 @@ export function Sidebar() {
       {/* Project Modals */}
       <AddProjectModal />
       <EditProjectModal />
+
+      {/* Share Collection Dialog */}
+      <ShareCollectionDialog
+        type={shareDialogState.type}
+        referenceId={shareDialogState.referenceId}
+        name={shareDialogState.name}
+        open={shareDialogState.open}
+        onOpenChange={(open) => setShareDialogState((prev) => ({ ...prev, open }))}
+      />
     </Sheet>
   );
 }

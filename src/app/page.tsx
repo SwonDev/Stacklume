@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { BentoGrid } from "@/components/bento/BentoGrid";
-import { KanbanBoard } from "@/components/kanban";
-import { ListView } from "@/components/list";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { StickerLayer } from "@/components/stickers";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
 
+const KanbanBoard = lazy(() => import("@/components/kanban").then((m) => ({ default: m.KanbanBoard })));
+const ListView = lazy(() => import("@/components/list").then((m) => ({ default: m.ListView })));
+
 export default function Home() {
-  const setLinks = useLinksStore((state) => state.setLinks);
-  const setCategories = useLinksStore((state) => state.setCategories);
-  const setTags = useLinksStore((state) => state.setTags);
-  const setLinkTags = useLinksStore((state) => state.setLinkTags);
-  const setIsLoading = useLinksStore((state) => state.setIsLoading);
   const isLoading = useLinksStore((state) => state.isLoading);
   const viewMode = useSettingsStore((state) => state.viewMode);
 
@@ -39,45 +35,42 @@ export default function Home() {
   // Note: Zustand store functions are stable and don't need to be in dependencies
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
+      const store = useLinksStore.getState();
+      store.setIsLoading(true);
       try {
-        const [linksRes, categoriesRes, tagsRes, linkTagsRes] = await Promise.all([
+        const [linksRes, categoriesRes, tagsRes, linkTagsRes, linkCategoriesRes] = await Promise.all([
           fetch("/api/links", { credentials: "include" }),
           fetch("/api/categories", { credentials: "include" }),
           fetch("/api/tags", { credentials: "include" }),
           fetch("/api/link-tags", { credentials: "include" }),
+          fetch("/api/link-categories", { credentials: "include" }),
         ]);
 
-        if (linksRes.ok) {
-          const linksData = await linksRes.json();
-          setLinks(linksData);
-        }
+        // Parse all JSON responses in parallel
+        const [linksData, categoriesData, tagsData, linkTagsData, linkCategoriesData] = await Promise.all([
+          linksRes.ok ? linksRes.json() : null,
+          categoriesRes.ok ? categoriesRes.json() : null,
+          tagsRes.ok ? tagsRes.json() : null,
+          linkTagsRes.ok ? linkTagsRes.json() : null,
+          linkCategoriesRes.ok ? linkCategoriesRes.json() : null,
+        ]);
 
-        if (categoriesRes.ok) {
-          const categories = await categoriesRes.json();
-          setCategories(categories);
-        }
-
-        if (tagsRes.ok) {
-          const tags = await tagsRes.json();
-          setTags(tags);
-        }
-
-        if (linkTagsRes.ok) {
-          const allLinkTags = await linkTagsRes.json();
-          setLinkTags(allLinkTags);
-        }
+        // Apply all data in a single batch to minimize re-renders
+        if (linksData) store.setLinks(linksData);
+        if (categoriesData) store.setCategories(categoriesData);
+        if (tagsData) store.setTags(tagsData);
+        if (linkTagsData) store.setLinkTags(linkTagsData);
+        if (linkCategoriesData) store.setLinkCategories(linkCategoriesData);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
-        setIsLoading(false);
+        useLinksStore.getState().setIsLoading(false);
         setDataLoaded(true);
       }
     };
 
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount - store functions are stable
+  }, []);
 
   return (
     <>
@@ -90,7 +83,8 @@ export default function Home() {
         style={{
           opacity: isAppReady ? 1 : 0,
           visibility: isAppReady ? "visible" : "hidden",
-          transition: "opacity 0.3s ease-out",
+          transition: "opacity 0.25s ease-out",
+          willChange: isAppReady ? "auto" : "opacity",
         }}
       >
         <FilterBar />
@@ -109,9 +103,13 @@ export default function Home() {
           data-sticker-container
         >
           {viewMode === "kanban" ? (
-            <KanbanBoard className="min-h-full w-full" />
+            <Suspense fallback={null}>
+              <KanbanBoard className="min-h-full w-full" />
+            </Suspense>
           ) : viewMode === "list" ? (
-            <ListView className="min-h-full w-full" />
+            <Suspense fallback={null}>
+              <ListView className="min-h-full w-full" />
+            </Suspense>
           ) : (
             <BentoGrid className="min-h-full w-full" />
           )}
