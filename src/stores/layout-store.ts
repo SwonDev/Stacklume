@@ -129,6 +129,37 @@ export const useLayoutStore = create<LayoutState>()(
         layouts: state.layouts,
         sidebarOpen: state.sidebarOpen,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+
+        // Validate layout items have expected types
+        const isValidLayoutItem = (item: unknown): boolean => {
+          if (typeof item !== "object" || item === null) return false;
+          const obj = item as Record<string, unknown>;
+          return (
+            typeof obj.i === "string" &&
+            typeof obj.x === "number" &&
+            typeof obj.y === "number" &&
+            typeof obj.w === "number" &&
+            typeof obj.h === "number"
+          );
+        };
+
+        const validateBreakpoint = (items: unknown): LayoutItem[] => {
+          if (!Array.isArray(items)) return [];
+          return items.filter(isValidLayoutItem) as LayoutItem[];
+        };
+
+        if (typeof state.layouts !== "object" || state.layouts === null) {
+          state.layouts = defaultLayouts;
+        } else {
+          state.layouts = {
+            lg: validateBreakpoint(state.layouts.lg),
+            md: validateBreakpoint(state.layouts.md),
+            sm: validateBreakpoint(state.layouts.sm),
+          };
+        }
+      },
     }
   )
 );

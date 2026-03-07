@@ -32,7 +32,9 @@ const ZOOM_KEY = "stacklume-zoom";
 function readZoom(): number {
   try {
     const saved = localStorage.getItem(ZOOM_KEY);
-    return saved ? parseFloat(saved) : 1;
+    if (!saved) return 1;
+    const value = parseFloat(saved);
+    return Number.isFinite(value) ? value : 1;
   } catch {
     return 1;
   }

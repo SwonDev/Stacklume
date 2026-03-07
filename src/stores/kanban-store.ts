@@ -317,6 +317,30 @@ export const useKanbanStore = create<KanbanState>()(
         showCompactCards: state.showCompactCards,
         showWipWarnings: state.showWipWarnings,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+
+        // Validate columns is an array of objects with expected shape
+        if (!Array.isArray(state.columns)) {
+          state.columns = DEFAULT_KANBAN_COLUMNS;
+        } else {
+          const validColumns = state.columns.filter((col): col is KanbanColumn => {
+            if (typeof col !== "object" || col === null) return false;
+            const obj = col as unknown as Record<string, unknown>;
+            return (
+              typeof obj.id === "string" &&
+              typeof obj.title === "string" &&
+              typeof obj.order === "number" &&
+              typeof obj.color === "string"
+            );
+          });
+          state.columns = validColumns.length > 0 ? validColumns : DEFAULT_KANBAN_COLUMNS;
+        }
+
+        // Validate boolean settings
+        if (typeof state.showCompactCards !== "boolean") state.showCompactCards = false;
+        if (typeof state.showWipWarnings !== "boolean") state.showWipWarnings = true;
+      },
     }
   )
 );

@@ -17,6 +17,7 @@ import { fileURLToPath } from "url";
 import { createWriteStream } from "fs";
 import { get } from "https";
 import { createReadStream } from "fs";
+import { createHash } from "crypto";
 import { Extract } from "unzipper";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -40,6 +41,27 @@ const PATHS = {
   nodeResources: join(ROOT, "src-tauri", "resources", "node"),
   serverResources: join(ROOT, "src-tauri", "resources", "server"),
 };
+
+// Known SHA256 hash for node-v25.2.1-win-x64.zip from https://nodejs.org/dist/v25.2.1/SHASUMS256.txt
+// Set this value to enable integrity verification of the downloaded Node.js binary.
+const EXPECTED_NODE_SHA256 = "";
+
+async function verifyFileHash(filePath, expectedHash) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => {
+      const actual = hash.digest("hex");
+      if (actual !== expectedHash) {
+        reject(new Error(`Hash mismatch for ${filePath}: expected ${expectedHash}, got ${actual}`));
+      } else {
+        resolve(actual);
+      }
+    });
+    stream.on("error", reject);
+  });
+}
 
 function run(cmd, opts = {}) {
   console.log(`\n$ ${cmd}`);
@@ -113,6 +135,15 @@ async function main() {
   if (!existsSync(join(nodeExtracted, "node.exe"))) {
     log(`Descargando Node.js ${NODE_VERSION} portable...`);
     await downloadFile(NODE_URL, zipDest);
+
+    // Verify integrity of the downloaded Node.js archive
+    if (EXPECTED_NODE_SHA256) {
+      log("Verificando hash SHA256 de Node.js...");
+      await verifyFileHash(zipDest, EXPECTED_NODE_SHA256);
+      log("✓ Hash SHA256 verificado correctamente");
+    } else {
+      log("⚠ Verificación de hash SHA256 omitida (EXPECTED_NODE_SHA256 no configurado)");
+    }
 
     log("Extrayendo Node.js...");
     mkdirSync(PATHS.tmp, { recursive: true });

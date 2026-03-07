@@ -84,15 +84,25 @@ if (!existsSync(sigPath)) {
 
   const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? "";
 
+  // Pass signing key and password via environment variables instead of CLI
+  // arguments to avoid leaking secrets in process listings.
   const result = spawnSync(
     "pnpm",
     [
       "exec", "tauri", "signer", "sign",
-      "-k", signingKey,
-      "-p", password,
       installerPath,
     ],
-    { encoding: "utf8", cwd: ROOT, stdio: "pipe", shell: true }
+    {
+      encoding: "utf8",
+      cwd: ROOT,
+      stdio: "pipe",
+      shell: true,
+      env: {
+        ...process.env,
+        TAURI_SIGNING_PRIVATE_KEY: signingKey,
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: password,
+      },
+    }
   );
 
   if (result.status !== 0) {

@@ -322,8 +322,8 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
           srcDoc={(() => {
             const sanitizedHtml = typeof window !== 'undefined'
               ? DOMPurify.sanitize(embedHtml, {
-                  ALLOW_TAGS: ['div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u', 'code', 'pre', 'blockquote', 'figure', 'figcaption', 'video', 'audio', 'source', 'canvas', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'symbol', 'style'],
-                  ALLOW_ATTR: ['class', 'id', 'style', 'href', 'src', 'alt', 'width', 'height', 'target', 'rel', 'type', 'viewBox', 'xmlns', 'd', 'fill', 'stroke', 'stroke-width', 'cx', 'cy', 'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'transform', 'text-anchor', 'font-size', 'controls', 'autoplay', 'loop', 'muted'],
+                  ALLOWED_TAGS: ['div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u', 'code', 'pre', 'blockquote', 'figure', 'figcaption', 'video', 'audio', 'source', 'canvas', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'symbol', 'style'],
+                  ALLOWED_ATTR: ['class', 'id', 'style', 'href', 'src', 'alt', 'width', 'height', 'target', 'rel', 'type', 'viewBox', 'xmlns', 'd', 'fill', 'stroke', 'stroke-width', 'cx', 'cy', 'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'transform', 'text-anchor', 'font-size', 'controls', 'autoplay', 'loop', 'muted'],
                   FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
                   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onsubmit', 'onchange', 'oninput'],
                 })

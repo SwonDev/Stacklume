@@ -12,7 +12,9 @@ import {
   Plus,
   CheckIcon,
   GripVertical,
+  Check,
 } from "lucide-react";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
@@ -80,6 +82,8 @@ export function LinkListItemContent({
   dragHandleProps,
 }: LinkListItemProps & { dragHandleProps?: React.HTMLAttributes<HTMLDivElement> }) {
   const { t } = useTranslation();
+  const isSelecting = useMultiSelect((state) => state.isSelecting);
+  const isItemSelected = useMultiSelect((state) => state.isSelected(link.id));
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
   const tags = useLinksStore((state) => state.tags);
@@ -149,7 +153,7 @@ export function LinkListItemContent({
     try {
       const newValue = !link.isFavorite;
       await fetch(`/api/links/${link.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...getCsrfHeaders(),
@@ -208,6 +212,14 @@ export function LinkListItemContent({
     comfortable: "text-base",
   };
 
+  const handleSelectionClick = (e: React.MouseEvent) => {
+    if (isSelecting) {
+      e.preventDefault();
+      e.stopPropagation();
+      useMultiSelect.getState().toggleItem(link.id);
+    }
+  };
+
   return (
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, y: 10 }}
@@ -221,15 +233,32 @@ export function LinkListItemContent({
       }}
       exit={reduceMotion ? undefined : { opacity: 0, y: -10 }}
       transition={{ duration: 0.2 }}
+      onClick={handleSelectionClick}
       className={cn(
         "group flex items-center gap-2 border-b border-border/50 hover:bg-secondary/30 transition-colors",
         densityStyles[viewDensity],
         isOverlay && "bg-card border border-border rounded-lg shadow-lg",
+        isSelecting && "cursor-pointer",
+        isSelecting && isItemSelected && "bg-primary/10 border-b-primary/20",
         className
       )}
     >
-      {/* Drag handle */}
-      {dragHandleProps && (
+      {/* Selection checkbox (shown in multi-select mode) */}
+      {isSelecting && (
+        <div
+          className={cn(
+            "flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
+            isItemSelected
+              ? "bg-primary border-primary"
+              : "bg-background border-muted-foreground/50"
+          )}
+        >
+          {isItemSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+        </div>
+      )}
+
+      {/* Drag handle (hidden in select mode) */}
+      {dragHandleProps && !isSelecting && (
         <div
           {...dragHandleProps}
           className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
@@ -271,9 +300,10 @@ export function LinkListItemContent({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <a
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={isSelecting ? undefined : link.url}
+              target={isSelecting ? undefined : "_blank"}
+              rel={isSelecting ? undefined : "noopener noreferrer"}
+              onClick={isSelecting ? (e) => e.preventDefault() : undefined}
               className={cn(
                 "font-medium truncate hover:text-primary transition-colors",
                 titleSizes[viewDensity]

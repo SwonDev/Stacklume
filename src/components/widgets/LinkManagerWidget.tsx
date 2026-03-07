@@ -37,6 +37,9 @@ import type { Link } from "@/lib/db/schema";
 import { LinkManagerList } from "./link-manager/LinkManagerList";
 import { LinkManagerGrid } from "./link-manager/LinkManagerGrid";
 import { LinkManagerTable } from "./link-manager/LinkManagerTable";
+import { BulkActionsBar } from "./link-manager/BulkActionsBar";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { toast } from "sonner";
 
 interface LinkManagerWidgetProps {
   widget: Widget;
@@ -70,6 +73,7 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
   const linkTags = useLinksStore((state) => state.linkTags);
   const reorderLinks = useLinksStore((state) => state.reorderLinks);
   const openEditLinkModal = useLinksStore((state) => state.openEditLinkModal);
+  const refreshAllData = useLinksStore((state) => state.refreshAllData);
 
   // Create linkTags map for quick lookup
   const linkTagsMap = useMemo(() => {
@@ -213,6 +217,98 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
   const handleEdit = useCallback((link: Link) => {
     openEditLinkModal(link);
   }, [openEditLinkModal]);
+
+  // Bulk action handlers
+  const handleBulkMoveToCategory = useCallback(async (categoryId: string | null) => {
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/links/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
+            body: JSON.stringify({ categoryId }),
+          })
+        )
+      );
+      await refreshAllData();
+      toast.success(`${ids.length} enlace${ids.length > 1 ? "s" : ""} movido${ids.length > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    } catch {
+      toast.error("Error al mover los enlaces");
+    }
+  }, [selectedIds, refreshAllData]);
+
+  const handleBulkManageTags = useCallback(async (action: "add" | "remove", tagIds: string[]) => {
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(
+        ids.flatMap((linkId) =>
+          tagIds.map((tagId) =>
+            action === "add"
+              ? fetch("/api/tags/link", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+                  credentials: "include",
+                  body: JSON.stringify({ linkId, tagId }),
+                })
+              : fetch(`/api/tags/link?linkId=${linkId}&tagId=${tagId}`, {
+                  method: "DELETE",
+                  headers: getCsrfHeaders(),
+                  credentials: "include",
+                })
+          )
+        )
+      );
+      await refreshAllData();
+      toast.success(`Etiquetas ${action === "add" ? "añadidas a" : "eliminadas de"} ${ids.length} enlace${ids.length > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    } catch {
+      toast.error("Error al gestionar las etiquetas");
+    }
+  }, [selectedIds, refreshAllData]);
+
+  const handleBulkToggleFavorites = useCallback(async (isFavorite: boolean) => {
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/links/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
+            body: JSON.stringify({ isFavorite }),
+          })
+        )
+      );
+      await refreshAllData();
+      toast.success(`${ids.length} enlace${ids.length > 1 ? "s" : ""} ${isFavorite ? "marcado" : "desmarcado"}${ids.length > 1 ? "s" : ""} como favorito${ids.length > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    } catch {
+      toast.error("Error al actualizar favoritos");
+    }
+  }, [selectedIds, refreshAllData]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/links/${id}`, {
+            method: "DELETE",
+            headers: getCsrfHeaders(),
+            credentials: "include",
+          })
+        )
+      );
+      await refreshAllData();
+      toast.success(`${ids.length} enlace${ids.length > 1 ? "s" : ""} eliminado${ids.length > 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    } catch {
+      toast.error("Error al eliminar los enlaces");
+    }
+  }, [selectedIds, refreshAllData]);
 
   // Get active link for drag overlay
   const activeLink = useMemo(() => {
@@ -408,33 +504,16 @@ export function LinkManagerWidget({ widget: _widget }: LinkManagerWidgetProps) {
         </DndContext>
       </div>
 
-      {/* Bulk actions bar */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between gap-3 p-3 border-t border-border/50 bg-primary/10">
-          <span className="text-sm font-medium">
-            {selectedIds.size === 1 ? t("linkManager.selectedSingular") : t("linkManager.selectedPlural", { count: selectedIds.size })}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => {
-                // TODO: Implement bulk actions
-                console.log("Bulk action with:", Array.from(selectedIds));
-              }}
-            >
-              {t("linkManager.actions")}
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        onMoveToCategory={handleBulkMoveToCategory}
+        onManageTags={handleBulkManageTags}
+        onToggleFavorites={handleBulkToggleFavorites}
+        onDelete={handleBulkDelete}
+        onClearSelection={() => setSelectedIds(new Set())}
+        categories={categories}
+        tags={tags}
+      />
     </div>
   );
 }

@@ -169,7 +169,7 @@ function addCorsHeaders(response: NextResponse, origin: string | null): NextResp
   // Security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('X-XSS-Protection', '0');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   return response;
@@ -192,6 +192,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // Desktop Mode — bypass all auth, CSRF and CORS checks
   // =========================================================================
   if (process.env.DESKTOP_MODE === 'true') {
+    // Desktop mode: server bound to 127.0.0.1 with random port — no auth/CSRF needed
     const res = NextResponse.next();
     res.headers.set('X-Desktop-Mode', 'true');
     return res;
@@ -233,7 +234,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // In development mode, bypass all CORS and CSRF checks for API routes
+  // SECURITY NOTE: CORS and CSRF are bypassed in development mode.
+  // Do NOT expose the dev server on 0.0.0.0 — only use localhost.
+  // If you need to test from another device, use a tunnel (e.g., ngrok)
+  // or set NODE_ENV=production with proper auth credentials.
   if (process.env.NODE_ENV !== 'production') {
     // Handle OPTIONS preflight in dev mode
     if (method === 'OPTIONS') {

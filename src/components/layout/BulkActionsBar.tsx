@@ -35,7 +35,7 @@ export function BulkActionsBar() {
       await Promise.all(
         ids.map((id) =>
           fetch(`/api/links/${id}`, {
-            method: "PUT",
+            method: "PATCH",
             headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
             credentials: "include",
             body: JSON.stringify({ isFavorite }),
@@ -58,7 +58,7 @@ export function BulkActionsBar() {
       await Promise.all(
         ids.map((id) =>
           fetch(`/api/links/${id}`, {
-            method: "PUT",
+            method: "PATCH",
             headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
             credentials: "include",
             body: JSON.stringify({ categoryId: categoryId === "none" ? null : categoryId }),
@@ -80,7 +80,7 @@ export function BulkActionsBar() {
     try {
       await Promise.all(
         ids.map((id) =>
-          fetch("/api/link-tags", {
+          fetch("/api/tags/link", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
             credentials: "include",

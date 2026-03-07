@@ -16,6 +16,64 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 const BACKUP_VERSION = "1.0.0";
 const MAX_BACKUPS_PER_USER = 10;
 
+// ─── Sanitization helpers ────────────────────────────────────────────────────
+
+/**
+ * Strip HTML tags from text fields to prevent stored XSS
+ */
+function sanitizeTextField(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.replace(/<[^>]*>/g, '');
+}
+
+/**
+ * Allowed keys per schema table — only these keys are kept during restore.
+ * userId is excluded because it's set explicitly during restore.
+ */
+const ALLOWED_CATEGORY_KEYS = new Set([
+  'id', 'name', 'description', 'icon', 'color', 'order',
+  'createdAt', 'updatedAt', 'deletedAt',
+]);
+
+const ALLOWED_TAG_KEYS = new Set([
+  'id', 'name', 'color', 'order', 'createdAt', 'deletedAt',
+]);
+
+const ALLOWED_LINK_KEYS = new Set([
+  'id', 'url', 'title', 'description', 'imageUrl', 'faviconUrl',
+  'categoryId', 'isFavorite', 'siteName', 'author', 'publishedAt',
+  'source', 'sourceId', 'platform', 'contentType', 'platformColor',
+  'order', 'createdAt', 'updatedAt', 'deletedAt',
+  'lastCheckedAt', 'healthStatus', 'isRead', 'notes', 'reminderAt',
+]);
+
+const ALLOWED_PROJECT_KEYS = new Set([
+  'id', 'name', 'description', 'icon', 'color', 'order', 'isDefault',
+  'createdAt', 'updatedAt', 'deletedAt',
+]);
+
+const ALLOWED_WIDGET_KEYS = new Set([
+  'id', 'projectId', 'type', 'title', 'size', 'categoryId', 'tagId',
+  'tags', 'config', 'layoutX', 'layoutY', 'layoutW', 'layoutH',
+  'isVisible', 'createdAt', 'updatedAt', 'deletedAt',
+  'kanbanColumnId', 'kanbanOrder', 'kanbanHeight',
+  'backgroundColor', 'backgroundGradient', 'accentColor', 'opacity', 'isLocked',
+]);
+
+/**
+ * Filter an object to only include allowed keys
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filterKeys(obj: Record<string, unknown>, allowedKeys: Set<string>): Record<string, any> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    if (allowedKeys.has(key)) {
+      result[key] = obj[key];
+    }
+  }
+  return result;
+}
+
 export interface CreateBackupOptions {
   userId: string;
   backupType?: "manual" | "auto" | "export";
@@ -253,75 +311,79 @@ export async function restoreBackup(options: RestoreBackupOptions): Promise<{
 
   // Restore categories first (links depend on them)
   if (data.data.categories?.length) {
-    for (const cat of data.data.categories) {
+    for (const rawCat of data.data.categories) {
       try {
-        await db.insert(categories).values({
-          ...cat,
-          userId,
-        }).onConflictDoNothing();
+        const cat = filterKeys(rawCat as Record<string, unknown>, ALLOWED_CATEGORY_KEYS);
+        if (cat.name) cat.name = sanitizeTextField(cat.name);
+        if (cat.description) cat.description = sanitizeTextField(cat.description);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.insert(categories).values({ ...cat, userId } as any).onConflictDoNothing();
         restored.categories++;
       } catch (_err) {
-        errors.push(`Failed to restore category: ${cat.name}`);
+        errors.push(`Failed to restore category: ${rawCat.name}`);
       }
     }
   }
 
   // Restore tags
   if (data.data.tags?.length) {
-    for (const tag of data.data.tags) {
+    for (const rawTag of data.data.tags) {
       try {
-        await db.insert(tags).values({
-          ...tag,
-          userId,
-        }).onConflictDoNothing();
+        const tag = filterKeys(rawTag as Record<string, unknown>, ALLOWED_TAG_KEYS);
+        if (tag.name) tag.name = sanitizeTextField(tag.name);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.insert(tags).values({ ...tag, userId } as any).onConflictDoNothing();
         restored.tags++;
       } catch (_err) {
-        errors.push(`Failed to restore tag: ${tag.name}`);
+        errors.push(`Failed to restore tag: ${rawTag.name}`);
       }
     }
   }
 
   // Restore projects
   if (data.data.projects?.length) {
-    for (const project of data.data.projects) {
+    for (const rawProject of data.data.projects) {
       try {
-        await db.insert(projects).values({
-          ...project,
-          userId,
-        }).onConflictDoNothing();
+        const project = filterKeys(rawProject as Record<string, unknown>, ALLOWED_PROJECT_KEYS);
+        if (project.name) project.name = sanitizeTextField(project.name);
+        if (project.description) project.description = sanitizeTextField(project.description);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.insert(projects).values({ ...project, userId } as any).onConflictDoNothing();
         restored.projects++;
       } catch (_err) {
-        errors.push(`Failed to restore project: ${project.name}`);
+        errors.push(`Failed to restore project: ${rawProject.name}`);
       }
     }
   }
 
   // Restore links
   if (data.data.links?.length) {
-    for (const link of data.data.links) {
+    for (const rawLink of data.data.links) {
       try {
-        await db.insert(links).values({
-          ...link,
-          userId,
-        }).onConflictDoNothing();
+        const link = filterKeys(rawLink as Record<string, unknown>, ALLOWED_LINK_KEYS);
+        if (link.title) link.title = sanitizeTextField(link.title);
+        if (link.description) link.description = sanitizeTextField(link.description);
+        if (link.notes) link.notes = sanitizeTextField(link.notes);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.insert(links).values({ ...link, userId } as any).onConflictDoNothing();
         restored.links++;
       } catch (_err) {
-        errors.push(`Failed to restore link: ${link.title}`);
+        errors.push(`Failed to restore link: ${rawLink.title}`);
       }
     }
   }
 
   // Restore widgets
   if (data.data.widgets?.length) {
-    for (const widget of data.data.widgets) {
+    for (const rawWidget of data.data.widgets) {
       try {
-        await db.insert(widgets).values({
-          ...widget,
-          userId,
-        }).onConflictDoNothing();
+        const widget = filterKeys(rawWidget as Record<string, unknown>, ALLOWED_WIDGET_KEYS);
+        if (widget.title) widget.title = sanitizeTextField(widget.title);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.insert(widgets).values({ ...widget, userId } as any).onConflictDoNothing();
         restored.widgets++;
       } catch (_err) {
-        errors.push(`Failed to restore widget: ${widget.title}`);
+        errors.push(`Failed to restore widget: ${rawWidget.title}`);
       }
     }
   }
