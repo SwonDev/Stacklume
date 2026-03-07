@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon } from "lucide-react";
+import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen, StickyNote, Bell } from "lucide-react";
 import { TagSelector } from "@/components/ui/tag-selector";
 import { TagBadge } from "@/components/ui/tag-badge";
-import { CategorySelector } from "@/components/ui/category-selector";
+import { MultiCategorySelector } from "@/components/ui/multi-category-selector";
 import type { Tag } from "@/lib/db/schema";
 import {
   Dialog,
@@ -39,8 +39,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useLinksStore } from "@/stores/links-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 const formSchema = z.object({
   url: z.string().url("Introduce una URL válida"),
@@ -53,20 +56,20 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export function EditLinkModal() {
-  const {
-    isEditLinkModalOpen,
-    closeEditLinkModal,
-    selectedLink,
-    tags,
-    linkTags,
-    updateLink,
-    removeLink,
-    addLinkTag,
-    removeLinkTag,
-  } = useLinksStore();
+  const isEditLinkModalOpen = useLinksStore((state) => state.isEditLinkModalOpen);
+  const selectedLink = useLinksStore((state) => state.selectedLink);
+  const tags = useLinksStore((state) => state.tags);
+  const linkTags = useLinksStore((state) => state.linkTags);
+  const linkCategories = useLinksStore((state) => state.linkCategories);
+  const confirmBeforeDelete = useSettingsStore((state) => state.confirmBeforeDelete);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [isRead, setIsRead] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [reminderAt, setReminderAt] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -94,8 +97,23 @@ export function EditLinkModal() {
         .filter((lt: { linkId: string; tagId: string }) => lt.linkId === selectedLink.id)
         .map((lt: { linkId: string; tagId: string }) => lt.tagId);
       setSelectedTagIds(currentTagIds);
+      // Load current categories (multi-category), fallback to single categoryId
+      const currentCategoryIds = linkCategories
+        .filter((lc: { linkId: string; categoryId: string }) => lc.linkId === selectedLink.id)
+        .map((lc: { linkId: string; categoryId: string }) => lc.categoryId);
+      setSelectedCategoryIds(currentCategoryIds.length > 0 ? currentCategoryIds : (selectedLink.categoryId ? [selectedLink.categoryId] : []));
+      // Load personal tracking fields
+      setIsRead(selectedLink.isRead ?? false);
+      setNotes(selectedLink.notes || "");
+      if (selectedLink.reminderAt) {
+        const d = new Date(selectedLink.reminderAt);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        setReminderAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+      } else {
+        setReminderAt(null);
+      }
     }
-  }, [selectedLink, form, linkTags]);
+  }, [selectedLink, form, linkTags, linkCategories]);
 
   const onSubmit = async (values: FormValues) => {
     if (!selectedLink) return;
@@ -111,13 +129,16 @@ export function EditLinkModal() {
         credentials: "include",
         body: JSON.stringify({
           ...values,
-          categoryId: values.categoryId || null,
+          categoryId: selectedCategoryIds[0] || values.categoryId || null,
+          isRead,
+          notes: notes || null,
+          reminderAt: reminderAt ? new Date(reminderAt).toISOString() : null,
         }),
       });
 
       if (response.ok) {
         const updatedLink = await response.json();
-        updateLink(selectedLink.id, updatedLink);
+        useLinksStore.getState().updateLink(selectedLink.id, updatedLink);
 
         // Update tags: remove old ones, add new ones
         const currentTagIds = linkTags
@@ -132,7 +153,7 @@ export function EditLinkModal() {
               headers: getCsrfHeaders(),
               credentials: "include",
             });
-            removeLinkTag(selectedLink.id, tagId);
+            useLinksStore.getState().removeLinkTag(selectedLink.id, tagId);
           }
         }
 
@@ -148,18 +169,36 @@ export function EditLinkModal() {
               credentials: "include",
               body: JSON.stringify({ linkId: selectedLink.id, tagId }),
             });
-            addLinkTag(selectedLink.id, tagId);
+            useLinksStore.getState().addLinkTag(selectedLink.id, tagId);
           }
         }
 
-        toast.success("Enlace actualizado correctamente");
-        closeEditLinkModal();
+        // Save multi-category associations
+        try {
+          const lcRes = await fetch("/api/link-categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
+            body: JSON.stringify({ linkId: selectedLink.id, categoryIds: selectedCategoryIds }),
+          });
+          if (lcRes.ok) {
+            const store = useLinksStore.getState();
+            const others = store.linkCategories.filter((lc) => lc.linkId !== selectedLink.id);
+            const updated = selectedCategoryIds.map((cid) => ({ linkId: selectedLink.id, categoryId: cid }));
+            store.setLinkCategories([...others, ...updated]);
+          }
+        } catch (e) {
+          console.error("Error saving link-categories:", e);
+        }
+
+        toast.success(t("editLink.successUpdate"));
+        useLinksStore.getState().closeEditLinkModal();
       } else {
-        toast.error("Error al actualizar el enlace");
+        toast.error(t("editLink.errorUpdate"));
       }
     } catch (error) {
       console.error("Error updating link:", error);
-      toast.error("Error al guardar los cambios");
+      toast.error(t("editLink.errorSaveChanges"));
     } finally {
       setIsLoading(false);
     }
@@ -177,15 +216,15 @@ export function EditLinkModal() {
       });
 
       if (response.ok) {
-        removeLink(selectedLink.id);
-        toast.success("Enlace eliminado correctamente");
-        closeEditLinkModal();
+        useLinksStore.getState().removeLink(selectedLink.id);
+        toast.success(t("editLink.successDelete"));
+        useLinksStore.getState().closeEditLinkModal();
       } else {
-        toast.error("Error al eliminar el enlace");
+        toast.error(t("editLink.errorDelete"));
       }
     } catch (error) {
       console.error("Error deleting link:", error);
-      toast.error("Error al eliminar el enlace");
+      toast.error(t("editLink.errorDelete"));
     } finally {
       setIsDeleting(false);
     }
@@ -194,7 +233,11 @@ export function EditLinkModal() {
   const handleClose = () => {
     form.reset();
     setSelectedTagIds([]);
-    closeEditLinkModal();
+    setSelectedCategoryIds([]);
+    setIsRead(false);
+    setNotes("");
+    setReminderAt(null);
+    useLinksStore.getState().closeEditLinkModal();
   };
 
   return (
@@ -203,10 +246,10 @@ export function EditLinkModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LinkIcon className="w-5 h-5 text-primary" />
-            Editar enlace
+            {t("editLink.title")}
           </DialogTitle>
           <DialogDescription>
-            Modifica los datos del enlace guardado
+            {t("editLink.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -220,7 +263,7 @@ export function EditLinkModal() {
                 <FormItem>
                   <FormLabel>URL</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://ejemplo.com" {...field} />
+                    <Input placeholder={t("addLink.urlPlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -233,9 +276,9 @@ export function EditLinkModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Título</FormLabel>
+                  <FormLabel>{t("addLink.linkTitle")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Título del enlace" {...field} />
+                    <Input placeholder={t("addLink.titlePlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -248,10 +291,10 @@ export function EditLinkModal() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción (opcional)</FormLabel>
+                  <FormLabel>{t("addLink.descriptionLabel")}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Añade una descripción..."
+                      placeholder={t("addLink.descriptionPlaceholder")}
                       className="resize-none"
                       rows={2}
                       {...field}
@@ -262,34 +305,25 @@ export function EditLinkModal() {
               )}
             />
 
-            {/* Category Select */}
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoría (opcional)</FormLabel>
-                  <FormControl>
-                    <CategorySelector
-                      selectedCategoryId={field.value || null}
-                      onCategoryChange={(id) => field.onChange(id ?? "")}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Category Select (multi) */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("addLink.categories")}</label>
+              <MultiCategorySelector
+                selectedCategoryIds={selectedCategoryIds}
+                onCategoriesChange={setSelectedCategoryIds}
+              />
+            </div>
 
             {/* Tags */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <TagIcon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Etiquetas</span>
+                <span className="text-sm font-medium">{t("editLink.tags")}</span>
               </div>
               <TagSelector
                 selectedTagIds={selectedTagIds}
                 onTagsChange={setSelectedTagIds}
-                placeholder="Añadir etiquetas..."
+                placeholder={t("editLink.addTags")}
               />
               {selectedTagIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -329,60 +363,123 @@ export function EditLinkModal() {
                           field.value ? "fill-current" : ""
                         }`}
                       />
-                      {field.value ? "Favorito" : "Añadir a favoritos"}
+                      {field.value ? t("addLink.favorite") : t("addLink.addToFavorites")}
                     </Button>
                   </FormControl>
                 </FormItem>
               )}
             />
 
+            {/* Mark as Read */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="isRead"
+                checked={isRead}
+                onCheckedChange={(v) => setIsRead(Boolean(v))}
+              />
+              <label htmlFor="isRead" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
+                {t("editLink.markAsRead")}
+              </label>
+            </div>
+
+            {/* Personal Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <StickyNote className="w-4 h-4 text-muted-foreground" />
+                {t("editLink.personalNotes")}
+              </label>
+              <Textarea
+                placeholder={t("editLink.notesPlaceholder")}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="min-h-[80px] resize-y"
+              />
+            </div>
+
+            {/* Reminder */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Bell className="w-4 h-4 text-muted-foreground" />
+                {t("editLink.reminder")}
+              </label>
+              <Input
+                type="datetime-local"
+                value={reminderAt || ""}
+                onChange={(e) => setReminderAt(e.target.value || null)}
+              />
+              {reminderAt && (
+                <Button variant="ghost" size="sm" onClick={() => setReminderAt(null)}>
+                  {t("editLink.removeReminder")}
+                </Button>
+              )}
+            </div>
+
             {/* Actions */}
             <div className="flex justify-between pt-2">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Eliminar
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar enlace?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción no se puede deshacer. El enlace se eliminará
-                      permanentemente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              {confirmBeforeDelete ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={isDeleting}
                     >
                       {isDeleting ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        "Eliminar"
+                        <Trash2 className="w-3.5 h-3.5" />
                       )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      {t("btn.delete")}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t("editLink.deleteLink")}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t("editLink.deleteLinkDesc")}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {t("btn.delete")}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  {t("btn.delete")}
+                </Button>
+              )}
 
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={handleClose}>
-                  Cancelar
+                  {t("btn.cancel")}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   )}
-                  Guardar cambios
+                  {t("editLink.saveChanges")}
                 </Button>
               </div>
             </div>

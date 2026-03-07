@@ -16,6 +16,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { KeyboardDragHelper } from "@/components/ui/KeyboardDragHelper";
 import type { Widget } from "@/types/widget";
 import type { Link } from "@/lib/db/schema";
+import { useTranslation } from "@/lib/i18n";
 
 // Memoized wrapper for BentoCard to prevent unnecessary re-renders
 const MemoizedBentoCard = memo(BentoCard);
@@ -29,17 +30,19 @@ interface BentoGridProps {
 }
 
 export function BentoGrid({ className }: BentoGridProps) {
+  const { t } = useTranslation();
   const isEditMode = useLayoutStore((state) => state.isEditMode);
   const activeFilter = useLayoutStore((state) => state.activeFilter);
   const searchQuery = useLayoutStore((state) => state.searchQuery);
   const widgets = useWidgetStore((state) => state.widgets);
-  const reorderWidgets = useWidgetStore((state) => state.reorderWidgets);
+  // reorderWidgets accessed via getState() in handlers — no need for a subscription
   const currentProjectId = useWidgetStore((state) => state.currentProjectId);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const projectsHydrated = useProjectsHasHydrated();
   const links = useLinksStore((state) => state.links);
   const linkTags = useLinksStore((state) => state.linkTags);
   const viewDensity = useSettingsStore((state) => state.viewDensity);
+  const gridColumns = useSettingsStore((state) => state.gridColumns);
   const [mounted, setMounted] = useState(false);
   const [currentBreakpoint, setCurrentBreakpoint] = useState<Breakpoint>("lg");
 
@@ -228,9 +231,9 @@ export function BentoGrid({ className }: BentoGridProps) {
       const lgLayout = allLayouts.lg || currentLayout;
 
       // Update widget positions in the widget store using the lg layout
-      reorderWidgets(lgLayout);
+      useWidgetStore.getState().reorderWidgets(lgLayout);
     },
-    [reorderWidgets, isEditMode, currentBreakpoint]
+    [isEditMode, currentBreakpoint]
   );
 
   // Handle drag start with screen reader announcement
@@ -271,10 +274,10 @@ export function BentoGrid({ className }: BentoGridProps) {
       const layoutHash = JSON.stringify(layout.map(l => ({ i: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
       if (layoutHash !== lastSavedLayoutRef.current) {
         lastSavedLayoutRef.current = layoutHash;
-        reorderWidgets(layout);
+        useWidgetStore.getState().reorderWidgets(layout);
       }
     },
-    [isEditMode, reorderWidgets, announcements]
+    [isEditMode, announcements]
   );
 
   // Handle resize start
@@ -293,10 +296,10 @@ export function BentoGrid({ className }: BentoGridProps) {
       const layoutHash = JSON.stringify(layout.map(l => ({ i: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
       if (layoutHash !== lastSavedLayoutRef.current) {
         lastSavedLayoutRef.current = layoutHash;
-        reorderWidgets(layout);
+        useWidgetStore.getState().reorderWidgets(layout);
       }
     },
-    [isEditMode, reorderWidgets]
+    [isEditMode]
   );
 
   // Handle breakpoint change
@@ -353,7 +356,7 @@ export function BentoGrid({ className }: BentoGridProps) {
         h: w.layout.h,
       }));
 
-      reorderWidgets(newLayout);
+      useWidgetStore.getState().reorderWidgets(newLayout);
 
       const { position, total } = getPositionInfo(filteredWidgets, keyboardDragState.widgetId);
       announcements.onDrop(widget.title, position, total);
@@ -365,7 +368,7 @@ export function BentoGrid({ className }: BentoGridProps) {
       originalPosition: null,
       currentPosition: { x: 0, y: 0 },
     });
-  }, [keyboardDragState, filteredWidgets, reorderWidgets, announcements]);
+  }, [keyboardDragState, filteredWidgets, announcements]);
 
   const handleKeyboardDragCancel = useCallback(() => {
     const widget = filteredWidgets.find((w) => w.id === keyboardDragState.widgetId);
@@ -415,7 +418,7 @@ export function BentoGrid({ className }: BentoGridProps) {
           data-widget-id={widget.id}
           tabIndex={isEditMode ? 0 : -1}
           role={isEditMode ? "button" : undefined}
-          aria-label={isEditMode ? `${widget.title}. Presiona Espacio o Enter para mover.` : undefined}
+          aria-label={isEditMode ? `${widget.title}. ${t("bentoGrid.pressToMove")}` : undefined}
           aria-describedby={isEditMode ? dragInstructionsId : undefined}
           aria-grabbed={isEditMode ? isBeingDragged : undefined}
           onKeyDown={(e) => handleWidgetKeyDown(e, widget.id)}
@@ -424,7 +427,7 @@ export function BentoGrid({ className }: BentoGridProps) {
         </div>
       );
     });
-  }, [filteredWidgets, isEditMode, keyboardDragState, dragInstructionsId, handleWidgetKeyDown]);
+  }, [filteredWidgets, isEditMode, keyboardDragState, dragInstructionsId, handleWidgetKeyDown, t]);
 
   // Apply view density settings
   const densityConfig = useMemo(() => {
@@ -436,14 +439,17 @@ export function BentoGrid({ className }: BentoGridProps) {
     return configs[viewDensity];
   }, [viewDensity]);
 
+  // Override lg column count from user setting
+  const effectiveCols = useMemo(() => ({ ...COLS, lg: gridColumns }), [gridColumns]);
+
   // Get grid bounds for keyboard drag (must be before any early returns)
   const gridBounds = useMemo(() => ({
     minX: 0,
-    maxX: COLS[currentBreakpoint] - 1,
+    maxX: effectiveCols[currentBreakpoint] - 1,
     minY: 0,
     maxY: 100, // Reasonable max
-    cols: COLS[currentBreakpoint],
-  }), [currentBreakpoint]);
+    cols: effectiveCols[currentBreakpoint],
+  }), [currentBreakpoint, effectiveCols]);
 
   // Wait for both mount AND hydration to complete before rendering widgets
   // This ensures activeProjectId is correctly loaded from localStorage
@@ -452,9 +458,9 @@ export function BentoGrid({ className }: BentoGridProps) {
       <div
         className="flex items-center justify-center h-full"
         role="status"
-        aria-label="Cargando widgets"
+        aria-label={t("bentoGrid.loadingWidgets")}
       >
-        <div className="animate-pulse text-muted-foreground">Cargando...</div>
+        <div className="animate-pulse text-muted-foreground">{t("bentoGrid.loading")}</div>
       </div>
     );
   }
@@ -493,7 +499,7 @@ export function BentoGrid({ className }: BentoGridProps) {
       <EmptyState
         variant="no-widgets"
         action={{
-          label: "Agregar widget",
+          label: t("bentoGrid.addWidget"),
           onClick: () => useWidgetStore.getState().openAddWidgetModal(),
         }}
         className="h-[50vh]"
@@ -521,7 +527,7 @@ export function BentoGrid({ className }: BentoGridProps) {
         />
       )}
 
-      <div role="grid" aria-label="Cuadricula de widgets">
+      <div role="grid" aria-label={t("bentoGrid.widgetGrid")}>
         <ResponsiveGridLayout
           key={`grid-${isEditMode ? 'edit' : 'view'}-${viewDensity}-${currentProjectId || 'home'}`}
           className={cn(
@@ -533,7 +539,7 @@ export function BentoGrid({ className }: BentoGridProps) {
           )}
           layouts={layouts}
           breakpoints={BREAKPOINTS}
-          cols={COLS}
+          cols={effectiveCols}
           rowHeight={densityConfig.rowHeight}
           margin={densityConfig.margin as [number, number]}
           containerPadding={densityConfig.containerPadding as [number, number]}

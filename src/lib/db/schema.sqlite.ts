@@ -153,6 +153,9 @@ export const links = sqliteTable(
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" }),
     healthStatus: text("health_status"),
+    isRead: integer("is_read", { mode: "boolean" }).default(false),
+    notes: text("notes"),
+    reminderAt: integer("reminder_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     index("idx_links_user_id").on(table.userId),
@@ -263,15 +266,22 @@ export const userSettings = sqliteTable(
     theme: text("theme").default("system").notNull(),
     viewDensity: text("view_density").default("normal").notNull(),
     viewMode: text("view_mode").default("bento").notNull(),
-    showTooltips: integer("show_tooltips", { mode: "boolean" })
-      .default(true)
-      .notNull(),
-    reduceMotion: integer("reduce_motion", { mode: "boolean" })
-      .default(false)
-      .notNull(),
+    showTooltips: integer("show_tooltips", { mode: "boolean" }).default(true).notNull(),
+    reduceMotion: integer("reduce_motion", { mode: "boolean" }).default(false).notNull(),
     // MCP Server settings
     mcpEnabled: integer("mcp_enabled", { mode: "boolean" }).default(false).notNull(),
     mcpApiKey: text("mcp_api_key"),
+    // Extended settings
+    language: text("language").default("es").notNull(),
+    gridColumns: integer("grid_columns").default(12).notNull(),
+    sidebarAlwaysVisible: integer("sidebar_always_visible", { mode: "boolean" }).default(false).notNull(),
+    defaultSortField: text("default_sort_field").default("createdAt").notNull(),
+    defaultSortOrder: text("default_sort_order").default("desc").notNull(),
+    thumbnailSize: text("thumbnail_size").default("medium").notNull(),
+    sidebarDensity: text("sidebar_density").default("normal").notNull(),
+    autoBackupInterval: integer("auto_backup_interval").default(0).notNull(),
+    confirmBeforeDelete: integer("confirm_before_delete", { mode: "boolean" }).default(true).notNull(),
+    linkClickBehavior: text("link_click_behavior").default("new-tab").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -432,6 +442,40 @@ export interface BackupData {
 
 export type CustomWidgetType = typeof customWidgetTypes.$inferSelect;
 export type NewCustomWidgetType = typeof customWidgetTypes.$inferInsert;
+
+// ─── Saved Searches ─────────────────────────────────────────────────────────
+export const savedSearches = sqliteTable("saved_searches", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").default("default"),
+  name: text("name").notNull(),
+  query: text("query").notNull(),
+  filters: text("filters", { mode: "json" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export type SavedSearch = typeof savedSearches.$inferSelect;
+
+// ─── Shared Collections ─────────────────────────────────────────────────────
+export const sharedCollections = sqliteTable("shared_collections", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").default("default"),
+  type: text("type").notNull(),
+  referenceId: text("reference_id").notNull(),
+  shareToken: text("share_token").notNull().unique(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+});
+
+export type SharedCollection = typeof sharedCollections.$inferSelect;
+
+// ─── Link Categories (many-to-many) ─────────────────────────────────────────
+export const linkCategories = sqliteTable("link_categories", {
+  linkId: text("link_id").notNull(),
+  categoryId: text("category_id").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.linkId, table.categoryId] }),
+]);
 
 // Evitar error TS de módulo sin usar
 export { real };

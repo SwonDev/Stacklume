@@ -64,7 +64,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { theme, viewDensity, viewMode, showTooltips, reduceMotion, mcpEnabled, mcpApiKey } = validation.data;
+    const {
+      theme, viewDensity, viewMode, showTooltips, reduceMotion, mcpEnabled, mcpApiKey,
+      language, gridColumns, sidebarAlwaysVisible, defaultSortField, defaultSortOrder,
+      thumbnailSize, sidebarDensity, autoBackupInterval, confirmBeforeDelete, linkClickBehavior,
+    } = validation.data;
 
     // Check if settings exist
     const [existing] = await withRetry(
@@ -83,6 +87,16 @@ export async function PUT(request: NextRequest) {
           viewMode: viewMode ?? "bento",
           showTooltips: showTooltips ?? true,
           reduceMotion: reduceMotion ?? false,
+          language: language ?? "es",
+          gridColumns: gridColumns ?? 12,
+          sidebarAlwaysVisible: sidebarAlwaysVisible ?? false,
+          defaultSortField: defaultSortField ?? "createdAt",
+          defaultSortOrder: defaultSortOrder ?? "desc",
+          thumbnailSize: thumbnailSize ?? "medium",
+          sidebarDensity: sidebarDensity ?? "normal",
+          autoBackupInterval: autoBackupInterval ?? 0,
+          confirmBeforeDelete: confirmBeforeDelete ?? true,
+          linkClickBehavior: linkClickBehavior ?? "new-tab",
           createdAt: new Date(),
           updatedAt: new Date(),
         }).returning(),
@@ -104,6 +118,16 @@ export async function PUT(request: NextRequest) {
     if (reduceMotion !== undefined) updateData.reduceMotion = reduceMotion;
     if (mcpEnabled !== undefined) updateData.mcpEnabled = mcpEnabled;
     if (mcpApiKey !== undefined) updateData.mcpApiKey = mcpApiKey;
+    if (language !== undefined) updateData.language = language;
+    if (gridColumns !== undefined) updateData.gridColumns = gridColumns;
+    if (sidebarAlwaysVisible !== undefined) updateData.sidebarAlwaysVisible = sidebarAlwaysVisible;
+    if (defaultSortField !== undefined) updateData.defaultSortField = defaultSortField;
+    if (defaultSortOrder !== undefined) updateData.defaultSortOrder = defaultSortOrder;
+    if (thumbnailSize !== undefined) updateData.thumbnailSize = thumbnailSize;
+    if (sidebarDensity !== undefined) updateData.sidebarDensity = sidebarDensity;
+    if (autoBackupInterval !== undefined) updateData.autoBackupInterval = autoBackupInterval;
+    if (confirmBeforeDelete !== undefined) updateData.confirmBeforeDelete = confirmBeforeDelete;
+    if (linkClickBehavior !== undefined) updateData.linkClickBehavior = linkClickBehavior;
 
     const [updated] = await withRetry(
       () => db.update(userSettings).set(updateData).where(eq(userSettings.userId, DEFAULT_USER_ID)).returning(),

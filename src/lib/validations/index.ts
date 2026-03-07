@@ -74,7 +74,7 @@ const optionalNullableUrlSchema = z
 
 // Create link request body
 export const createLinkSchema = z.object({
-  url: urlSchema,
+  url: httpUrlSchema,
   title: z.string().min(1, 'Title is required').max(255, 'Title must be 255 characters or less'),
   description: z.string().optional(),
   imageUrl: optionalNullableUrlSchema,
@@ -93,11 +93,11 @@ export const createLinkSchema = z.object({
 
 // Update link request body (all fields optional except ID)
 export const updateLinkSchema = z.object({
-  url: urlSchema.optional(),
+  url: httpUrlSchema.optional(),
   title: z.string().min(1, 'Title cannot be empty').max(255, 'Title must be 255 characters or less').optional(),
   description: z.string().nullable().optional(),
-  imageUrl: urlSchema.nullable().optional(),
-  faviconUrl: urlSchema.nullable().optional(),
+  imageUrl: optionalNullableUrlSchema,
+  faviconUrl: optionalNullableUrlSchema,
   categoryId: optionalUuidSchema,
   isFavorite: z.boolean().optional(),
   siteName: z.string().max(100, 'Site name must be 100 characters or less').nullable().optional(),
@@ -108,6 +108,9 @@ export const updateLinkSchema = z.object({
   platform: z.string().max(50, 'Platform must be 50 characters or less').nullable().optional(),
   contentType: z.string().max(30, 'Content type must be 30 characters or less').nullable().optional(),
   platformColor: z.string().max(20, 'Platform color must be 20 characters or less').nullable().optional(),
+  isRead: z.boolean().optional(),
+  notes: z.string().nullable().optional(),
+  reminderAt: isoDateSchema.nullable().optional(),
 });
 
 // Link ID param
@@ -435,9 +438,21 @@ export const widgetIdSchema = z.object({
 // ============================================================================
 
 // Valid setting enums
-const themeSchema = z.enum(['light', 'dark', 'system', 'midnight', 'ocean', 'forest', 'slate', 'crimson', 'aurora', 'arctic', 'sakura', 'lavender', 'mint']);
+const themeSchema = z.enum([
+  'light', 'dark', 'system',
+  'midnight', 'ocean', 'forest', 'slate', 'crimson', 'aurora',
+  'nordic', 'catppuccin', 'tokyo', 'rosepine', 'gruvbox', 'solardark', 'vampire',
+  'solarized',
+  'arctic', 'sakura', 'lavender', 'mint',
+  'cement', 'stone', 'steel',
+]);
 const viewDensitySchema = z.enum(['compact', 'normal', 'comfortable']);
 const viewModeSchema = z.enum(['bento', 'kanban', 'list']);
+const languageSchema = z.enum(['es', 'en']);
+const sortFieldSchema = z.enum(['createdAt', 'updatedAt', 'title', 'order']);
+const sortOrderSchema = z.enum(['asc', 'desc']);
+const thumbnailSizeSchema = z.enum(['none', 'small', 'medium', 'large']);
+const linkClickBehaviorSchema = z.enum(['new-tab', 'same-tab']);
 
 // Update settings request body
 export const updateSettingsSchema = z.object({
@@ -449,7 +464,84 @@ export const updateSettingsSchema = z.object({
   // MCP server settings
   mcpEnabled: z.boolean().optional(),
   mcpApiKey: z.string().max(64).nullable().optional(),
+  // Extended settings
+  language: languageSchema.optional(),
+  gridColumns: z.number().int().min(1).max(24).optional(),
+  sidebarAlwaysVisible: z.boolean().optional(),
+  defaultSortField: sortFieldSchema.optional(),
+  defaultSortOrder: sortOrderSchema.optional(),
+  thumbnailSize: thumbnailSizeSchema.optional(),
+  sidebarDensity: viewDensitySchema.optional(),
+  autoBackupInterval: z.number().int().min(0).optional(),
+  confirmBeforeDelete: z.boolean().optional(),
+  linkClickBehavior: linkClickBehaviorSchema.optional(),
 });
+
+// ============================================================================
+// REORDER SCHEMAS
+// ============================================================================
+
+// Reorder items (categories, tags, links, projects)
+export const reorderSchema = z.object({
+  orderedIds: z.array(z.string().uuid('ID inválido en el array')).max(1000, 'Máximo 1000 elementos permitidos'),
+});
+
+export type ReorderInput = z.infer<typeof reorderSchema>;
+
+// ============================================================================
+// SHARED COLLECTIONS SCHEMAS
+// ============================================================================
+
+export const createSharedCollectionSchema = z.object({
+  type: z.enum(['category', 'tag', 'project'], { error: 'type debe ser category, tag o project' }),
+  referenceId: z.string().uuid('referenceId debe ser un UUID válido'),
+  expiresAt: z.string().datetime('expiresAt debe ser una fecha ISO válida').nullable().optional(),
+});
+
+export type CreateSharedCollectionInput = z.infer<typeof createSharedCollectionSchema>;
+
+// ============================================================================
+// SAVED SEARCHES SCHEMAS
+// ============================================================================
+
+export const createSavedSearchSchema = z.object({
+  name: z.string().min(1, 'name es obligatorio').max(100, 'name debe tener máximo 100 caracteres'),
+  query: z.string().min(1, 'query es obligatorio').max(500, 'query debe tener máximo 500 caracteres'),
+  filters: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+export type CreateSavedSearchInput = z.infer<typeof createSavedSearchSchema>;
+
+// ============================================================================
+// TRASH SCHEMAS
+// ============================================================================
+
+const trashItemTypeSchema = z.enum(['link', 'category', 'tag', 'widget']);
+
+export const trashRestoreSchema = z.object({
+  id: z.string().uuid('ID inválido'),
+  type: trashItemTypeSchema,
+});
+
+export type TrashRestoreInput = z.infer<typeof trashRestoreSchema>;
+
+// ============================================================================
+// WIDGET LAYOUTS SCHEMA
+// ============================================================================
+
+const widgetLayoutItemSchema = z.object({
+  i: z.string().min(1, 'Widget ID es requerido'),
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  w: z.number().int().min(1),
+  h: z.number().int().min(1),
+});
+
+export const widgetLayoutsUpdateSchema = z.object({
+  layouts: z.array(widgetLayoutItemSchema).min(0).max(500, 'Máximo 500 layouts permitidos'),
+});
+
+export type WidgetLayoutsUpdateInput = z.infer<typeof widgetLayoutsUpdateSchema>;
 
 // ============================================================================
 // SCRAPE REQUEST SCHEMA
@@ -478,7 +570,7 @@ export const IMPORT_LIMITS = {
 // rechaza null con solo .optional() (que admite undefined pero no null).
 const importLinkItemSchema = z.object({
   id: z.string().uuid().optional(),   // ID original — necesario para mapear linkTags
-  url: urlSchema,
+  url: httpUrlSchema,
   title: z.string().min(1).max(255),
   description: z.string().max(5000).nullish(),
   imageUrl: urlSchema.nullish(),
@@ -543,7 +635,7 @@ export const importDataSchema = z.object({
 
 // Schema for a single imported link (simplified version for bulk URL imports)
 export const importedLinkSchema = z.object({
-  url: z.string().url('Invalid URL format'),
+  url: httpUrlSchema,
   title: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   categoryId: z.string().uuid('Invalid category ID').optional().nullable(),

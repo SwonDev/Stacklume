@@ -20,6 +20,38 @@ function KeyboardShortcutsProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+async function runAutoBackupIfNeeded() {
+  const { autoBackupInterval } = useSettingsStore.getState();
+  if (autoBackupInterval === 0) return;
+
+  try {
+    const res = await fetch("/api/backup", { credentials: "include" });
+    if (!res.ok) return;
+    const backups: Array<{ backupType: string; createdAt: string }> = await res.json();
+
+    const autoBackups = backups.filter((b) => b.backupType === "auto");
+    const lastAuto = autoBackups.length > 0
+      ? new Date(autoBackups[0].createdAt)
+      : null;
+
+    const now = new Date();
+    const daysSinceLast = lastAuto
+      ? (now.getTime() - lastAuto.getTime()) / (1000 * 60 * 60 * 24)
+      : Infinity;
+
+    if (daysSinceLast >= autoBackupInterval) {
+      await fetch("/api/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ backupType: "auto" }),
+      });
+    }
+  } catch {
+    // Silent fail — auto-backup is non-critical
+  }
+}
+
 function DataInitProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Initialize data from database on app mount
@@ -27,7 +59,10 @@ function DataInitProvider({ children }: { children: ReactNode }) {
     const initSettings = useSettingsStore.getState().initSettings;
     const initWidgets = useWidgetStore.getState().initWidgets;
 
-    initSettings();
+    initSettings().then(() => {
+      // Run auto-backup check after settings are loaded
+      runAutoBackupIfNeeded();
+    });
     initWidgets();
 
     // Register service worker for PWA/offline support
@@ -71,7 +106,15 @@ export function Providers({ children }: ProvidersProps) {
         defaultTheme="dark"
         enableSystem
         disableTransitionOnChange
-        themes={["system", "light", "dark", "midnight", "ocean", "forest", "slate", "crimson", "aurora", "arctic", "sakura", "lavender", "mint"]}
+        themes={[
+          "system",
+          "light", "dark",
+          "midnight", "ocean", "forest", "slate", "crimson", "aurora",
+          "nordic", "catppuccin", "tokyo", "rosepine", "gruvbox", "solardark", "vampire",
+          "solarized",
+          "arctic", "sakura", "lavender", "mint",
+          "cement", "stone", "steel",
+        ]}
       >
         <MotionProvider>
           <TooltipProvider delayDuration={200}>

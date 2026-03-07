@@ -141,7 +141,10 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       updated_at INTEGER NOT NULL,
       deleted_at INTEGER,
       last_checked_at INTEGER,
-      health_status TEXT
+      health_status TEXT,
+      is_read INTEGER DEFAULT 0,
+      notes TEXT,
+      reminder_at INTEGER
     )`,
     `CREATE INDEX IF NOT EXISTS idx_links_user_id ON links(user_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url)`,
@@ -222,6 +225,16 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       reduce_motion INTEGER NOT NULL DEFAULT 0,
       mcp_enabled INTEGER NOT NULL DEFAULT 0,
       mcp_api_key TEXT,
+      language TEXT NOT NULL DEFAULT 'es',
+      grid_columns INTEGER NOT NULL DEFAULT 12,
+      sidebar_always_visible INTEGER NOT NULL DEFAULT 0,
+      default_sort_field TEXT NOT NULL DEFAULT 'createdAt',
+      default_sort_order TEXT NOT NULL DEFAULT 'desc',
+      thumbnail_size TEXT NOT NULL DEFAULT 'medium',
+      sidebar_density TEXT NOT NULL DEFAULT 'normal',
+      auto_backup_interval INTEGER NOT NULL DEFAULT 0,
+      confirm_before_delete INTEGER NOT NULL DEFAULT 1,
+      link_click_behavior TEXT NOT NULL DEFAULT 'new-tab',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`,
@@ -254,6 +267,30 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_user_backups_user_id ON user_backups(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_user_backups_created_at ON user_backups(created_at)`,
+    `CREATE TABLE IF NOT EXISTS saved_searches (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      name TEXT NOT NULL,
+      query TEXT NOT NULL,
+      filters TEXT,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS shared_collections (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      type TEXT NOT NULL,
+      reference_id TEXT NOT NULL,
+      share_token TEXT NOT NULL UNIQUE,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_shared_collections_token ON shared_collections(share_token)`,
+    `CREATE TABLE IF NOT EXISTS link_categories (
+      link_id TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      PRIMARY KEY (link_id, category_id)
+    )`,
   ];
 
   for (const sql of statements) {
@@ -277,6 +314,60 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `ALTER TABLE user_settings ADD COLUMN mcp_api_key TEXT`,
       description: "user_settings.mcp_api_key",
+    },
+    // v0.3.16 — Configuración extendida
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN language TEXT NOT NULL DEFAULT 'es'`,
+      description: "user_settings.language",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN grid_columns INTEGER NOT NULL DEFAULT 12`,
+      description: "user_settings.grid_columns",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN sidebar_always_visible INTEGER NOT NULL DEFAULT 0`,
+      description: "user_settings.sidebar_always_visible",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN default_sort_field TEXT NOT NULL DEFAULT 'createdAt'`,
+      description: "user_settings.default_sort_field",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN default_sort_order TEXT NOT NULL DEFAULT 'desc'`,
+      description: "user_settings.default_sort_order",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN thumbnail_size TEXT NOT NULL DEFAULT 'medium'`,
+      description: "user_settings.thumbnail_size",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN sidebar_density TEXT NOT NULL DEFAULT 'normal'`,
+      description: "user_settings.sidebar_density",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN auto_backup_interval INTEGER NOT NULL DEFAULT 0`,
+      description: "user_settings.auto_backup_interval",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN confirm_before_delete INTEGER NOT NULL DEFAULT 1`,
+      description: "user_settings.confirm_before_delete",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN link_click_behavior TEXT NOT NULL DEFAULT 'new-tab'`,
+      description: "user_settings.link_click_behavior",
+    },
+    // v0.3.17 — Campos personales de enlace
+    {
+      sql: `ALTER TABLE links ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0`,
+      description: "links.is_read",
+    },
+    {
+      sql: `ALTER TABLE links ADD COLUMN notes TEXT`,
+      description: "links.notes",
+    },
+    {
+      sql: `ALTER TABLE links ADD COLUMN reminder_at INTEGER`,
+      description: "links.reminder_at",
     },
   ];
 

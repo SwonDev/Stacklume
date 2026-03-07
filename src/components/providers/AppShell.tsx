@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { AddLinkModal } from "@/components/modals/AddLinkModal";
-import { AddCategoryModal } from "@/components/modals/AddCategoryModal";
-import { EditLinkModal } from "@/components/modals/EditLinkModal";
-import { AddWidgetModal } from "@/components/modals/AddWidgetModal";
-import { EditWidgetModal } from "@/components/modals/EditWidgetModal";
-import { AddTagModal } from "@/components/modals/AddTagModal";
-import { ManageCategoriesModal } from "@/components/modals/ManageCategoriesModal";
-import { ManageTagsModal } from "@/components/modals/ManageTagsModal";
 import { UndoToast } from "@/components/ui/UndoToast";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { BulkActionsBar } from "@/components/layout/BulkActionsBar";
+import { ReminderChecker } from "@/components/layout/ReminderChecker";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { isTauriWebView, openExternalUrl } from "@/lib/desktop";
 import { TrayIconUpdater } from "./TrayIconUpdater";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
+
+// Lazy-load modals — they're heavy and only needed when opened
+const AddLinkModal = lazy(() => import("@/components/modals/AddLinkModal").then((m) => ({ default: m.AddLinkModal })));
+const AddCategoryModal = lazy(() => import("@/components/modals/AddCategoryModal").then((m) => ({ default: m.AddCategoryModal })));
+const EditLinkModal = lazy(() => import("@/components/modals/EditLinkModal").then((m) => ({ default: m.EditLinkModal })));
+const AddWidgetModal = lazy(() => import("@/components/modals/AddWidgetModal").then((m) => ({ default: m.AddWidgetModal })));
+const EditWidgetModal = lazy(() => import("@/components/modals/EditWidgetModal").then((m) => ({ default: m.EditWidgetModal })));
+const AddTagModal = lazy(() => import("@/components/modals/AddTagModal").then((m) => ({ default: m.AddTagModal })));
+const ManageCategoriesModal = lazy(() => import("@/components/modals/ManageCategoriesModal").then((m) => ({ default: m.ManageCategoriesModal })));
+const ManageTagsModal = lazy(() => import("@/components/modals/ManageTagsModal").then((m) => ({ default: m.ManageTagsModal })));
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -27,7 +33,9 @@ const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
+  const sidebarAlwaysVisible = useSettingsStore((state) => state.sidebarAlwaysVisible);
 
   // Check if current route is an auth route (no shell needed)
   const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route));
@@ -88,14 +96,15 @@ export function AppShell({ children }: AppShellProps) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
       >
-        Saltar al contenido principal
+        {t("appShell.skipToContent")}
       </a>
 
       {/* Header and Sidebar - only render when mounted to prevent flash */}
       <div
         style={{
           opacity: mounted ? 1 : 0,
-          transition: "opacity 0.2s ease-out",
+          transition: "opacity 0.15s ease-out",
+          willChange: mounted ? "auto" : "opacity",
         }}
       >
         <Header />
@@ -105,16 +114,16 @@ export function AppShell({ children }: AppShellProps) {
       {/* Main content */}
       <main
         id="main-content"
-        className="pt-12 h-screen overflow-hidden"
+        className={`pt-12 h-screen overflow-hidden${sidebarAlwaysVisible && !isAuthRoute ? " pl-72" : ""}`}
         role="main"
-        aria-label="Contenido principal"
+        aria-label={t("appShell.mainContent")}
       >
         {children}
       </main>
 
-      {/* Modals - lazy render after mount */}
+      {/* Modals - lazy loaded + render after mount */}
       {mounted && (
-        <>
+        <Suspense fallback={null}>
           <AddLinkModal />
           <AddCategoryModal />
           <EditLinkModal />
@@ -123,7 +132,7 @@ export function AppShell({ children }: AppShellProps) {
           <AddTagModal />
           <ManageCategoriesModal />
           <ManageTagsModal />
-        </>
+        </Suspense>
       )}
 
       {/* UX Components - render after mount */}
@@ -134,6 +143,12 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Onboarding tour for first-time users */}
           <OnboardingTour />
+
+          {/* Barra de acciones en lote (multi-select) */}
+          <BulkActionsBar />
+
+          {/* Verificador de recordatorios */}
+          <ReminderChecker />
         </>
       )}
 

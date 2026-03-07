@@ -180,6 +180,10 @@ export const links = pgTable(
     // Health check fields
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }), // Last time the link was checked
     healthStatus: varchar("health_status", { length: 20 }), // ok, redirect, broken, timeout
+    // Personal tracking fields
+    isRead: boolCol("is_read").default(false),
+    notes: text("notes"),
+    reminderAt: timestamp("reminder_at", { withTimezone: true }),
   },
   (table) => ({
     userIdIdx: index("idx_links_user_id").on(table.userId),
@@ -294,14 +298,25 @@ export const userSettings = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: varchar("user_id", { length: 100 }).default("default").unique().notNull(),
-    theme: varchar("theme", { length: 20 }).default("system").notNull(), // 'light', 'dark', 'system'
-    viewDensity: varchar("view_density", { length: 20 }).default("normal").notNull(), // 'compact', 'normal', 'comfortable'
-    viewMode: varchar("view_mode", { length: 20 }).default("bento").notNull(), // 'bento', 'kanban'
+    theme: varchar("theme", { length: 20 }).default("system").notNull(),
+    viewDensity: varchar("view_density", { length: 20 }).default("normal").notNull(),
+    viewMode: varchar("view_mode", { length: 20 }).default("bento").notNull(),
     showTooltips: boolCol("show_tooltips").default(true).notNull(),
     reduceMotion: boolCol("reduce_motion").default(false).notNull(),
     // MCP Server settings
     mcpEnabled: boolCol("mcp_enabled").default(false).notNull(),
     mcpApiKey: varchar("mcp_api_key", { length: 64 }),
+    // Extended settings
+    language: varchar("language", { length: 5 }).default("es").notNull(),
+    gridColumns: integer("grid_columns").default(12).notNull(),
+    sidebarAlwaysVisible: boolCol("sidebar_always_visible").default(false).notNull(),
+    defaultSortField: varchar("default_sort_field", { length: 20 }).default("createdAt").notNull(),
+    defaultSortOrder: varchar("default_sort_order", { length: 4 }).default("desc").notNull(),
+    thumbnailSize: varchar("thumbnail_size", { length: 10 }).default("medium").notNull(),
+    sidebarDensity: varchar("sidebar_density", { length: 20 }).default("normal").notNull(),
+    autoBackupInterval: integer("auto_backup_interval").default(0).notNull(),
+    confirmBeforeDelete: boolCol("confirm_before_delete").default(true).notNull(),
+    linkClickBehavior: varchar("link_click_behavior", { length: 20 }).default("new-tab").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
   },
@@ -484,3 +499,41 @@ export type NewUserBackup = typeof userBackups.$inferInsert;
 // Custom widget type types
 export type CustomWidgetType = typeof customWidgetTypes.$inferSelect;
 export type NewCustomWidgetType = typeof customWidgetTypes.$inferInsert;
+
+// ─── Saved Searches ─────────────────────────────────────────────────────────
+export const savedSearches = pgTable("saved_searches", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").default("default"),
+  name: varchar("name", { length: 255 }).notNull(),
+  query: text("query").notNull(),
+  filters: json("filters"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type SavedSearch = typeof savedSearches.$inferSelect;
+export type NewSavedSearch = typeof savedSearches.$inferInsert;
+
+// ─── Shared Collections ─────────────────────────────────────────────────────
+export const sharedCollections = pgTable("shared_collections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").default("default"),
+  type: varchar("type", { length: 50 }).notNull(), // "category" | "tag" | "project"
+  referenceId: text("reference_id").notNull(),
+  shareToken: text("share_token").notNull().unique(),
+  isActive: boolCol("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+}, (table) => [
+  index("idx_shared_collections_token").on(table.shareToken),
+]);
+
+export type SharedCollection = typeof sharedCollections.$inferSelect;
+export type NewSharedCollection = typeof sharedCollections.$inferInsert;
+
+// ─── Link Categories (many-to-many) ─────────────────────────────────────────
+export const linkCategories = pgTable("link_categories", {
+  linkId: text("link_id").notNull(),
+  categoryId: text("category_id").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.linkId, table.categoryId] }),
+]);

@@ -35,7 +35,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { CategorySelector } from "@/components/ui/category-selector";
+import { MultiCategorySelector } from "@/components/ui/multi-category-selector";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLinksStore } from "@/stores/links-store";
 import { motion, AnimatePresence } from "motion/react";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 const formSchema = z.object({
   url: z.string().url("Introduce una URL válida"),
@@ -79,27 +80,29 @@ const contentTypeIcons: Record<string, typeof Play> = {
   website: Globe,
 };
 
-// Content type labels in Spanish
-const contentTypeLabels: Record<string, string> = {
-  video: "Video",
-  game: "Juego",
-  music: "Música",
-  code: "Código",
-  article: "Artículo",
-  social: "Social",
-  shopping: "Tienda",
-  image: "Imagen",
-  document: "Documento",
-  tool: "Herramienta",
-  website: "Web",
+// Content type i18n key mapping
+const contentTypeKeys: Record<string, string> = {
+  video: "addLink.contentType.video",
+  game: "addLink.contentType.game",
+  music: "addLink.contentType.music",
+  code: "addLink.contentType.code",
+  article: "addLink.contentType.article",
+  social: "addLink.contentType.social",
+  shopping: "addLink.contentType.shopping",
+  image: "addLink.contentType.image",
+  document: "addLink.contentType.document",
+  tool: "addLink.contentType.tool",
+  website: "addLink.contentType.website",
 };
 
 export function AddLinkModal() {
-  const { isAddLinkModalOpen, setAddLinkModalOpen, closeAddLinkModal, addLink, prefillLinkData } =
-    useLinksStore();
+  const isAddLinkModalOpen = useLinksStore((state) => state.isAddLinkModalOpen);
+  const prefillLinkData = useLinksStore((state) => state.prefillLinkData);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -200,7 +203,7 @@ export function AddLinkModal() {
           faviconUrl: scrapedData?.faviconUrl,
           siteName: scrapedData?.siteName,
           author: scrapedData?.author,
-          categoryId: values.categoryId || null,
+          categoryId: selectedCategoryIds[0] || values.categoryId || null,
           // Platform detection info
           platform: scrapedData?.platform,
           contentType: scrapedData?.contentType,
@@ -210,13 +213,31 @@ export function AddLinkModal() {
 
       if (response.ok) {
         const newLink = await response.json();
-        addLink(newLink);
+        useLinksStore.getState().addLink(newLink);
+        // Save multi-category associations if more than one category selected
+        if (selectedCategoryIds.length > 0) {
+          try {
+            const lcRes = await fetch("/api/link-categories", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+              credentials: "include",
+              body: JSON.stringify({ linkId: newLink.id, categoryIds: selectedCategoryIds }),
+            });
+            if (lcRes.ok) {
+              const newAssocs = selectedCategoryIds.map((cid) => ({ linkId: newLink.id, categoryId: cid }));
+              const store = useLinksStore.getState();
+              store.setLinkCategories([...store.linkCategories, ...newAssocs]);
+            }
+          } catch (e) {
+            console.error("Error saving link-categories:", e);
+          }
+        }
         clearDraft(); // Clear draft on successful submit
-        toast.success("Enlace creado correctamente");
+        toast.success(t("addLink.successCreate"));
         handleClose();
       } else {
         // Try to get the actual error message from the server
-        let errorMessage = "Error al crear el enlace";
+        let errorMessage = t("addLink.errorCreate");
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
@@ -232,7 +253,7 @@ export function AddLinkModal() {
       }
     } catch (error) {
       console.error("Error creating link:", error);
-      toast.error("Error al guardar el enlace");
+      toast.error(t("addLink.errorSave"));
     } finally {
       setIsLoading(false);
     }
@@ -241,19 +262,20 @@ export function AddLinkModal() {
   const handleClose = () => {
     form.reset();
     setScrapedData(null);
-    closeAddLinkModal();
+    setSelectedCategoryIds([]);
+    useLinksStore.getState().closeAddLinkModal();
   };
 
   return (
-    <Dialog open={isAddLinkModalOpen} onOpenChange={setAddLinkModalOpen}>
+    <Dialog open={isAddLinkModalOpen} onOpenChange={(open) => useLinksStore.getState().setAddLinkModalOpen(open)}>
       <DialogContent className="sm:max-w-lg glass max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LinkIcon className="w-5 h-5 text-primary" />
-            Añadir nuevo enlace
+            {t("addLink.title")}
           </DialogTitle>
           <DialogDescription>
-            Pega una URL y se obtendrán automáticamente los metadatos
+            {t("addLink.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -271,7 +293,7 @@ export function AddLinkModal() {
                   <History className="w-4 h-4 text-amber-500 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                      Borrador guardado
+                      {t("addLink.draftSaved")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDraftTime(draftTimestamp)}
@@ -286,7 +308,7 @@ export function AddLinkModal() {
                       className="h-7 px-2 text-xs"
                     >
                       <X className="w-3 h-3 mr-1" />
-                      Descartar
+                      {t("btn.discard")}
                     </Button>
                     <Button
                       type="button"
@@ -294,7 +316,7 @@ export function AddLinkModal() {
                       onClick={restoreDraft}
                       className="h-7 px-2 text-xs bg-amber-500 hover:bg-amber-600 text-white"
                     >
-                      Restaurar
+                      {t("btn.restore")}
                     </Button>
                   </div>
                 </div>
@@ -314,7 +336,7 @@ export function AddLinkModal() {
                   <FormControl>
                     <div className="relative">
                       <Input
-                        placeholder="https://ejemplo.com"
+                        placeholder={t("addLink.urlPlaceholder")}
                         {...field}
                         className="pr-10"
                       />
@@ -340,6 +362,7 @@ export function AddLinkModal() {
                   {/* Large preview for video/game/music content */}
                   {scrapedData.imageUrl && ["video", "game", "music"].includes(scrapedData.contentType || "") ? (
                     <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={scrapedData.imageUrl}
                         alt=""
@@ -363,7 +386,7 @@ export function AddLinkModal() {
                             const IconComponent = contentTypeIcons[scrapedData.contentType || "website"] || Globe;
                             return <IconComponent className="w-3 h-3" />;
                           })()}
-                          {scrapedData.platformLabel || contentTypeLabels[scrapedData.contentType || "website"]}
+                          {scrapedData.platformLabel || t(contentTypeKeys[scrapedData.contentType || "website"])}
                         </div>
                       )}
                     </div>
@@ -373,7 +396,7 @@ export function AddLinkModal() {
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs text-muted-foreground">
-                        Vista previa
+                        {t("addLink.preview")}
                       </span>
                       {scrapedData.platform && scrapedData.platform !== "generic" && !["video", "game", "music"].includes(scrapedData.contentType || "") && (
                         <span
@@ -384,12 +407,13 @@ export function AddLinkModal() {
                             const IconComponent = contentTypeIcons[scrapedData.contentType || "website"] || Globe;
                             return <IconComponent className="w-2.5 h-2.5" />;
                           })()}
-                          {contentTypeLabels[scrapedData.contentType || "website"]}
+                          {t(contentTypeKeys[scrapedData.contentType || "website"])}
                         </span>
                       )}
                     </div>
                     <div className="flex gap-3">
                       {scrapedData.imageUrl && !["video", "game", "music"].includes(scrapedData.contentType || "") && (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={scrapedData.imageUrl}
                           alt=""
@@ -413,7 +437,7 @@ export function AddLinkModal() {
                           )}
                           {scrapedData.author && (
                             <span className="text-xs text-muted-foreground">
-                              por {scrapedData.author}
+                              {t("addLink.by")} {scrapedData.author}
                             </span>
                           )}
                         </div>
@@ -430,9 +454,9 @@ export function AddLinkModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Título</FormLabel>
+                  <FormLabel>{t("addLink.linkTitle")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Título del enlace" {...field} />
+                    <Input placeholder={t("addLink.titlePlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -445,10 +469,10 @@ export function AddLinkModal() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción (opcional)</FormLabel>
+                  <FormLabel>{t("addLink.descriptionLabel")}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Añade una descripción..."
+                      placeholder={t("addLink.descriptionPlaceholder")}
                       className="resize-none"
                       rows={2}
                       {...field}
@@ -459,23 +483,14 @@ export function AddLinkModal() {
               )}
             />
 
-            {/* Category Select */}
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoría (opcional)</FormLabel>
-                  <FormControl>
-                    <CategorySelector
-                      selectedCategoryId={field.value || null}
-                      onCategoryChange={(id) => field.onChange(id ?? "")}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Category Select (multi) */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t("addLink.categories")}</label>
+              <MultiCategorySelector
+                selectedCategoryIds={selectedCategoryIds}
+                onCategoriesChange={setSelectedCategoryIds}
+              />
+            </div>
 
             {/* Favorite Toggle */}
             <FormField
@@ -496,7 +511,7 @@ export function AddLinkModal() {
                           field.value ? "fill-current" : ""
                         }`}
                       />
-                      {field.value ? "Favorito" : "Añadir a favoritos"}
+                      {field.value ? t("addLink.favorite") : t("addLink.addToFavorites")}
                     </Button>
                   </FormControl>
                 </FormItem>
@@ -506,11 +521,11 @@ export function AddLinkModal() {
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="ghost" onClick={handleClose}>
-                Cancelar
+                {t("btn.cancel")}
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Guardar enlace
+                {t("addLink.saveLink")}
               </Button>
             </div>
             </form>
