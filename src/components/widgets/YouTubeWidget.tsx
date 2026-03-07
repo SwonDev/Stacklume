@@ -18,6 +18,7 @@ import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface YouTubeWidgetProps {
   widget: Widget;
@@ -88,8 +89,7 @@ function buildEmbedUrl(videoId: string, config: YouTubeConfig): string {
 }
 
 export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -97,12 +97,12 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
   const handleSaveAsLink = () => {
     const config = widget.config as YouTubeConfig | undefined;
     if (config?.videoUrl) {
-      openAddLinkModal({
+      useLinksStore.getState().openAddLinkModal({
         url: config.videoUrl,
-        title: "Video de YouTube",
-        description: "Video de YouTube",
+        title: t("youtube.videoTitle"),
+        description: t("youtube.videoTitle"),
       });
-      toast.success("Abriendo formulario para guardar enlace");
+      toast.success(t("youtube.openingForm"));
     }
   };
 
@@ -121,7 +121,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
   const handleSave = () => {
     const newVideoId = formData.videoUrl ? extractVideoId(formData.videoUrl) : null;
 
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...formData,
@@ -149,13 +149,13 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
           <Play className="w-6 h-6 text-red-500" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay video configurado</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("youtube.noVideo")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega una URL de YouTube para reproducir un video
+          {t("youtube.addUrlHint")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("youtube.configure")}
         </Button>
 
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
@@ -163,12 +163,12 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Play className="w-5 h-5 text-red-500" />
-                Configurar YouTube
+                {t("youtube.configureYoutube")}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="youtube-url">URL del video</Label>
+                <Label htmlFor="youtube-url">{t("youtube.videoUrl")}</Label>
                 <Input
                   id="youtube-url"
                   placeholder="https://www.youtube.com/watch?v=..."
@@ -176,12 +176,12 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
                   onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Soporta URLs de YouTube, Shorts y enlaces cortos
+                  {t("youtube.supportedUrls")}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="start-time">Tiempo de inicio (segundos)</Label>
+                <Label htmlFor="start-time">{t("youtube.startTime")}</Label>
                 <Input
                   id="start-time"
                   type="number"
@@ -194,9 +194,9 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Mostrar controles</Label>
+                  <Label>{t("youtube.showControls")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Muestra los controles del reproductor
+                    {t("youtube.showControlsDesc")}
                   </p>
                 </div>
                 <Switch
@@ -209,7 +209,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
                 <div className="space-y-0.5">
                   <Label>Autoplay</Label>
                   <p className="text-xs text-muted-foreground">
-                    Reproduce automaticamente (requiere mute)
+                    {t("youtube.autoplayDesc")}
                   </p>
                 </div>
                 <Switch
@@ -222,7 +222,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
                 <div className="space-y-0.5">
                   <Label>Loop</Label>
                   <p className="text-xs text-muted-foreground">
-                    Repite el video continuamente
+                    {t("youtube.loopDesc")}
                   </p>
                 </div>
                 <Switch
@@ -233,10 +233,10 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-                Cancelar
+                {t("youtube.cancel")}
               </Button>
               <Button onClick={handleSave} disabled={!formData.videoUrl}>
-                Guardar
+                {t("youtube.save")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -258,7 +258,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
           <AlertCircle className="w-8 h-8 text-destructive mb-2" />
-          <p className="text-sm text-muted-foreground">Error al cargar el video</p>
+          <p className="text-sm text-muted-foreground">{t("youtube.loadError")}</p>
           <Button
             size="sm"
             variant="outline"
@@ -268,7 +268,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
               setIsLoading(true);
             }}
           >
-            Reintentar
+            {t("youtube.retry")}
           </Button>
         </div>
       )}
@@ -293,7 +293,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
           variant="secondary"
           className="h-7 w-7"
           onClick={handleSaveAsLink}
-          title="Guardar como enlace"
+          title={t("youtube.saveAsLink")}
         >
           <Bookmark className="w-3.5 h-3.5" />
         </Button>
@@ -326,12 +326,12 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Play className="w-5 h-5 text-red-500" />
-              Configurar YouTube
+              {t("youtube.configureYoutube")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="youtube-url-edit">URL del video</Label>
+              <Label htmlFor="youtube-url-edit">{t("youtube.videoUrl")}</Label>
               <Input
                 id="youtube-url-edit"
                 placeholder="https://www.youtube.com/watch?v=..."
@@ -341,7 +341,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="start-time-edit">Tiempo de inicio (segundos)</Label>
+              <Label htmlFor="start-time-edit">{t("youtube.startTime")}</Label>
               <Input
                 id="start-time-edit"
                 type="number"
@@ -354,7 +354,7 @@ export function YouTubeWidget({ widget }: YouTubeWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Mostrar controles</Label>
+                <Label>{t("youtube.showControls")}</Label>
               </div>
               <Switch
                 checked={formData.controls}

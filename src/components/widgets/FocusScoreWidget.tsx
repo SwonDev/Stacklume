@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface FocusScoreWidgetProps {
   widget: Widget;
@@ -25,8 +26,9 @@ interface FocusScoreConfig {
 }
 
 export function FocusScoreWidget({ widget }: FocusScoreWidgetProps) {
+  const { t } = useTranslation();
   const config: FocusScoreConfig = widget.config || {};
-  const focusSessions: FocusSession[] = config.focusSessions || [];
+  const focusSessions: FocusSession[] = useMemo(() => config.focusSessions || [], [config.focusSessions]);
   const dailyGoalMinutes = config.dailyGoalMinutes || 120; // Default 2 hours
 
   const getTodayISO = (): string => {
@@ -141,14 +143,14 @@ export function FocusScoreWidget({ widget }: FocusScoreWidgetProps) {
         <div className="flex items-center justify-between mb-3 @sm:mb-4">
           <div className="flex items-center gap-2">
             <Target className="w-4 h-4 @sm:w-5 @sm:h-5 text-primary" />
-            <span className="text-sm @sm:text-base font-medium">Puntuacion de Enfoque</span>
+            <span className="text-sm @sm:text-base font-medium">{t("focusScore.title")}</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
             onClick={resetToday}
-            title="Reiniciar hoy"
+            title={t("focusScore.resetToday")}
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </Button>
@@ -215,7 +217,7 @@ export function FocusScoreWidget({ widget }: FocusScoreWidgetProps) {
               {formatTime(stats.todayMinutes)}
             </p>
             <p className="text-xs @sm:text-sm text-muted-foreground">
-              de {formatTime(dailyGoalMinutes)} hoy
+              {t("focusScore.ofGoalToday", { goal: formatTime(dailyGoalMinutes) })}
             </p>
           </div>
         </div>
@@ -240,17 +242,17 @@ export function FocusScoreWidget({ widget }: FocusScoreWidgetProps) {
           <div className="flex flex-col items-center p-2 @sm:p-3 rounded-lg bg-muted/30">
             <Clock className="w-3.5 h-3.5 @sm:w-4 @sm:h-4 text-blue-500 mb-1" />
             <span className="text-xs @sm:text-sm font-semibold">{stats.todaySessionCount}</span>
-            <span className="text-[10px] @sm:text-xs text-muted-foreground">Sesiones</span>
+            <span className="text-[10px] @sm:text-xs text-muted-foreground">{t("focusScore.sessions")}</span>
           </div>
           <div className="flex flex-col items-center p-2 @sm:p-3 rounded-lg bg-muted/30">
             <TrendingUp className="w-3.5 h-3.5 @sm:w-4 @sm:h-4 text-green-500 mb-1" />
             <span className="text-xs @sm:text-sm font-semibold">{formatTime(stats.weekMinutes)}</span>
-            <span className="text-[10px] @sm:text-xs text-muted-foreground">Semana</span>
+            <span className="text-[10px] @sm:text-xs text-muted-foreground">{t("focusScore.week")}</span>
           </div>
           <div className="flex flex-col items-center p-2 @sm:p-3 rounded-lg bg-muted/30">
             <Flame className="w-3.5 h-3.5 @sm:w-4 @sm:h-4 text-amber-500 mb-1" />
             <span className="text-xs @sm:text-sm font-semibold">{stats.streak}</span>
-            <span className="text-[10px] @sm:text-xs text-muted-foreground">Racha</span>
+            <span className="text-[10px] @sm:text-xs text-muted-foreground">{t("focusScore.streak")}</span>
           </div>
         </div>
       </div>

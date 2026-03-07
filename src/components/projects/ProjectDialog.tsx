@@ -37,13 +37,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useProjectsStore } from "@/stores/projects-store";
+import { useTranslation } from "@/lib/i18n";
 
-const formSchema = z.object({
-  name: z.string().min(1, "El nombre es obligatorio").max(100),
-  description: z.string().max(500).optional(),
-});
+const formSchema = (nameRequiredMsg: string) =>
+  z.object({
+    name: z.string().min(1, nameRequiredMsg).max(100),
+    description: z.string().max(500).optional(),
+  });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof formSchema>>;
 
 // Available icon options
 const iconOptions = [
@@ -86,6 +88,7 @@ interface ProjectDialogProps {
 }
 
 export function ProjectDialog({ mode }: ProjectDialogProps) {
+  const { t } = useTranslation();
   const {
     isAddProjectModalOpen,
     isEditProjectModalOpen,
@@ -105,7 +108,7 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
   const closeModal = mode === "add" ? closeAddProjectModal : closeEditProjectModal;
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema(t("projects.nameRequired"))),
     defaultValues: {
       name: "",
       description: "",
@@ -143,16 +146,16 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
           ...projectData,
           order: maxOrder + 1,
         });
-        toast.success("Proyecto creado correctamente");
+        toast.success(t("projects.successCreate"));
       } else if (selectedProject) {
         await updateProject(selectedProject.id, projectData);
-        toast.success("Proyecto actualizado correctamente");
+        toast.success(t("projects.successUpdate"));
       }
 
       handleClose();
     } catch (error) {
       console.error("Error saving project:", error);
-      toast.error("Error al guardar el proyecto");
+      toast.error(t("projects.errorSave"));
     } finally {
       setIsLoading(false);
     }
@@ -164,11 +167,11 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
     setIsLoading(true);
     try {
       await deleteProject(selectedProject.id);
-      toast.success("Proyecto eliminado correctamente");
+      toast.success(t("projects.successDelete"));
       handleClose();
     } catch (error) {
       console.error("Error deleting project:", error);
-      toast.error("Error al eliminar el proyecto");
+      toast.error(t("projects.errorDelete"));
     } finally {
       setIsLoading(false);
     }
@@ -187,12 +190,12 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderPlus className="w-5 h-5 text-primary" />
-            {mode === "add" ? "Nuevo proyecto" : "Editar proyecto"}
+            {mode === "add" ? t("projects.newProject") : t("projects.editProject")}
           </DialogTitle>
           <DialogDescription>
             {mode === "add"
-              ? "Crea un proyecto para organizar tus widgets"
-              : "Actualiza la información del proyecto"}
+              ? t("projects.createDesc")
+              : t("projects.editDesc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -204,9 +207,9 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nombre</FormLabel>
+                  <FormLabel>{t("projects.name")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: Desarrollo Web" {...field} />
+                    <Input placeholder={t("projects.namePlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -219,10 +222,10 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción (opcional)</FormLabel>
+                  <FormLabel>{t("projects.descriptionLabel")}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Describe este proyecto..."
+                      placeholder={t("projects.descriptionPlaceholder")}
                       className="resize-none"
                       rows={2}
                       {...field}
@@ -235,7 +238,7 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
 
             {/* Icon Selection */}
             <div>
-              <label className="text-sm font-medium">Icono</label>
+              <label className="text-sm font-medium">{t("projects.icon")}</label>
               <div className="grid grid-cols-8 gap-2 mt-2">
                 {iconOptions.map((option) => {
                   const IconComponent = option.icon;
@@ -260,7 +263,7 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
 
             {/* Color Selection */}
             <div>
-              <label className="text-sm font-medium">Color</label>
+              <label className="text-sm font-medium">{t("projects.color")}</label>
               <div className="grid grid-cols-6 gap-2 mt-2">
                 {colorOptions.map((color) => (
                   <button
@@ -292,24 +295,23 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
                         disabled={isLoading}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Eliminar
+                        {t("projects.deleteButton")}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("projects.deleteTitle")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Esta acción eliminará el proyecto y todos sus widgets asociados.
-                          Esta acción no se puede deshacer.
+                          {t("projects.deleteDesc")}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleDelete}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          Eliminar
+                          {t("btn.delete")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -318,11 +320,11 @@ export function ProjectDialog({ mode }: ProjectDialogProps) {
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={handleClose}>
-                  Cancelar
+                  {t("btn.cancel")}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {mode === "add" ? "Crear proyecto" : "Guardar cambios"}
+                  {mode === "add" ? t("projects.createButton") : t("projects.saveChanges")}
                 </Button>
               </div>
             </div>

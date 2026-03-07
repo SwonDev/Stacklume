@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, links, withRetry } from "@/lib/db";
 import { eq, and, isNull } from "drizzle-orm";
+import { z } from "zod";
 import { updateLinkSchema, validateRequest } from "@/lib/validations";
+
+const uuidSchema = z.string().uuid();
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -11,6 +14,12 @@ type RouteContext = {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
 
     // Filter out soft-deleted records
     const [link] = await withRetry(
@@ -41,6 +50,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const body = await request.json();
 
     // Validate request body with Zod schema
@@ -74,6 +90,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (validatedData.platform !== undefined) updateData.platform = validatedData.platform;
     if (validatedData.contentType !== undefined) updateData.contentType = validatedData.contentType;
     if (validatedData.platformColor !== undefined) updateData.platformColor = validatedData.platformColor;
+    if (validatedData.isRead !== undefined) updateData.isRead = validatedData.isRead;
+    if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
+    if (validatedData.reminderAt !== undefined) updateData.reminderAt = validatedData.reminderAt;
 
     const [updated] = await withRetry(
       () => db.update(links).set(updateData).where(eq(links.id, id)).returning(),
@@ -101,6 +120,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
 
     // Soft delete: set deletedAt timestamp instead of actually deleting
     const [deleted] = await withRetry(

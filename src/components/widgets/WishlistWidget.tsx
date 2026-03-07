@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface WishlistWidgetProps {
   widget: Widget;
@@ -45,11 +46,11 @@ interface WishlistItem {
   purchasedAt?: string;
 }
 
-const categoryLabels: Record<WishlistCategory, string> = {
-  tech: "Tech",
-  games: "Juegos",
-  books: "Libros",
-  other: "Otros",
+const categoryLabelKeys: Record<WishlistCategory, string> = {
+  tech: "wishlist.catTech",
+  games: "wishlist.catGames",
+  books: "wishlist.catBooks",
+  other: "wishlist.catOther",
 };
 
 const categoryColors: Record<WishlistCategory, string> = {
@@ -72,15 +73,16 @@ const priorityColors: Record<WishlistPriority, string> = {
   low: "text-blue-500 fill-blue-500",
 };
 
-const priorityLabels: Record<WishlistPriority, string> = {
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
+const priorityLabelKeys: Record<WishlistPriority, string> = {
+  high: "wishlist.priorityHigh",
+  medium: "wishlist.priorityMedium",
+  low: "wishlist.priorityLow",
 };
 
 const categories: WishlistCategory[] = ["tech", "games", "books", "other"];
 
 export function WishlistWidget({ widget }: WishlistWidgetProps) {
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -201,7 +203,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
       <button
         onClick={() => cyclePriority(item.id, item.priority)}
         className="flex gap-0.5"
-        title={`Prioridad: ${priorityLabels[item.priority]}`}
+        title={`${t("wishlist.priority")}: ${t(priorityLabelKeys[item.priority])}`}
       >
         {[1, 2, 3].map((star) => (
           <Star
@@ -255,7 +257,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                   className={cn("text-[8px] @sm:text-[9px] h-4 px-1", categoryColors[item.category])}
                 >
                   {categoryIcons[item.category]}
-                  <span className="ml-0.5">{categoryLabels[item.category]}</span>
+                  <span className="ml-0.5">{t(categoryLabelKeys[item.category])}</span>
                 </Badge>
                 {renderPriorityStars(item)}
               </div>
@@ -287,7 +289,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="w-3 h-3" />
-                    Ver
+                    {t("wishlist.view")}
                   </a>
                 )}
               </div>
@@ -313,7 +315,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
           <div className="flex items-center gap-2">
             <Gift className="w-4 h-4 text-primary" />
             <span className="text-xs text-muted-foreground">
-              {pendingCount} pendientes
+              {pendingCount} {t("wishlist.pending")}
             </span>
           </div>
           <Button
@@ -332,7 +334,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
             <div className="flex items-center gap-1.5">
               <DollarSign className="w-3.5 h-3.5 text-primary" />
               <div>
-                <p className="text-[9px] @sm:text-[10px] text-muted-foreground">Total pendiente</p>
+                <p className="text-[9px] @sm:text-[10px] text-muted-foreground">{t("wishlist.totalPending")}</p>
                 <p className="text-xs @sm:text-sm font-medium">{formatPrice(totalValue) || "$0"}</p>
               </div>
             </div>
@@ -342,7 +344,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
               <div className="flex items-center gap-1.5">
                 <ShoppingCart className="w-3.5 h-3.5 text-emerald-500" />
                 <div>
-                  <p className="text-[9px] @sm:text-[10px] text-muted-foreground">Comprado</p>
+                  <p className="text-[9px] @sm:text-[10px] text-muted-foreground">{t("wishlist.purchased")}</p>
                   <p className="text-xs @sm:text-sm font-medium text-emerald-500">
                     {formatPrice(purchasedValue)}
                   </p>
@@ -360,7 +362,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
             className="h-6 px-2 text-[10px]"
             onClick={() => setFilterCategory("all")}
           >
-            Todos
+            {t("wishlist.all")}
           </Button>
           {categories.map((category) => (
             <Button
@@ -371,7 +373,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
               onClick={() => setFilterCategory(category)}
             >
               {categoryIcons[category]}
-              <span className="ml-0.5 hidden @sm:inline">{categoryLabels[category]}</span>
+              <span className="ml-0.5 hidden @sm:inline">{t(categoryLabelKeys[category])}</span>
             </Button>
           ))}
         </div>
@@ -388,7 +390,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Nombre del item..."
+                placeholder={t("wishlist.itemNamePlaceholder")}
                 className="h-8 text-sm"
                 autoFocus
               />
@@ -396,7 +398,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                 <Input
                   value={newPrice}
                   onChange={(e) => setNewPrice(e.target.value)}
-                  placeholder="Precio"
+                  placeholder={t("wishlist.price")}
                   type="number"
                   step="0.01"
                   className="h-8 text-sm w-24"
@@ -404,7 +406,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                 <Input
                   value={newLink}
                   onChange={(e) => setNewLink(e.target.value)}
-                  placeholder="Link (opcional)"
+                  placeholder={t("wishlist.linkOptional")}
                   className="h-8 text-sm flex-1"
                 />
               </div>
@@ -418,12 +420,12 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                     onClick={() => setNewCategory(category)}
                   >
                     {categoryIcons[category]}
-                    <span className="ml-0.5">{categoryLabels[category]}</span>
+                    <span className="ml-0.5">{t(categoryLabelKeys[category])}</span>
                   </Button>
                 ))}
               </div>
               <div className="flex gap-1 items-center">
-                <span className="text-xs text-muted-foreground mr-1">Prioridad:</span>
+                <span className="text-xs text-muted-foreground mr-1">{t("wishlist.priority")}:</span>
                 {(["low", "medium", "high"] as WishlistPriority[]).map((priority) => (
                   <Button
                     key={priority}
@@ -432,7 +434,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                     className="h-7 px-2 text-[10px]"
                     onClick={() => setNewPriority(priority)}
                   >
-                    {priorityLabels[priority]}
+                    {t(priorityLabelKeys[priority])}
                   </Button>
                 ))}
               </div>
@@ -443,7 +445,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                   onClick={addItem}
                   disabled={!newName.trim()}
                 >
-                  Agregar
+                  {t("wishlist.add")}
                 </Button>
                 <Button
                   variant="outline"
@@ -456,7 +458,7 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                     setNewLink("");
                   }}
                 >
-                  Cancelar
+                  {t("wishlist.cancel")}
                 </Button>
               </div>
             </motion.div>
@@ -468,8 +470,8 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
           {wishlistItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Gift className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">Sin items en la lista</p>
-              <p className="text-xs">Agrega uno para comenzar</p>
+              <p className="text-sm">{t("wishlist.noItems")}</p>
+              <p className="text-xs">{t("wishlist.addOneToStart")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -486,12 +488,12 @@ export function WishlistWidget({ widget }: WishlistWidgetProps) {
                   {showPurchased ? (
                     <>
                       <ChevronUp className="w-3 h-3" />
-                      Ocultar comprados ({purchasedCount})
+                      {t("wishlist.hidePurchased")} ({purchasedCount})
                     </>
                   ) : (
                     <>
                       <ChevronDown className="w-3 h-3" />
-                      Mostrar comprados ({purchasedCount})
+                      {t("wishlist.showPurchased")} ({purchasedCount})
                     </>
                   )}
                 </button>

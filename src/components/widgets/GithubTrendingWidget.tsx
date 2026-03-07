@@ -35,7 +35,6 @@ const ITEMS_PER_PAGE = 10;
 const TOTAL_ITEMS = 50;
 
 export function GitHubTrendingWidget({ widget }: GitHubTrendingWidgetProps) {
-  const { openAddLinkModal } = useLinksStore();
   const [repos, setRepos] = useState<TrendingRepo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +110,7 @@ export function GitHubTrendingWidget({ widget }: GitHubTrendingWidgetProps) {
   // Quick add link to Stacklume
   const handleQuickAdd = (repo: TrendingRepo) => {
     // Open add link modal with pre-filled data
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: repo.repoUrl,
       title: repo.title,
       description: repo.description,

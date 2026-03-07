@@ -14,8 +14,6 @@ import {
   Eye,
   Bell,
   User,
-  Mail,
-  Star,
   BarChart3,
   Users,
   ArrowUpRight,
@@ -31,7 +29,6 @@ import {
   Server,
   PieChart,
   Sparkles,
-  Search,
   Download,
   Heart,
   Bookmark,
@@ -43,11 +40,9 @@ import {
   Play,
   Pause,
   SkipForward,
-  Image,
-  MessageSquare,
+  Image as ImageIcon,
   Keyboard,
   MousePointer,
-  Wand2,
   TrendingUp,
   Headphones,
 } from "lucide-react";
@@ -734,7 +729,7 @@ const MediaPreview = memo(function MediaPreview({ themeColor, radiusValue, isDar
             className="aspect-square flex items-center justify-center transition-transform duration-200 hover:scale-105 cursor-pointer"
             style={{ backgroundColor: `${color}33`, borderRadius: radiusValue }}
           >
-            <Image className="h-4 w-4" style={{ color }} />
+            <ImageIcon className="h-4 w-4" style={{ color }} />
           </div>
         ))}
       </div>

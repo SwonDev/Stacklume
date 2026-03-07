@@ -10,7 +10,6 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
-  ContextMenuCheckboxItem,
 } from "@/components/ui/context-menu";
 import {
   AlertDialog,
@@ -40,12 +39,12 @@ import {
   Download,
   Trash2,
   CheckIcon,
-  AlertTriangle,
   Code2,
 } from "lucide-react";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Widget, WidgetSize } from "@/types/widget";
-import { WIDGET_SIZE_PRESETS, WIDGET_TYPE_METADATA } from "@/types/widget";
+import { WIDGET_TYPE_METADATA } from "@/types/widget";
 
 interface WidgetContextMenuProps {
   widget: Widget;
@@ -346,13 +345,13 @@ const GRADIENT_PRESETS: WidgetTheme[] = [
   },
 ];
 
-// Size configuration with labels
-const SIZE_OPTIONS: Array<{ size: WidgetSize; label: string; dimensions: string }> = [
-  { size: "small", label: "Small", dimensions: "1x2" },
-  { size: "medium", label: "Medium", dimensions: "2x3" },
-  { size: "large", label: "Large", dimensions: "2x4" },
-  { size: "wide", label: "Wide", dimensions: "3x2" },
-  { size: "tall", label: "Tall", dimensions: "1x4" },
+// Size configuration with translation keys
+const SIZE_OPTIONS: Array<{ size: WidgetSize; labelKey: string; dimensions: string }> = [
+  { size: "small", labelKey: "widgetContextMenu.sizeSmall", dimensions: "1x2" },
+  { size: "medium", labelKey: "widgetContextMenu.sizeMedium", dimensions: "2x3" },
+  { size: "large", labelKey: "widgetContextMenu.sizeLarge", dimensions: "2x4" },
+  { size: "wide", labelKey: "widgetContextMenu.sizeWide", dimensions: "3x2" },
+  { size: "tall", labelKey: "widgetContextMenu.sizeTall", dimensions: "1x4" },
 ];
 
 export function WidgetContextMenu({
@@ -361,6 +360,7 @@ export function WidgetContextMenu({
   onRename,
   onConfigure,
 }: WidgetContextMenuProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const duplicateWidget = useWidgetStore((state) => state.duplicateWidget);
   const removeWidget = useWidgetStore((state) => state.removeWidget);
@@ -376,8 +376,8 @@ export function WidgetContextMenu({
   const isLocked = widget.isLocked ?? false;
 
   const currentTheme = widget.config?.widgetTheme;
-  const currentColor = widget.config?.customBackground || "";
-  const currentGradient = widget.config?.customGradient || "";
+  const _currentColor = widget.config?.customBackground || "";
+  const _currentGradient = widget.config?.customGradient || "";
 
   const handleSizeChange = async (size: WidgetSize) => {
     await updateWidget(widget.id, { size });
@@ -415,7 +415,7 @@ export function WidgetContextMenu({
     });
   };
 
-  const handleColorChange = async (colorValue: string) => {
+  const _handleColorChange = async (colorValue: string) => {
     await updateWidget(widget.id, {
       config: {
         ...widget.config,
@@ -425,7 +425,7 @@ export function WidgetContextMenu({
     });
   };
 
-  const handleGradientChange = async (gradientValue: string) => {
+  const _handleGradientChange = async (gradientValue: string) => {
     const gradient = GRADIENT_PRESETS.find(g => g.value === gradientValue);
     if (gradient) {
       await updateWidget(widget.id, {
@@ -474,7 +474,7 @@ export function WidgetContextMenu({
       setIsConfigEditorOpen(false);
       setConfigEditorError("");
     } catch {
-      setConfigEditorError("JSON inválido — revisa la sintaxis antes de guardar.");
+      setConfigEditorError(t("widgetContextMenu.invalidJson"));
     }
   };
 
@@ -523,24 +523,24 @@ export function WidgetContextMenu({
         {/* Quick Actions Section */}
         <ContextMenuItem onClick={onRename}>
           <Pencil className="mr-2 h-4 w-4" />
-          Rename
+          {t("widgetContextMenu.rename")}
         </ContextMenuItem>
 
         <ContextMenuItem onClick={onConfigure}>
           <Settings className="mr-2 h-4 w-4" />
-          Configure
+          {t("widgetContextMenu.configure")}
         </ContextMenuItem>
 
         {widget.type === "custom-user" && (
           <ContextMenuItem onClick={handleOpenConfigEditor}>
             <Code2 className="mr-2 h-4 w-4" />
-            Editar datos
+            {t("widgetContextMenu.editData")}
           </ContextMenuItem>
         )}
 
         <ContextMenuItem onClick={() => duplicateWidget(widget.id)}>
           <Copy className="mr-2 h-4 w-4" />
-          Duplicate
+          {t("widgetContextMenu.duplicate")}
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -549,7 +549,7 @@ export function WidgetContextMenu({
         <ContextMenuSub>
           <ContextMenuSubTrigger>
             <LayoutGrid className="mr-2 h-4 w-4" />
-            Size
+            {t("widgetContextMenu.size")}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent>
             {SIZE_OPTIONS.map((option) => {
@@ -563,7 +563,7 @@ export function WidgetContextMenu({
                   <div className="flex items-center">
                     {isCurrentSize && <CheckIcon className="mr-2 h-4 w-4" />}
                     {!isCurrentSize && <span className="mr-6" />}
-                    <span>{option.label}</span>
+                    <span>{t(option.labelKey)}</span>
                   </div>
                   <span className="ml-auto text-xs text-muted-foreground">
                     {option.dimensions}
@@ -578,13 +578,13 @@ export function WidgetContextMenu({
         <ContextMenuSub>
           <ContextMenuSubTrigger>
             <div className="mr-2 h-4 w-4 rounded-full border-2 border-border bg-gradient-to-br from-red-400 via-purple-400 to-blue-400" />
-            Color & Theme
+            {t("widgetContextMenu.colorTheme")}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="max-h-[400px] overflow-y-auto">
             {/* Reset/Default Option */}
             <ContextMenuItem onClick={handleResetColors}>
               <div className="mr-2 h-4 w-4 rounded border border-border bg-card" />
-              Default (Reset)
+              {t("widgetContextMenu.defaultReset")}
             </ContextMenuItem>
 
             <ContextMenuSeparator />
@@ -643,17 +643,17 @@ export function WidgetContextMenu({
           ) : (
             <Unlock className="mr-2 h-4 w-4" />
           )}
-          {isLocked ? "Unlock Position" : "Lock Position"}
+          {isLocked ? t("widgetContextMenu.unlockPosition") : t("widgetContextMenu.lockPosition")}
         </ContextMenuItem>
 
         <ContextMenuItem onClick={autoOrganizeWidgets}>
           <LayoutGrid className="mr-2 h-4 w-4" />
-          Auto-organize All
+          {t("widgetContextMenu.autoOrganize")}
         </ContextMenuItem>
 
         <ContextMenuItem onClick={handleExportConfig}>
           <Download className="mr-2 h-4 w-4" />
-          Export Config
+          {t("widgetContextMenu.exportConfig")}
         </ContextMenuItem>
 
         <ContextMenuSeparator />
@@ -661,7 +661,7 @@ export function WidgetContextMenu({
         {/* Danger Section */}
         <ContextMenuItem variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
           <Trash2 className="mr-2 h-4 w-4" />
-          Delete
+          {t("widgetContextMenu.delete")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -669,19 +669,19 @@ export function WidgetContextMenu({
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Widget</AlertDialogTitle>
+          <AlertDialogTitle>{t("widgetContextMenu.deleteTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete this {widgetTypeLabel} widget? This action cannot be undone.
+            {t("widgetContextMenu.deleteDescription", { type: widgetTypeLabel })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>{t("widgetContextMenu.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={isDeleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? t("widgetContextMenu.deleting") : t("widgetContextMenu.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -693,12 +693,12 @@ export function WidgetContextMenu({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Code2 className="w-4 h-4" />
-            Editar datos — {widget.title}
+            {t("widgetContextMenu.editDataTitle", { title: widget.title })}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Edita los datos del widget en formato JSON. Los campos internos del sistema se preservan automáticamente.
+            {t("widgetContextMenu.editDataDescription")}
           </p>
           <textarea
             className="w-full h-72 rounded-md border border-input bg-muted/40 px-3 py-2 font-mono text-xs text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring scrollbar-thin"
@@ -717,10 +717,10 @@ export function WidgetContextMenu({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setIsConfigEditorOpen(false)}>
-            Cancelar
+            {t("widgetContextMenu.cancel")}
           </Button>
           <Button onClick={handleSaveConfig}>
-            Guardar cambios
+            {t("widgetContextMenu.saveChanges")}
           </Button>
         </DialogFooter>
       </DialogContent>

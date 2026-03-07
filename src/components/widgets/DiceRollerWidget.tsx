@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from "react";
 import type { Widget } from "@/types/widget";
-import { useWidgetStore } from "@/stores/widget-store";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "motion/react";
 import { Dices, Plus, Minus, History, RotateCcw } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 
 interface DiceRollerWidgetProps {
   widget: Widget;
@@ -27,7 +27,7 @@ const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
 const DICE_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
-  const { updateWidget: _updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
 
   const [diceType, setDiceType] = useState<number>(20);
   const [diceCount, setDiceCount] = useState<number>(1);
@@ -104,7 +104,7 @@ export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Dices className="w-4 h-4 @xs:w-5 @xs:h-5 text-purple-400" />
-          <h3 className="font-semibold text-sm @xs:text-base text-zinc-100">Dice Roller</h3>
+          <h3 className="font-semibold text-sm @xs:text-base text-zinc-100">{t("diceRoller.title")}</h3>
         </div>
         {history.length > 0 && (
           <Button
@@ -122,7 +122,7 @@ export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
       <div className="grid grid-cols-2 gap-2 @xs:gap-3">
         {/* Dice Type */}
         <div className="space-y-1.5">
-          <label className="text-xs text-zinc-400">Dice Type</label>
+          <label className="text-xs text-zinc-400">{t("diceRoller.diceType")}</label>
           <Select
             value={diceType.toString()}
             onValueChange={(value) => setDiceType(Number(value))}
@@ -142,7 +142,7 @@ export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
 
         {/* Dice Count */}
         <div className="space-y-1.5">
-          <label className="text-xs text-zinc-400">Count</label>
+          <label className="text-xs text-zinc-400">{t("diceRoller.count")}</label>
           <Select
             value={diceCount.toString()}
             onValueChange={(value) => setDiceCount(Number(value))}
@@ -163,7 +163,7 @@ export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
 
       {/* Modifier */}
       <div className="space-y-1.5">
-        <label className="text-xs text-zinc-400">Modifier</label>
+        <label className="text-xs text-zinc-400">{t("diceRoller.modifier")}</label>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -212,7 +212,7 @@ export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
         >
           <Dices className="w-5 h-5 @xs:w-6 @xs:h-6" />
         </motion.div>
-        {isRolling ? "Rolling..." : "Roll Dice"}
+        {isRolling ? t("diceRoller.rolling") : t("diceRoller.rollDice")}
       </Button>
 
       {/* Current Result */}
@@ -273,7 +273,7 @@ export function DiceRollerWidget({ widget: _widget }: DiceRollerWidgetProps) {
         <div className="flex-1 min-h-0 space-y-2">
           <div className="flex items-center gap-2">
             <History className="w-3 h-3 @xs:w-4 @xs:h-4 text-zinc-400" />
-            <h4 className="text-xs @xs:text-sm font-medium text-zinc-400">History</h4>
+            <h4 className="text-xs @xs:text-sm font-medium text-zinc-400">{t("diceRoller.history")}</h4>
           </div>
           <ScrollArea className="h-full max-h-32 @md:max-h-48">
             <div className="space-y-1.5">

@@ -77,6 +77,107 @@ interface ScenarioTest {
   result: number;
 }
 
+// Safe recursive descent math expression parser
+// Supports: numbers, +, -, *, /, %, ** (exponent), parentheses
+// Grammar:
+//   expression = term (('+' | '-') term)*
+//   term       = exponent (('*' | '/' | '%') exponent)*
+//   exponent   = unary ('**' exponent)?
+//   unary      = ('-' | '+')? primary
+//   primary    = number | '(' expression ')'
+function parseMathExpression(expr: string): number {
+  let pos = 0;
+
+  function parseExpression(): number {
+    let result = parseTerm();
+    while (pos < expr.length) {
+      if (expr[pos] === "+") {
+        pos++;
+        result += parseTerm();
+      } else if (expr[pos] === "-") {
+        pos++;
+        result -= parseTerm();
+      } else {
+        break;
+      }
+    }
+    return result;
+  }
+
+  function parseTerm(): number {
+    let result = parseExponent();
+    while (pos < expr.length) {
+      if (expr[pos] === "*" && expr[pos + 1] !== "*") {
+        pos++;
+        result *= parseExponent();
+      } else if (expr[pos] === "/") {
+        pos++;
+        const divisor = parseExponent();
+        if (divisor === 0) throw new Error("Division by zero");
+        result /= divisor;
+      } else if (expr[pos] === "%") {
+        pos++;
+        const divisor = parseExponent();
+        if (divisor === 0) throw new Error("Modulo by zero");
+        result %= divisor;
+      } else {
+        break;
+      }
+    }
+    return result;
+  }
+
+  function parseExponent(): number {
+    const base = parseUnary();
+    if (pos < expr.length - 1 && expr[pos] === "*" && expr[pos + 1] === "*") {
+      pos += 2;
+      const exp = parseExponent(); // Right-associative
+      return Math.pow(base, exp);
+    }
+    return base;
+  }
+
+  function parseUnary(): number {
+    if (expr[pos] === "-") {
+      pos++;
+      return -parsePrimary();
+    }
+    if (expr[pos] === "+") {
+      pos++;
+      return parsePrimary();
+    }
+    return parsePrimary();
+  }
+
+  function parsePrimary(): number {
+    if (expr[pos] === "(") {
+      pos++; // skip '('
+      const result = parseExpression();
+      if (expr[pos] !== ")") throw new Error("Expected closing parenthesis");
+      pos++; // skip ')'
+      return result;
+    }
+
+    // Parse number (including decimals)
+    const start = pos;
+    while (pos < expr.length && (expr[pos] >= "0" && expr[pos] <= "9" || expr[pos] === ".")) {
+      pos++;
+    }
+    if (pos === start) {
+      throw new Error(`Unexpected character at position ${pos}`);
+    }
+    const num = parseFloat(expr.slice(start, pos));
+    if (isNaN(num)) throw new Error("Invalid number");
+    return num;
+  }
+
+  const result = parseExpression();
+  if (pos < expr.length) {
+    throw new Error(`Unexpected character '${expr[pos]}' at position ${pos}`);
+  }
+  return result;
+}
+
 // Formula presets with their expressions
 const FORMULA_PRESETS: Record<FormulaPreset, { formula: string; description: string }> = {
   simple: {
@@ -151,21 +252,42 @@ export function DamageCalculatorWidget({ widget: _widget }: DamageCalculatorWidg
     return FORMULA_PRESETS[preset].formula;
   }, [preset, customFormula]);
 
-  // Safely evaluate formula - returns { value, error } to avoid setState during render
+  // Safe math expression parser - only allows numbers, basic operators, parentheses, and known variable names
   const evaluateFormula = useCallback(
     (formula: string, vars: FormulaVariables): { value: number; error: string } => {
       try {
         // Replace variable names with their values
         let expression = formula;
-        Object.entries(vars).forEach(([key, value]) => {
-          expression = expression.replace(new RegExp(key, "g"), value.toString());
-        });
+        // Sort keys by length descending to avoid partial replacements (e.g., "Scaling" before "S")
+        const sortedKeys = Object.keys(vars).sort((a, b) => b.length - a.length);
+        for (const key of sortedKeys) {
+          expression = expression.replace(new RegExp(`\\b${key}\\b`, "g"), vars[key as keyof FormulaVariables].toString());
+        }
 
-        // Evaluate the expression safely
-         
-        const result = Function(`'use strict'; return (${expression})`)();
+        // Validate: only allow digits, decimal points, operators (+, -, *, /, %, **), parentheses, and whitespace
+        const sanitized = expression.replace(/\s+/g, "");
+        if (!/^[0-9+\-*/%().]+$/.test(sanitized)) {
+          throw new Error("Formula contains disallowed characters. Only numbers and operators (+, -, *, /, %, **) are permitted.");
+        }
 
-        if (typeof result !== "number" || isNaN(result)) {
+        // Reject empty parentheses, consecutive operators (except **), and other malformed patterns
+        if (/\(\)/.test(sanitized)) {
+          throw new Error("Empty parentheses are not allowed");
+        }
+
+        // Check balanced parentheses
+        let depth = 0;
+        for (const ch of sanitized) {
+          if (ch === "(") depth++;
+          if (ch === ")") depth--;
+          if (depth < 0) throw new Error("Unbalanced parentheses");
+        }
+        if (depth !== 0) throw new Error("Unbalanced parentheses");
+
+        // Evaluate using a recursive descent parser (no Function/eval)
+        const result = parseMathExpression(sanitized);
+
+        if (typeof result !== "number" || isNaN(result) || !isFinite(result)) {
           throw new Error("Invalid result");
         }
 
@@ -437,7 +559,7 @@ console.log("Damage:", damage);`;
                   <div><code className="text-primary">Scaling</code> - Scaling %</div>
                 </div>
                 <p className="text-muted-foreground pt-2">
-                  Use standard math operators: + - * / ( ) and functions like Math.pow, Math.sqrt
+                  Use math operators: + - * / % ** (exponent) and parentheses ( )
                 </p>
               </div>
 

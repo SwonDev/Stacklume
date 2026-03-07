@@ -34,6 +34,7 @@ import { useLinksStore } from "@/stores/links-store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 export function ManageCategoriesModal() {
   const {
@@ -46,6 +47,7 @@ export function ManageCategoriesModal() {
     setAddCategoryModalOpen,
   } = useLinksStore();
 
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -80,14 +82,14 @@ export function ManageCategoriesModal() {
 
       if (response.ok) {
         updateCategory(editingId, { name: editingName.trim() });
-        toast.success("Categoria actualizada");
+        toast.success(t("manageCategories.successUpdate"));
         handleCancelEdit();
       } else {
-        toast.error("Error al actualizar la categoria");
+        toast.error(t("manageCategories.errorUpdate"));
       }
     } catch (error) {
       console.error("Error updating category:", error);
-      toast.error("Error al actualizar la categoria");
+      toast.error(t("manageCategories.errorUpdate"));
     }
   };
 
@@ -107,16 +109,16 @@ export function ManageCategoriesModal() {
         removeCategory(deleteId);
         toast.success(
           linkCount > 0
-            ? `Categoria eliminada. ${linkCount} enlaces ahora sin categoria.`
-            : "Categoria eliminada"
+            ? t("manageCategories.successDeleteWithLinks", { count: linkCount })
+            : t("manageCategories.successDelete")
         );
         setDeleteId(null);
       } else {
-        toast.error("Error al eliminar la categoria");
+        toast.error(t("manageCategories.errorDelete"));
       }
     } catch (error) {
       console.error("Error deleting category:", error);
-      toast.error("Error al eliminar la categoria");
+      toast.error(t("manageCategories.errorDelete"));
     }
   };
 
@@ -130,7 +132,7 @@ export function ManageCategoriesModal() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-primary" />
-              Gestionar Categorias
+              {t("manageCategories.title")}
             </DialogTitle>
           </DialogHeader>
 
@@ -145,7 +147,7 @@ export function ManageCategoriesModal() {
               }}
             >
               <Plus className="w-4 h-4" />
-              Nueva Categoria
+              {t("manageCategories.newCategory")}
             </Button>
 
             {/* Categories list */}
@@ -153,8 +155,8 @@ export function ManageCategoriesModal() {
               {categories.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <FolderOpen className="w-12 h-12 mb-2 opacity-50" />
-                  <p>No hay categorias</p>
-                  <p className="text-sm">Crea tu primera categoria</p>
+                  <p>{t("manageCategories.noCategories")}</p>
+                  <p className="text-sm">{t("manageCategories.createFirst")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -190,7 +192,7 @@ export function ManageCategoriesModal() {
                         )}
 
                         <Badge variant="secondary" className="flex-shrink-0">
-                          {linkCount} {linkCount === 1 ? "enlace" : "enlaces"}
+                          {linkCount} {linkCount === 1 ? t("manageCategories.linkSingular") : t("manageCategories.linkPlural")}
                         </Badge>
 
                         {isEditing ? (
@@ -251,28 +253,25 @@ export function ManageCategoriesModal() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
-              Eliminar Categoria
+              {t("manageCategories.deleteTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteId && getCategoryLinkCount(deleteId) > 0 ? (
                 <>
-                  Esta categoria tiene{" "}
-                  <strong>{getCategoryLinkCount(deleteId)}</strong> enlaces
-                  asociados. Los enlaces no se eliminarán, pero quedarán sin
-                  categoria.
+                  {t("manageCategories.deleteWithLinks", { count: getCategoryLinkCount(deleteId!) })}
                 </>
               ) : (
-                "¿Estás seguro de que quieres eliminar esta categoria?"
+                t("manageCategories.deleteConfirm")
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("btn.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

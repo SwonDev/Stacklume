@@ -3,6 +3,7 @@
 import React, { Component, ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/lib/i18n";
 import * as Sentry from "@sentry/nextjs";
 
 interface ErrorBoundaryProps {
@@ -14,6 +15,64 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+}
+
+// Functional fallback components to support useTranslation hook
+
+function ErrorBoundaryFallback({ error, onRetry, onReload }: { error: Error | null; onRetry: () => void; onReload: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="max-w-md w-full bg-card border border-border rounded-lg p-6 text-center">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
+          <AlertTriangle className="w-6 h-6 text-destructive" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-2">
+          {t("errorBoundary.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          {t("errorBoundary.description")}
+        </p>
+        {process.env.NODE_ENV === "development" && error && (
+          <div className="mb-4 p-3 bg-muted rounded-md text-left">
+            <p className="text-xs font-mono text-destructive break-all">
+              {error.message}
+            </p>
+          </div>
+        )}
+        <div className="flex gap-2 justify-center">
+          <Button variant="outline" onClick={onRetry}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {t("errorBoundary.retry")}
+          </Button>
+          <Button onClick={onReload}>
+            {t("errorBoundary.reloadPage")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WidgetErrorFallback({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-card/50 rounded-lg border border-border p-4">
+      <AlertTriangle className="w-8 h-8 text-muted-foreground mb-2" />
+      <p className="text-sm text-muted-foreground text-center mb-3">
+        {t("errorBoundary.widgetError")}
+      </p>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onRetry}
+        className="gap-1"
+      >
+        <RefreshCw className="w-3 h-3" />
+        {t("errorBoundary.retry")}
+      </Button>
+    </div>
+  );
 }
 
 /**
@@ -60,37 +119,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         return this.props.fallback;
       }
 
-      // Default fallback UI
+      // Default fallback UI (uses functional component for i18n hook support)
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-          <div className="max-w-md w-full bg-card border border-border rounded-lg p-6 text-center">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-destructive" />
-            </div>
-            <h2 className="text-lg font-semibold text-foreground mb-2">
-              Algo salió mal
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Ha ocurrido un error inesperado. Por favor, intenta de nuevo.
-            </p>
-            {process.env.NODE_ENV === "development" && this.state.error && (
-              <div className="mb-4 p-3 bg-muted rounded-md text-left">
-                <p className="text-xs font-mono text-destructive break-all">
-                  {this.state.error.message}
-                </p>
-              </div>
-            )}
-            <div className="flex gap-2 justify-center">
-              <Button variant="outline" onClick={this.handleRetry}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reintentar
-              </Button>
-              <Button onClick={this.handleReload}>
-                Recargar página
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ErrorBoundaryFallback
+          error={this.state.error}
+          onRetry={this.handleRetry}
+          onReload={this.handleReload}
+        />
       );
     }
 
@@ -153,23 +188,7 @@ export class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, Wid
 
   render(): ReactNode {
     if (this.state.hasError) {
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-card/50 rounded-lg border border-border p-4">
-          <AlertTriangle className="w-8 h-8 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground text-center mb-3">
-            Error en widget
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={this.handleRetry}
-            className="gap-1"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Reintentar
-          </Button>
-        </div>
-      );
+      return <WidgetErrorFallback onRetry={this.handleRetry} />;
     }
 
     // Ensure we never return undefined (React 19 is stricter)

@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import {
   StickyNote,
   Plus,
-  Trash2,
   Palette,
   X,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface StickyNotesWidgetProps {
   widget: Widget;
@@ -34,17 +34,18 @@ interface StickyNoteItem {
 }
 
 const NOTE_COLORS = [
-  { name: "Amarillo", value: "bg-yellow-200 dark:bg-yellow-900/50", text: "text-yellow-900 dark:text-yellow-100" },
-  { name: "Rosa", value: "bg-pink-200 dark:bg-pink-900/50", text: "text-pink-900 dark:text-pink-100" },
-  { name: "Azul", value: "bg-blue-200 dark:bg-blue-900/50", text: "text-blue-900 dark:text-blue-100" },
-  { name: "Verde", value: "bg-green-200 dark:bg-green-900/50", text: "text-green-900 dark:text-green-100" },
-  { name: "Morado", value: "bg-purple-200 dark:bg-purple-900/50", text: "text-purple-900 dark:text-purple-100" },
-  { name: "Naranja", value: "bg-orange-200 dark:bg-orange-900/50", text: "text-orange-900 dark:text-orange-100" },
+  { nameKey: "stickyNotes.colorYellow", value: "bg-yellow-200 dark:bg-yellow-900/50", text: "text-yellow-900 dark:text-yellow-100" },
+  { nameKey: "stickyNotes.colorPink", value: "bg-pink-200 dark:bg-pink-900/50", text: "text-pink-900 dark:text-pink-100" },
+  { nameKey: "stickyNotes.colorBlue", value: "bg-blue-200 dark:bg-blue-900/50", text: "text-blue-900 dark:text-blue-100" },
+  { nameKey: "stickyNotes.colorGreen", value: "bg-green-200 dark:bg-green-900/50", text: "text-green-900 dark:text-green-100" },
+  { nameKey: "stickyNotes.colorPurple", value: "bg-purple-200 dark:bg-purple-900/50", text: "text-purple-900 dark:text-purple-100" },
+  { nameKey: "stickyNotes.colorOrange", value: "bg-orange-200 dark:bg-orange-900/50", text: "text-orange-900 dark:text-orange-100" },
 ];
 
 const DEFAULT_COLOR = NOTE_COLORS[0];
 
 export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const stickyNotes: StickyNoteItem[] = widget.config?.stickyNotes || [];
@@ -114,13 +115,13 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
           <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center mb-3">
             <StickyNote className="w-6 h-6 text-yellow-500" />
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Sin notas</p>
+          <p className="text-sm text-muted-foreground mb-1">{t("stickyNotes.noNotes")}</p>
           <p className="text-xs text-muted-foreground/60 mb-4">
-            Crea notas adhesivas rapidas
+            {t("stickyNotes.noNotesDesc")}
           </p>
           <Button size="sm" onClick={addNote}>
             <Plus className="w-4 h-4 mr-2" />
-            Nueva nota
+            {t("stickyNotes.newNote")}
           </Button>
         </div>
       </div>
@@ -135,7 +136,9 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
           <div className="flex items-center gap-2">
             <StickyNote className="w-4 h-4 text-yellow-500" />
             <span className="text-xs text-muted-foreground">
-              {stickyNotes.length} nota{stickyNotes.length !== 1 ? "s" : ""}
+              {stickyNotes.length !== 1
+                ? t("stickyNotes.noteCountPlural", { count: stickyNotes.length })
+                : t("stickyNotes.noteCount", { count: stickyNotes.length })}
             </span>
           </div>
           <Button
@@ -143,7 +146,7 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={addNote}
-            title="Nueva nota"
+            title={t("stickyNotes.newNote")}
           >
             <Plus className="w-4 h-4" />
           </Button>
@@ -175,7 +178,7 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
                           variant="ghost"
                           size="sm"
                           className="h-5 w-5 p-0 hover:bg-black/10 dark:hover:bg-white/10"
-                          title="Cambiar color"
+                          title={t("stickyNotes.changeColor")}
                         >
                           <Palette className="w-3 h-3" />
                         </Button>
@@ -184,7 +187,7 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
                         <div className="grid grid-cols-3 gap-1">
                           {NOTE_COLORS.map((color) => (
                             <button
-                              key={color.name}
+                              key={color.nameKey}
                               onClick={() => updateNoteColor(note.id, color.value)}
                               className={cn(
                                 "w-8 h-8 rounded-md border-2 transition-all",
@@ -193,7 +196,7 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
                                   ? "border-primary ring-2 ring-primary/50"
                                   : "border-transparent hover:border-primary/50"
                               )}
-                              title={color.name}
+                              title={t(color.nameKey)}
                             />
                           ))}
                         </div>
@@ -204,7 +207,7 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
                       size="sm"
                       className="h-5 w-5 p-0 hover:bg-black/10 dark:hover:bg-white/10 text-destructive"
                       onClick={() => deleteNote(note.id)}
-                      title="Eliminar"
+                      title={t("stickyNotes.delete")}
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -216,7 +219,7 @@ export function StickyNotesWidget({ widget }: StickyNotesWidgetProps) {
                     onChange={(e) => updateNote(note.id, e.target.value)}
                     onFocus={() => setEditingId(note.id)}
                     onBlur={() => setEditingId(null)}
-                    placeholder="Escribe aqui..."
+                    placeholder={t("stickyNotes.placeholder")}
                     className={cn(
                       "h-full min-h-[60px] w-full resize-none border-0 bg-transparent p-0 text-xs focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:opacity-50",
                       getTextColor(note.color),

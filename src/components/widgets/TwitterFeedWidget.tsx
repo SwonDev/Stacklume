@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Twitter, ExternalLink, RefreshCw, Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Widget } from "@/types/widget";
 
 interface TwitterFeedWidgetProps {
@@ -17,7 +18,8 @@ interface TwitterConfig {
 }
 
 export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
-  const config = (widget.config as unknown as TwitterConfig) || {};
+  const { t } = useTranslation();
+  const config = useMemo(() => (widget.config as unknown as TwitterConfig) || {}, [widget.config]);
   const username = config.twitterUsername || "";
   const embedTheme = config.embedTheme || "dark";
 
@@ -88,7 +90,7 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
                 size="icon"
                 onClick={handleRefresh}
                 className="h-8 w-8"
-                title="Recargar"
+                title={t("twitterFeed.reload")}
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -97,7 +99,7 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
-                title="Ver en Twitter"
+                title={t("twitterFeed.viewOnTwitter")}
               >
                 <ExternalLink className="h-4 w-4 text-muted-foreground" />
               </a>
@@ -123,20 +125,20 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
         <div className="border-b p-4">
           <div className="flex gap-2">
             <Input
-              placeholder="Usuario de Twitter (ej: elonmusk)"
+              placeholder={t("twitterFeed.usernamePlaceholder")}
               value={inputUsername}
               onChange={(e) => setInputUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
               className="flex-1"
             />
             <Button onClick={handleSave} size="sm">
-              Guardar
+              {t("twitterFeed.save")}
             </Button>
           </div>
           {username && (
             <div className="mt-3 flex items-center justify-between">
               <Button variant="outline" size="sm" onClick={toggleTheme}>
-                Tema: {embedTheme === "dark" ? "Oscuro" : "Claro"}
+                {t("twitterFeed.theme")}: {embedTheme === "dark" ? t("twitterFeed.dark") : t("twitterFeed.light")}
               </Button>
               <Button
                 variant="ghost"
@@ -144,7 +146,7 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
                 onClick={handleRemove}
                 className="text-destructive hover:text-destructive"
               >
-                Eliminar usuario
+                {t("twitterFeed.removeUser")}
               </Button>
             </div>
           )}
@@ -159,14 +161,14 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
               <Twitter className="h-8 w-8 text-[#1DA1F2]" />
             </div>
             <div>
-              <h4 className="font-medium">Sin usuario configurado</h4>
+              <h4 className="font-medium">{t("twitterFeed.noUserConfigured")}</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Configura un usuario de Twitter para ver su timeline
+                {t("twitterFeed.configureUserDescription")}
               </p>
             </div>
             <Button onClick={() => setIsConfiguring(true)} size="sm">
               <Settings className="mr-2 h-4 w-4" />
-              Configurar
+              {t("twitterFeed.configure")}
             </Button>
           </div>
         ) : (
@@ -196,7 +198,7 @@ export function TwitterFeedWidget({ widget }: TwitterFeedWidgetProps) {
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
           >
             <ExternalLink className="h-3 w-3" />
-            Ver perfil completo en Twitter
+            {t("twitterFeed.viewFullProfile")}
           </a>
         </div>
       )}

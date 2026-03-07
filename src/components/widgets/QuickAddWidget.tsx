@@ -17,15 +17,16 @@ import {
 } from "@/components/ui/form";
 import { useLinksStore } from "@/stores/links-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 const quickAddSchema = z.object({
-  url: z.string().url("Por favor, introduce una URL válida"),
+  url: z.string().url(),
 });
 
 type QuickAddFormValues = z.infer<typeof quickAddSchema>;
 
 export function QuickAddWidget() {
-  const { addLink } = useLinksStore();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -81,7 +82,7 @@ export function QuickAddWidget() {
 
       if (!response.ok) {
         // Try to get the actual error message from the server
-        let errorMessage = "Error al crear el enlace";
+        let errorMessage = t("quickAdd.errorCreating");
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
@@ -97,14 +98,14 @@ export function QuickAddWidget() {
       const newLink = await response.json();
 
       // Add to store
-      addLink(newLink);
+      useLinksStore.getState().addLink(newLink);
 
       // Show success state
       setShowSuccess(true);
       form.reset();
 
       // Show success toast
-      toast.success("Enlace añadido correctamente", {
+      toast.success(t("quickAdd.linkAdded"), {
         description: scrapedData?.title || values.url,
       });
 
@@ -113,12 +114,12 @@ export function QuickAddWidget() {
         setShowSuccess(false);
       }, 2000);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      const errorMessage = error instanceof Error ? error.message : t("quickAdd.unknownError");
       console.error("Error adding link:", errorMessage);
       form.setError("url", {
         message: errorMessage,
       });
-      toast.error("Error al añadir el enlace", {
+      toast.error(t("quickAdd.errorAdding"), {
         description: errorMessage,
       });
     } finally {
@@ -146,7 +147,7 @@ export function QuickAddWidget() {
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder="https://ejemplo.com"
+                      placeholder={t("quickAdd.placeholder")}
                       {...field}
                       disabled={isLoading}
                       className="text-xs @xs:text-sm @md:text-base h-8 @xs:h-9 @md:h-10 px-2 @xs:px-3 @md:px-4"
@@ -168,7 +169,7 @@ export function QuickAddWidget() {
                   {/* Very small: icon only */}
                   <span className="hidden @[120px]:inline ml-1.5 @xs:ml-2">
                     <span className="@[120px]:inline @sm:hidden">...</span>
-                    <span className="hidden @sm:inline">Obteniendo datos...</span>
+                    <span className="hidden @sm:inline">{t("quickAdd.fetching")}</span>
                   </span>
                 </>
               ) : showSuccess ? (
@@ -177,7 +178,7 @@ export function QuickAddWidget() {
                   {/* Very small: icon only */}
                   <span className="hidden @[120px]:inline ml-1.5 @xs:ml-2">
                     <span className="@[120px]:inline @sm:hidden">OK</span>
-                    <span className="hidden @sm:inline">¡Añadido!</span>
+                    <span className="hidden @sm:inline">{t("quickAdd.added")}</span>
                   </span>
                 </>
               ) : (
@@ -185,8 +186,8 @@ export function QuickAddWidget() {
                   <Plus className="w-3 h-3 @xs:w-4 @xs:h-4" />
                   {/* Very small: icon only */}
                   <span className="hidden @[120px]:inline ml-1.5 @xs:ml-2">
-                    <span className="@[120px]:inline @sm:hidden">Añadir</span>
-                    <span className="hidden @sm:inline">Añadir enlace</span>
+                    <span className="@[120px]:inline @sm:hidden">{t("quickAdd.addShort")}</span>
+                    <span className="hidden @sm:inline">{t("quickAdd.addLink")}</span>
                   </span>
                 </>
               )}
@@ -197,14 +198,14 @@ export function QuickAddWidget() {
         {/* Success message - adapts to container size */}
         {showSuccess && (
           <p className="text-[10px] @xs:text-xs @md:text-sm text-green-500 animate-in fade-in text-center px-2">
-            <span className="hidden @sm:inline">Enlace añadido correctamente</span>
-            <span className="inline @sm:hidden">¡Añadido!</span>
+            <span className="hidden @sm:inline">{t("quickAdd.linkAdded")}</span>
+            <span className="inline @sm:hidden">{t("quickAdd.added")}</span>
           </p>
         )}
 
         {/* Helper text - only shown on larger containers */}
         <p className="hidden @lg:block text-xs text-muted-foreground text-center px-4">
-          Pega una URL para añadirla rápidamente a tu colección
+          {t("quickAdd.helperText")}
         </p>
       </div>
     </div>

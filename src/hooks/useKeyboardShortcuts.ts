@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
 
 export function useKeyboardShortcuts() {
   // Use individual selectors to prevent unnecessary re-renders
@@ -30,6 +31,12 @@ export function useKeyboardShortcuts() {
 
       // Handle Escape key without modifiers
       if (event.key === "Escape" && !isModifier) {
+        // Exit multi-select mode if active
+        if (useMultiSelect.getState().isSelecting) {
+          event.preventDefault();
+          useMultiSelect.getState().exitSelecting();
+          return;
+        }
         // Exit edit mode if active
         if (isEditModeRef.current) {
           event.preventDefault();

@@ -30,6 +30,7 @@ import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface CronBuilderWidgetProps {
   widget: Widget;
@@ -44,161 +45,167 @@ interface SavedCron {
 
 // Common cron presets
 const CRON_PRESETS = [
-  { label: "Cada minuto", value: "* * * * *" },
-  { label: "Cada hora", value: "0 * * * *" },
-  { label: "Cada dia a medianoche", value: "0 0 * * *" },
-  { label: "Cada dia a las 9am", value: "0 9 * * *" },
-  { label: "Cada semana (domingo)", value: "0 0 * * 0" },
-  { label: "Cada mes (dia 1)", value: "0 0 1 * *" },
-  { label: "Cada 5 minutos", value: "*/5 * * * *" },
-  { label: "Cada 15 minutos", value: "*/15 * * * *" },
-  { label: "Cada 30 minutos", value: "*/30 * * * *" },
-  { label: "Lunes a viernes 9am", value: "0 9 * * 1-5" },
+  { labelKey: "cronBuilder.presetEveryMinute", value: "* * * * *" },
+  { labelKey: "cronBuilder.presetEveryHour", value: "0 * * * *" },
+  { labelKey: "cronBuilder.presetDailyMidnight", value: "0 0 * * *" },
+  { labelKey: "cronBuilder.presetDaily9am", value: "0 9 * * *" },
+  { labelKey: "cronBuilder.presetWeeklySunday", value: "0 0 * * 0" },
+  { labelKey: "cronBuilder.presetMonthlyFirst", value: "0 0 1 * *" },
+  { labelKey: "cronBuilder.presetEvery5min", value: "*/5 * * * *" },
+  { labelKey: "cronBuilder.presetEvery15min", value: "*/15 * * * *" },
+  { labelKey: "cronBuilder.presetEvery30min", value: "*/30 * * * *" },
+  { labelKey: "cronBuilder.presetWeekdays9am", value: "0 9 * * 1-5" },
 ];
 
 const MINUTE_OPTIONS = [
-  { label: "Cada minuto", value: "*" },
-  { label: "Cada 5 min", value: "*/5" },
-  { label: "Cada 10 min", value: "*/10" },
-  { label: "Cada 15 min", value: "*/15" },
-  { label: "Cada 30 min", value: "*/30" },
-  { label: "Al inicio", value: "0" },
+  { labelKey: "cronBuilder.minuteEvery", value: "*" },
+  { labelKey: "cronBuilder.minuteEvery5", value: "*/5" },
+  { labelKey: "cronBuilder.minuteEvery10", value: "*/10" },
+  { labelKey: "cronBuilder.minuteEvery15", value: "*/15" },
+  { labelKey: "cronBuilder.minuteEvery30", value: "*/30" },
+  { labelKey: "cronBuilder.minuteAtStart", value: "0" },
 ];
 
 const HOUR_OPTIONS = [
-  { label: "Cada hora", value: "*" },
-  { label: "Cada 2 horas", value: "*/2" },
-  { label: "Cada 6 horas", value: "*/6" },
-  { label: "Cada 12 horas", value: "*/12" },
+  { labelKey: "cronBuilder.hourEvery", value: "*" },
+  { labelKey: "cronBuilder.hourEvery2", value: "*/2" },
+  { labelKey: "cronBuilder.hourEvery6", value: "*/6" },
+  { labelKey: "cronBuilder.hourEvery12", value: "*/12" },
   ...Array.from({ length: 24 }, (_, i) => ({
+    labelKey: "",
     label: `${i.toString().padStart(2, "0")}:00`,
     value: i.toString(),
   })),
 ];
 
 const DAY_OPTIONS = [
-  { label: "Cada dia", value: "*" },
-  { label: "Dia 1", value: "1" },
-  { label: "Dia 15", value: "15" },
-  { label: "Ultimo dia", value: "L" },
+  { labelKey: "cronBuilder.dayEvery", value: "*" },
+  { labelKey: "cronBuilder.dayFirst", value: "1" },
+  { labelKey: "cronBuilder.day15th", value: "15" },
+  { labelKey: "cronBuilder.dayLast", value: "L" },
 ];
 
 const MONTH_OPTIONS = [
-  { label: "Cada mes", value: "*" },
-  { label: "Enero", value: "1" },
-  { label: "Febrero", value: "2" },
-  { label: "Marzo", value: "3" },
-  { label: "Abril", value: "4" },
-  { label: "Mayo", value: "5" },
-  { label: "Junio", value: "6" },
-  { label: "Julio", value: "7" },
-  { label: "Agosto", value: "8" },
-  { label: "Septiembre", value: "9" },
-  { label: "Octubre", value: "10" },
-  { label: "Noviembre", value: "11" },
-  { label: "Diciembre", value: "12" },
+  { labelKey: "cronBuilder.monthEvery", value: "*" },
+  { labelKey: "cronBuilder.monthJan", value: "1" },
+  { labelKey: "cronBuilder.monthFeb", value: "2" },
+  { labelKey: "cronBuilder.monthMar", value: "3" },
+  { labelKey: "cronBuilder.monthApr", value: "4" },
+  { labelKey: "cronBuilder.monthMay", value: "5" },
+  { labelKey: "cronBuilder.monthJun", value: "6" },
+  { labelKey: "cronBuilder.monthJul", value: "7" },
+  { labelKey: "cronBuilder.monthAug", value: "8" },
+  { labelKey: "cronBuilder.monthSep", value: "9" },
+  { labelKey: "cronBuilder.monthOct", value: "10" },
+  { labelKey: "cronBuilder.monthNov", value: "11" },
+  { labelKey: "cronBuilder.monthDec", value: "12" },
 ];
 
 const WEEKDAY_OPTIONS = [
-  { label: "Cada dia", value: "*" },
-  { label: "Lun-Vie", value: "1-5" },
-  { label: "Fin de semana", value: "0,6" },
-  { label: "Domingo", value: "0" },
-  { label: "Lunes", value: "1" },
-  { label: "Martes", value: "2" },
-  { label: "Miercoles", value: "3" },
-  { label: "Jueves", value: "4" },
-  { label: "Viernes", value: "5" },
-  { label: "Sabado", value: "6" },
+  { labelKey: "cronBuilder.weekdayEvery", value: "*" },
+  { labelKey: "cronBuilder.weekdayMonFri", value: "1-5" },
+  { labelKey: "cronBuilder.weekdayWeekend", value: "0,6" },
+  { labelKey: "cronBuilder.weekdaySun", value: "0" },
+  { labelKey: "cronBuilder.weekdayMon", value: "1" },
+  { labelKey: "cronBuilder.weekdayTue", value: "2" },
+  { labelKey: "cronBuilder.weekdayWed", value: "3" },
+  { labelKey: "cronBuilder.weekdayThu", value: "4" },
+  { labelKey: "cronBuilder.weekdayFri", value: "5" },
+  { labelKey: "cronBuilder.weekdaySat", value: "6" },
 ];
 
-function describeCron(expression: string): string {
+function describeCron(expression: string, t: (key: string, params?: Record<string, string | number>) => string): string {
   const parts = expression.split(" ");
-  if (parts.length !== 5) return "Expresion invalida";
+  if (parts.length !== 5) return t("cronBuilder.invalidExpression");
 
   const [minute, hour, day, month, weekday] = parts;
 
   // Common patterns
-  if (expression === "* * * * *") return "Cada minuto";
-  if (expression === "0 * * * *") return "Cada hora";
-  if (expression === "0 0 * * *") return "Cada dia a medianoche";
-  if (expression === "0 0 * * 0") return "Cada domingo a medianoche";
-  if (expression === "0 0 1 * *") return "El primer dia de cada mes";
+  if (expression === "* * * * *") return t("cronBuilder.descEveryMinute");
+  if (expression === "0 * * * *") return t("cronBuilder.descEveryHour");
+  if (expression === "0 0 * * *") return t("cronBuilder.descDailyMidnight");
+  if (expression === "0 0 * * 0") return t("cronBuilder.descSundayMidnight");
+  if (expression === "0 0 1 * *") return t("cronBuilder.descFirstDayMonth");
 
   // Build description
   const descriptions: string[] = [];
 
   // Minute
   if (minute === "*") {
-    descriptions.push("cada minuto");
+    descriptions.push(t("cronBuilder.descMinuteEvery"));
   } else if (minute.startsWith("*/")) {
-    descriptions.push(`cada ${minute.slice(2)} minutos`);
+    descriptions.push(t("cronBuilder.descMinuteEveryN", { n: minute.slice(2) }));
   } else {
-    descriptions.push(`al minuto ${minute}`);
+    descriptions.push(t("cronBuilder.descMinuteAt", { n: minute }));
   }
 
   // Hour
   if (hour !== "*") {
     if (hour.startsWith("*/")) {
-      descriptions.push(`cada ${hour.slice(2)} horas`);
+      descriptions.push(t("cronBuilder.descHourEveryN", { n: hour.slice(2) }));
     } else {
-      descriptions.push(`a las ${hour.padStart(2, "0")}:00`);
+      descriptions.push(t("cronBuilder.descHourAt", { hour: hour.padStart(2, "0") }));
     }
   }
 
   // Day of month
   if (day !== "*") {
     if (day === "L") {
-      descriptions.push("el ultimo dia del mes");
+      descriptions.push(t("cronBuilder.descLastDay"));
     } else {
-      descriptions.push(`el dia ${day}`);
+      descriptions.push(t("cronBuilder.descOnDay", { day }));
     }
   }
 
   // Month
   if (month !== "*") {
-    const monthNames = [
+    const monthKeys = [
       "",
-      "enero",
-      "febrero",
-      "marzo",
-      "abril",
-      "mayo",
-      "junio",
-      "julio",
-      "agosto",
-      "septiembre",
-      "octubre",
-      "noviembre",
-      "diciembre",
+      "cronBuilder.monthJan",
+      "cronBuilder.monthFeb",
+      "cronBuilder.monthMar",
+      "cronBuilder.monthApr",
+      "cronBuilder.monthMay",
+      "cronBuilder.monthJun",
+      "cronBuilder.monthJul",
+      "cronBuilder.monthAug",
+      "cronBuilder.monthSep",
+      "cronBuilder.monthOct",
+      "cronBuilder.monthNov",
+      "cronBuilder.monthDec",
     ];
-    descriptions.push(`en ${monthNames[parseInt(month)] || month}`);
+    const monthKey = monthKeys[parseInt(month)];
+    const monthName = monthKey ? t(monthKey) : month;
+    descriptions.push(t("cronBuilder.descInMonth", { month: monthName }));
   }
 
   // Day of week
   if (weekday !== "*") {
     if (weekday === "1-5") {
-      descriptions.push("de lunes a viernes");
+      descriptions.push(t("cronBuilder.descMonToFri"));
     } else if (weekday === "0,6") {
-      descriptions.push("los fines de semana");
+      descriptions.push(t("cronBuilder.descWeekends"));
     } else {
-      const dayNames = [
-        "domingos",
-        "lunes",
-        "martes",
-        "miercoles",
-        "jueves",
-        "viernes",
-        "sabados",
+      const dayKeys = [
+        "cronBuilder.weekdaySun",
+        "cronBuilder.weekdayMon",
+        "cronBuilder.weekdayTue",
+        "cronBuilder.weekdayWed",
+        "cronBuilder.weekdayThu",
+        "cronBuilder.weekdayFri",
+        "cronBuilder.weekdaySat",
       ];
-      descriptions.push(`los ${dayNames[parseInt(weekday)] || weekday}`);
+      const dayKey = dayKeys[parseInt(weekday)];
+      const dayName = dayKey ? t(dayKey) : weekday;
+      descriptions.push(t("cronBuilder.descOnWeekday", { day: dayName }));
     }
   }
 
-  return descriptions.join(", ") || "Expresion personalizada";
+  return descriptions.join(", ") || t("cronBuilder.descCustom");
 }
 
 export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
+  const { t } = useTranslation();
   const [minute, setMinute] = useState("*");
   const [hour, setHour] = useState("*");
   const [day, setDay] = useState("*");
@@ -213,8 +220,8 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
   }, [minute, hour, day, month, weekday]);
 
   const description = useMemo(() => {
-    return describeCron(cronExpression);
-  }, [cronExpression]);
+    return describeCron(cronExpression, t);
+  }, [cronExpression, t]);
 
   const saveCrons = useCallback(
     (crons: SavedCron[]) => {
@@ -242,9 +249,9 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(cronExpression);
-      toast.success("Expresion copiada");
+      toast.success(t("cronBuilder.copied"));
     } catch {
-      toast.error("Error al copiar");
+      toast.error(t("cronBuilder.copyError"));
     }
   };
 
@@ -252,7 +259,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
     // Check for duplicates
     const isDuplicate = savedCrons.some((c) => c.expression === cronExpression);
     if (isDuplicate) {
-      toast.info("Esta expresion ya esta guardada");
+      toast.info(t("cronBuilder.alreadySaved"));
       return;
     }
 
@@ -264,17 +271,22 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
     };
 
     saveCrons([newCron, ...savedCrons].slice(0, 10));
-    toast.success("Expresion guardada");
+    toast.success(t("cronBuilder.saved"));
   };
 
   const deleteSavedCron = (id: string) => {
     saveCrons(savedCrons.filter((c) => c.id !== id));
-    toast.success("Eliminado");
+    toast.success(t("cronBuilder.deleted"));
   };
 
   const loadSavedCron = (cron: SavedCron) => {
     applyPreset(cron.expression);
-    toast.success("Cargado");
+    toast.success(t("cronBuilder.loaded"));
+  };
+
+  const resolveOptionLabel = (opt: { labelKey: string; label?: string; value: string }) => {
+    if (opt.label) return opt.label;
+    return t(opt.labelKey);
   };
 
   return (
@@ -284,7 +296,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-orange-500" />
-            <span className="text-sm font-medium">Cron Builder</span>
+            <span className="text-sm font-medium">{t("cronBuilder.title")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -292,7 +304,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={saveCron}
-              title="Guardar"
+              title={t("cronBuilder.save")}
             >
               <Save className="w-4 h-4" />
             </Button>
@@ -301,7 +313,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
               size="sm"
               className="h-7 w-7 p-0"
               onClick={copyToClipboard}
-              title="Copiar"
+              title={t("cronBuilder.copy")}
             >
               <Copy className="w-4 h-4" />
             </Button>
@@ -328,7 +340,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
               className="h-6 text-[10px] px-2"
               onClick={() => applyPreset(preset.value)}
             >
-              {preset.label}
+              {t(preset.labelKey)}
             </Button>
           ))}
         </div>
@@ -338,7 +350,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
           <div className="space-y-2">
             {/* Minute */}
             <div className="flex items-center gap-2">
-              <Label className="text-xs w-16 shrink-0">Minuto</Label>
+              <Label className="text-xs w-16 shrink-0">{t("cronBuilder.minute")}</Label>
               <Select value={minute} onValueChange={setMinute}>
                 <SelectTrigger className="h-7 text-xs flex-1">
                   <SelectValue />
@@ -346,7 +358,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
                 <SelectContent>
                   {MINUTE_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {resolveOptionLabel(opt)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -360,7 +372,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
 
             {/* Hour */}
             <div className="flex items-center gap-2">
-              <Label className="text-xs w-16 shrink-0">Hora</Label>
+              <Label className="text-xs w-16 shrink-0">{t("cronBuilder.hour")}</Label>
               <Select value={hour} onValueChange={setHour}>
                 <SelectTrigger className="h-7 text-xs flex-1">
                   <SelectValue />
@@ -368,7 +380,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
                 <SelectContent>
                   {HOUR_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {resolveOptionLabel(opt)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -382,7 +394,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
 
             {/* Day */}
             <div className="flex items-center gap-2">
-              <Label className="text-xs w-16 shrink-0">Dia</Label>
+              <Label className="text-xs w-16 shrink-0">{t("cronBuilder.day")}</Label>
               <Select value={day} onValueChange={setDay}>
                 <SelectTrigger className="h-7 text-xs flex-1">
                   <SelectValue />
@@ -390,7 +402,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
                 <SelectContent>
                   {DAY_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {resolveOptionLabel(opt)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -404,7 +416,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
 
             {/* Month */}
             <div className="flex items-center gap-2">
-              <Label className="text-xs w-16 shrink-0">Mes</Label>
+              <Label className="text-xs w-16 shrink-0">{t("cronBuilder.month")}</Label>
               <Select value={month} onValueChange={setMonth}>
                 <SelectTrigger className="h-7 text-xs flex-1">
                   <SelectValue />
@@ -412,7 +424,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
                 <SelectContent>
                   {MONTH_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {resolveOptionLabel(opt)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -426,7 +438,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
 
             {/* Weekday */}
             <div className="flex items-center gap-2">
-              <Label className="text-xs w-16 shrink-0">Semana</Label>
+              <Label className="text-xs w-16 shrink-0">{t("cronBuilder.weekday")}</Label>
               <Select value={weekday} onValueChange={setWeekday}>
                 <SelectTrigger className="h-7 text-xs flex-1">
                   <SelectValue />
@@ -434,7 +446,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
                 <SelectContent>
                   {WEEKDAY_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {resolveOptionLabel(opt)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -455,7 +467,7 @@ export function CronBuilderWidget({ widget }: CronBuilderWidgetProps) {
               <Button variant="ghost" size="sm" className="w-full justify-between h-7 px-2">
                 <span className="text-xs flex items-center gap-1">
                   <Star className="w-3 h-3" />
-                  Guardados ({savedCrons.length})
+                  {t("cronBuilder.savedCount", { count: savedCrons.length })}
                 </span>
                 <ChevronDown
                   className={cn(

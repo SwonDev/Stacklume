@@ -38,6 +38,7 @@ function LinkItem({ title, url, faviconUrl, isFavorite }: LinkItemProps) {
     >
       <div className="flex-shrink-0 w-6 h-6 rounded-md overflow-hidden bg-secondary flex items-center justify-center">
         {faviconUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img src={faviconUrl} alt="" className="w-3.5 h-3.5" loading="lazy" />
         ) : (
           <ExternalLink className="w-3 h-3 text-muted-foreground" />

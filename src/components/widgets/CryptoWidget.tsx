@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Bitcoin, TrendingUp, TrendingDown, RefreshCw, Settings, Plus, X, Loader2, Bookmark, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface CryptoWidgetProps {
   widget: Widget;
@@ -93,8 +94,7 @@ function formatMarketCap(marketCap: number): string {
 }
 
 export function CryptoWidget({ widget }: CryptoWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [coinData, setCoinData] = useState<CoinData[]>([]);
@@ -103,16 +103,16 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
 
   const handleSaveCoinAsLink = (coin: CoinData) => {
     const coinUrl = `https://www.coingecko.com/en/coins/${coin.id}`;
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: coinUrl,
       title: `${coin.name} (${coin.symbol.toUpperCase()})`,
-      description: `Seguimiento de precio de ${coin.name} en CoinGecko`,
+      description: t("crypto.priceTracking", { name: coin.name }),
     });
-    toast.success("Abriendo formulario para guardar enlace");
+    toast.success(t("crypto.openingSaveForm"));
   };
 
   const config = widget.config as CryptoConfig | undefined;
-  const coins = config?.coins || ["bitcoin", "ethereum"];
+  const coins = useMemo(() => config?.coins || ["bitcoin", "ethereum"], [config?.coins]);
   const currency = config?.currency || "usd";
   const refreshInterval = config?.refreshInterval || 60;
 
@@ -143,12 +143,12 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
       setCoinData(data);
       setLastUpdated(new Date());
     } catch (err) {
-      setError("Error al cargar datos");
+      setError(t("crypto.loadError"));
       console.error("Crypto fetch error:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [coins, currency]);
+  }, [coins, currency, t]);
 
   useEffect(() => {
     fetchCryptoData();
@@ -157,7 +157,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
   }, [fetchCryptoData, refreshInterval]);
 
   const handleSave = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...formData,
@@ -190,13 +190,13 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center mb-3">
           <Bitcoin className="w-6 h-6 text-orange-500" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay criptomonedas</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("crypto.noCryptos")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega criptomonedas para seguir sus precios
+          {t("crypto.addCryptosToTrack")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("crypto.configure")}
         </Button>
       </div>
     );
@@ -208,7 +208,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
       <div className="flex items-center justify-between mb-2 px-1">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString()}` : "Cargando..."}
+            {lastUpdated ? t("crypto.updated", { time: lastUpdated.toLocaleTimeString() }) : t("crypto.loading")}
           </span>
         </div>
         <div className="flex gap-1">
@@ -242,7 +242,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <p className="text-sm text-destructive">{error}</p>
             <Button size="sm" variant="outline" className="mt-2" onClick={fetchCryptoData}>
-              Reintentar
+              {t("crypto.retry")}
             </Button>
           </div>
         ) : (
@@ -253,6 +253,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={coin.image}
                 alt={coin.name}
@@ -292,7 +293,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
                   variant="ghost"
                   className="h-6 w-6"
                   onClick={() => handleSaveCoinAsLink(coin)}
-                  title="Guardar como enlace"
+                  title={t("crypto.saveAsLink")}
                 >
                   <Bookmark className="w-3 h-3" />
                 </Button>
@@ -301,7 +302,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center h-6 w-6 rounded-md hover:bg-secondary"
-                  title="Ver en CoinGecko"
+                  title={t("crypto.viewOnCoinGecko")}
                 >
                   <ExternalLink className="w-3 h-3" />
                 </a>
@@ -317,18 +318,18 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bitcoin className="w-5 h-5 text-orange-500" />
-              Configurar Crypto
+              {t("crypto.configureTitle")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Moneda base</Label>
+              <Label>{t("crypto.baseCurrency")}</Label>
               <Select
                 value={formData.currency}
                 onValueChange={(value) => setFormData({ ...formData, currency: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona moneda" />
+                  <SelectValue placeholder={t("crypto.selectCurrency")} />
                 </SelectTrigger>
                 <SelectContent>
                   {CURRENCIES.map((curr) => (
@@ -341,7 +342,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Intervalo de actualizacion (segundos)</Label>
+              <Label>{t("crypto.refreshInterval")}</Label>
               <Input
                 type="number"
                 min="30"
@@ -352,7 +353,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Criptomonedas seleccionadas</Label>
+              <Label>{t("crypto.selectedCryptos")}</Label>
               <div className="flex flex-wrap gap-1">
                 {formData.coins?.map((coinId) => {
                   const coin = POPULAR_COINS.find(c => c.id === coinId);
@@ -369,7 +370,7 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Agregar criptomoneda</Label>
+              <Label>{t("crypto.addCrypto")}</Label>
               <div className="flex flex-wrap gap-1">
                 {POPULAR_COINS.filter(c => !formData.coins?.includes(c.id)).map((coin) => (
                   <Button
@@ -388,10 +389,10 @@ export function CryptoWidget({ widget }: CryptoWidgetProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
+              {t("crypto.cancel")}
             </Button>
             <Button onClick={handleSave}>
-              Guardar
+              {t("crypto.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

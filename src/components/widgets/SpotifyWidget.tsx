@@ -25,6 +25,7 @@ import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface SpotifyWidgetProps {
   widget: Widget;
@@ -77,18 +78,17 @@ function buildEmbedUrl(type: SpotifyType, id: string, config: SpotifyConfig): st
   return `https://open.spotify.com/embed/${type}/${id}?${params.toString()}`;
 }
 
-const SPOTIFY_TYPE_LABELS: Record<SpotifyType, string> = {
-  track: "Canción",
-  album: "Álbum",
-  playlist: "Playlist",
-  artist: "Artista",
-  episode: "Episodio",
-  show: "Podcast",
+const SPOTIFY_TYPE_LABEL_KEYS: Record<SpotifyType, string> = {
+  track: "spotify.typeTrack",
+  album: "spotify.typeAlbum",
+  playlist: "spotify.typePlaylist",
+  artist: "spotify.typeArtist",
+  episode: "spotify.typeEpisode",
+  show: "spotify.typePodcast",
 };
 
 export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -97,13 +97,13 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
     const config = widget.config as SpotifyConfig | undefined;
     if (config?.spotifyUrl) {
       const spotifyInfo = extractSpotifyInfo(config.spotifyUrl);
-      const typeLabel = spotifyInfo ? SPOTIFY_TYPE_LABELS[spotifyInfo.type] : "Contenido";
-      openAddLinkModal({
+      const typeLabel = spotifyInfo ? t(SPOTIFY_TYPE_LABEL_KEYS[spotifyInfo.type]) : t("spotify.content");
+      useLinksStore.getState().openAddLinkModal({
         url: config.spotifyUrl,
         title: `Spotify ${typeLabel}`,
-        description: `${typeLabel} de Spotify`,
+        description: t("spotify.contentFrom", { type: typeLabel }),
       });
-      toast.success("Abriendo formulario para guardar enlace");
+      toast.success(t("spotify.openingForm"));
     }
   };
 
@@ -119,7 +119,7 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
   const handleSave = () => {
     const newSpotifyInfo = formData.spotifyUrl ? extractSpotifyInfo(formData.spotifyUrl) : null;
 
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         spotifyUrl: formData.spotifyUrl,
@@ -150,13 +150,13 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-[#1DB954]/20 flex items-center justify-center mb-3">
           <Music className="w-6 h-6 text-[#1DB954]" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay Spotify configurado</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("spotify.noSpotify")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega una URL de Spotify para reproducir musica
+          {t("spotify.addUrlHint")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("spotify.configure")}
         </Button>
 
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
@@ -164,12 +164,12 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Music className="w-5 h-5 text-[#1DB954]" />
-                Configurar Spotify
+                {t("spotify.configureSpotify")}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="spotify-url">URL de Spotify</Label>
+                <Label htmlFor="spotify-url">{t("spotify.spotifyUrl")}</Label>
                 <Input
                   id="spotify-url"
                   placeholder="https://open.spotify.com/track/..."
@@ -177,31 +177,31 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
                   onChange={(e) => setFormData({ ...formData, spotifyUrl: e.target.value })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Soporta tracks, albums, playlists, artistas y podcasts
+                  {t("spotify.supportedTypes")}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Tema</Label>
+                <Label>{t("spotify.theme")}</Label>
                 <Select
                   value={formData.theme}
                   onValueChange={(value: SpotifyTheme) => setFormData({ ...formData, theme: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tema" />
+                    <SelectValue placeholder={t("spotify.selectTheme")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">Normal</SelectItem>
-                    <SelectItem value="1">Oscuro</SelectItem>
+                    <SelectItem value="0">{t("spotify.themeNormal")}</SelectItem>
+                    <SelectItem value="1">{t("spotify.themeDark")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Modo compacto</Label>
+                  <Label>{t("spotify.compactMode")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Muestra una version mas pequena
+                    {t("spotify.compactModeDesc")}
                   </p>
                 </div>
                 <Switch
@@ -212,10 +212,10 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-                Cancelar
+                {t("spotify.cancel")}
               </Button>
               <Button onClick={handleSave} disabled={!formData.spotifyUrl}>
-                Guardar
+                {t("spotify.save")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -237,7 +237,7 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
           <AlertCircle className="w-8 h-8 text-destructive mb-2" />
-          <p className="text-sm text-muted-foreground">Error al cargar Spotify</p>
+          <p className="text-sm text-muted-foreground">{t("spotify.loadError")}</p>
           <Button
             size="sm"
             variant="outline"
@@ -247,7 +247,7 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
               setIsLoading(true);
             }}
           >
-            Reintentar
+            {t("spotify.retry")}
           </Button>
         </div>
       )}
@@ -271,7 +271,7 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
           variant="secondary"
           className="h-7 w-7"
           onClick={handleSaveAsLink}
-          title="Guardar como enlace"
+          title={t("spotify.saveAsLink")}
         >
           <Bookmark className="w-3.5 h-3.5" />
         </Button>
@@ -309,7 +309,7 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="spotify-url-edit">URL de Spotify</Label>
+              <Label htmlFor="spotify-url-edit">{t("spotify.spotifyUrl")}</Label>
               <Input
                 id="spotify-url-edit"
                 placeholder="https://open.spotify.com/track/..."
@@ -319,7 +319,7 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Tema</Label>
+              <Label>{t("spotify.theme")}</Label>
               <Select
                 value={formData.theme}
                 onValueChange={(value: SpotifyTheme) => setFormData({ ...formData, theme: value })}
@@ -349,10 +349,10 @@ export function SpotifyWidget({ widget }: SpotifyWidgetProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
+              {t("spotify.cancel")}
             </Button>
             <Button onClick={handleSave} disabled={!formData.spotifyUrl}>
-              Guardar
+              {t("spotify.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

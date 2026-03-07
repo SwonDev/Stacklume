@@ -26,20 +26,10 @@
     ],
     "withGlobalTauri": true,
     "security": {
-      "csp": null
+      "csp": "default-src 'self' http://127.0.0.1:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://127.0.0.1:* blob:; style-src 'self' 'unsafe-inline' http://127.0.0.1:* https:; img-src 'self' data: blob: https: http: http://127.0.0.1:*; font-src 'self' data: http://127.0.0.1:* https:; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* https://api.github.com https://ipapi.co https://api.coingecko.com https://hacker-news.firebaseio.com https://dev.to https://objects.githubusercontent.com https://*.sentry.io wss://*.sentry.io https://api.allorigins.win https://corsproxy.io https://www.reddit.com https://store.steampowered.com https://api.steampowered.com https://cdn.akamai.steamstatic.com https://eshop-prices.com https://api.qrserver.com https://api.unsplash.com https://images.unsplash.com https://geocoding-api.open-meteo.com https://api.open-meteo.com https://api.quotable.io https://plausible.io; media-src 'self' blob: data: https: http://127.0.0.1:*; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://codepen.io https://syndication.twitter.com http://127.0.0.1:* data: blob:; object-src 'none'; base-uri 'self'"
     }
   },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4RDJDMkUzQzExMjY1OEUKUldTT1pSTEI0OExTV05wLzFhWkk4dWoxc2dDOXljcCt2aW1TdGN5NXdQUS9aaEg5VFJZUGt4THgK",
-      "endpoints": [
-        "https://github.com/SwonDev/Stacklume/releases/latest/download/update-manifest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
-      }
-    }
-  },
+  "plugins": {},
   "bundle": {
     "active": true,
     "targets": "nsis",

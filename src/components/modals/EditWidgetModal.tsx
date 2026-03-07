@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLinksStore } from "@/stores/links-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Category, Tag } from "@/lib/db/schema";
 import {
   WIDGET_TYPE_METADATA,
@@ -51,7 +52,7 @@ import {
 import type { WidgetSize } from "@/types/widget";
 
 const formSchema = z.object({
-  title: z.string().min(1, "El título es obligatorio"),
+  title: z.string().min(1, "required"),
   size: z.enum(["small", "medium", "large", "wide", "tall"]),
   categoryId: z.string().optional(),
   tagId: z.string().optional(),
@@ -59,14 +60,13 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-// Size options in Spanish
-const sizeOptions: Array<{ value: WidgetSize; label: string }> = [
-  { value: "small", label: "Pequeño" },
-  { value: "medium", label: "Mediano" },
-  { value: "large", label: "Grande" },
-  { value: "wide", label: "Ancho" },
-  { value: "tall", label: "Alto" },
-];
+const SIZE_KEYS: Record<WidgetSize, string> = {
+  small: "addWidget.sizeSmall",
+  medium: "addWidget.sizeMedium",
+  large: "addWidget.sizeLarge",
+  wide: "addWidget.sizeWide",
+  tall: "addWidget.sizeTall",
+};
 
 export function EditWidgetModal() {
   const isEditWidgetModalOpen = useWidgetStore((state) => state.isEditWidgetModalOpen);
@@ -76,6 +76,7 @@ export function EditWidgetModal() {
   const removeWidget = useWidgetStore((state) => state.removeWidget);
   const categories = useLinksStore((state) => state.categories);
   const tags = useLinksStore((state) => state.tags);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -130,11 +131,11 @@ export function EditWidgetModal() {
         tags: selectedTags.length > 0 ? selectedTags : undefined,
       });
 
-      toast.success("Widget actualizado correctamente");
+      toast.success(t("editWidget.successUpdate"));
       handleClose();
     } catch (error) {
       console.error("Error updating widget:", error);
-      toast.error("Error al actualizar el widget");
+      toast.error(t("editWidget.errorUpdate"));
     } finally {
       setIsLoading(false);
     }
@@ -146,11 +147,11 @@ export function EditWidgetModal() {
     setIsDeleting(true);
     try {
       removeWidget(selectedWidget.id);
-      toast.success("Widget eliminado correctamente");
+      toast.success(t("editWidget.successDelete"));
       handleClose();
     } catch (error) {
       console.error("Error deleting widget:", error);
-      toast.error("Error al eliminar el widget");
+      toast.error(t("editWidget.errorDelete"));
     } finally {
       setIsDeleting(false);
     }
@@ -183,13 +184,10 @@ export function EditWidgetModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-primary" />
-            Editar widget
+            {t("editWidget.title")}
           </DialogTitle>
           <DialogDescription>
-            Modifica la configuración del widget{" "}
-            <span className="font-medium text-foreground">
-              {widgetMetadata.label}
-            </span>
+            {t("editWidget.description", { label: widgetMetadata.label })}
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +197,7 @@ export function EditWidgetModal() {
             {/* Widget Type Info */}
             <div className="rounded-lg border border-border/50 bg-secondary/20 p-3">
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Tipo:</span>
+                <span className="text-muted-foreground">{t("editWidget.type")}</span>
                 <span className="font-medium">{widgetMetadata.label}</span>
                 <span className="text-xs text-muted-foreground ml-auto">
                   {widgetMetadata.description}
@@ -213,9 +211,9 @@ export function EditWidgetModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Título del widget</FormLabel>
+                  <FormLabel>{t("addWidget.widgetTitle")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Mi Widget" {...field} />
+                    <Input placeholder={t("addWidget.widgetTitlePlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -228,7 +226,7 @@ export function EditWidgetModal() {
               name="size"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tamaño</FormLabel>
+                  <FormLabel>{t("addWidget.size")}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -236,9 +234,9 @@ export function EditWidgetModal() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {sizeOptions.map((size) => (
-                        <SelectItem key={size.value} value={size.value}>
-                          {size.label}
+                      {(Object.keys(SIZE_KEYS) as WidgetSize[]).map((size) => (
+                        <SelectItem key={size} value={size}>
+                          {t(SIZE_KEYS[size])}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -251,7 +249,7 @@ export function EditWidgetModal() {
             {/* Size Preview */}
             <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
               <p className="text-xs text-muted-foreground mb-3">
-                Vista previa del tamaño
+                {t("addWidget.sizePreview")}
               </p>
               <div className="flex items-center gap-4">
                 <div
@@ -267,12 +265,10 @@ export function EditWidgetModal() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   <p>
-                    Ancho: {currentSizePreset.w} columna
-                    {currentSizePreset.w > 1 ? "s" : ""}
+                    {t("addWidget.width")}: {currentSizePreset.w} {currentSizePreset.w > 1 ? t("addWidget.columns") : t("addWidget.column")}
                   </p>
                   <p>
-                    Alto: {currentSizePreset.h} fila
-                    {currentSizePreset.h > 1 ? "s" : ""}
+                    {t("addWidget.height")}: {currentSizePreset.h} {currentSizePreset.h > 1 ? t("addWidget.rows") : t("addWidget.row")}
                   </p>
                 </div>
               </div>
@@ -285,17 +281,17 @@ export function EditWidgetModal() {
                 name="categoryId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Categoría</FormLabel>
+                    <FormLabel>{t("addWidget.category")}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una categoría" />
+                          <SelectValue placeholder={t("addWidget.selectCategory")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {categories.length === 0 ? (
                           <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            No hay categorías disponibles
+                            {t("addWidget.noCategories")}
                           </div>
                         ) : (
                           categories.map((category: Category) => (
@@ -319,17 +315,17 @@ export function EditWidgetModal() {
                 name="tagId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Filtrar por etiqueta</FormLabel>
+                    <FormLabel>{t("addWidget.filterByTag")}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una etiqueta" />
+                          <SelectValue placeholder={t("addWidget.selectTag")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {tags.length === 0 ? (
                           <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            No hay etiquetas disponibles
+                            {t("addWidget.noTags")}
                           </div>
                         ) : (
                           tags.map((tag: Tag) => (
@@ -354,9 +350,9 @@ export function EditWidgetModal() {
             {/* Widget Tags Assignment (for all widget types) */}
             {tags.length > 0 && (
               <div className="space-y-2">
-                <FormLabel>Etiquetas del widget</FormLabel>
+                <FormLabel>{t("addWidget.widgetTags")}</FormLabel>
                 <p className="text-xs text-muted-foreground">
-                  Asigna etiquetas para organizar tus widgets
+                  {t("addWidget.assignTags")}
                 </p>
                 <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-border/50 bg-secondary/20 min-h-[60px]">
                   {tags.map((tag: Tag) => {
@@ -390,7 +386,9 @@ export function EditWidgetModal() {
                 </div>
                 {selectedTags.length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {selectedTags.length} etiqueta{selectedTags.length > 1 ? "s" : ""} seleccionada{selectedTags.length > 1 ? "s" : ""}
+                    {selectedTags.length > 1
+                      ? t("addWidget.tagsSelectedPlural", { count: selectedTags.length })
+                      : t("addWidget.tagsSelected", { count: selectedTags.length })}
                   </p>
                 )}
               </div>
@@ -407,19 +405,18 @@ export function EditWidgetModal() {
                     className="gap-1.5"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    Eliminar
+                    {t("btn.delete")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar widget?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("editWidget.deleteTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta acción no se puede deshacer. El widget se eliminará
-                      permanentemente del panel.
+                      {t("editWidget.deleteDesc")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDelete}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -427,7 +424,7 @@ export function EditWidgetModal() {
                       {isDeleting ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        "Eliminar"
+                        t("btn.delete")
                       )}
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -436,13 +433,13 @@ export function EditWidgetModal() {
 
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={handleClose}>
-                  Cancelar
+                  {t("btn.cancel")}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   )}
-                  Guardar cambios
+                  {t("editWidget.saveChanges")}
                 </Button>
               </div>
             </div>

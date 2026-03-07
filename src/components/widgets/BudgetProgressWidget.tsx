@@ -25,6 +25,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface BudgetProgressWidgetProps {
   widget: Widget;
@@ -39,14 +40,14 @@ interface Budget {
 }
 
 const BUDGET_COLORS = [
-  { name: "Azul", value: "rgb(59, 130, 246)", class: "bg-blue-500" },
-  { name: "Verde", value: "rgb(34, 197, 94)", class: "bg-green-500" },
-  { name: "Morado", value: "rgb(168, 85, 247)", class: "bg-purple-500" },
-  { name: "Naranja", value: "rgb(249, 115, 22)", class: "bg-orange-500" },
-  { name: "Rosa", value: "rgb(236, 72, 153)", class: "bg-pink-500" },
-  { name: "Rojo", value: "rgb(239, 68, 68)", class: "bg-red-500" },
-  { name: "Cian", value: "rgb(20, 184, 166)", class: "bg-teal-500" },
-  { name: "Amarillo", value: "rgb(234, 179, 8)", class: "bg-yellow-500" },
+  { nameKey: "colors.blue", value: "rgb(59, 130, 246)", class: "bg-blue-500" },
+  { nameKey: "colors.green", value: "rgb(34, 197, 94)", class: "bg-green-500" },
+  { nameKey: "colors.purple", value: "rgb(168, 85, 247)", class: "bg-purple-500" },
+  { nameKey: "colors.orange", value: "rgb(249, 115, 22)", class: "bg-orange-500" },
+  { nameKey: "colors.pink", value: "rgb(236, 72, 153)", class: "bg-pink-500" },
+  { nameKey: "colors.red", value: "rgb(239, 68, 68)", class: "bg-red-500" },
+  { nameKey: "colors.cyan", value: "rgb(20, 184, 166)", class: "bg-teal-500" },
+  { nameKey: "colors.yellow", value: "rgb(234, 179, 8)", class: "bg-yellow-500" },
 ];
 
 const formatCurrency = (amount: number): string => {
@@ -75,6 +76,7 @@ const getStatusIcon = (percentage: number) => {
 };
 
 export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
+  const { t } = useTranslation();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
@@ -205,10 +207,10 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
             </motion.div>
             <div>
               <p className="text-sm font-medium text-foreground mb-1 @md:text-base">
-                Sin presupuestos
+                {t("budget.noBudgets")}
               </p>
               <p className="text-xs text-muted-foreground @md:text-sm">
-                Crea categorias de presupuesto para controlar tus gastos
+                {t("budget.createCategories")} para controlar tus gastos
               </p>
             </div>
             <Button
@@ -217,7 +219,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
               className="gap-2 mt-2"
             >
               <Plus className="w-4 h-4" />
-              Anadir presupuesto
+              {t("budget.addBudget")}
             </Button>
           </div>
         )}
@@ -230,7 +232,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Presupuesto total</span>
+                  <span className="text-sm font-medium">{t("budget.totalBudget")}</span>
                 </div>
                 {getStatusIcon(overallPercentage)}
               </div>
@@ -343,10 +345,10 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {isOver
-                              ? `Excedido en ${formatCurrency(
+                              ? `{t("budget.exceededBy")} ${formatCurrency(
                                   budget.spent - budget.limit
                                 )}`
-                              : `Restante: ${formatCurrency(
+                              : `{t("budget.remaining")}: ${formatCurrency(
                                   budget.limit - budget.spent
                                 )}`}
                           </span>
@@ -355,7 +357,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
                         {/* Quick update buttons */}
                         <div className="hidden @md:flex items-center gap-2 mt-3 pt-3 border-t">
                           <span className="text-xs text-muted-foreground">
-                            Ajuste rapido:
+                            {t("budget.quickAdjust")}:
                           </span>
                           {[-50, -10, 10, 50].map((delta) => (
                             <Button
@@ -398,7 +400,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nuevo presupuesto</DialogTitle>
+            <DialogTitle>{t("budget.newBudget")}</DialogTitle>
             <DialogDescription>
               Crea un presupuesto para una categoria de gastos
             </DialogDescription>
@@ -406,7 +408,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="budget-name">Nombre</Label>
+              <Label htmlFor="budget-name">{t("budget.name")}</Label>
               <Input
                 id="budget-name"
                 placeholder="ej: Comida, Transporte, Ocio"
@@ -417,7 +419,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="budget-limit">Limite</Label>
+                <Label htmlFor="budget-limit">{t("budget.limit")}</Label>
                 <Input
                   id="budget-limit"
                   type="number"
@@ -428,7 +430,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="budget-spent">Gastado</Label>
+                <Label htmlFor="budget-spent">{t("budget.spent")}</Label>
                 <Input
                   id="budget-spent"
                   type="number"
@@ -441,7 +443,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Color</Label>
+              <Label>{t("budget.color")}</Label>
               <div className="flex flex-wrap gap-2">
                 {BUDGET_COLORS.map((color) => (
                   <button
@@ -455,7 +457,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
                         ? "ring-2 ring-offset-2 ring-primary scale-110"
                         : "hover:scale-110"
                     )}
-                    title={color.name}
+                    title={t(color.nameKey)}
                   />
                 ))}
               </div>
@@ -470,7 +472,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
               Cancelar
             </Button>
             <Button onClick={handleAddBudget} disabled={!isFormValid()}>
-              Crear presupuesto
+              {t("budget.createBudget")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -480,7 +482,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar presupuesto</DialogTitle>
+            <DialogTitle>{t("budget.editBudget")}</DialogTitle>
             <DialogDescription>
               Modifica el presupuesto y el gasto actual
             </DialogDescription>
@@ -537,7 +539,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
                         ? "ring-2 ring-offset-2 ring-primary scale-110"
                         : "hover:scale-110"
                     )}
-                    title={color.name}
+                    title={t(color.nameKey)}
                   />
                 ))}
               </div>
@@ -556,7 +558,7 @@ export function BudgetProgressWidget({ widget }: BudgetProgressWidgetProps) {
               Cancelar
             </Button>
             <Button onClick={handleUpdateBudget} disabled={!isFormValid()}>
-              Guardar cambios
+              {t("budget.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>

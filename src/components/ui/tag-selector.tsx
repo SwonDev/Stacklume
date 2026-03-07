@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { TagBadge } from "@/components/ui/tag-badge"
 import { useLinksStore } from "@/stores/links-store"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/lib/i18n"
 import type { Tag } from "@/lib/db/schema"
 
 export interface TagSelectorProps {
@@ -34,12 +35,13 @@ export interface TagSelectorProps {
 export function TagSelector({
   selectedTagIds,
   onTagsChange,
-  placeholder = "Select tags...",
+  placeholder,
   className,
 }: TagSelectorProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const { tags, setAddTagModalOpen } = useLinksStore()
+  const tags = useLinksStore((s) => s.tags)
 
   const selectedTags = tags.filter((tag: Tag) => selectedTagIds.includes(tag.id))
   const availableTags = tags.filter((tag: Tag) => !selectedTagIds.includes(tag.id))
@@ -62,7 +64,7 @@ export function TagSelector({
 
   const handleCreateTag = () => {
     setOpen(false)
-    setAddTagModalOpen(true)
+    useLinksStore.getState().setAddTagModalOpen(true)
   }
 
   return (
@@ -106,20 +108,20 @@ export function TagSelector({
             className="w-full justify-start text-left font-normal"
           >
             <PlusCircleIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <span className="truncate">{placeholder}</span>
+            <span className="truncate">{placeholder || t("tagSelector.placeholder")}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search tags..."
+              placeholder={t("tagSelector.searchPlaceholder")}
               value={search}
               onValueChange={setSearch}
             />
             <CommandList>
               <CommandEmpty>
                 <div className="flex flex-col items-center gap-2 py-6">
-                  <p className="text-sm text-muted-foreground">No tags found</p>
+                  <p className="text-sm text-muted-foreground">{t("tagSelector.noTagsFound")}</p>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -127,13 +129,13 @@ export function TagSelector({
                     className="h-8"
                   >
                     <PlusCircleIcon className="mr-2 h-4 w-4" />
-                    Create &quot;{search}&quot;
+                    {t("tagSelector.create", { name: search })}
                   </Button>
                 </div>
               </CommandEmpty>
 
               {filteredTags.length > 0 && (
-                <CommandGroup heading="Available Tags">
+                <CommandGroup heading={t("tagSelector.availableTags")}>
                   {filteredTags.map((tag: Tag) => (
                     <CommandItem
                       key={tag.id}
@@ -166,7 +168,7 @@ export function TagSelector({
               )}
 
               {selectedTags.length > 0 && (
-                <CommandGroup heading="Selected Tags">
+                <CommandGroup heading={t("tagSelector.selectedTags")}>
                   {selectedTags.map((tag: Tag) => (
                     <CommandItem
                       key={tag.id}
@@ -196,7 +198,7 @@ export function TagSelector({
                   className="cursor-pointer justify-center text-primary"
                 >
                   <PlusCircleIcon className="mr-2 h-4 w-4" />
-                  Create New Tag
+                  {t("tagSelector.createNewTag")}
                 </CommandItem>
               </CommandGroup>
             </CommandList>

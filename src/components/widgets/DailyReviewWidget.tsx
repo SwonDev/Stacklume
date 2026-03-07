@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface DailyReviewWidgetProps {
   widget: Widget;
@@ -39,31 +40,32 @@ type ReviewSection = "wentWell" | "toImprove" | "tomorrowPriorities";
 
 const SECTION_CONFIG = {
   wentWell: {
-    title: "Que salio bien",
+    titleKey: "dailyReview.whatWentWell",
     icon: Sparkles,
     color: "text-green-500",
     bgColor: "bg-green-500/10",
-    placeholder: "Algo positivo de hoy...",
+    placeholderKey: "dailyReview.positivePlaceholder",
   },
   toImprove: {
-    title: "Que mejorar",
+    titleKey: "dailyReview.whatToImprove",
     icon: AlertTriangle,
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
-    placeholder: "Algo a mejorar...",
+    placeholderKey: "dailyReview.improvePlaceholder",
   },
   tomorrowPriorities: {
-    title: "Prioridades de manana",
+    titleKey: "dailyReview.tomorrowPriorities",
     icon: Target,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
-    placeholder: "Una prioridad para manana...",
+    placeholderKey: "dailyReview.priorityPlaceholder",
   },
 };
 
 export function DailyReviewWidget({ widget }: DailyReviewWidgetProps) {
+  const { t } = useTranslation();
   const config: DailyReviewConfig = widget.config || {};
-  const reviews: DailyReview[] = config.reviews || [];
+  const reviews: DailyReview[] = useMemo(() => config.reviews || [], [config.reviews]);
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [newItems, setNewItems] = useState<Record<ReviewSection, string>>({
@@ -141,8 +143,8 @@ export function DailyReviewWidget({ widget }: DailyReviewWidgetProps) {
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-    if (dateStr === todayStr) return "Hoy";
-    if (dateStr === yesterdayStr) return "Ayer";
+    if (dateStr === todayStr) return t("dailyReview.today");
+    if (dateStr === yesterdayStr) return t("dailyReview.yesterday");
 
     return date.toLocaleDateString("es-ES", {
       weekday: "short",
@@ -166,7 +168,7 @@ export function DailyReviewWidget({ widget }: DailyReviewWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Revision Diaria</span>
+            <span className="text-sm font-medium">{t("dailyReview.title")}</span>
           </div>
           <span className="text-xs text-muted-foreground">{getTotalItems()} items</span>
         </div>
@@ -206,7 +208,7 @@ export function DailyReviewWidget({ widget }: DailyReviewWidgetProps) {
                   >
                     <div className="flex items-center gap-2">
                       <Icon className={cn("w-4 h-4", config.color)} />
-                      <span className="text-xs @sm:text-sm font-medium">{config.title}</span>
+                      <span className="text-xs @sm:text-sm font-medium">{t(config.titleKey)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{items.length}</span>
@@ -232,7 +234,7 @@ export function DailyReviewWidget({ widget }: DailyReviewWidgetProps) {
                           {/* Items */}
                           {items.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-2">
-                              Sin items aun
+                              {t("dailyReview.noItems")}
                             </p>
                           ) : (
                             <div className="space-y-1">
@@ -268,7 +270,7 @@ export function DailyReviewWidget({ widget }: DailyReviewWidgetProps) {
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") addItem(section);
                               }}
-                              placeholder={config.placeholder}
+                              placeholder={t(config.placeholderKey)}
                               className="h-7 @sm:h-8 text-xs @sm:text-sm flex-1"
                             />
                             <Button

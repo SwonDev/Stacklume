@@ -24,6 +24,7 @@ import { useWidgetStore } from "@/stores/widget-store";
 import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface QRCodeWidgetProps {
   widget: Widget;
@@ -58,8 +59,7 @@ function generateQRCodeUrl(content: string, config: QRCodeConfig): string {
 }
 
 export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const _canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,12 +67,12 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
   const handleSaveAsLink = () => {
     const config = widget.config as QRCodeConfig | undefined;
     if (config?.content && isValidUrl(config.content)) {
-      openAddLinkModal({
+      useLinksStore.getState().openAddLinkModal({
         url: config.content,
-        title: "Enlace QR",
-        description: "Enlace guardado desde código QR",
+        title: t("qrCode.linkTitle"),
+        description: t("qrCode.linkDescription"),
       });
-      toast.success("Abriendo formulario para guardar enlace");
+      toast.success(t("qrCode.openingForm"));
     }
   };
 
@@ -92,7 +92,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
   });
 
   const handleSave = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...formData,
@@ -130,6 +130,118 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
     }
   };
 
+  // Settings dialog content (shared between empty state and main view)
+  const settingsDialog = (
+    <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+      <DialogContent className="sm:max-w-md glass">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="w-5 h-5 text-primary" />
+            {t("qrCode.configureTitle")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="qr-content">{t("qrCode.urlOrText")}</Label>
+            <Textarea
+              id="qr-content"
+              placeholder={t("qrCode.urlOrTextPlaceholder")}
+              value={formData.content}
+              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{t("qrCode.qrColor")}</Label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={formData.fgColor}
+                  onChange={(e) => setFormData({ ...formData, fgColor: e.target.value })}
+                  className="w-10 h-10 rounded cursor-pointer border-0"
+                />
+                <Input
+                  value={formData.fgColor}
+                  onChange={(e) => setFormData({ ...formData, fgColor: e.target.value })}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t("qrCode.bgColor")}</Label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={formData.bgColor}
+                  onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
+                  className="w-10 h-10 rounded cursor-pointer border-0"
+                />
+                <Input
+                  value={formData.bgColor}
+                  onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("qrCode.errorCorrection")}</Label>
+            <Select
+              value={formData.errorCorrectionLevel}
+              onValueChange={(value: "L" | "M" | "Q" | "H") =>
+                setFormData({ ...formData, errorCorrectionLevel: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("qrCode.errorCorrectionPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="L">{t("qrCode.errorLow")}</SelectItem>
+                <SelectItem value="M">{t("qrCode.errorMedium")}</SelectItem>
+                <SelectItem value="Q">{t("qrCode.errorQuartile")}</SelectItem>
+                <SelectItem value="H">{t("qrCode.errorHigh")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {!content && (
+              <p className="text-xs text-muted-foreground">
+                {t("qrCode.errorCorrectionHint")}
+              </p>
+            )}
+          </div>
+
+          {/* Preview */}
+          {formData.content && (
+            <div className="flex justify-center pt-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={generateQRCodeUrl(formData.content, {
+                  size: 150,
+                  fgColor: formData.fgColor,
+                  bgColor: formData.bgColor,
+                  errorCorrectionLevel: formData.errorCorrectionLevel,
+                })}
+                alt="QR Preview"
+                className="rounded-lg shadow-sm"
+              />
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
+            {t("qrCode.cancel")}
+          </Button>
+          <Button onClick={handleSave} disabled={!formData.content?.trim()}>
+            {t("qrCode.save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   // Empty state
   if (!content) {
     return (
@@ -137,105 +249,16 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mb-3">
           <QrCode className="w-6 h-6 text-primary" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay contenido</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("qrCode.noContent")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega una URL o texto para generar un codigo QR
+          {t("qrCode.noContentDesc")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("qrCode.configure")}
         </Button>
 
-        {/* Settings Dialog for empty state */}
-        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent className="sm:max-w-md glass">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <QrCode className="w-5 h-5 text-primary" />
-                Configurar Codigo QR
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="qr-content">URL o Texto</Label>
-                <Textarea
-                  id="qr-content"
-                  placeholder="https://ejemplo.com o cualquier texto..."
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Color del QR</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={formData.fgColor}
-                      onChange={(e) => setFormData({ ...formData, fgColor: e.target.value })}
-                      className="w-10 h-10 rounded cursor-pointer border-0"
-                    />
-                    <Input
-                      value={formData.fgColor}
-                      onChange={(e) => setFormData({ ...formData, fgColor: e.target.value })}
-                      className="font-mono text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Color de fondo</Label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={formData.bgColor}
-                      onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
-                      className="w-10 h-10 rounded cursor-pointer border-0"
-                    />
-                    <Input
-                      value={formData.bgColor}
-                      onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
-                      className="font-mono text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Correccion de errores</Label>
-                <Select
-                  value={formData.errorCorrectionLevel}
-                  onValueChange={(value: "L" | "M" | "Q" | "H") =>
-                    setFormData({ ...formData, errorCorrectionLevel: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nivel de correccion" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="L">Bajo (7%)</SelectItem>
-                    <SelectItem value="M">Medio (15%)</SelectItem>
-                    <SelectItem value="Q">Cuartil (25%)</SelectItem>
-                    <SelectItem value="H">Alto (30%)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Mayor correccion = QR mas denso pero mas resistente a danos
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={!formData.content?.trim()}>
-                Guardar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {settingsDialog}
       </div>
     );
   }
@@ -247,6 +270,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
       {/* QR Code Display */}
       <div className="flex-1 flex items-center justify-center p-3 min-h-0">
         <div className="relative group w-full h-full flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={qrUrl}
             alt="QR Code"
@@ -262,7 +286,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
                   variant="secondary"
                   className="h-8 w-8"
                   onClick={handleSaveAsLink}
-                  title="Guardar como enlace"
+                  title={t("qrCode.saveAsLink")}
                 >
                   <Bookmark className="w-4 h-4" />
                 </Button>
@@ -271,7 +295,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
                   variant="secondary"
                   className="h-8 w-8"
                   asChild
-                  title="Abrir enlace"
+                  title={t("qrCode.openLink")}
                 >
                   <a href={content} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="w-4 h-4" />
@@ -284,7 +308,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
               variant="secondary"
               className="h-8 w-8"
               onClick={downloadQRCode}
-              title="Descargar"
+              title={t("qrCode.download")}
             >
               <Download className="w-4 h-4" />
             </Button>
@@ -293,7 +317,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
               variant="secondary"
               className="h-8 w-8"
               onClick={copyToClipboard}
-              title="Copiar contenido"
+              title={t("qrCode.copyContent")}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </Button>
@@ -302,7 +326,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
               variant="secondary"
               className="h-8 w-8"
               onClick={() => setIsSettingsOpen(true)}
-              title="Configurar"
+              title={t("qrCode.configure")}
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -318,109 +342,7 @@ export function QRCodeWidget({ widget }: QRCodeWidgetProps) {
         </div>
       </div>
 
-      {/* Settings Dialog */}
-      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="sm:max-w-md glass">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-primary" />
-              Configurar Codigo QR
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="qr-content-edit">URL o Texto</Label>
-              <Textarea
-                id="qr-content-edit"
-                placeholder="https://ejemplo.com o cualquier texto..."
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Color del QR</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={formData.fgColor}
-                    onChange={(e) => setFormData({ ...formData, fgColor: e.target.value })}
-                    className="w-10 h-10 rounded cursor-pointer border-0"
-                  />
-                  <Input
-                    value={formData.fgColor}
-                    onChange={(e) => setFormData({ ...formData, fgColor: e.target.value })}
-                    className="font-mono text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Color de fondo</Label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={formData.bgColor}
-                    onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
-                    className="w-10 h-10 rounded cursor-pointer border-0"
-                  />
-                  <Input
-                    value={formData.bgColor}
-                    onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
-                    className="font-mono text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Correccion de errores</Label>
-              <Select
-                value={formData.errorCorrectionLevel}
-                onValueChange={(value: "L" | "M" | "Q" | "H") =>
-                  setFormData({ ...formData, errorCorrectionLevel: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Nivel de correccion" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="L">Bajo (7%)</SelectItem>
-                  <SelectItem value="M">Medio (15%)</SelectItem>
-                  <SelectItem value="Q">Cuartil (25%)</SelectItem>
-                  <SelectItem value="H">Alto (30%)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Preview */}
-            {formData.content && (
-              <div className="flex justify-center pt-2">
-                <img
-                  src={generateQRCodeUrl(formData.content, {
-                    size: 150,
-                    fgColor: formData.fgColor,
-                    bgColor: formData.bgColor,
-                    errorCorrectionLevel: formData.errorCorrectionLevel,
-                  })}
-                  alt="QR Preview"
-                  className="rounded-lg shadow-sm"
-                />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={!formData.content?.trim()}>
-              Guardar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {settingsDialog}
     </div>
   );
 }

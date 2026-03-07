@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Bot,
   Send,
@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface AIChatWidgetProps {
   widget: Widget;
@@ -35,44 +36,47 @@ interface AIChatWidgetConfig {
 }
 
 // Simulated AI responses based on keywords
-const AI_RESPONSES: Record<string, string[]> = {
+const AI_RESPONSE_KEYS: Record<string, string[]> = {
   hola: [
-    "Hola! Soy tu asistente de IA simulado. Puedo ayudarte a organizar tus pensamientos.",
-    "Hola! Aunque soy una IA simulada, puedo ser util para hacer brainstorming.",
-    "Hola! Estoy aqui para ayudarte. Que tienes en mente?",
+    "aiChat.response.hola1",
+    "aiChat.response.hola2",
+    "aiChat.response.hola3",
   ],
   ayuda: [
-    "Puedo ayudarte con:\n- Lluvia de ideas\n- Organizar pensamientos\n- Tomar notas rapidas\n- Recordatorios simples\n\nEscribe lo que necesites!",
+    "aiChat.response.ayuda1",
+    // ayuda response 1 - key above
+    "aiChat.response.ayuda2",
+    // OLD ayuda1: "Puedo ayudarte con:\n- Lluvia de ideas\n- Organizar pensamientos\n- Tomar notas rapidas\n- Recordatorios simples\n\nEscribe lo que necesites!",
     "Soy un chat simulado, pero puedo ser util para:\n- Escribir borradores\n- Hacer listas\n- Reflexionar sobre ideas",
   ],
   gracias: [
-    "De nada! Estoy aqui cuando me necesites.",
-    "Un placer ayudar! Cualquier cosa, aqui estoy.",
-    "No hay de que! Sigue explorando tus ideas.",
+    "aiChat.response.gracias1",
+    "aiChat.response.gracias2",
+    "aiChat.response.gracias3",
   ],
   ideas: [
-    "Algunas tecnicas para generar ideas:\n1. Brainstorming libre\n2. Mind mapping\n3. Pregunta 'Por que?' 5 veces\n4. Invierte el problema\n5. Combina conceptos aleatorios",
-    "Para nuevas ideas, intenta:\n- Escribir sin juzgar\n- Cambiar de ambiente\n- Buscar inspiracion en otros campos",
+    "aiChat.response.ideas1", // OLD: "Algunas tecnicas\n1. Brainstorming libre\n2. Mind mapping\n3. Pregunta 'Por que?' 5 veces\n4. Invierte el problema\n5. Combina conceptos aleatorios",
+    "aiChat.response.ideas2", // OLD: "Para nuevas ideas\n- Escribir sin juzgar\n- Cambiar de ambiente\n- Buscar inspiracion en otros campos",
   ],
   productividad: [
-    "Consejos de productividad:\n1. Usa la tecnica Pomodoro\n2. Prioriza con la matriz Eisenhower\n3. Bloquea tiempo para trabajo profundo\n4. Revisa y ajusta tus metas semanalmente",
-    "Para ser mas productivo:\n- Define 3 tareas clave al dia\n- Minimiza distracciones\n- Toma descansos regulares",
+    "aiChat.response.productividad1", // OLD: "Consejos de productividad\n1. Usa la tecnica Pomodoro\n2. Prioriza con la matriz Eisenhower\n3. Bloquea tiempo para trabajo profundo\n4. Revisa y ajusta tus metas semanalmente",
+    "aiChat.response.productividad2", // OLD: "Para ser mas productivo\n- Define 3 tareas clave al dia\n- Minimiza distracciones\n- Toma descansos regulares",
   ],
   proyecto: [
-    "Para planificar un proyecto:\n1. Define el objetivo final\n2. Divide en tareas pequenas\n3. Establece fechas limite\n4. Identifica dependencias\n5. Revisa el progreso regularmente",
-    "Estructura tu proyecto:\n- Vision y objetivos\n- Milestones principales\n- Tareas semanales\n- Metricas de exito",
+    "aiChat.response.proyecto1", // OLD: "Para planificar un proyecto\n1. Define el objetivo final\n2. Divide en tareas pequenas\n3. Establece fechas limite\n4. Identifica dependencias\n5. Revisa el progreso regularmente",
+    "aiChat.response.proyecto2", // OLD: "Estructura tu proyecto\n- Vision y objetivos\n- Milestones principales\n- Tareas semanales\n- Metricas de exito",
   ],
   codigo: [
-    "Tips de programacion:\n1. Escribe codigo limpio y legible\n2. Usa control de versiones\n3. Haz pruebas unitarias\n4. Documenta lo importante\n5. Refactoriza regularmente",
-    "Mejores practicas:\n- KISS: Mantenlo simple\n- DRY: No te repitas\n- SOLID: Principios de diseno\n- Code review: Aprende de otros",
+    "aiChat.response.codigo1", // OLD: "Tips de programacion\n1. Escribe codigo limpio y legible\n2. Usa control de versiones\n3. Haz pruebas unitarias\n4. Documenta lo importante\n5. Refactoriza regularmente",
+    "aiChat.response.codigo2", // OLD: "Mejores practicas\n- KISS: Mantenlo simple\n- DRY: No te repitas\n- SOLID: Principios de diseno\n- Code review: Aprende de otros",
   ],
   default: [
-    "Interesante! Cuentame mas sobre eso.",
-    "Entiendo. Que mas puedo ayudarte con ese tema?",
-    "Buena pregunta! Aunque soy una IA simulada, puedo ayudarte a explorar esa idea.",
-    "Me parece un tema fascinante. Quieres profundizar?",
-    "AI respuesta simulada: He procesado tu mensaje. En que mas puedo asistirte?",
-    "Tomo nota de eso. Tienes mas ideas relacionadas?",
+    "aiChat.response.default1",
+    "aiChat.response.default2",
+    "aiChat.response.default3",
+    "aiChat.response.default4",
+    "aiChat.response.default5",
+    "aiChat.response.default6",
   ],
 };
 
@@ -80,22 +84,23 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
 }
 
-function getAIResponse(userMessage: string): string {
+function getAIResponseKey(userMessage: string): string {
   const lowerMessage = userMessage.toLowerCase();
 
   // Check for keywords
-  for (const [keyword, responses] of Object.entries(AI_RESPONSES)) {
+  for (const [keyword, responseKeys] of Object.entries(AI_RESPONSE_KEYS)) {
     if (keyword !== "default" && lowerMessage.includes(keyword)) {
-      return responses[Math.floor(Math.random() * responses.length)];
+      return responseKeys[Math.floor(Math.random() * responseKeys.length)];
     }
   }
 
   // Default response
-  const defaultResponses = AI_RESPONSES.default;
-  return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+  const defaultKeys = AI_RESPONSE_KEYS.default;
+  return defaultKeys[Math.floor(Math.random() * defaultKeys.length)];
 }
 
 export function AIChatWidget({ widget }: AIChatWidgetProps) {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -103,7 +108,7 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const config = widget.config as AIChatWidgetConfig | undefined;
-  const messages = config?.chatMessages || [];
+  const messages = useMemo(() => config?.chatMessages || [], [config?.chatMessages]);
 
   const updateConfig = useCallback(
     (updates: Partial<AIChatWidgetConfig>) => {
@@ -150,14 +155,14 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
       const aiResponse: ChatMessage = {
         id: generateId(),
         role: "assistant",
-        content: getAIResponse(userMessage.content),
+        content: t(getAIResponseKey(userMessage.content)),
         timestamp: new Date().toISOString(),
       };
 
       updateConfig({ chatMessages: [...updatedMessages, aiResponse] });
       setIsTyping(false);
     }, 800 + Math.random() * 700);
-  }, [inputValue, messages, updateConfig]);
+  }, [inputValue, messages, updateConfig, t]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -168,7 +173,7 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
 
   const handleClearChat = () => {
     updateConfig({ chatMessages: [] });
-    toast.success("Chat limpiado");
+    toast.success(t("aiChat.chatCleared"));
   };
 
   const handleCopyMessage = async (content: string, id: string) => {
@@ -176,9 +181,9 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
       await navigator.clipboard.writeText(content);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-      toast.success("Mensaje copiado");
+      toast.success(t("aiChat.messageCopied"));
     } catch {
-      toast.error("Error al copiar");
+      toast.error(t("aiChat.copyError"));
     }
   };
 
@@ -191,9 +196,9 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center mb-3 @md:w-14 @md:h-14">
               <Bot className="w-6 h-6 text-white @md:w-7 @md:h-7" />
             </div>
-            <p className="text-sm font-medium mb-1 @md:text-base">Chat IA Simulado</p>
+            <p className="text-sm font-medium mb-1 @md:text-base">{t("aiChat.simulatedTitle")}</p>
             <p className="text-xs text-muted-foreground mb-4 max-w-[200px] @md:text-sm @md:max-w-[250px]">
-              Haz preguntas, lluvia de ideas o toma notas conversacionales
+              {t("aiChat.simulatedDescription")}
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
               {["hola", "ideas", "ayuda"].map((suggestion) => (
@@ -221,7 +226,7 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Escribe un mensaje..."
+                placeholder={t("aiChat.writePlaceholder")}
                 className="flex-1 text-sm h-9"
               />
               <Button
@@ -248,14 +253,14 @@ export function AIChatWidget({ widget }: AIChatWidgetProps) {
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
               <Bot className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="text-xs font-medium @sm:text-sm">Chat IA</span>
+            <span className="text-xs font-medium @sm:text-sm">{t("aiChat.title")}</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={handleClearChat}
-            title="Limpiar chat"
+            title={t("aiChat.clearChat")}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>

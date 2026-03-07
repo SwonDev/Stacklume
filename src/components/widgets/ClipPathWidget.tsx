@@ -343,6 +343,7 @@ export function ClipPathWidget({ widget }: ClipPathWidgetProps) {
   useEffect(() => {
     const timer = setTimeout(saveConfig, 300);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- saveConfig reads widget.config which would create save loop; trigger only on user-changed values
   }, [
     shapeType,
     unitType,

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface PomodoroWidgetProps {
   widget: Widget;
@@ -23,7 +24,7 @@ interface PomodoroConfig {
 }
 
 export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
 
   // Load config from widget
   const config: PomodoroConfig = {
@@ -167,7 +168,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
   };
 
   const toggleSound = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         soundEnabled: !config.soundEnabled,
@@ -176,7 +177,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
   };
 
   const handleSaveSettings = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         workDuration: tempWorkDuration,
@@ -206,7 +207,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
               } ${isRunning ? "animate-pulse" : ""}`}
             />
             <span className="text-xs @md:text-sm @lg:text-base font-medium capitalize text-muted-foreground">
-              {mode === "work" ? "Trabajo" : "Descanso"}
+              {mode === "work" ? t("pomodoro.work") : t("pomodoro.break")}
             </span>
           </motion.div>
 
@@ -232,11 +233,11 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Configuración del Pomodoro</DialogTitle>
+                  <DialogTitle>{t("pomodoro.settings")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="work-duration">Duración del trabajo (minutos)</Label>
+                    <Label htmlFor="work-duration">{t("pomodoro.workDuration")}</Label>
                     <Input
                       id="work-duration"
                       type="number"
@@ -247,7 +248,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="break-duration">Duración del descanso (minutos)</Label>
+                    <Label htmlFor="break-duration">{t("pomodoro.breakDuration")}</Label>
                     <Input
                       id="break-duration"
                       type="number"
@@ -258,7 +259,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
                     />
                   </div>
                   <Button onClick={handleSaveSettings} className="w-full">
-                    Guardar cambios
+                    {t("pomodoro.saveChanges")}
                   </Button>
                 </div>
               </DialogContent>
@@ -368,7 +369,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
         >
           <Timer className="w-3 h-3 @md:w-4 @md:h-4 text-muted-foreground" />
           <span className="text-xs @md:text-sm font-medium">
-            {sessions} {sessions === 1 ? "sesión" : "sesiones"}
+            {sessions} {sessions === 1 ? t("pomodoro.session") : t("pomodoro.sessions")}
           </span>
         </motion.div>
 
@@ -381,7 +382,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
               exit={{ opacity: 0, y: -5 }}
               className="hidden @lg:block mt-4 text-xs @lg:text-sm text-muted-foreground text-center"
             >
-              Presiona play para comenzar tu sesión de {mode === "work" ? "trabajo" : "descanso"}
+              {t("pomodoro.pressPlay", { mode: mode === "work" ? t("pomodoro.work") : t("pomodoro.break") })}
             </motion.p>
           )}
           {!isRunning && timeLeft !== totalDuration && (
@@ -391,7 +392,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
               exit={{ opacity: 0, y: -5 }}
               className="hidden @lg:block mt-4 text-xs @lg:text-sm text-muted-foreground text-center"
             >
-              En pausa
+              {t("pomodoro.paused")}
             </motion.p>
           )}
           {isRunning && (
@@ -401,7 +402,7 @@ export function PomodoroWidget({ widget }: PomodoroWidgetProps) {
               exit={{ opacity: 0, y: -5 }}
               className="hidden @lg:block mt-4 text-xs @lg:text-sm text-primary text-center font-medium"
             >
-              {mode === "work" ? "¡Mantén el enfoque!" : "¡Disfruta tu descanso!"}
+              {mode === "work" ? t("pomodoro.stayFocused") : t("pomodoro.enjoyBreak")}
             </motion.p>
           )}
         </AnimatePresence>

@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 export interface ConfirmationDialogProps {
   open: boolean;
@@ -51,16 +52,20 @@ export function ConfirmationDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirmar",
-  cancelLabel = "Cancelar",
+  confirmLabel,
+  cancelLabel,
   variant = "destructive",
   onConfirm,
   isLoading = false,
   details,
 }: ConfirmationDialogProps) {
+  const { t } = useTranslation();
   const [isPending, setIsPending] = React.useState(false);
   const config = variantConfig[variant];
   const Icon = config.icon;
+
+  const resolvedConfirmLabel = confirmLabel ?? t("confirmDialog.confirm");
+  const resolvedCancelLabel = cancelLabel ?? t("confirmDialog.cancel");
 
   const handleConfirm = async () => {
     setIsPending(true);
@@ -96,7 +101,7 @@ export function ConfirmationDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{resolvedCancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -108,10 +113,10 @@ export function ConfirmationDialog({
             {loading ? (
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                Procesando...
+                {t("confirmDialog.processing")}
               </span>
             ) : (
-              confirmLabel
+              resolvedConfirmLabel
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

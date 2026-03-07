@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface BookTrackerWidgetProps {
   widget: Widget;
@@ -37,6 +38,7 @@ interface Book {
 }
 
 export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState("");
@@ -222,7 +224,7 @@ export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
                 className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <span>
-                  {book.currentPage} / {book.totalPages} paginas
+                  {book.currentPage} / {book.totalPages} {t("bookTracker.pagesLabel")}
                 </span>
                 <Edit2 className="w-3 h-3 opacity-0 group-hover:opacity-100" />
               </button>
@@ -330,7 +332,7 @@ export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
               <Input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Titulo del libro..."
+                placeholder={t("bookTracker.titlePlaceholder")}
                 className="h-8 text-sm"
                 autoFocus
               />
@@ -338,13 +340,13 @@ export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
                 <Input
                   value={newAuthor}
                   onChange={(e) => setNewAuthor(e.target.value)}
-                  placeholder="Autor"
+                  placeholder={t("bookTracker.author")}
                   className="h-8 text-sm flex-1"
                 />
                 <Input
                   value={newTotalPages}
                   onChange={(e) => setNewTotalPages(e.target.value)}
-                  placeholder="Paginas"
+                  placeholder={t("bookTracker.pages")}
                   type="number"
                   className="h-8 text-sm w-20"
                 />
@@ -381,8 +383,8 @@ export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
           {books.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <BookOpen className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">Sin libros guardados</p>
-              <p className="text-xs">Agrega uno para comenzar</p>
+              <p className="text-sm">{t("bookTracker.noBooks")}</p>
+              <p className="text-xs">{t("bookTracker.addOneToStart")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -390,7 +392,7 @@ export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
               {activeBooks.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[10px] @sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Leyendo ({activeBooks.length})
+                    {t("bookTracker.statusReading")} ({activeBooks.length})
                   </p>
                   <AnimatePresence mode="popLayout">
                     {activeBooks.map(renderBookCard)}
@@ -410,7 +412,7 @@ export function BookTrackerWidget({ widget }: BookTrackerWidgetProps) {
                     ) : (
                       <ChevronDown className="w-3 h-3" />
                     )}
-                    Completados ({completedBooks.length})
+                    {t("bookTracker.statusCompleted")} ({completedBooks.length})
                   </button>
                   <AnimatePresence>
                     {showCompleted && (

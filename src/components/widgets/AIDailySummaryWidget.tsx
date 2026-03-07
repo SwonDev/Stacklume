@@ -23,6 +23,7 @@ import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLinksStore } from "@/stores/links-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface AIDailySummaryWidgetProps {
   widget: Widget;
@@ -95,6 +96,7 @@ function getDayOfYear(): number {
 }
 
 export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
+  const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -265,7 +267,7 @@ export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
               <Sparkles className="w-3.5 h-3.5 text-white @sm:w-4 @sm:h-4" />
             </div>
             <div>
-              <span className="text-xs font-medium @sm:text-sm">Resumen del Dia</span>
+              <span className="text-xs font-medium @sm:text-sm">{t("aiDailySummary.title")}</span>
               <p className="text-[10px] text-muted-foreground hidden @sm:block">
                 {new Date().toLocaleDateString("es-ES", {
                   weekday: "long",
@@ -300,7 +302,7 @@ export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
                 <div className="flex items-center gap-1.5 mb-1">
                   <LinkIcon className="w-3 h-3 text-blue-500 @sm:w-3.5 @sm:h-3.5" />
                   <span className="text-[10px] text-muted-foreground @sm:text-xs">
-                    Enlaces hoy
+                    {t("aiDailySummary.linksToday")}
                   </span>
                 </div>
                 <p className="text-lg font-bold text-blue-600 @sm:text-xl">
@@ -317,7 +319,7 @@ export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
                 <div className="flex items-center gap-1.5 mb-1">
                   <CheckCircle2 className="w-3 h-3 text-green-500 @sm:w-3.5 @sm:h-3.5" />
                   <span className="text-[10px] text-muted-foreground @sm:text-xs">
-                    Tareas
+                    {t("aiDailySummary.tasks")}
                   </span>
                 </div>
                 <p className="text-lg font-bold text-green-600 @sm:text-xl">
@@ -334,7 +336,7 @@ export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
                 <div className="flex items-center gap-1.5 mb-1">
                   <Clock className="w-3 h-3 text-purple-500 @sm:w-3.5 @sm:h-3.5" />
                   <span className="text-[10px] text-muted-foreground @sm:text-xs">
-                    Enfoque
+                    {t("aiDailySummary.focus")}
                   </span>
                 </div>
                 <p className="text-lg font-bold text-purple-600 @sm:text-xl">
@@ -364,25 +366,25 @@ export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
             <div className="p-3 rounded-lg border bg-card @sm:p-4">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-xs font-medium @sm:text-sm">Esta semana</span>
+                <span className="text-xs font-medium @sm:text-sm">{t("aiDailySummary.thisWeek")}</span>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
                   <p className="text-lg font-bold @sm:text-xl">{stats.linksThisWeek}</p>
                   <p className="text-[10px] text-muted-foreground @sm:text-xs">
-                    Enlaces nuevos
+                    {t("aiDailySummary.newLinks")}
                   </p>
                 </div>
                 <div>
                   <p className="text-lg font-bold @sm:text-xl">{stats.totalLinks}</p>
                   <p className="text-[10px] text-muted-foreground @sm:text-xs">
-                    Total enlaces
+                    {t("aiDailySummary.totalLinks")}
                   </p>
                 </div>
                 <div>
                   <p className="text-lg font-bold @sm:text-xl">{stats.favoritesCount}</p>
                   <p className="text-[10px] text-muted-foreground @sm:text-xs">
-                    Favoritos
+                    {t("aiDailySummary.favorites")}
                   </p>
                 </div>
               </div>
@@ -434,7 +436,7 @@ export function AIDailySummaryWidget({ widget }: AIDailySummaryWidgetProps) {
               {stats.categoriesCount} categorias, {stats.tagsCount} etiquetas
             </span>
             <Badge variant="outline" className="text-[10px] h-5">
-              IA Simulada
+              {t("aiDailySummary.simulatedAI")}
             </Badge>
           </div>
         </div>

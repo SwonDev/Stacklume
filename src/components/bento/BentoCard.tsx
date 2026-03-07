@@ -62,6 +62,7 @@ import { LazyWidgetRenderer, specialWidgetTypes } from "@/components/widgets/Laz
 import { WidgetErrorBoundary } from "@/components/providers/ErrorBoundary";
 import { WidgetContextMenu } from "@/components/widgets/WidgetContextMenu";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 interface BentoCardProps {
   widget: Widget;
@@ -121,6 +122,7 @@ const LinkItem = memo(function LinkItem({
   onToggleFavorite,
   isThemed,
 }: LinkItemProps) {
+  const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
   const hostname = useMemo(() => {
     try {
@@ -164,6 +166,7 @@ const LinkItem = memo(function LinkItem({
         "w-6 h-6 @[160px]:w-7 @[160px]:h-7 @[200px]:w-8 @[200px]:h-8 @[280px]:w-9 @[280px]:h-9"
       )}>
         {imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={imageUrl}
             alt=""
@@ -176,6 +179,7 @@ const LinkItem = memo(function LinkItem({
           />
         ) : null}
         {faviconUrl && !imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={faviconUrl}
             alt=""
@@ -222,7 +226,7 @@ const LinkItem = memo(function LinkItem({
               "focus:outline-none focus-visible:ring-1 focus-visible:ring-primary",
               !isFavorite && "opacity-0 group-hover/link:opacity-60 hover:!opacity-100"
             )}
-            title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+            title={isFavorite ? t("bentoCard.removeFromFavorites") : t("bentoCard.addToFavorites")}
           >
             <Star className={cn(
               "flex-shrink-0 transition-colors",
@@ -294,6 +298,7 @@ const LinkItem = memo(function LinkItem({
 });
 
 export function BentoCard({ widget }: BentoCardProps) {
+  const { t } = useTranslation();
   // Use selectors ONLY for state values, not functions (prevents re-render loops)
   const isEditMode = useLayoutStore((state) => state.isEditMode);
   const links = useLinksStore((state) => state.links);
@@ -771,7 +776,7 @@ export function BentoCard({ widget }: BentoCardProps) {
         <div className="drag-handle absolute inset-x-0 top-0 h-12 cursor-move z-10 flex items-center justify-center bg-gradient-to-b from-primary/10 to-transparent opacity-0 hover:opacity-100 transition-opacity">
           <div className="flex items-center gap-1 text-primary/60">
             <Move className="w-4 h-4" />
-            <span className="text-xs font-medium">Arrastrar</span>
+            <span className="text-xs font-medium">{t("bentoCard.drag")}</span>
           </div>
         </div>
       )}
@@ -780,7 +785,7 @@ export function BentoCard({ widget }: BentoCardProps) {
         <div className="absolute inset-x-0 top-0 h-12 z-10 flex items-center justify-center bg-gradient-to-b from-amber-500/10 to-transparent opacity-0 hover:opacity-100 transition-opacity cursor-not-allowed">
           <div className="flex items-center gap-1 text-amber-500/60">
             <Lock className="w-4 h-4" />
-            <span className="text-xs font-medium">Bloqueado</span>
+            <span className="text-xs font-medium">{t("bentoCard.locked")}</span>
           </div>
         </div>
       )}
@@ -805,7 +810,7 @@ export function BentoCard({ widget }: BentoCardProps) {
             </div>
           )}
           {widget.isLocked && (
-            <div className="flex-shrink-0" title="Widget bloqueado">
+            <div className="flex-shrink-0" title={t("bentoCard.widgetLocked")}>
               <Lock className="w-3.5 h-3.5 text-amber-500" />
             </div>
           )}
@@ -849,11 +854,11 @@ export function BentoCard({ widget }: BentoCardProps) {
               setShowRenameDialog(true);
             }}>
               <Pencil className="w-3.5 h-3.5 mr-2" />
-              Renombrar
+              {t("bentoCard.rename")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => useWidgetStore.getState().openEditWidgetModal(widget)}>
               <Settings className="w-3.5 h-3.5 mr-2" />
-              Configurar
+              {t("bentoCard.configure")}
             </DropdownMenuItem>
             {/* Bulk actions for link-based widgets */}
             {items.length > 0 && (
@@ -861,14 +866,14 @@ export function BentoCard({ widget }: BentoCardProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => useLinksStore.getState().openAllLinks(items)}>
                   <ExternalLinkIcon className="w-3.5 h-3.5 mr-2" />
-                  Abrir todos ({items.length})
+                  {t("bentoCard.openAll", { count: items.length })}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   const urls = items.map((l: Link) => l.url).join('\n');
                   navigator.clipboard.writeText(urls);
                 }}>
                   <Copy className="w-3.5 h-3.5 mr-2" />
-                  Copiar URLs
+                  {t("bentoCard.copyUrls")}
                 </DropdownMenuItem>
               </>
             )}
@@ -878,7 +883,7 @@ export function BentoCard({ widget }: BentoCardProps) {
               onClick={() => setShowDeleteAlert(true)}
             >
               <Trash2 className="w-3.5 h-3.5 mr-2" />
-              Eliminar
+              {t("btn.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -911,13 +916,13 @@ export function BentoCard({ widget }: BentoCardProps) {
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar widget?</AlertDialogTitle>
+            <AlertDialogTitle>{t("bentoCard.deleteWidget")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El widget &ldquo;{widget.title}&rdquo; se eliminará permanentemente del panel.
+              {t("bentoCard.deleteWidgetDesc", { title: widget.title })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 useWidgetStore.getState().removeWidget(widget.id);
@@ -925,7 +930,7 @@ export function BentoCard({ widget }: BentoCardProps) {
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("btn.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -937,17 +942,17 @@ export function BentoCard({ widget }: BentoCardProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-4 h-4 text-primary" />
-              Renombrar widget
+              {t("bentoCard.renameWidget")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="widget-title">Nuevo título</Label>
+              <Label htmlFor="widget-title">{t("bentoCard.newTitle")}</Label>
               <Input
                 id="widget-title"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Título del widget"
+                placeholder={t("bentoCard.titlePlaceholder")}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newTitle.trim()) {
@@ -960,7 +965,7 @@ export function BentoCard({ widget }: BentoCardProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowRenameDialog(false)}>
-              Cancelar
+              {t("btn.cancel")}
             </Button>
             <Button
               onClick={() => {
@@ -971,7 +976,7 @@ export function BentoCard({ widget }: BentoCardProps) {
               }}
               disabled={!newTitle.trim()}
             >
-              Guardar
+              {t("btn.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1047,7 +1052,7 @@ function FullscreenOverlay({
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-[999] bg-background/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[999] bg-background/80 backdrop-blur-sm will-change-[opacity,backdrop-filter]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1057,7 +1062,7 @@ function FullscreenOverlay({
 
           {/* Fullscreen Card */}
           <motion.div
-            className="fixed z-[1000] glass flex flex-col overflow-hidden"
+            className="fixed z-[1000] glass flex flex-col overflow-hidden will-change-transform"
             initial={initialStyle}
             animate={fullscreenStyle}
             exit={initialStyle}

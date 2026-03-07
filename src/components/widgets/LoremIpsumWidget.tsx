@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Copy, RefreshCw, FileText } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 
 interface LoremIpsumWidgetProps {
   widget: Widget;
@@ -82,6 +83,7 @@ const LOREM_WORDS = [
 const LOREM_START = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
 
 export function LoremIpsumWidget({ widget }: LoremIpsumWidgetProps) {
+  const { t } = useTranslation();
   // Note: Use getState() for updateWidget to prevent re-render loops
 
   const config = (widget.config as unknown as LoremIpsumConfig) || {};
@@ -184,34 +186,35 @@ export function LoremIpsumWidget({ widget }: LoremIpsumWidgetProps) {
     }
 
     setGeneratedText(result);
-    toast.success("Lorem Ipsum generated");
-  }, [generationType, amount, startWithLorem, getRandomWords, generateSentence, generateParagraph]);
+    toast.success(t("lorem.generated"));
+  }, [generationType, amount, startWithLorem, getRandomWords, generateSentence, generateParagraph, t]);
 
   // Copy to clipboard
   const handleCopy = useCallback(async () => {
     if (!generatedText) {
-      toast.error("No text to copy");
+      toast.error(t("lorem.noTextToCopy"));
       return;
     }
 
     setIsCopying(true);
     try {
       await navigator.clipboard.writeText(generatedText);
-      toast.success("Copied to clipboard");
+      toast.success(t("lorem.copied"));
     } catch (error) {
       console.error("Failed to copy:", error);
-      toast.error("Failed to copy to clipboard");
+      toast.error(t("lorem.copyFailed"));
     } finally {
       setTimeout(() => setIsCopying(false), 1000);
     }
-  }, [generatedText]);
+  }, [generatedText, t]);
 
   // Generate initial text if none exists
   useEffect(() => {
     if (!generatedText) {
       generateText();
     }
-  }, []); // Run only once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run only on mount
+  }, []);
 
   // Get min/max values based on generation type
   const getAmountConstraints = () => {
@@ -234,7 +237,7 @@ export function LoremIpsumWidget({ widget }: LoremIpsumWidgetProps) {
       {/* Header */}
       <div className="flex items-center gap-2 shrink-0">
         <FileText className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">Lorem Ipsum Generator</h3>
+        <h3 className="text-sm font-semibold">{t("lorem.title")}</h3>
       </div>
 
       {/* Controls */}
@@ -252,9 +255,9 @@ export function LoremIpsumWidget({ widget }: LoremIpsumWidgetProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="paragraphs">Paragraphs</SelectItem>
-              <SelectItem value="words">Words</SelectItem>
-              <SelectItem value="sentences">Sentences</SelectItem>
+              <SelectItem value="paragraphs">{t("lorem.paragraphs")}</SelectItem>
+              <SelectItem value="words">{t("lorem.words")}</SelectItem>
+              <SelectItem value="sentences">{t("lorem.sentences")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -312,7 +315,7 @@ export function LoremIpsumWidget({ widget }: LoremIpsumWidgetProps) {
             className="flex-1 h-8 text-xs"
           >
             <RefreshCw className="h-3 w-3 mr-1.5" />
-            Generate
+            {t("lorem.generate")}
           </Button>
           <Button
             onClick={handleCopy}
@@ -335,7 +338,7 @@ export function LoremIpsumWidget({ widget }: LoremIpsumWidgetProps) {
             </p>
           ) : (
             <p className="text-xs text-muted-foreground/50 italic">
-              Click Generate to create Lorem Ipsum text
+              {t("lorem.clickGenerate")}
             </p>
           )}
         </ScrollArea>

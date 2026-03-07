@@ -44,7 +44,6 @@ interface DecodedJWT {
 type ExpirationStatus = "valid" | "expired" | "not-yet-valid" | "no-exp";
 
 export function JWTDecoderWidget({ widget }: JWTDecoderWidgetProps) {
-  const { updateWidget } = useWidgetStore();
   const [token, setToken] = useState(widget.config?.lastToken || "");
   const [decoded, setDecoded] = useState<DecodedJWT | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -127,14 +126,14 @@ export function JWTDecoderWidget({ widget }: JWTDecoderWidgetProps) {
       setDecoded(result);
 
       // Save last token to widget config
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: { lastToken: tokenString, showRaw },
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to decode JWT";
       setError(errorMessage);
     }
-  }, [decodeJWT, updateWidget, widget.id, showRaw]);
+  }, [decodeJWT, widget.id, showRaw]);
 
   // Update decoded JWT when token changes
   useEffect(() => {
@@ -247,10 +246,10 @@ export function JWTDecoderWidget({ widget }: JWTDecoderWidgetProps) {
   const toggleRawView = useCallback(() => {
     const newShowRaw = !showRaw;
     setShowRaw(newShowRaw);
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: { lastToken: token, showRaw: newShowRaw },
     });
-  }, [showRaw, updateWidget, widget.id, token]);
+  }, [showRaw, widget.id, token]);
 
   const expirationStatus = decoded ? getExpirationStatus(decoded.payload) : null;
 

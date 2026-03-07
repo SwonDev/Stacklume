@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, projects, widgets, withRetry } from "@/lib/db";
 import { eq, and, isNull } from "drizzle-orm";
+import { z } from "zod";
 import { updateProjectSchema, validateRequest } from "@/lib/validations";
+
+const uuidSchema = z.string().uuid();
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -11,6 +14,12 @@ type RouteContext = {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
 
     // Filter out soft-deleted records
     const [project] = await withRetry(
@@ -41,6 +50,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const body = await request.json();
 
     // Validate update fields with Zod schema
@@ -100,6 +116,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
 
     // Check if project exists and is not the default
     const [project] = await withRetry(

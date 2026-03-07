@@ -19,6 +19,7 @@ import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { toast } from "sonner";
 import { ensureProtocol, extractHostname } from "@/lib/url-utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface LinkPreviewerWidgetProps {
   widget: Widget;
@@ -34,22 +35,23 @@ interface PreviewData {
   timestamp: string;
 }
 
-function formatTimestamp(timestamp: string): string {
+function formatTimestamp(timestamp: string, t: (key: string) => string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
 
-  if (minutes < 1) return "Ahora";
-  if (minutes < 60) return `Hace ${minutes}m`;
+  if (minutes < 1) return t("linkPreviewer.now");
+  if (minutes < 60) return `${minutes}m`;
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Hace ${hours}h`;
+  if (hours < 24) return `${hours}h`;
 
   return date.toLocaleDateString("es-ES", { month: "short", day: "numeric" });
 }
 
 export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentPreview, setCurrentPreview] = useState<PreviewData | null>(null);
@@ -71,7 +73,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
 
   const fetchPreview = async () => {
     if (!url.trim()) {
-      toast.error("Ingresa una URL");
+      toast.error(t("linkPreviewer.enterUrl"));
       return;
     }
 
@@ -91,7 +93,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
       });
 
       if (!response.ok) {
-        throw new Error("Error al obtener la vista previa");
+        throw new Error(t("linkPreviewer.fetchError"));
       }
 
       const data = await response.json();
@@ -115,10 +117,10 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
       }
 
       setUrl("");
-      toast.success("Vista previa cargada");
+      toast.success(t("linkPreviewer.previewLoaded"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
-      toast.error("Error al cargar la vista previa");
+      toast.error(t("linkPreviewer.loadError"));
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +132,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
 
   const clearHistory = () => {
     saveHistory([]);
-    toast.success("Historial limpiado");
+    toast.success(t("linkPreviewer.historyCleared"));
   };
 
   const removeFromHistory = (id: string) => {
@@ -143,7 +145,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
         {/* Header */}
         <div className="flex items-center gap-2">
           <Link className="w-4 h-4 text-blue-500" />
-          <span className="text-sm font-medium">Vista previa de enlaces</span>
+          <span className="text-sm font-medium">{t("linkPreviewer.title")}</span>
         </div>
 
         {/* URL Input */}
@@ -152,7 +154,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !isLoading && fetchPreview()}
-            placeholder="Ingresa una URL..."
+            placeholder={t("linkPreviewer.urlPlaceholder")}
             className="h-8 text-sm flex-1"
             disabled={isLoading}
           />
@@ -189,6 +191,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
               {/* Preview image */}
               {currentPreview.image && (
                 <div className="relative aspect-video bg-muted overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={currentPreview.image}
                     alt={currentPreview.title}
@@ -204,6 +207,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
               <div className="p-3">
                 <div className="flex items-start gap-2">
                   {currentPreview.favicon && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={currentPreview.favicon}
                       alt=""
@@ -250,7 +254,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                Historial
+                {t("linkPreviewer.history")}
               </span>
               <Button
                 variant="ghost"
@@ -258,7 +262,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
                 className="h-5 text-xs px-1.5 text-destructive"
                 onClick={clearHistory}
               >
-                Limpiar
+                {t("linkPreviewer.clear")}
               </Button>
             </div>
 
@@ -273,6 +277,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
                     onClick={() => loadFromHistory(preview)}
                   >
                     {preview.favicon ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={preview.favicon}
                         alt=""
@@ -291,7 +296,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
                       </p>
                     </div>
                     <span className="text-[10px] text-muted-foreground/60 hidden @sm:inline">
-                      {formatTimestamp(preview.timestamp)}
+                      {formatTimestamp(preview.timestamp, t)}
                     </span>
                     <Button
                       variant="ghost"
@@ -318,7 +323,7 @@ export function LinkPreviewerWidget({ widget }: LinkPreviewerWidgetProps) {
               <ImageIcon className="w-5 h-5 text-blue-500" />
             </div>
             <p className="text-xs text-muted-foreground">
-              Ingresa una URL para ver su vista previa
+              {t("linkPreviewer.enterUrlDescription")}
             </p>
           </div>
         )}

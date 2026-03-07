@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface SleepLogWidgetProps {
   widget: Widget;
@@ -25,11 +26,12 @@ interface SleepEntry {
 }
 
 export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
+  const { t } = useTranslation();
   const [isAddingEntry, setIsAddingEntry] = useState(false);
   const [bedtime, setBedtime] = useState("23:00");
   const [wakeTime, setWakeTime] = useState("07:00");
 
-  const sleepEntries: SleepEntry[] = widget.config?.sleepEntries || [];
+  const sleepEntries: SleepEntry[] = useMemo(() => widget.config?.sleepEntries || [], [widget.config?.sleepEntries]);
 
   const getTodayISO = (): string => {
     return new Date().toISOString().split("T")[0];
@@ -138,7 +140,7 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Moon className="w-4 h-4 text-indigo-500" />
-            <span className="text-sm font-medium">Sueno</span>
+            <span className="text-sm font-medium">{t("sleepLog.title")}</span>
           </div>
           {!isAddingEntry && (
             <Button
@@ -149,7 +151,7 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
             >
               <Plus className="w-4 h-4 mr-1" />
               <span className="hidden @sm:inline">
-                {todayEntry ? "Actualizar" : "Registrar"}
+                {todayEntry ? t("sleepLog.update") : t("sleepLog.register")}
               </span>
             </Button>
           )}
@@ -168,7 +170,7 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
                 {/* Bedtime input */}
                 <div className="space-y-1">
                   <Label htmlFor="bedtime" className="text-xs">
-                    Hora de acostarse
+                    {t("sleepLog.bedtime")}
                   </Label>
                   <Input
                     id="bedtime"
@@ -182,7 +184,7 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
                 {/* Wake time input */}
                 <div className="space-y-1">
                   <Label htmlFor="wakeTime" className="text-xs">
-                    Hora de despertar
+                    {t("sleepLog.wakeTime")}
                   </Label>
                   <Input
                     id="wakeTime"
@@ -196,7 +198,7 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
                 {/* Duration preview */}
                 <div className="p-3 rounded-lg bg-indigo-500/10 text-center">
                   <p className="text-xs text-muted-foreground mb-1">
-                    Duracion estimada
+                    {t("sleepLog.estimatedDuration")}
                   </p>
                   <p className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
                     {formatDuration(calculateDuration(bedtime, wakeTime))}
@@ -212,11 +214,11 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
                     onClick={() => setIsAddingEntry(false)}
                   >
                     <X className="w-4 h-4 mr-1" />
-                    Cancelar
+                    {t("sleepLog.cancel")}
                   </Button>
                   <Button size="sm" className="flex-1" onClick={addSleepEntry}>
                     <Check className="w-4 h-4 mr-1" />
-                    Guardar
+                    {t("sleepLog.save")}
                   </Button>
                 </div>
               </div>
@@ -248,11 +250,11 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">
-                    Ultimos 7 dias
+                    {t("sleepLog.last7Days")}
                   </span>
                   {avgDuration > 0 && (
                     <span className="text-xs text-indigo-600 dark:text-indigo-400 ml-auto">
-                      Promedio: {formatDuration(avgDuration)}
+                      {t("sleepLog.average")}: {formatDuration(avgDuration)}
                     </span>
                   )}
                 </div>
@@ -289,7 +291,7 @@ export function SleepLogWidget({ widget }: SleepLogWidgetProps) {
                             }}
                             transition={{ type: "spring", stiffness: 100, delay: 0.05 }}
                             title={
-                              day.duration > 0 ? formatDuration(day.duration) : "Sin datos"
+                              day.duration > 0 ? formatDuration(day.duration) : t("sleepLog.noData")
                             }
                           />
                           {day.duration > 0 && heightPercent > 30 && (

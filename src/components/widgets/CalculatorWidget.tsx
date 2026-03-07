@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import { Delete, History, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface CalculatorWidgetProps {
   widget: Widget;
@@ -15,6 +16,7 @@ interface CalculatorWidgetProps {
 type Operation = "+" | "-" | "*" | "/" | null;
 
 export function CalculatorWidget({ widget }: CalculatorWidgetProps) {
+  const { t } = useTranslation();
   // Note: Use getState() for updateWidget to prevent re-render loops
   const [display, setDisplay] = useState("0");
   const [previousValue, setPreviousValue] = useState<number | null>(null);
@@ -303,7 +305,7 @@ export function CalculatorWidget({ widget }: CalculatorWidgetProps) {
                 <div className="max-h-32 @sm:max-h-40 overflow-y-auto p-2 @sm:p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-muted-foreground font-medium">
-                      History
+                      {t("calculator.history")}
                     </span>
                     <Button
                       variant="ghost"
@@ -315,7 +317,7 @@ export function CalculatorWidget({ widget }: CalculatorWidgetProps) {
                       className="h-5 px-2 text-xs"
                     >
                       <X className="w-3 h-3 mr-1" />
-                      Clear
+                      {t("calculator.clear")}
                     </Button>
                   </div>
                   <div className="space-y-1">
@@ -454,7 +456,7 @@ export function CalculatorWidget({ widget }: CalculatorWidgetProps) {
         {display === "0" && !operation && (
           <div className="hidden @xs:block text-center">
             <p className="text-xs text-muted-foreground/50">
-              Use keyboard or click buttons
+              {t("calculator.useKeyboard")}
             </p>
           </div>
         )}

@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n";
 
 interface ImageWidgetProps {
   widget: Widget;
@@ -30,7 +31,7 @@ interface ImageWidgetProps {
 type ObjectFit = "cover" | "contain" | "fill" | "none" | "scale-down";
 
 export function ImageWidget({ widget }: ImageWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -57,7 +58,7 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
   };
 
   const handleSaveSettings = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         imageUrl: settingsForm.imageUrl,
@@ -118,10 +119,10 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
                 <ImageIcon className="w-6 h-6 text-primary @md:w-8 @md:h-8" />
               </div>
               <h3 className="text-sm font-medium text-foreground mb-1 @sm:text-base">
-                Sin imagen
+                {t("image.noImage")}
               </h3>
               <p className="text-xs text-muted-foreground mb-4 max-w-[200px] @sm:text-sm @sm:max-w-[250px]">
-                Configura una imagen personalizada para este widget
+                {t("image.configureHint")}
               </p>
               <Button
                 size="sm"
@@ -129,7 +130,7 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
                 className="h-8 text-xs @sm:h-9 @sm:text-sm"
               >
                 <Settings2 className="w-3.5 h-3.5 mr-1.5" />
-                Configurar imagen
+                {t("image.configureImage")}
               </Button>
             </motion.div>
           ) : (
@@ -143,6 +144,7 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
             >
               {/* Image Container */}
               <div className="relative flex-1 min-h-0 bg-muted/20 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imageUrl}
                   alt={caption || "Widget image"}
@@ -195,16 +197,16 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin">
           <DialogHeader>
-            <DialogTitle>Configurar imagen</DialogTitle>
+            <DialogTitle>{t("image.configureImage")}</DialogTitle>
             <DialogDescription>
-              Personaliza la imagen y opciones de visualización
+              {t("image.customizeOptions")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Image URL */}
             <div className="space-y-2">
-              <Label htmlFor="image-url">URL de la imagen</Label>
+              <Label htmlFor="image-url">{t("image.imageUrl")}</Label>
               <Input
                 id="image-url"
                 type="url"
@@ -215,13 +217,13 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Ingresa la URL de la imagen que deseas mostrar
+                {t("image.imageUrlHint")}
               </p>
             </div>
 
             {/* Link URL */}
             <div className="space-y-2">
-              <Label htmlFor="link-url">URL del enlace (opcional)</Label>
+              <Label htmlFor="link-url">{t("image.linkUrl")}</Label>
               <Input
                 id="link-url"
                 type="url"
@@ -232,30 +234,30 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                La imagen será clickeable y abrirá este enlace
+                {t("image.linkUrlHint")}
               </p>
             </div>
 
             {/* Caption */}
             <div className="space-y-2">
-              <Label htmlFor="caption">Texto descriptivo (opcional)</Label>
+              <Label htmlFor="caption">{t("image.caption")}</Label>
               <Input
                 id="caption"
                 type="text"
-                placeholder="Descripción de la imagen..."
+                placeholder={t("image.captionPlaceholder")}
                 value={settingsForm.caption}
                 onChange={(e) =>
                   setSettingsForm({ ...settingsForm, caption: e.target.value })
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Texto que aparece sobre la imagen
+                {t("image.captionHint")}
               </p>
             </div>
 
             {/* Object Fit */}
             <div className="space-y-2">
-              <Label htmlFor="object-fit">Ajuste de imagen</Label>
+              <Label htmlFor="object-fit">{t("image.objectFit")}</Label>
               <Select
                 value={settingsForm.objectFit}
                 onValueChange={(value: ObjectFit) =>
@@ -267,19 +269,19 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cover">
-                    Cubrir - La imagen cubre todo el espacio
+                    {t("image.fitCover")}
                   </SelectItem>
                   <SelectItem value="contain">
-                    Contener - La imagen completa es visible
+                    {t("image.fitContain")}
                   </SelectItem>
                   <SelectItem value="fill">
-                    Rellenar - Estira la imagen
+                    {t("image.fitFill")}
                   </SelectItem>
                   <SelectItem value="scale-down">
-                    Reducir - Como contain pero más pequeño
+                    {t("image.fitScaleDown")}
                   </SelectItem>
                   <SelectItem value="none">
-                    Sin ajuste - Tamaño original
+                    {t("image.fitNone")}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -300,15 +302,16 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
                 className="h-4 w-4 rounded border-input"
               />
               <Label htmlFor="show-caption" className="font-normal cursor-pointer">
-                Mostrar texto descriptivo sobre la imagen
+                {t("image.showCaption")}
               </Label>
             </div>
 
             {/* Preview */}
             {settingsForm.imageUrl && (
               <div className="space-y-2">
-                <Label>Vista previa</Label>
+                <Label>{t("image.preview")}</Label>
                 <div className="relative w-full h-32 rounded-lg border bg-muted overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={settingsForm.imageUrl}
                     alt="Preview"
@@ -337,10 +340,10 @@ export function ImageWidget({ widget }: ImageWidgetProps) {
               variant="outline"
               onClick={() => setIsSettingsOpen(false)}
             >
-              Cancelar
+              {t("image.cancel")}
             </Button>
             <Button onClick={handleSaveSettings}>
-              Guardar cambios
+              {t("image.saveChanges")}
             </Button>
           </div>
         </DialogContent>

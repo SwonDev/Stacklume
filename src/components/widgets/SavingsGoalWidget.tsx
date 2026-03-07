@@ -7,7 +7,6 @@ import {
   Minus,
   Edit2,
   Trash2,
-  Target,
   TrendingUp,
   PartyPopper,
   Sparkles,
@@ -29,6 +28,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface SavingsGoalWidgetProps {
   widget: Widget;
@@ -44,14 +44,14 @@ interface SavingsGoal {
 }
 
 const GOAL_COLORS = [
-  { name: "Esmeralda", value: "rgb(16, 185, 129)", class: "bg-emerald-500" },
-  { name: "Azul", value: "rgb(59, 130, 246)", class: "bg-blue-500" },
-  { name: "Morado", value: "rgb(168, 85, 247)", class: "bg-purple-500" },
-  { name: "Rosa", value: "rgb(236, 72, 153)", class: "bg-pink-500" },
-  { name: "Ambar", value: "rgb(245, 158, 11)", class: "bg-amber-500" },
-  { name: "Cian", value: "rgb(6, 182, 212)", class: "bg-cyan-500" },
-  { name: "Indigo", value: "rgb(99, 102, 241)", class: "bg-indigo-500" },
-  { name: "Lima", value: "rgb(132, 204, 22)", class: "bg-lime-500" },
+  { nameKey: "colors.emerald", value: "rgb(16, 185, 129)", class: "bg-emerald-500" },
+  { nameKey: "colors.blue", value: "rgb(59, 130, 246)", class: "bg-blue-500" },
+  { nameKey: "colors.purple", value: "rgb(168, 85, 247)", class: "bg-purple-500" },
+  { nameKey: "colors.pink", value: "rgb(236, 72, 153)", class: "bg-pink-500" },
+  { nameKey: "colors.amber", value: "rgb(245, 158, 11)", class: "bg-amber-500" },
+  { nameKey: "colors.cyan", value: "rgb(6, 182, 212)", class: "bg-cyan-500" },
+  { nameKey: "colors.indigo", value: "rgb(99, 102, 241)", class: "bg-indigo-500" },
+  { nameKey: "colors.lime", value: "rgb(132, 204, 22)", class: "bg-lime-500" },
 ];
 
 const MILESTONES = [25, 50, 75, 100];
@@ -75,6 +75,7 @@ const getMilestone = (percentage: number): number | null => {
 };
 
 export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
+  const { t } = useTranslation();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddFundsDialogOpen, setIsAddFundsDialogOpen] = useState(false);
@@ -246,10 +247,10 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
             </motion.div>
             <div>
               <p className="text-sm font-medium text-foreground mb-1 @md:text-base">
-                Sin metas de ahorro
+                {t("savingsGoal.noGoals")}
               </p>
               <p className="text-xs text-muted-foreground @md:text-sm">
-                Crea metas para organizar tus ahorros
+                {t("savingsGoal.createGoalsDescription")}
               </p>
             </div>
             <Button
@@ -271,7 +272,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <PiggyBank className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Total ahorrado</span>
+                  <span className="text-sm font-medium">{t("savingsGoal.totalSaved")}</span>
                 </div>
                 <Badge variant="secondary" className="text-xs">
                   {savingsGoals.length} meta{savingsGoals.length !== 1 && "s"}
@@ -429,7 +430,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
                           </div>
                           {!isCompleted && (
                             <span className="text-xs text-muted-foreground">
-                              Faltan{" "}
+                              {t("savingsGoal.remaining")}{" "}
                               {formatCurrency(
                                 goal.targetAmount - goal.currentAmount
                               )}
@@ -466,7 +467,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
                           >
                             <p className="text-xs text-primary font-medium flex items-center justify-center gap-1">
                               <PartyPopper className="w-3 h-3" />
-                              Meta completada!
+                              {t("savingsGoal.goalCompleted")}
                               <PartyPopper className="w-3 h-3" />
                             </p>
                           </motion.div>
@@ -487,7 +488,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
                 className="w-full gap-2"
               >
                 <Plus className="w-4 h-4" />
-                Nueva meta de ahorro
+                {t("savingsGoal.newSavingsGoal")}
               </Button>
             </div>
           </>
@@ -555,7 +556,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
                         ? "ring-2 ring-offset-2 ring-primary scale-110"
                         : "hover:scale-110"
                     )}
-                    title={color.name}
+                    title={t(color.nameKey)}
                   />
                 ))}
               </div>
@@ -567,7 +568,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
               Cancelar
             </Button>
             <Button onClick={handleAddGoal} disabled={!isFormValid()}>
-              Crear meta
+              {t("savingsGoal.createGoal")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -577,7 +578,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar meta</DialogTitle>
+            <DialogTitle>{t("savingsGoal.editGoal")}</DialogTitle>
             <DialogDescription>
               Modifica los detalles de tu meta de ahorro
             </DialogDescription>
@@ -634,7 +635,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
                         ? "ring-2 ring-offset-2 ring-primary scale-110"
                         : "hover:scale-110"
                     )}
-                    title={color.name}
+                    title={t(color.nameKey)}
                   />
                 ))}
               </div>
@@ -653,7 +654,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
               Cancelar
             </Button>
             <Button onClick={handleUpdateGoal} disabled={!isFormValid()}>
-              Guardar cambios
+              {t("savingsGoal.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -666,7 +667,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Gestionar fondos</DialogTitle>
+            <DialogTitle>{t("savingsGoal.manageFunds")}</DialogTitle>
             <DialogDescription>
               {selectedGoal && (
                 <>
@@ -683,7 +684,7 @@ export function SavingsGoalWidget({ widget }: SavingsGoalWidgetProps) {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="funds-amount">Cantidad</Label>
+              <Label htmlFor="funds-amount">{t("savingsGoal.amount")}</Label>
               <Input
                 id="funds-amount"
                 type="number"

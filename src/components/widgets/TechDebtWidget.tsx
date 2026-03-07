@@ -17,8 +17,6 @@ import {
   Pencil,
   Trash2,
   Download,
-  X,
-  ChevronDown,
   TrendingUp,
   Calendar,
 } from "lucide-react";
@@ -92,7 +90,6 @@ const statusConfig = {
 };
 
 export function TechDebtWidget({ widget }: TechDebtWidgetProps) {
-  const { updateWidget } = useWidgetStore();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TechDebtItem | null>(null);
@@ -110,10 +107,10 @@ export function TechDebtWidget({ widget }: TechDebtWidgetProps) {
   const [formEffort, setFormEffort] = useState<DebtEffort>("medium");
   const [formTags, setFormTags] = useState("");
 
-  const debtItems: TechDebtItem[] = widget.config?.debtItems || [];
+  const debtItems: TechDebtItem[] = useMemo(() => widget.config?.debtItems || [], [widget.config?.debtItems]);
 
   const saveItems = (items: TechDebtItem[]) => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         debtItems: items,

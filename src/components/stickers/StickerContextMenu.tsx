@@ -20,6 +20,7 @@ import {
 import { useStickerStore } from "@/stores/sticker-store";
 import { PlacedSticker, STICKER_SIZE_PRESETS } from "@/types/sticker";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface StickerContextMenuProps {
   sticker: PlacedSticker;
@@ -81,6 +82,7 @@ export function StickerContextMenu({
   position,
   onClose,
 }: StickerContextMenuProps) {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState(position);
 
@@ -279,7 +281,7 @@ export function StickerContextMenu({
         data-sticker-context-menu
       >
         {/* Size Section */}
-        <MenuLabel>Size</MenuLabel>
+        <MenuLabel>{t("stickerMenu.size")}</MenuLabel>
         <div className="px-3 py-1 flex gap-1">
           <button
             className="flex-1 p-2 rounded hover:bg-accent text-center text-xs"
@@ -333,7 +335,7 @@ export function StickerContextMenu({
         <MenuSeparator />
 
         {/* Rotation Section */}
-        <MenuLabel>Rotation</MenuLabel>
+        <MenuLabel>{t("stickerMenu.rotation")}</MenuLabel>
         <div className="px-3 py-1 flex gap-1">
           <button
             className="flex-1 p-2 rounded hover:bg-accent flex items-center justify-center"
@@ -358,7 +360,7 @@ export function StickerContextMenu({
         <MenuSeparator />
 
         {/* Flip Section */}
-        <MenuLabel>Flip</MenuLabel>
+        <MenuLabel>{t("stickerMenu.flip")}</MenuLabel>
         <div className="px-3 py-1 flex gap-1">
           <button
             className={cn(
@@ -385,7 +387,7 @@ export function StickerContextMenu({
         <MenuSeparator />
 
         {/* Opacity Section */}
-        <MenuLabel>Opacity</MenuLabel>
+        <MenuLabel>{t("stickerMenu.opacity")}</MenuLabel>
         <div className="px-3 py-1 flex gap-1">
           <button
             className="flex-1 p-2 rounded hover:bg-accent flex items-center justify-center"
@@ -409,12 +411,12 @@ export function StickerContextMenu({
         {/* Layer controls */}
         <MenuItem
           icon={<ArrowUp className="w-4 h-4" />}
-          label="Bring to Front"
+          label={t("stickerMenu.bringToFront")}
           onClick={handleBringToFront}
         />
         <MenuItem
           icon={<ArrowDown className="w-4 h-4" />}
-          label="Send to Back"
+          label={t("stickerMenu.sendToBack")}
           onClick={handleSendToBack}
         />
 
@@ -423,19 +425,19 @@ export function StickerContextMenu({
         {/* Actions */}
         <MenuItem
           icon={<Copy className="w-4 h-4" />}
-          label="Duplicate"
+          label={t("stickerMenu.duplicate")}
           onClick={handleDuplicate}
           shortcut="D"
         />
         <MenuItem
           icon={sticker.locked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-          label={sticker.locked ? "Unlock" : "Lock"}
+          label={sticker.locked ? t("stickerMenu.unlock") : t("stickerMenu.lock")}
           onClick={toggleLock}
           shortcut="L"
         />
         <MenuItem
           icon={<RefreshCcw className="w-4 h-4" />}
-          label="Reset All"
+          label={t("stickerMenu.resetAll")}
           onClick={() => {
             updateSticker(sticker.id, {
               rotation: 0,
@@ -451,7 +453,7 @@ export function StickerContextMenu({
 
         <MenuItem
           icon={<Trash2 className="w-4 h-4" />}
-          label="Delete"
+          label={t("stickerMenu.delete")}
           onClick={handleDelete}
           variant="danger"
           shortcut="Del"

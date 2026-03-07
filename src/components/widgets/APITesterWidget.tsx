@@ -30,6 +30,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { toast } from "sonner";
 
 interface APITesterWidgetProps {
@@ -62,6 +63,7 @@ const METHOD_COLORS: Record<HttpMethod, string> = {
 };
 
 export function APITesterWidget({ widget }: APITesterWidgetProps) {
+  const { t } = useTranslation();
   const lastRequest = (widget.config?.lastRequest as LastRequest) || {
     method: "GET",
     url: "",
@@ -110,7 +112,7 @@ export function APITesterWidget({ widget }: APITesterWidgetProps) {
         try {
           parsedHeaders = JSON.parse(headers);
         } catch {
-          throw new Error("Headers JSON invalido");
+          throw new Error(t("apiTester.invalidHeaders"));
         }
       }
 
@@ -160,7 +162,7 @@ export function APITesterWidget({ widget }: APITesterWidgetProps) {
       saveRequest({ method, url, headers, body });
       toast.success(`${method} ${res.status} - ${endTime - startTime}ms`);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+      const errorMessage = err instanceof Error ? err.message : t("apiTester.unknownError");
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -172,9 +174,9 @@ export function APITesterWidget({ widget }: APITesterWidgetProps) {
     if (!response?.body) return;
     try {
       await navigator.clipboard.writeText(response.body);
-      toast.success("Respuesta copiada");
+      toast.success(t("apiTester.responseCopied"));
     } catch {
-      toast.error("Error al copiar");
+      toast.error(t("apiTester.copyError"));
     }
   };
 
@@ -207,7 +209,7 @@ export function APITesterWidget({ widget }: APITesterWidgetProps) {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={clearAll}
-            title="Limpiar"
+            title={t("apiTester.clear")}
           >
             <Eraser className="w-4 h-4" />
           </Button>
@@ -301,7 +303,7 @@ export function APITesterWidget({ widget }: APITesterWidgetProps) {
         {/* Response section */}
         <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <Label className="text-xs text-muted-foreground">Respuesta</Label>
+            <Label className="text-xs text-muted-foreground">{t("apiTester.response")}</Label>
             {response && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{response.time}ms</span>
@@ -338,7 +340,7 @@ export function APITesterWidget({ widget }: APITesterWidgetProps) {
             ) : (
               <div className="h-full flex items-center justify-center p-4 text-center">
                 <div className="text-muted-foreground text-xs">
-                  La respuesta aparecera aqui
+                  {t("apiTester.responseWillAppear")}
                 </div>
               </div>
             )}

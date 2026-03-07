@@ -1,20 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Grid,
@@ -34,7 +26,6 @@ import {
   PaintBucket,
   Sparkles,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 
 interface TilemapWidgetProps {
@@ -229,7 +220,7 @@ export function TilemapWidget({ widget }: TilemapWidgetProps) {
   }, [gridSize]);
 
   // Place tile(s) based on brush size
-  const placeTiles = useCallback((x: number, y: number, tiles: TileType[][], tileType: TileType) => {
+  const placeTiles = useCallback((x: number, y: number, tiles: TileType[][], _tileType: TileType) => {
     const newTiles = tiles.map(row => [...row]);
     const brushSizeNum = parseInt(brushSize.split("x")[0]);
 

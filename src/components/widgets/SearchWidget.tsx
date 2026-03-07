@@ -5,17 +5,18 @@ import { Search, ExternalLink, X, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useLinksStore } from "@/stores/links-store";
 import { motion, AnimatePresence } from "motion/react";
 import type { Widget } from "@/types/widget";
 import type { Link } from "@/lib/db/schema";
+import { useTranslation } from "@/lib/i18n";
 
 interface SearchWidgetProps {
   widget: Widget;
 }
 
 export function SearchWidget({ widget }: SearchWidgetProps) {
+  const { t } = useTranslation();
   const links = useLinksStore((state) => state.links);
   const categories = useLinksStore((state) => state.categories);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,7 +87,7 @@ export function SearchWidget({ widget }: SearchWidgetProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
             type="text"
-            placeholder="Buscar enlaces..."
+            placeholder={t("search.placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 pr-9 h-9 @sm:h-10 text-sm @sm:text-base"
@@ -114,11 +115,10 @@ export function SearchWidget({ widget }: SearchWidgetProps) {
             className="mt-2 text-xs text-muted-foreground"
           >
             {filteredLinks.length === 0 ? (
-              <span>No se encontraron resultados</span>
+              <span>{t("search.noResults")}</span>
             ) : (
               <span>
-                {filteredLinks.length} resultado{filteredLinks.length !== 1 ? "s" : ""} encontrado
-                {filteredLinks.length !== 1 ? "s" : ""}
+                {t("search.resultsFound", { count: filteredLinks.length })}
               </span>
             )}
           </motion.div>
@@ -141,10 +141,10 @@ export function SearchWidget({ widget }: SearchWidgetProps) {
                   <Search className="w-5 h-5 text-primary @sm:w-6 @sm:h-6" />
                 </div>
                 <h3 className="text-sm font-medium text-foreground mb-1 @sm:text-base">
-                  Buscar enlaces
+                  {t("search.searchLinks")}
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-[200px] @sm:text-sm @sm:max-w-[250px]">
-                  Escribe para buscar por título, descripción, URL o categoría
+                  {t("search.searchHint")}
                 </p>
               </motion.div>
             )}
@@ -161,10 +161,10 @@ export function SearchWidget({ widget }: SearchWidgetProps) {
                   <Sparkles className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <h3 className="text-sm font-medium text-foreground mb-1">
-                  Sin resultados
+                  {t("search.noResultsTitle")}
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-[200px]">
-                  Intenta con otros términos de búsqueda
+                  {t("search.tryOtherTerms")}
                 </p>
               </motion.div>
             )}
@@ -192,6 +192,7 @@ export function SearchWidget({ widget }: SearchWidgetProps) {
                       {/* Favicon */}
                       <div className="flex-shrink-0 w-8 h-8 @sm:w-10 @sm:h-10 rounded-md border bg-background flex items-center justify-center overflow-hidden">
                         {link.faviconUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={link.faviconUrl}
                             alt=""
@@ -245,8 +246,7 @@ export function SearchWidget({ widget }: SearchWidgetProps) {
                     className="pt-2 pb-1 text-center"
                   >
                     <p className="text-xs text-muted-foreground">
-                      +{filteredLinks.length - maxResults} resultado
-                      {filteredLinks.length - maxResults !== 1 ? "s" : ""} más
+                      {t("search.moreResults", { count: filteredLinks.length - maxResults })}
                     </p>
                   </motion.div>
                 )}

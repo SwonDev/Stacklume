@@ -45,6 +45,7 @@ export function OptimizedImage({
   if (!isOptimizable) {
     // Fall back to regular img for unconfigured domains
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={alt}
@@ -157,6 +158,7 @@ export function Favicon({ src, alt = "", size = "md", className }: FaviconProps)
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
@@ -227,6 +229,7 @@ export function Thumbnail({
 
   return (
     <div className={cn("relative overflow-hidden", aspectClasses[aspectRatio], className)}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface Habit {
   id: string;
@@ -19,6 +20,7 @@ interface HabitTrackerWidgetProps {
 }
 
 export function HabitTrackerWidget({ widget }: HabitTrackerWidgetProps) {
+  const { t, language } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const [newHabitName, setNewHabitName] = useState("");
   const [isAddingHabit, setIsAddingHabit] = useState(false);
@@ -128,7 +130,9 @@ export function HabitTrackerWidget({ widget }: HabitTrackerWidgetProps) {
   // Get day of week abbreviation
   const getDayAbbr = (dateISO: string): string => {
     const date = new Date(dateISO + "T12:00:00"); // Add time to avoid timezone issues
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = language === "en"
+      ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     return days[date.getDay()];
   };
 
@@ -166,7 +170,7 @@ export function HabitTrackerWidget({ widget }: HabitTrackerWidgetProps) {
               <Check className="w-5 h-5 @sm:w-6 @sm:h-6 text-muted-foreground" />
             </div>
             <p className="text-xs @sm:text-sm text-muted-foreground">
-              No habits yet. Add one to start tracking!
+              {t("habitTracker.noHabits")}
             </p>
           </div>
         ) : (
@@ -227,7 +231,7 @@ export function HabitTrackerWidget({ widget }: HabitTrackerWidgetProps) {
                   <button
                     onClick={() => removeHabit(habit.id)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 p-1 rounded hover:bg-destructive/10"
-                    title="Delete habit"
+                    title={t("habitTracker.deleteHabit")}
                   >
                     <Trash2 className="w-3 h-3 @sm:w-4 @sm:h-4 text-destructive" />
                   </button>
@@ -242,7 +246,7 @@ export function HabitTrackerWidget({ widget }: HabitTrackerWidgetProps) {
           <div className="flex gap-2 mt-3 @sm:mt-4">
             <Input
               type="text"
-              placeholder="Habit name..."
+              placeholder={t("habitTracker.habitName")}
               value={newHabitName}
               onChange={(e) => setNewHabitName(e.target.value)}
               onKeyDown={(e) => {
@@ -282,7 +286,7 @@ export function HabitTrackerWidget({ widget }: HabitTrackerWidgetProps) {
             className="w-full h-8 @sm:h-9 text-xs @sm:text-sm"
           >
             <Plus className="w-3 h-3 @sm:w-4 @sm:h-4 mr-1 @sm:mr-2" />
-            Add Habit
+            {t("habitTracker.addHabit")}
           </Button>
         )}
       </div>

@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { useUndoToast } from "@/hooks/useUndoRedo";
 import { useSettingsStore } from "@/stores/settings-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 const AUTO_DISMISS_MS = 5000;
 
 export function UndoToast() {
+  const { t } = useTranslation();
   const { showToast, action, dismiss, undo } = useUndoToast();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -140,7 +142,7 @@ export function UndoToast() {
                 {action.description}
               </p>
               <p className="text-xs text-muted-foreground">
-                Pulsa Deshacer o Ctrl+Z para revertir
+                {t("undo.hint")}
               </p>
             </div>
 
@@ -152,14 +154,14 @@ export function UndoToast() {
                 onClick={handleUndo}
                 className="h-8"
               >
-                Deshacer
+                {t("undo.undo")}
               </Button>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={handleDismiss}
                 className="h-8 w-8"
-                aria-label="Cerrar"
+                aria-label={t("undo.close")}
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -194,6 +196,7 @@ export function InlineUndoToast({
   onDismiss,
   className,
 }: InlineUndoToastProps) {
+  const { t } = useTranslation();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -238,14 +241,14 @@ export function InlineUndoToast({
           onClick={handleUndo}
           className="h-auto p-0 text-primary"
         >
-          Deshacer
+          {t("undo.undo")}
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onDismiss}
           className="h-6 w-6 ml-auto"
-          aria-label="Cerrar"
+          aria-label={t("undo.close")}
         >
           <X className="w-3 h-3" />
         </Button>

@@ -5,6 +5,7 @@ import { Link2, FolderOpen, Star, TrendingUp } from "lucide-react";
 import { useLinksStore } from "@/stores/links-store";
 import type { Link } from "@/lib/db/schema";
 import { motion } from "motion/react";
+import { useTranslation } from "@/lib/i18n";
 
 interface StatItemProps {
   icon: React.ReactNode;
@@ -114,6 +115,7 @@ function StatItem({ icon, label, value, color, priority }: StatItemProps) {
 }
 
 export function StatsWidget() {
+  const { t } = useTranslation();
   const links = useLinksStore((state) => state.links);
   const categories = useLinksStore((state) => state.categories);
 
@@ -171,7 +173,7 @@ export function StatsWidget() {
             `}
           />
         }
-        label="Total Enlaces"
+        label={t("stats.totalLinks")}
         value={stats.totalLinks}
         color="bg-blue-500/10"
         priority={1}
@@ -189,7 +191,7 @@ export function StatsWidget() {
             `}
           />
         }
-        label="Favoritos"
+        label={t("stats.favorites")}
         value={stats.totalFavorites}
         color="bg-yellow-500/10"
         priority={2}
@@ -207,7 +209,7 @@ export function StatsWidget() {
             `}
           />
         }
-        label="Categorías"
+        label={t("stats.categories")}
         value={stats.totalCategories}
         color="bg-purple-500/10"
         priority={3}
@@ -225,7 +227,7 @@ export function StatsWidget() {
             `}
           />
         }
-        label="Esta semana"
+        label={t("stats.thisWeek")}
         value={stats.recentLinks}
         color="bg-green-500/10"
         priority={4}

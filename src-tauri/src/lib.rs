@@ -1,3 +1,4 @@
+use std::io::Read as _;
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
@@ -26,7 +27,11 @@ fn create_job_for_child(child_pid: u32) -> isize {
         AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
-    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_ALL_ACCESS};
+    use windows_sys::Win32::System::Threading::OpenProcess;
+
+    // Permisos mínimos necesarios para AssignProcessToJobObject
+    const PROCESS_SET_QUOTA: u32 = 0x0100;
+    const PROCESS_TERMINATE: u32 = 0x0001;
 
     unsafe {
         // Crear job object anónimo
@@ -40,15 +45,19 @@ fn create_job_for_child(child_pid: u32) -> isize {
         info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
         // 9 = JobObjectExtendedLimitInformation
-        SetInformationJobObject(
+        let result = SetInformationJobObject(
             job,
             9,
             &mut info as *mut _ as *mut core::ffi::c_void,
             std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
         );
+        if result == 0 {
+            CloseHandle(job);
+            return 0;
+        }
 
-        // Asignar el proceso hijo al job
-        let process = OpenProcess(PROCESS_ALL_ACCESS, 0, child_pid);
+        // Asignar el proceso hijo al job (privilegios mínimos, no PROCESS_ALL_ACCESS)
+        let process = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, child_pid);
         if !process.is_null() {
             AssignProcessToJobObject(job, process);
             CloseHandle(process);
@@ -65,15 +74,23 @@ fn create_job_for_child(child_pid: u32) -> isize {
 #[cfg(not(dev))]
 use std::net::TcpListener;
 
-/// Busca un puerto TCP libre comenzando desde 7878.
+/// Busca un puerto TCP libre usando asignación del OS (port 0) para evitar
+/// puertos predecibles. Fallback a rango efímero si falla.
 #[cfg(not(dev))]
 fn find_free_port() -> u16 {
-    for port in [7878u16, 7879, 7880, 7881, 7882, 7883, 7884, 7885] {
+    // Pedir al OS un puerto libre aleatorio (bind a port 0)
+    if let Ok(listener) = TcpListener::bind("127.0.0.1:0") {
+        if let Ok(addr) = listener.local_addr() {
+            return addr.port();
+        }
+    }
+    // Fallback: probar puertos en rango efímero
+    for port in 49152u16..49162 {
         if TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok() {
             return port;
         }
     }
-    7878
+    49152
 }
 
 /// Espera hasta que el servidor Next.js responda en /api/health (máx 40 s).
@@ -126,26 +143,109 @@ fn log(path: &std::path::Path, msg: &str) {
 /// Funciona desde cualquier versión de la app que tenga este comando.
 #[tauri::command]
 async fn download_and_run_update(url: String) -> Result<(), String> {
-    // Solo se permiten URLs de nuestras releases de GitHub
-    if !url.starts_with("https://github.com/SwonDev/Stacklume/releases/") {
+    // Validar URL con parsing estricto — previene path traversal y esquemas maliciosos
+    let parsed = url::Url::parse(&url).map_err(|e| format!("URL mal formada: {}", e))?;
+
+    // Solo HTTPS desde nuestro repo exacto
+    if parsed.scheme() != "https" {
+        return Err("Solo se permiten URLs HTTPS".to_string());
+    }
+    if parsed.host_str() != Some("github.com") {
+        return Err("Solo se permiten descargas desde github.com".to_string());
+    }
+
+    // Verificar path exacto: /SwonDev/Stacklume/releases/...
+    let path = parsed.path();
+    if !path.starts_with("/SwonDev/Stacklume/releases/") {
         return Err("URL de actualización no válida".to_string());
+    }
+    // Bloquear path traversal (.. en cualquier segmento)
+    if path.split('/').any(|seg| seg == "..") {
+        return Err("Path traversal detectado".to_string());
+    }
+    // Debe terminar en .exe
+    if !path.to_lowercase().ends_with(".exe") {
+        return Err("Solo se permiten archivos .exe".to_string());
     }
 
     let installer_path = std::env::temp_dir().join("StacklumeUpdate.exe");
     let installer_path_clone = installer_path.clone();
 
+    // Límite de descarga: 500 MB (más que suficiente para el instalador NSIS)
+    const MAX_DOWNLOAD_SIZE: u64 = 500 * 1024 * 1024;
+
     // ureq es sincrónico — ejecutar en hilo blocking para no bloquear el runtime async
     tokio::task::spawn_blocking(move || {
-        let response = ureq::get(&url)
-            .call()
-            .map_err(|e| format!("Error de descarga: {}", e))?;
+        // Deshabilitar redirects automáticos para evitar open redirect attacks.
+        // GitHub usa redirects a sus CDN (objects.githubusercontent.com), que son legítimos,
+        // así que seguimos hasta 5 redirects pero solo a dominios de confianza.
+        let agent = ureq::AgentBuilder::new()
+            .redirects(0) // No seguir redirects automáticamente
+            .build();
+
+        let mut current_url = url.clone();
+        let mut redirects = 0u8;
+        let max_redirects = 5u8;
+
+        let response = loop {
+            let result = agent.get(&current_url).call();
+
+            match result {
+                Ok(resp) => break resp,
+                Err(ureq::Error::Status(status, resp)) => {
+                    // ureq con redirects(0) devuelve 3xx como Error::Status
+                    if status == 301 || status == 302 || status == 303 || status == 307 || status == 308 {
+                        redirects += 1;
+                        if redirects > max_redirects {
+                            return Err("Demasiados redirects".to_string());
+                        }
+                        let location = resp.header("Location")
+                            .ok_or("Redirect sin Location header")?
+                            .to_string();
+                        // Solo permitir redirects a dominios de confianza
+                        if let Ok(redir_url) = url::Url::parse(&location) {
+                            let host = redir_url.host_str().unwrap_or("");
+                            if host != "github.com"
+                                && !host.ends_with(".githubusercontent.com")
+                                && !host.ends_with(".github.com")
+                            {
+                                return Err(format!("Redirect a dominio no confiable: {}", host));
+                            }
+                            current_url = location;
+                        } else {
+                            return Err("URL de redirect inválida".to_string());
+                        }
+                        continue;
+                    }
+                    return Err(format!("Error HTTP {}", status));
+                }
+                Err(e) => return Err(format!("Error de descarga: {}", e)),
+            }
+        };
+
+        // Verificar Content-Length si está disponible
+        if let Some(len_str) = response.header("Content-Length") {
+            if let Ok(len) = len_str.parse::<u64>() {
+                if len > MAX_DOWNLOAD_SIZE {
+                    return Err(format!("Archivo demasiado grande: {} bytes (máx {} MB)", len, MAX_DOWNLOAD_SIZE / 1024 / 1024));
+                }
+            }
+        }
 
         let mut file = std::fs::File::create(&installer_path_clone)
             .map_err(|e| format!("Error creando archivo temporal: {}", e))?;
 
+        // Leer con límite de tamaño para prevenir DoS por archivos enormes
         let mut reader = response.into_reader();
-        std::io::copy(&mut reader, &mut file)
+        let mut limited_reader = reader.by_ref().take(MAX_DOWNLOAD_SIZE);
+        let bytes_written = std::io::copy(&mut limited_reader, &mut file)
             .map_err(|e| format!("Error guardando instalador: {}", e))?;
+
+        if bytes_written >= MAX_DOWNLOAD_SIZE {
+            // Se alcanzó el límite — puede ser un archivo malicioso
+            let _ = std::fs::remove_file(&installer_path_clone);
+            return Err("Descarga excede el tamaño máximo permitido".to_string());
+        }
 
         drop(file);
 
@@ -162,20 +262,45 @@ async fn download_and_run_update(url: String) -> Result<(), String> {
 }
 
 /// Abre una URL externa en el navegador por defecto del sistema.
-/// Solo se permiten URLs con protocolo http o https.
+/// Valida la URL con el crate `url` y usa ShellExecuteW en Windows
+/// para evitar inyección de comandos (no pasa por cmd.exe).
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
-    if !url.starts_with("http://") && !url.starts_with("https://") {
+    // Validar la URL con parsing estricto
+    let parsed = url::Url::parse(&url).map_err(|e| format!("URL mal formada: {}", e))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
         return Err("Protocolo no permitido: solo http/https".into());
     }
+
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", &url])
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW — evita flash de ventana de terminal
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+
+        // ShellExecuteW abre la URL directamente sin pasar por cmd.exe,
+        // eliminando el vector de inyección de comandos shell.
+        let wide_url: Vec<u16> = OsStr::new(url.as_str())
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let wide_open: Vec<u16> = OsStr::new("open")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        let result = unsafe {
+            windows_sys::Win32::UI::Shell::ShellExecuteW(
+                std::ptr::null_mut(),  // hwnd
+                wide_open.as_ptr(),    // lpOperation = "open"
+                wide_url.as_ptr(),     // lpFile = URL
+                std::ptr::null(),      // lpParameters
+                std::ptr::null(),      // lpDirectory
+                1,                     // nShowCmd = SW_SHOWNORMAL
+            )
+        };
+        if (result as isize) <= 32 {
+            return Err("Error al abrir la URL en el navegador".into());
+        }
     }
     #[cfg(target_os = "macos")]
     {
@@ -236,6 +361,18 @@ fn update_tray_icon(
     width: u32,
     height: u32,
 ) -> Result<(), String> {
+    // Validar dimensiones: máximo 256x256 (suficiente para cualquier icono de tray)
+    if width == 0 || height == 0 || width > 256 || height > 256 {
+        return Err(format!("Dimensiones de icono inválidas: {}x{} (máx 256x256)", width, height));
+    }
+    // Validar que el buffer RGBA tiene exactamente el tamaño esperado
+    let expected_len = (width as usize) * (height as usize) * 4;
+    if rgba.len() != expected_len {
+        return Err(format!(
+            "Tamaño de buffer RGBA incorrecto: {} bytes (esperados {} para {}x{})",
+            rgba.len(), expected_len, width, height
+        ));
+    }
     if let Some(tray) = app.tray_by_id("main") {
         let icon = tauri::image::Image::new_owned(rgba, width, height);
         tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
@@ -293,7 +430,6 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(ServerState {
             port: Mutex::new(7878),
@@ -310,9 +446,17 @@ pub fn run() {
             #[cfg(dev)]
             {
                 println!("[Stacklume] Modo desarrollo — Next.js via beforeDevCommand");
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                }
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(600));
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        if let Ok(url) = "http://localhost:7878".parse::<tauri::Url>() {
+                            let _ = w.navigate(url);
+                        }
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                });
                 return Ok(());
             }
 
@@ -498,20 +642,50 @@ pub fn run() {
                 log(&log_path, &format!("server_dir: {}", server_dir.display()));
 
                 let mut cmd = Command::new(&node_exe);
-                cmd.current_dir(&server_dir)
+                cmd.env_clear()
+                    .current_dir(&server_dir)
                     .arg("server.js")
+                    // Variables de la aplicación
                     .env("PORT", port.to_string())
                     .env("HOSTNAME", "127.0.0.1")
                     .env("DESKTOP_MODE", "true")
                     .env("DATABASE_PATH", db_path.to_str().unwrap_or("stacklume.db"))
-                    .env("NODE_ENV", "production");
+                    .env("NODE_ENV", "production")
+                    // Variables del sistema Windows necesarias para Node.js
+                    .env("SystemRoot", std::env::var("SystemRoot").unwrap_or_default())
+                    .env("SystemDrive", std::env::var("SystemDrive").unwrap_or_default())
+                    .env("APPDATA", std::env::var("APPDATA").unwrap_or_default())
+                    .env("LOCALAPPDATA", std::env::var("LOCALAPPDATA").unwrap_or_default())
+                    .env("TEMP", std::env::var("TEMP").unwrap_or_default())
+                    .env("TMP", std::env::var("TMP").unwrap_or_default())
+                    .env("PATH", std::env::var("PATH").unwrap_or_default())
+                    .env("USERPROFILE", std::env::var("USERPROFILE").unwrap_or_default())
+                    .env("COMPUTERNAME", std::env::var("COMPUTERNAME").unwrap_or_default())
+                    .env("USERNAME", std::env::var("USERNAME").unwrap_or_default())
+                    .env("ProgramData", std::env::var("ProgramData").unwrap_or_default())
+                    .env("windir", std::env::var("windir").unwrap_or_default());
 
                 // Cargar claves privadas desde .env.keys (generado por build-desktop.mjs).
                 // Este archivo solo existe en builds privadas del propietario — no en el repo público.
+                // Whitelist de variables de entorno permitidas desde .env.keys
+                // para evitar que un archivo .env.keys comprometido inyecte
+                // variables arbitrarias (PATH, LD_PRELOAD, NODE_OPTIONS, etc.)
+                const ALLOWED_ENV_KEYS: &[&str] = &[
+                    "AUTH_SECRET",
+                    "AUTH_USERNAME",
+                    "AUTH_PASSWORD_HASH",
+                    "SENTRY_DSN",
+                    "NEXT_PUBLIC_SENTRY_DSN",
+                    "UPSTASH_REDIS_REST_URL",
+                    "UPSTASH_REDIS_REST_TOKEN",
+                    "DATABASE_URL",
+                ];
+
                 let env_keys_path = server_dir.join(".env.keys");
                 if env_keys_path.exists() {
                     if let Ok(contents) = std::fs::read_to_string(&env_keys_path) {
                         let mut loaded = 0u32;
+                        let mut skipped = 0u32;
                         for line in contents.lines() {
                             let line = line.trim();
                             if line.starts_with('#') || line.is_empty() { continue; }
@@ -519,12 +693,16 @@ pub fn run() {
                                 let k = k.trim();
                                 let v = v.trim().trim_matches('"').trim_matches('\'');
                                 if !k.is_empty() && !v.is_empty() {
-                                    cmd.env(k, v);
-                                    loaded += 1;
+                                    if ALLOWED_ENV_KEYS.contains(&k) {
+                                        cmd.env(k, v);
+                                        loaded += 1;
+                                    } else {
+                                        skipped += 1;
+                                    }
                                 }
                             }
                         }
-                        log(&log_path, &format!(".env.keys: {} variables cargadas", loaded));
+                        log(&log_path, &format!(".env.keys: {} variables cargadas, {} ignoradas (no en whitelist)", loaded, skipped));
                     }
                 }
 

@@ -10,6 +10,7 @@ import { useProjectsStore } from "@/stores/projects-store";
 import { PlacedSticker } from "@/types/sticker";
 import { StickerContextMenu } from "./StickerContextMenu";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { RotateCw } from "lucide-react";
 import { useStickerSounds } from "@/hooks/useStickerSounds";
 
@@ -138,6 +139,8 @@ function PlacedStickerItem({
   onStartRotate: (stickerId: string, e: React.MouseEvent) => void;
   calculatedPosition?: { x: number; y: number };
 }) {
+  const { t } = useTranslation();
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (sticker.locked) return;
@@ -235,7 +238,7 @@ function PlacedStickerItem({
     >
       <Image
         src={`/stickers/${sticker.filename}`}
-        alt="Sticker"
+        alt={t("stickerLayer.sticker")}
         fill
         className="object-contain pointer-events-none"
         draggable={false}
@@ -304,6 +307,7 @@ function useScrollContainer() {
 }
 
 export function StickerLayer() {
+  const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const { playGrab, playDrop } = useStickerSounds();
   const {
@@ -901,7 +905,7 @@ export function StickerLayer() {
           >
             <Image
               src={draggedSticker.sticker.path}
-              alt="Dragging sticker"
+              alt={t("stickerLayer.draggingSticker")}
               fill
               className="object-contain drop-shadow-lg"
               draggable={false}

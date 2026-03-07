@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import type { Link } from "@/lib/db/schema";
+import { useTranslation } from "@/lib/i18n";
 
 interface RandomLinkWidgetProps {
   widget: Widget;
@@ -18,6 +19,7 @@ interface RandomLinkConfig {
 }
 
 export function RandomLinkWidget({ widget }: RandomLinkWidgetProps) {
+  const { t } = useTranslation();
   const { links } = useLinksStore();
   const config = widget.config as RandomLinkConfig;
 
@@ -127,11 +129,11 @@ export function RandomLinkWidget({ widget }: RandomLinkWidgetProps) {
         <Shuffle className="w-12 h-12 text-muted-foreground/50 mb-4" />
         <p className="text-sm text-muted-foreground">
           {config.filterCategoryId
-            ? "No links in this category"
-            : "No links available"}
+            ? t("randomLink.noLinksInCategory")
+            : t("randomLink.noLinksAvailable")}
         </p>
         <p className="text-xs text-muted-foreground/70 mt-1">
-          Add some links to get started
+          {t("randomLink.addLinksToStart")}
         </p>
       </div>
     );
@@ -142,7 +144,7 @@ export function RandomLinkWidget({ widget }: RandomLinkWidgetProps) {
       {/* Header with shuffle button */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">
-          Random Discovery
+          {t("randomLink.title")}
         </h3>
         <div className="flex items-center gap-2">
           {config.autoShuffle && timeUntilNext !== null && (
@@ -180,6 +182,7 @@ export function RandomLinkWidget({ widget }: RandomLinkWidgetProps) {
           <div className="flex items-start gap-3">
             {currentLink.faviconUrl ? (
               <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentLink.faviconUrl}
                   alt=""
@@ -221,6 +224,7 @@ export function RandomLinkWidget({ widget }: RandomLinkWidgetProps) {
           {/* Preview Image (if available) */}
           {currentLink.imageUrl && (
             <div className="mt-2 rounded-md overflow-hidden border border-border/50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentLink.imageUrl}
                 alt=""
@@ -238,12 +242,12 @@ export function RandomLinkWidget({ widget }: RandomLinkWidgetProps) {
       {/* Stats footer */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {filteredLinks.length} link{filteredLinks.length !== 1 ? 's' : ''} available
+          {t("randomLink.linksAvailable", { count: filteredLinks.length })}
         </span>
         {config.autoShuffle && (
           <span className="flex items-center gap-1">
             <Shuffle className="w-3 h-3" />
-            Auto-shuffle
+            {t("randomLink.autoShuffle")}
           </span>
         )}
       </div>

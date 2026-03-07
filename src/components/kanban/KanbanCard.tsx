@@ -40,6 +40,7 @@ import { useLayoutStore } from "@/stores/layout-store";
 import { useSortedColumns } from "@/stores/kanban-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 // Import all widget components
 import { ClockWidget } from "@/components/widgets/ClockWidget";
@@ -89,6 +90,7 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -200,25 +202,24 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
       if (columnId === widget.kanbanColumnId) return;
       updateWidget(widget.id, { kanbanColumnId: columnId, kanbanOrder: 0 });
       const targetColumn = columns.find((c) => c.id === columnId);
-      toast.success(`Movido a "${targetColumn?.title}"`);
+      toast.success(t("kanbanCard.movedTo", { column: targetColumn?.title ?? "" }));
     },
-    [widget.id, widget.kanbanColumnId, updateWidget, columns]
+    [widget.id, widget.kanbanColumnId, updateWidget, columns, t]
   );
-
   // Duplicate widget
   const handleDuplicate = useCallback(() => {
     if (duplicateWidget) {
       duplicateWidget(widget.id);
-      toast.success("Widget duplicado");
+      toast.success(t("kanbanCard.duplicated"));
     }
-  }, [widget.id, duplicateWidget]);
+  }, [widget.id, duplicateWidget, t]);
 
   // Size presets
   const SIZE_PRESETS = [
-    { label: "Pequeño", height: MIN_KANBAN_HEIGHT },
-    { label: "Mediano", height: 280 },
-    { label: "Grande", height: 400 },
-    { label: "Máximo", height: MAX_KANBAN_HEIGHT },
+    { label: t("kanbanCard.sizeSmall"), height: MIN_KANBAN_HEIGHT },
+    { label: t("kanbanCard.sizeMedium"), height: 280 },
+    { label: t("kanbanCard.sizeLarge"), height: 400 },
+    { label: t("kanbanCard.sizeMax"), height: MAX_KANBAN_HEIGHT },
   ];
 
   const renderWidgetContent = () => {
@@ -356,7 +357,7 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
               size="icon"
               className="h-6 w-6"
               onClick={() => setHeight(MIN_KANBAN_HEIGHT)}
-              title="Tamaño pequeño"
+              title={t("kanbanCard.sizeSmall")}
             >
               <Minimize2 className="w-3 h-3" />
             </Button>
@@ -365,7 +366,7 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
               size="icon"
               className="h-6 w-6"
               onClick={() => setHeight(MAX_KANBAN_HEIGHT)}
-              title="Tamaño grande"
+              title={t("kanbanCard.sizeLarge")}
             >
               <Maximize2 className="w-3 h-3" />
             </Button>
@@ -389,11 +390,11 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => openEditWidgetModal(widget)}>
                 <Pencil className="w-3.5 h-3.5 mr-2" />
-                Editar
+                {t("kanbanCard.edit")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => openEditWidgetModal(widget)}>
                 <Settings className="w-3.5 h-3.5 mr-2" />
-                Configurar
+                {t("kanbanCard.configure")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -402,10 +403,10 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Columns3 className="w-3.5 h-3.5 mr-2" />
-                  Mover a columna
+                  {t("kanbanCard.moveToColumn")}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
-                  <DropdownMenuLabel className="text-xs">Seleccionar columna</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs">{t("kanbanCard.selectColumn")}</DropdownMenuLabel>
                   {columns.map((col) => (
                     <DropdownMenuItem
                       key={col.id}
@@ -420,7 +421,7 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
                         {col.title}
                       </span>
                       {col.id === widget.kanbanColumnId && (
-                        <span className="ml-auto text-xs text-muted-foreground">(actual)</span>
+                        <span className="ml-auto text-xs text-muted-foreground">({t("kanbanCard.current")})</span>
                       )}
                     </DropdownMenuItem>
                   ))}
@@ -431,10 +432,10 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Ruler className="w-3.5 h-3.5 mr-2" />
-                  Cambiar tamaño
+                  {t("kanbanCard.changeSize")}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
-                  <DropdownMenuLabel className="text-xs">Tamaño del widget</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs">{t("kanbanCard.widgetSize")}</DropdownMenuLabel>
                   {SIZE_PRESETS.map((preset) => (
                     <DropdownMenuItem
                       key={preset.label}
@@ -454,7 +455,7 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
               {/* Duplicate */}
               <DropdownMenuItem onClick={handleDuplicate}>
                 <Copy className="w-3.5 h-3.5 mr-2" />
-                Duplicar
+                {t("kanbanCard.duplicate")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -464,7 +465,7 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
                 onClick={() => removeWidget(widget.id)}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-2" />
-                Eliminar
+                {t("kanbanCard.delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

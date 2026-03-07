@@ -28,9 +28,11 @@ function CoinModel({ rotationSpeed = 3.5 }: CoinModelProps) {
     groupRef.current.scale.setScalar(scale);
     groupRef.current.position.sub(center.multiplyScalar(scale));
 
-    // Ajustar cámara
-    (camera as THREE.PerspectiveCamera).fov = 50;
-    camera.updateProjectionMatrix();
+    // Ajustar cámara — Three.js requiere mutación directa del objeto
+    const cam = camera as THREE.PerspectiveCamera;
+    // eslint-disable-next-line react-hooks/immutability -- Three.js camera mutation is the standard API
+    cam.fov = 50;
+    cam.updateProjectionMatrix();
   }, [camera, scene]);
 
   // Animación de moneda girando
@@ -73,8 +75,11 @@ export function SpinningCoinLogo({
         fallback={
           <div
             style={{ width, height }}
-            className="rounded-md bg-primary"
-          />
+            className="rounded-md bg-primary flex items-center justify-center overflow-hidden"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="" style={{ width: width * 0.8, height: height * 0.8 }} className="object-contain" />
+          </div>
         }
       >
         <Canvas
@@ -82,10 +87,11 @@ export function SpinningCoinLogo({
           camera={{ position: [0, 0, 3], fov: 50 }}
           gl={{
             alpha: true,
-            antialias: true,
+            antialias: false,
             powerPreference: "low-power",
           }}
-          dpr={[1, 1.5]}
+          dpr={1}
+          frameloop="always"
         >
           {/* Iluminación con paleta navy + gold */}
           <ambientLight intensity={0.5} />

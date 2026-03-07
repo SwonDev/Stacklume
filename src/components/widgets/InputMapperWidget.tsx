@@ -194,7 +194,7 @@ const CATEGORY_COLORS: Record<ActionCategory, string> = {
 export function InputMapperWidget({ widget }: InputMapperWidgetProps) {
   // Note: Use getState() for updateWidget to prevent re-render loops
 
-  const config: InputMapperConfig = {
+  const config: InputMapperConfig = useMemo(() => ({
     actions: widget.config?.inputMapperActions ?? [],
     bindings: widget.config?.inputMapperBindings ?? [],
     selectedController: widget.config?.inputMapperSelectedController ?? "xbox",
@@ -203,7 +203,7 @@ export function InputMapperWidget({ widget }: InputMapperWidgetProps) {
     sensitivityGlobal: widget.config?.inputMapperSensitivityGlobal ?? 1,
     previewMode: widget.config?.inputMapperPreviewMode ?? false,
     highlightedAction: widget.config?.inputMapperHighlightedAction ?? null,
-  };
+  }), [widget.config]);
 
   const [isAddActionOpen, setIsAddActionOpen] = useState(false);
   const [isAddBindingOpen, setIsAddBindingOpen] = useState(false);

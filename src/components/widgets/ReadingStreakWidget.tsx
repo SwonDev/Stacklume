@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Flame, Calendar, Award } from "lucide-react";
+import { Flame, Award } from "lucide-react";
 import type { Widget } from "@/types/widget";
 
 interface ActivityDay {
@@ -15,7 +15,7 @@ interface ReadingStreakWidgetProps {
 }
 
 export function ReadingStreakWidget({ widget }: ReadingStreakWidgetProps) {
-  const activityLog = (widget.config?.activityLog as Array<{ date: string; count: number }>) || [];
+  const activityLog = useMemo(() => (widget.config?.activityLog as Array<{ date: string; count: number }>) || [], [widget.config?.activityLog]);
 
   // Generate last 12 weeks of calendar data
   const calendarData = useMemo(() => {

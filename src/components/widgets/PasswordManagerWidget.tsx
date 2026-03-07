@@ -44,13 +44,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { openExternalUrl, isTauriWebView } from "@/lib/desktop";
 import type { PasswordEntry, PasswordManagerConfig } from "@/types/widgets/configs";
+import { useTranslation } from "@/lib/i18n";
 
 // ── Utilidades de codificación ────────────────────────────────────────────────
 
@@ -96,14 +96,14 @@ function getFaviconUrl(url?: string): string | null {
 
 type Category = PasswordEntry["category"];
 
-const CATEGORIES: Array<{ value: Category; label: string }> = [
-  { value: "email", label: "Email" },
-  { value: "social", label: "Social" },
-  { value: "work", label: "Trabajo" },
-  { value: "finance", label: "Finanzas" },
-  { value: "gaming", label: "Gaming" },
-  { value: "personal", label: "Personal" },
-  { value: "other", label: "Otro" },
+const CATEGORIES: Array<{ value: Category; labelKey: string }> = [
+  { value: "email", labelKey: "passwordManager.catEmail" },
+  { value: "social", labelKey: "passwordManager.catSocial" },
+  { value: "work", labelKey: "passwordManager.catWork" },
+  { value: "finance", labelKey: "passwordManager.catFinance" },
+  { value: "gaming", labelKey: "passwordManager.catGaming" },
+  { value: "personal", labelKey: "passwordManager.catPersonal" },
+  { value: "other", labelKey: "passwordManager.catOther" },
 ];
 
 const CATEGORY_COLORS: Record<NonNullable<Category>, string> = {
@@ -116,15 +116,15 @@ const CATEGORY_COLORS: Record<NonNullable<Category>, string> = {
   other: "bg-zinc-500/20 text-zinc-400",
 };
 
-const FILTER_TABS: Array<{ value: string; label: string }> = [
-  { value: "all", label: "Todos" },
-  { value: "email", label: "Email" },
-  { value: "social", label: "Social" },
-  { value: "work", label: "Trabajo" },
-  { value: "finance", label: "Finanzas" },
-  { value: "gaming", label: "Gaming" },
-  { value: "personal", label: "Personal" },
-  { value: "favorites", label: "Favoritos" },
+const FILTER_TABS: Array<{ value: string; labelKey: string }> = [
+  { value: "all", labelKey: "passwordManager.filterAll" },
+  { value: "email", labelKey: "passwordManager.catEmail" },
+  { value: "social", labelKey: "passwordManager.catSocial" },
+  { value: "work", labelKey: "passwordManager.catWork" },
+  { value: "finance", labelKey: "passwordManager.catFinance" },
+  { value: "gaming", labelKey: "passwordManager.catGaming" },
+  { value: "personal", labelKey: "passwordManager.catPersonal" },
+  { value: "favorites", labelKey: "passwordManager.filterFavorites" },
 ];
 
 // ── Formulario de entrada ─────────────────────────────────────────────────────
@@ -162,6 +162,7 @@ function EntryDialog({
   initial?: EntryFormState;
   title: string;
 }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<EntryFormState>(initial ?? EMPTY_FORM);
   const [showPwd, setShowPwd] = useState(false);
 
@@ -172,7 +173,7 @@ function EntryDialog({
 
   const handleSave = () => {
     if (!valid) {
-      toast.error("Servicio, usuario y contraseña son obligatorios");
+      toast.error(t("passwordManager.requiredFields"));
       return;
     }
     onSave(form);
@@ -189,10 +190,10 @@ function EntryDialog({
         <div className="grid gap-3 py-2">
           {/* Servicio */}
           <div className="grid gap-1.5">
-            <Label htmlFor="pm-service">Servicio *</Label>
+            <Label htmlFor="pm-service">{t("passwordManager.service")} *</Label>
             <Input
               id="pm-service"
-              placeholder="Gmail, GitHub, Netflix..."
+              placeholder={t("passwordManager.servicePlaceholder")}
               value={form.service}
               onChange={(e) => set("service", e.target.value)}
             />
@@ -200,7 +201,7 @@ function EntryDialog({
 
           {/* URL */}
           <div className="grid gap-1.5">
-            <Label htmlFor="pm-url">URL del sitio</Label>
+            <Label htmlFor="pm-url">{t("passwordManager.siteUrl")}</Label>
             <Input
               id="pm-url"
               placeholder="https://..."
@@ -211,10 +212,10 @@ function EntryDialog({
 
           {/* Usuario */}
           <div className="grid gap-1.5">
-            <Label htmlFor="pm-user">Usuario / Email *</Label>
+            <Label htmlFor="pm-user">{t("passwordManager.usernameEmail")} *</Label>
             <Input
               id="pm-user"
-              placeholder="usuario@ejemplo.com"
+              placeholder={t("passwordManager.usernamePlaceholder")}
               value={form.username}
               onChange={(e) => set("username", e.target.value)}
             />
@@ -222,7 +223,7 @@ function EntryDialog({
 
           {/* Contraseña */}
           <div className="grid gap-1.5">
-            <Label htmlFor="pm-pwd">Contraseña *</Label>
+            <Label htmlFor="pm-pwd">{t("passwordManager.password")} *</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -246,7 +247,7 @@ function EntryDialog({
                 type="button"
                 variant="outline"
                 size="icon"
-                title="Generar contraseña aleatoria"
+                title={t("passwordManager.generate")}
                 onClick={() => {
                   set("password", generatePassword());
                   setShowPwd(true);
@@ -260,7 +261,7 @@ function EntryDialog({
           {/* Categoría + Favorito */}
           <div className="flex gap-3">
             <div className="flex-1 grid gap-1.5">
-              <Label>Categoría</Label>
+              <Label>{t("passwordManager.category")}</Label>
               <Select
                 value={form.category ?? "personal"}
                 onValueChange={(v) => set("category", v as Category)}
@@ -271,14 +272,14 @@ function EntryDialog({
                 <SelectContent>
                   {CATEGORIES.map((c) => (
                     <SelectItem key={c.value} value={c.value!}>
-                      {c.label}
+                      {t(c.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Favorito</Label>
+              <Label>{t("passwordManager.favorite")}</Label>
               <Button
                 type="button"
                 variant={form.isFavorite ? "default" : "outline"}
@@ -295,10 +296,10 @@ function EntryDialog({
 
           {/* Notas */}
           <div className="grid gap-1.5">
-            <Label htmlFor="pm-notes">Notas</Label>
+            <Label htmlFor="pm-notes">{t("passwordManager.notes")}</Label>
             <Textarea
               id="pm-notes"
-              placeholder="Notas adicionales..."
+              placeholder={t("passwordManager.notesPlaceholder")}
               rows={2}
               value={form.notes}
               onChange={(e) => set("notes", e.target.value)}
@@ -308,10 +309,10 @@ function EntryDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Cancelar
+            {t("passwordManager.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={!valid}>
-            Guardar
+            {t("passwordManager.save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -326,9 +327,9 @@ interface PasswordManagerWidgetProps {
 }
 
 export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const config = (widget.config as PasswordManagerConfig | undefined) ?? {};
-  const entries: PasswordEntry[] = config.entries ?? [];
+  const entries: PasswordEntry[] = useMemo(() => config.entries ?? [], [config.entries]);
 
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
@@ -344,11 +345,11 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
 
   const saveEntries = useCallback(
     (next: PasswordEntry[]) => {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: { ...widget.config, entries: next },
       });
     },
-    [widget.id, widget.config, updateWidget]
+    [widget.id, widget.config]
   );
 
   const handleAdd = (form: EntryFormState) => {
@@ -366,7 +367,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
       updatedAt: now,
     };
     saveEntries([...entries, entry]);
-    toast.success(`"${entry.service}" añadido`);
+    toast.success(t("passwordManager.added", { service: entry.service }));
   };
 
   const handleEdit = (form: EntryFormState) => {
@@ -387,13 +388,13 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
         : e
     );
     saveEntries(updated);
-    toast.success("Entrada actualizada");
+    toast.success(t("passwordManager.updated"));
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
     saveEntries(entries.filter((e) => e.id !== deleteTarget.id));
-    toast.success(`"${deleteTarget.service}" eliminado`);
+    toast.success(t("passwordManager.deleted", { service: deleteTarget.service }));
     setDeleteTarget(null);
   };
 
@@ -406,7 +407,11 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -415,10 +420,10 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(fieldKey);
-      toast.success(`${label} copiado`);
+      toast.success(t("passwordManager.fieldCopied", { field: label }));
       setTimeout(() => setCopiedField(null), 1500);
     } catch {
-      toast.error("Error al copiar al portapapeles");
+      toast.error(t("passwordManager.copyError"));
     }
   };
 
@@ -463,12 +468,12 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
         <div className="flex items-center gap-1.5 min-w-0">
           <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-xs text-muted-foreground truncate">
-            {entries.length} {entries.length === 1 ? "entrada" : "entradas"}
+            {entries.length} {entries.length === 1 ? t("passwordManager.entrySingular") : t("passwordManager.entryPlural")}
           </span>
         </div>
         <Button size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={() => setAddOpen(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Añadir
+          {t("passwordManager.add")}
         </Button>
       </div>
 
@@ -476,7 +481,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
         <Input
-          placeholder="Buscar servicio o usuario..."
+          placeholder={t("passwordManager.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-7 text-xs pl-8 pr-7"
@@ -493,10 +498,10 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
 
       {/* Filtros de categoría */}
       <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
-        {FILTER_TABS.filter((t) => {
-          if (t.value === "favorites") return entries.some((e) => e.isFavorite);
-          if (t.value === "all") return true;
-          return entries.some((e) => e.category === t.value);
+        {FILTER_TABS.filter((tab) => {
+          if (tab.value === "favorites") return entries.some((e) => e.isFavorite);
+          if (tab.value === "all") return true;
+          return entries.some((e) => e.category === tab.value);
         }).map((tab) => (
           <button
             key={tab.value}
@@ -507,7 +512,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -520,7 +525,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
               <>
                 <KeyRound className="w-8 h-8 text-muted-foreground/40" />
                 <p className="text-xs text-muted-foreground">
-                  Ningún login guardado aún.
+                  {t("passwordManager.noEntries")}
                 </p>
                 <Button
                   size="sm"
@@ -529,11 +534,11 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                   onClick={() => setAddOpen(true)}
                 >
                   <Plus className="w-3 h-3 mr-1" />
-                  Añadir el primero
+                  {t("passwordManager.addFirst")}
                 </Button>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">Sin resultados</p>
+              <p className="text-xs text-muted-foreground">{t("passwordManager.noResults")}</p>
             )}
           </div>
         ) : (
@@ -576,7 +581,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                           <span
                             className={`text-[9px] px-1.5 py-0 rounded-full shrink-0 font-medium ${CATEGORY_COLORS[entry.category]}`}
                           >
-                            {CATEGORIES.find((c) => c.value === entry.category)?.label}
+                            {t(CATEGORIES.find((c) => c.value === entry.category)?.labelKey ?? "passwordManager.catOther")}
                           </span>
                         )}
                       </div>
@@ -596,7 +601,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                       <button
                         onClick={() => toggleFavorite(entry.id)}
                         className={`p-1 rounded hover:bg-background/60 ${entry.isFavorite ? "text-yellow-400" : "text-muted-foreground"}`}
-                        title={entry.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                        title={entry.isFavorite ? t("passwordManager.removeFavorite") : t("passwordManager.addFavorite")}
                       >
                         <Star className={`w-3 h-3 ${entry.isFavorite ? "fill-current" : ""}`} />
                       </button>
@@ -605,14 +610,14 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                           setEditTarget(entry);
                         }}
                         className="p-1 rounded hover:bg-background/60 text-muted-foreground hover:text-foreground"
-                        title="Editar"
+                        title={t("passwordManager.edit")}
                       >
                         <Pencil className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget(entry)}
                         className="p-1 rounded hover:bg-background/60 text-muted-foreground hover:text-red-400"
-                        title="Eliminar"
+                        title={t("passwordManager.delete")}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -623,12 +628,12 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                   <div className="flex flex-col gap-1 pl-8">
                     {/* Usuario */}
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="text-[10px] text-muted-foreground shrink-0 w-16">Usuario</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 w-16">{t("passwordManager.userLabel")}</span>
                       <span className="text-[11px] font-mono truncate flex-1">{entry.username}</span>
                       <button
-                        onClick={() => copyToClipboard(entry.username, `user-${entry.id}`, "Usuario")}
+                        onClick={() => copyToClipboard(entry.username, `user-${entry.id}`, t("passwordManager.userLabel"))}
                         className="p-0.5 rounded hover:bg-background/60 text-muted-foreground hover:text-foreground shrink-0"
-                        title="Copiar usuario"
+                        title={t("passwordManager.copyUser")}
                       >
                         {copiedField === `user-${entry.id}` ? (
                           <Check className="w-3 h-3 text-green-500" />
@@ -640,7 +645,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
 
                     {/* Contraseña */}
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="text-[10px] text-muted-foreground shrink-0 w-16">Contraseña</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 w-16">{t("passwordManager.passwordLabel")}</span>
                       <span className="text-[11px] font-mono truncate flex-1">
                         {isVisible ? decodedPwd : "••••••••"}
                       </span>
@@ -648,14 +653,14 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
                         <button
                           onClick={() => togglePasswordVisibility(entry.id)}
                           className="p-0.5 rounded hover:bg-background/60 text-muted-foreground hover:text-foreground"
-                          title={isVisible ? "Ocultar contraseña" : "Mostrar contraseña"}
+                          title={isVisible ? t("passwordManager.hidePassword") : t("passwordManager.showPassword")}
                         >
                           {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         </button>
                         <button
-                          onClick={() => copyToClipboard(decodedPwd, `pwd-${entry.id}`, "Contraseña")}
+                          onClick={() => copyToClipboard(decodedPwd, `pwd-${entry.id}`, t("passwordManager.passwordLabel"))}
                           className="p-0.5 rounded hover:bg-background/60 text-muted-foreground hover:text-foreground"
-                          title="Copiar contraseña"
+                          title={t("passwordManager.copyPassword")}
                         >
                           {copiedField === `pwd-${entry.id}` ? (
                             <Check className="w-3 h-3 text-green-500" />
@@ -685,7 +690,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onSave={handleAdd}
-        title="Añadir login"
+        title={t("passwordManager.addLogin")}
       />
 
       {/* Diálogo: Editar */}
@@ -694,7 +699,7 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
           open={!!editTarget}
           onClose={() => setEditTarget(null)}
           onSave={handleEdit}
-          title={`Editar: ${editTarget.service}`}
+          title={t("passwordManager.editService", { service: editTarget.service })}
           initial={{
             service: editTarget.service,
             url: editTarget.url ?? "",
@@ -711,18 +716,18 @@ export function PasswordManagerWidget({ widget }: PasswordManagerWidgetProps) {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar esta entrada?</AlertDialogTitle>
+            <AlertDialogTitle>{t("passwordManager.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminará el login de <strong>{deleteTarget?.service}</strong>. Esta acción no se puede deshacer.
+              {t("passwordManager.deleteDescription", { service: deleteTarget?.service ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("passwordManager.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("passwordManager.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

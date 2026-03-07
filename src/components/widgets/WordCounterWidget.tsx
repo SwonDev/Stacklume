@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "@/lib/i18n";
 
 interface WordCounterWidgetProps {
   widget: Widget;
@@ -32,6 +33,7 @@ interface TextStats {
 }
 
 export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const config = (widget.config as unknown as WordCounterConfig) || {};
 
@@ -131,7 +133,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold text-sm">Word Counter</h3>
+          <h3 className="font-semibold text-sm">{t("wordCounter.title")}</h3>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -162,7 +164,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
       {/* Textarea */}
       <div className="flex-1 min-h-0">
         <Textarea
-          placeholder="Type or paste your text here..."
+          placeholder={t("wordCounter.placeholder")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           className="h-full resize-none text-sm"
@@ -179,7 +181,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <Type className="h-3.5 w-3.5 text-blue-500" />
-              <Label className="text-xs text-muted-foreground">Words</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.words")}</Label>
             </div>
             <p className="text-xl font-bold">{stats.words.toLocaleString()}</p>
           </Card>
@@ -193,7 +195,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <AlignLeft className="h-3.5 w-3.5 text-purple-500" />
-              <Label className="text-xs text-muted-foreground">Chars (with)</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.charsWithSpaces")}</Label>
             </div>
             <p className="text-xl font-bold">{stats.charactersWithSpaces.toLocaleString()}</p>
           </Card>
@@ -207,7 +209,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <AlignLeft className="h-3.5 w-3.5 text-pink-500" />
-              <Label className="text-xs text-muted-foreground">Chars (no sp.)</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.charsNoSpaces")}</Label>
             </div>
             <p className="text-xl font-bold">{stats.charactersWithoutSpaces.toLocaleString()}</p>
           </Card>
@@ -221,7 +223,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <MessageSquare className="h-3.5 w-3.5 text-green-500" />
-              <Label className="text-xs text-muted-foreground">Sentences</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.sentences")}</Label>
             </div>
             <p className="text-xl font-bold">{stats.sentences.toLocaleString()}</p>
           </Card>
@@ -235,7 +237,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <FileText className="h-3.5 w-3.5 text-orange-500" />
-              <Label className="text-xs text-muted-foreground">Paragraphs</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.paragraphs")}</Label>
             </div>
             <p className="text-xl font-bold">{stats.paragraphs.toLocaleString()}</p>
           </Card>
@@ -249,7 +251,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <Clock className="h-3.5 w-3.5 text-cyan-500" />
-              <Label className="text-xs text-muted-foreground">Reading</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.reading")}</Label>
             </div>
             <p className="text-xl font-bold">{formatTime(stats.readingTime)}</p>
           </Card>
@@ -263,7 +265,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
           <Card className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <MessageSquare className="h-3.5 w-3.5 text-indigo-500" />
-              <Label className="text-xs text-muted-foreground">Speaking</Label>
+              <Label className="text-xs text-muted-foreground">{t("wordCounter.speaking")}</Label>
             </div>
             <p className="text-xl font-bold">{formatTime(stats.speakingTime)}</p>
           </Card>
@@ -274,7 +276,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
       <div className="grid grid-cols-1 @sm:grid-cols-2 gap-3 pt-2 border-t">
         <div className="space-y-1.5">
           <Label htmlFor="reading-speed" className="text-xs">
-            Reading Speed (WPM)
+            {t("wordCounter.readingSpeed")}
           </Label>
           <Input
             id="reading-speed"
@@ -288,7 +290,7 @@ export function WordCounterWidget({ widget }: WordCounterWidgetProps) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="speaking-speed" className="text-xs">
-            Speaking Speed (WPM)
+            {t("wordCounter.speakingSpeed")}
           </Label>
           <Input
             id="speaking-speed"

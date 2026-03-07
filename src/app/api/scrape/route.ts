@@ -4,6 +4,7 @@ import { detectPlatform, type ContentType, type Platform } from "@/lib/platform-
 import { validateUrlForSSRF } from "@/lib/security/ssrf-protection";
 import { createModuleLogger } from "@/lib/logger";
 import { scrapeCache } from "@/lib/cache";
+import { scrapeUrlSchema, validateRequest } from "@/lib/validations";
 
 // Create a module-specific logger
 const log = createModuleLogger("api/scrape");
@@ -558,11 +559,15 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    const { url } = await request.json();
+    const body = await request.json();
 
-    if (!url) {
-      return NextResponse.json({ error: "URL es requerida" }, { status: 400 });
+    // Validate URL with Zod schema (requires http/https protocol)
+    const validation = validateRequest(scrapeUrlSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.errors.join(", ") }, { status: 400 });
     }
+
+    const { url } = validation.data;
 
     log.debug({ url }, "Scrape request received");
 

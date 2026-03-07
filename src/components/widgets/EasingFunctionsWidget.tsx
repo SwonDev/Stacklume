@@ -195,7 +195,7 @@ export function EasingFunctionsWidget({ widget }: EasingFunctionsWidgetProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [compareMode, setCompareMode] = useState(config.compareMode || false);
+  const [compareMode, _setCompareMode] = useState(config.compareMode || false);
 
   // Bezier editor state
   const [bezierP1, setBezierP1] = useState({ x: 0.25, y: 0.1 });
@@ -219,6 +219,7 @@ export function EasingFunctionsWidget({ widget }: EasingFunctionsWidgetProps) {
 
   useEffect(() => {
     saveConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEasing, compareEasing, duration, compareMode]);
 
   // Animation loop

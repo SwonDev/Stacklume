@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface ProductHuntWidgetProps {
   widget: Widget;
@@ -145,6 +146,7 @@ const SAMPLE_PRODUCTS: Product[] = [
 const ITEMS_PER_PAGE = 5;
 
 export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
@@ -203,7 +205,7 @@ export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
           </div>
           <div>
             <h3 className="text-sm font-semibold">Product Hunt</h3>
-            <p className="text-xs text-muted-foreground">Productos destacados</p>
+            <p className="text-xs text-muted-foreground">{t("productHunt.featuredProducts")}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -234,7 +236,7 @@ export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Cargando productos...</p>
+              <p className="text-sm text-muted-foreground">{t("productHunt.loading")}</p>
             </div>
           </div>
         ) : (
@@ -314,7 +316,7 @@ export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
                       className="h-8 gap-1 text-xs"
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
-                      Ver mas ({products.length - visibleCount} restantes)
+                      {t("productHunt.viewMore")} ({products.length - visibleCount} restantes)
                     </Button>
                   )}
                   {canCollapse && (
@@ -325,7 +327,7 @@ export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
                       className="h-8 gap-1 text-xs"
                     >
                       <ChevronUp className="h-3.5 w-3.5" />
-                      Colapsar
+                      {t("productHunt.collapse")}
                     </Button>
                   )}
                 </div>
@@ -338,7 +340,7 @@ export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
       {/* Footer */}
       <div className="border-t px-4 py-2 text-center">
         <p className="text-[10px] text-muted-foreground">
-          Productos de ejemplo - La API de Product Hunt requiere autenticacion OAuth
+          {t("productHunt.sampleProducts")} - La API de Product Hunt requiere autenticacion OAuth
         </p>
         <a
           href="https://www.producthunt.com"
@@ -347,7 +349,7 @@ export function ProductHuntWidget({ widget: _widget }: ProductHuntWidgetProps) {
           className="mt-1 inline-flex items-center gap-1 text-xs text-[#DA552F] hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
-          Ver mas en Product Hunt
+          {t("productHunt.viewOnProductHunt")}
         </a>
       </div>
     </div>

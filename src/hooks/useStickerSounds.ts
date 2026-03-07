@@ -28,15 +28,16 @@ export function useStickerSounds() {
     if (typeof window === "undefined") return;
 
     // Preload sounds
+    const refs = audioRefs.current;
     Object.entries(SOUND_PATHS).forEach(([key, path]) => {
       const audio = new Audio(path);
       audio.preload = "auto";
-      audioRefs.current[key as SoundType] = audio;
+      refs[key as SoundType] = audio;
     });
 
     // Cleanup on unmount
     return () => {
-      Object.values(audioRefs.current).forEach((audio) => {
+      Object.values(refs).forEach((audio) => {
         if (audio) {
           audio.pause();
           audio.src = "";

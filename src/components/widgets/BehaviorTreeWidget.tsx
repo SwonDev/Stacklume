@@ -495,12 +495,12 @@ export function BehaviorTreeWidget({ widget }: BehaviorTreeWidgetProps) {
   );
 
   // Auto-save when tree changes
-   
   useEffect(() => {
     const timer = setTimeout(() => {
       saveTree(tree);
     }, 500);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- saveTree depends on widget.config which changes after save; only trigger on tree changes
   }, [tree]);
 
   // Node Management

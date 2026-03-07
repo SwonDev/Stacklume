@@ -155,10 +155,10 @@ export function InventoryGridWidget({ widget }: InventoryGridWidgetProps) {
   const [grid, setGrid] = useState<GridCell[][]>(() =>
     config.grid || Array(rows).fill(null).map(() => Array(cols).fill({ itemId: null, occupied: false }))
   );
-  const [hotbarSlots, setHotbarSlots] = useState<HotbarSlot[]>(
+  const [hotbarSlots, _setHotbarSlots] = useState<HotbarSlot[]>(
     config.hotbarSlots || Array(5).fill(null).map((_, i) => ({ itemId: null, slotIndex: i }))
   );
-  const [equipmentSlots, setEquipmentSlots] = useState<EquipmentSlot[]>(
+  const [equipmentSlots, _setEquipmentSlots] = useState<EquipmentSlot[]>(
     config.equipmentSlots || DEFAULT_EQUIPMENT_SLOTS
   );
   const [maxWeight, setMaxWeight] = useState(config.maxWeight || 100);
@@ -213,6 +213,7 @@ export function InventoryGridWidget({ widget }: InventoryGridWidgetProps) {
   useEffect(() => {
     const timeout = setTimeout(saveConfig, 500);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, cols, items, grid, hotbarSlots, equipmentSlots, maxWeight, enableWeight, testMode]);
 
   // Initialize grid when dimensions change

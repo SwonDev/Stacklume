@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useStickerStore } from "@/stores/sticker-store";
 import { StickerDefinition } from "@/types/sticker";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import Image from "next/image";
 import { useStickerSounds } from "@/hooks/useStickerSounds";
 
@@ -38,6 +39,7 @@ const StickerPage = React.forwardRef<
     onStickerDragStart: (sticker: StickerDefinition, e: React.MouseEvent | React.TouchEvent) => void;
   }
 >(({ stickers, pageNumber, isLeftPage, onStickerDragStart }, ref) => {
+  const { t } = useTranslation();
   return (
     <div
       ref={ref}
@@ -57,7 +59,7 @@ const StickerPage = React.forwardRef<
       {/* Page header */}
       <div className="text-center mb-3">
         <span className="text-xs text-amber-600/70 font-medium">
-          Page {pageNumber + 1}
+          {t("stickerBook.page", { number: pageNumber + 1 })}
         </span>
       </div>
 
@@ -121,7 +123,9 @@ StickerPage.displayName = "StickerPage";
 
 // Cover page with Navy/Gold theme and glossy cartoon style
 const CoverPage = React.forwardRef<HTMLDivElement, { isBack?: boolean }>(
-  ({ isBack }, ref) => (
+  function CoverPageInner({ isBack }, ref) {
+  const { t } = useTranslation();
+  return (
     <div
       ref={ref}
       className={cn(
@@ -219,7 +223,7 @@ const CoverPage = React.forwardRef<HTMLDivElement, { isBack?: boolean }>(
                 textShadow: "0 2px 10px rgba(212,168,83,0.3)",
               }}
             >
-              Sticker Book
+              {t("stickerBook.title")}
             </h2>
 
             {/* Subtitle */}
@@ -227,7 +231,7 @@ const CoverPage = React.forwardRef<HTMLDivElement, { isBack?: boolean }>(
               className="text-sm mt-2"
               style={{ color: "rgba(212,168,83,0.6)" }}
             >
-              Drag stickers to place them
+              {t("stickerBook.subtitle")}
             </p>
 
             {/* Decorative line */}
@@ -262,7 +266,8 @@ const CoverPage = React.forwardRef<HTMLDivElement, { isBack?: boolean }>(
         }}
       />
     </div>
-  )
+  );
+  }
 );
 
 CoverPage.displayName = "CoverPage";
@@ -310,6 +315,7 @@ function useBookDimensions() {
 }
 
 export function StickerBook({ onClose }: StickerBookProps) {
+  const { t } = useTranslation();
   const bookRef = useRef<typeof HTMLFlipBook>(null);
   const bookContainerRef = useRef<HTMLDivElement>(null);
   const [isFlipping, setIsFlipping] = useState(false);
@@ -454,7 +460,7 @@ export function StickerBook({ onClose }: StickerBookProps) {
             }}
           >
             <Loader2 className="w-12 h-12 animate-spin" style={{ color: "#d4a853" }} />
-            <p style={{ color: "rgba(212,168,83,0.8)" }}>Loading stickers...</p>
+            <p style={{ color: "rgba(212,168,83,0.8)" }}>{t("stickerBook.loading")}</p>
           </div>
           <Button
             variant="ghost"
@@ -462,7 +468,7 @@ export function StickerBook({ onClose }: StickerBookProps) {
             className="text-white/70 hover:text-white hover:bg-white/20"
             onClick={onClose}
           >
-            Cancel
+            {t("stickerBook.cancel")}
           </Button>
         </motion.div>
       </motion.div>,
@@ -504,7 +510,7 @@ export function StickerBook({ onClose }: StickerBookProps) {
             className="absolute left-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 text-white bg-black/30 hover:bg-white/30 disabled:opacity-30 rounded-full transition-all"
             onClick={() => goToPage("prev")}
             disabled={isFlipping}
-            aria-label="Página anterior"
+            aria-label={t("stickerBook.previousPage")}
           >
             <ChevronLeft className="w-8 h-8" />
           </Button>
@@ -515,7 +521,7 @@ export function StickerBook({ onClose }: StickerBookProps) {
             className="absolute right-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 text-white bg-black/30 hover:bg-white/30 disabled:opacity-30 rounded-full transition-all"
             onClick={() => goToPage("next")}
             disabled={isFlipping}
-            aria-label="Página siguiente"
+            aria-label={t("stickerBook.nextPage")}
           >
             <ChevronRight className="w-8 h-8" />
           </Button>
@@ -535,12 +541,12 @@ export function StickerBook({ onClose }: StickerBookProps) {
             <div
               className="absolute left-0 top-0 bottom-0 w-12 z-40 cursor-pointer hover:bg-black/10 transition-colors rounded-l-lg"
               onClick={() => goToPage("prev")}
-              title="Página anterior"
+              title={t("stickerBook.previousPage")}
             />
             <div
               className="absolute right-0 top-0 bottom-0 w-12 z-40 cursor-pointer hover:bg-black/10 transition-colors rounded-r-lg"
               onClick={() => goToPage("next")}
-              title="Página siguiente"
+              title={t("stickerBook.nextPage")}
             />
             <FlipBookWrapper
               ref={bookRef}
@@ -594,7 +600,7 @@ export function StickerBook({ onClose }: StickerBookProps) {
 
           {/* Page indicator */}
           <div className="text-center mt-4 text-white/70 text-sm">
-            Page {currentPage + 1} of {totalPages || 1}
+            {t("stickerBook.pageOf", { current: currentPage + 1, total: totalPages || 1 })}
           </div>
         </motion.div>
       </motion.div>

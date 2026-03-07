@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, withRetry, generateId } from "@/lib/db";
 import { customWidgetTypes } from "@/lib/db/schema";
-import { isNull, eq, desc } from "drizzle-orm";
+import { isNull, desc } from "drizzle-orm";
 import { createModuleLogger } from "@/lib/logger";
 import { z } from "zod";
 import { validateRequest } from "@/lib/validations";
@@ -15,7 +15,7 @@ const createCustomWidgetTypeSchema = z.object({
   description: z.string().max(500).optional(),
   category: z.string().max(50).default("custom"),
   icon: z.string().max(50).default("Puzzle"),
-  htmlTemplate: z.string().min(1),
+  htmlTemplate: z.string().min(1).max(500_000, 'HTML template must be 500KB or less'),
   configSchema: z.record(z.string(), z.unknown()).optional(),
   defaultConfig: z.record(z.string(), z.unknown()).optional(),
   defaultWidth: z.number().int().min(1).max(12).default(2),

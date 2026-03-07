@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface McpDocsDialogProps {
   open: boolean;
@@ -22,12 +23,13 @@ interface McpDocsDialogProps {
 // ─── Bloque de código con botón copiar ────────────────────────────────────────
 
 function CodeBlock({ code, label }: { code: string; label?: string }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
     setCopied(true);
-    toast.success("Copiado");
+    toast.success(t("mcpDocs.copied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -42,7 +44,7 @@ function CodeBlock({ code, label }: { code: string; label?: string }) {
       <button
         onClick={handleCopy}
         className="absolute top-6 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border/50 hover:bg-secondary"
-        aria-label="Copiar"
+        aria-label={t("mcpDocs.copy")}
       >
         {copied
           ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
@@ -66,13 +68,14 @@ function PlatformBadge({ label }: { label: string }) {
 // ─── Ruta de archivo ──────────────────────────────────────────────────────────
 
 function FilePath({ path, label }: { path: string; label: string }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   return (
     <button
       onClick={async () => {
         await navigator.clipboard.writeText(path);
         setCopied(true);
-        toast.success("Ruta copiada");
+        toast.success(t("mcpDocs.pathCopied"));
         setTimeout(() => setCopied(false), 1500);
       }}
       className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors group"
@@ -91,6 +94,7 @@ function FilePath({ path, label }: { path: string; label: string }) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export function McpDocsDialog({ open, onOpenChange, mcpUrl, mcpApiKey }: McpDocsDialogProps) {
+  const { t } = useTranslation();
   const key = mcpApiKey ?? "<TU_API_KEY>";
   const bearerHeader = `Authorization: Bearer ${key}`;
 
@@ -153,13 +157,13 @@ curl -X POST "${mcpUrl}" \\
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Cpu className="w-4 h-4 text-primary" />
-              Conectar servidor MCP de Stacklume
+              {t("mcpDocs.title")}
             </DialogTitle>
             <DialogDescription>
-              Instrucciones de configuración para cada herramienta compatible con MCP.
+              {t("mcpDocs.description")}
               {!mcpApiKey && (
                 <span className="block mt-1 text-amber-500 text-xs">
-                  ⚠️ Genera una API key en Configuración antes de usar estas instrucciones.
+                  {t("mcpDocs.noApiKeyWarning")}
                 </span>
               )}
             </DialogDescription>
@@ -177,7 +181,7 @@ curl -X POST "${mcpUrl}" \\
                 { value: "windsurf",       label: "Windsurf" },
                 { value: "vscode-cline",   label: "VS Code / Cline" },
                 { value: "continue",       label: "Continue.dev" },
-                { value: "generic",        label: "Genérico / curl" },
+                { value: "generic",        label: t("mcpDocs.tabs.generic") },
               ].map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -200,9 +204,7 @@ curl -X POST "${mcpUrl}" \\
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Claude Desktop</p>
                   <p className="text-xs text-muted-foreground">
-                    Abre el archivo de configuración de Claude Desktop y añade el bloque
-                    <code className="mx-1 px-1 py-0.5 rounded bg-muted text-[11px]">mcpServers</code>
-                    (o añade la entrada si ya existe la clave).
+                    {t("mcpDocs.claudeDesktop.instructions")}
                   </p>
                 </div>
               </div>
@@ -216,8 +218,7 @@ curl -X POST "${mcpUrl}" \\
               <CodeBlock code={claudeDesktopConfig} label="claude_desktop_config.json" />
 
               <p className="text-xs text-muted-foreground">
-                Reinicia Claude Desktop después de guardar el archivo. Aparecerá el icono de herramientas
-                en la barra de conversación cuando el servidor responda correctamente.
+                {t("mcpDocs.claudeDesktop.restart")}
               </p>
             </TabsContent>
 
@@ -228,37 +229,33 @@ curl -X POST "${mcpUrl}" \\
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Claude Code (CLI)</p>
                   <p className="text-xs text-muted-foreground">
-                    Puedes registrar el servidor MCP con el comando CLI <strong>o</strong> creando el archivo
-                    <code className="mx-1 px-1 py-0.5 rounded bg-muted text-[11px]">.mcp.json</code>
-                    en la raíz del proyecto.
+                    {t("mcpDocs.claudeCode.instructions")}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium mb-1.5">Opción A — Comando CLI (recomendado)</p>
+                <p className="text-xs font-medium mb-1.5">{t("mcpDocs.claudeCode.optionA")}</p>
                 <CodeBlock code={claudeCodeCmd} label="Terminal" />
               </div>
 
               <div>
                 <p className="text-xs font-medium mb-1.5">
-                  Opción B — Archivo <code className="text-[11px]">.mcp.json</code> en la raíz del proyecto
+                  {t("mcpDocs.claudeCode.optionB")}
                 </p>
                 <CodeBlock code={claudeCodeConfig} label=".mcp.json" />
               </div>
 
               <div className="space-y-1">
                 <p className="text-xs font-medium mb-1.5">
-                  Opción C — Configuración global <code className="text-[11px]">~/.claude/mcp.json</code>
+                  {t("mcpDocs.claudeCode.optionC")}
                 </p>
                 <FilePath label="Global" path="~/.claude/mcp.json" />
                 <CodeBlock code={claudeCodeConfig} label="~/.claude/mcp.json" />
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Con el servidor registrado, Claude Code puede usar herramientas como{" "}
-                <code className="px-1 py-0.5 rounded bg-muted text-[11px]">mcp__stacklume__add_widget</code>{" "}
-                directamente en sus respuestas.
+                {t("mcpDocs.claudeCode.note")}
               </p>
             </TabsContent>
 
@@ -269,14 +266,14 @@ curl -X POST "${mcpUrl}" \\
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Cursor</p>
                   <p className="text-xs text-muted-foreground">
-                    Dos formas de configurar MCP en Cursor: archivo por proyecto o configuración global.
+                    {t("mcpDocs.cursor.instructions")}
                   </p>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
-                  <p className="text-xs font-medium">Opción A — Archivo de proyecto</p>
+                  <p className="text-xs font-medium">{t("mcpDocs.cursor.optionA")}</p>
                   <FilePath label="" path=".cursor/mcp.json" />
                 </div>
                 <CodeBlock code={cursorConfig} label=".cursor/mcp.json" />
@@ -284,18 +281,18 @@ curl -X POST "${mcpUrl}" \\
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
-                  <p className="text-xs font-medium">Opción B — Configuración global</p>
+                  <p className="text-xs font-medium">{t("mcpDocs.cursor.optionB")}</p>
                   <FilePath label="" path="~/.cursor/mcp.json" />
                 </div>
                 <CodeBlock code={cursorConfig} label="~/.cursor/mcp.json" />
               </div>
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-medium">Alternativa visual (Cursor Settings)</p>
+                <p className="text-xs font-medium">{t("mcpDocs.cursor.visualAlt")}</p>
                 <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
-                  <li>Abre <strong>Cursor → Settings → MCP</strong></li>
-                  <li>Pulsa <strong>Add Server</strong></li>
-                  <li>Tipo: <code className="px-1 py-0.5 rounded bg-muted text-[11px]">Streamable HTTP</code></li>
+                  <li>{t("mcpDocs.cursor.step1")}</li>
+                  <li>{t("mcpDocs.cursor.step2")}</li>
+                  <li>{t("mcpDocs.cursor.step3")}</li>
                   <li>URL: <code className="px-1 py-0.5 rounded bg-muted text-[11px] break-all">{mcpUrl}</code></li>
                   <li>Header: <code className="px-1 py-0.5 rounded bg-muted text-[11px]">Authorization: Bearer {key}</code></li>
                 </ol>
@@ -309,8 +306,7 @@ curl -X POST "${mcpUrl}" \\
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Windsurf (Codeium)</p>
                   <p className="text-xs text-muted-foreground">
-                    Windsurf usa el archivo <code className="mx-1 px-1 py-0.5 rounded bg-muted text-[11px]">mcp_config.json</code>{" "}
-                    en su directorio de configuración global.
+                    {t("mcpDocs.windsurf.instructions")}
                   </p>
                 </div>
               </div>
@@ -323,12 +319,12 @@ curl -X POST "${mcpUrl}" \\
               <CodeBlock code={windsurf} label="mcp_config.json" />
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-medium">Alternativa visual (Windsurf Settings)</p>
+                <p className="text-xs font-medium">{t("mcpDocs.windsurf.visualAlt")}</p>
                 <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
-                  <li>Abre <strong>Windsurf → Settings → Cascade → MCP Servers</strong></li>
-                  <li>Pulsa el ícono de editar para abrir <code className="px-1 py-0.5 rounded bg-muted text-[11px]">mcp_config.json</code></li>
-                  <li>Pega la configuración de arriba y guarda</li>
-                  <li>Reinicia Windsurf para que Cascade detecte el servidor</li>
+                  <li>{t("mcpDocs.windsurf.step1")}</li>
+                  <li>{t("mcpDocs.windsurf.step2")}</li>
+                  <li>{t("mcpDocs.windsurf.step3")}</li>
+                  <li>{t("mcpDocs.windsurf.step4")}</li>
                 </ol>
               </div>
             </TabsContent>
@@ -340,29 +336,28 @@ curl -X POST "${mcpUrl}" \\
                 <div className="space-y-1">
                   <p className="text-sm font-medium">VS Code — Cline / RooCode</p>
                   <p className="text-xs text-muted-foreground">
-                    Cline (antes Claude Dev) y RooCode soportan MCP. Configura desde el panel lateral
-                    de la extensión o via <code className="mx-1 px-1 py-0.5 rounded bg-muted text-[11px]">settings.json</code>.
+                    {t("mcpDocs.vscode.instructions")}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
-                <p className="text-xs font-medium">Vía panel de Cline (recomendado)</p>
+                <p className="text-xs font-medium">{t("mcpDocs.vscode.clinePanel")}</p>
                 <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
-                  <li>Abre el panel lateral de <strong>Cline</strong> en VS Code</li>
-                  <li>Pulsa el ícono <strong>MCP Servers</strong> (enchufe) en la barra superior</li>
-                  <li>Selecciona <strong>Remote Server</strong></li>
+                  <li>{t("mcpDocs.vscode.step1")}</li>
+                  <li>{t("mcpDocs.vscode.step2")}</li>
+                  <li>{t("mcpDocs.vscode.step3")}</li>
                   <li>
-                    Introduce la URL:{" "}
+                    {t("mcpDocs.vscode.step4")}{" "}
                     <code className="px-1 py-0.5 rounded bg-muted text-[11px] break-all">{mcpUrl}</code>
                   </li>
-                  <li>En el archivo <code className="px-1 py-0.5 rounded bg-muted text-[11px]">cline_mcp_settings.json</code> que se abre, añade el header</li>
+                  <li>{t("mcpDocs.vscode.step5")}</li>
                 </ol>
               </div>
 
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
-                  <p className="text-xs font-medium">Archivo de configuración de Cline</p>
+                  <p className="text-xs font-medium">{t("mcpDocs.vscode.clineConfigFile")}</p>
                   <PlatformBadge label="macOS" />
                 </div>
                 <FilePath label="macOS" path="~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json" />
@@ -372,11 +367,9 @@ curl -X POST "${mcpUrl}" \\
               <CodeBlock code={clineVscodeSettings} label="cline_mcp_settings.json (fragmento)" />
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-medium">VS Code nativo (v1.99+ con soporte MCP experimental)</p>
+                <p className="text-xs font-medium">{t("mcpDocs.vscode.nativeTitle")}</p>
                 <p className="text-xs text-muted-foreground">
-                  VS Code 1.99+ incluye soporte MCP experimental. Añade en{" "}
-                  <code className="px-1 py-0.5 rounded bg-muted text-[11px]">.vscode/mcp.json</code>{" "}
-                  del workspace o en la configuración de usuario:
+                  {t("mcpDocs.vscode.nativeDescription")}
                 </p>
                 <FilePath label="Workspace" path=".vscode/mcp.json" />
                 <CodeBlock
@@ -396,9 +389,7 @@ curl -X POST "${mcpUrl}" \\
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Continue.dev</p>
                   <p className="text-xs text-muted-foreground">
-                    Extensión de VS Code / JetBrains para asistencia de código con soporte MCP.
-                    Edita el archivo <code className="mx-1 px-1 py-0.5 rounded bg-muted text-[11px]">config.json</code>{" "}
-                    de Continue.
+                    {t("mcpDocs.continue.instructions")}
                   </p>
                 </div>
               </div>
@@ -411,12 +402,12 @@ curl -X POST "${mcpUrl}" \\
               <CodeBlock code={continueDev} label="config.json (fragmento — sección mcpServers)" />
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-medium">Alternativa visual</p>
+                <p className="text-xs font-medium">{t("mcpDocs.continue.visualAlt")}</p>
                 <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
-                  <li>Abre el panel de Continue en VS Code</li>
-                  <li>Ve a <strong>Settings → MCP</strong></li>
-                  <li>Pulsa <strong>Add MCP Server</strong> y elige tipo <strong>HTTP</strong></li>
-                  <li>Rellena la URL y el header de autorización</li>
+                  <li>{t("mcpDocs.continue.step1")}</li>
+                  <li>{t("mcpDocs.continue.step2")}</li>
+                  <li>{t("mcpDocs.continue.step3")}</li>
+                  <li>{t("mcpDocs.continue.step4")}</li>
                 </ol>
               </div>
             </TabsContent>
@@ -426,24 +417,23 @@ curl -X POST "${mcpUrl}" \\
               <div className="flex items-start gap-2">
                 <Terminal className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Cualquier cliente MCP / curl</p>
+                  <p className="text-sm font-medium">{t("mcpDocs.generic.title")}</p>
                   <p className="text-xs text-muted-foreground">
-                    El servidor implementa <strong>Streamable HTTP (MCP 2024-11-05)</strong> sobre
-                    JSON-RPC 2.0. Compatible con cualquier cliente que soporte este transporte.
+                    {t("mcpDocs.generic.description")}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
-                <p className="text-xs font-medium">Detalles del endpoint</p>
+                <p className="text-xs font-medium">{t("mcpDocs.generic.endpointDetails")}</p>
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-border/30">
                     {[
                       ["URL", mcpUrl],
-                      ["Método", "POST"],
+                      [t("mcpDocs.generic.method"), "POST"],
                       ["Content-Type", "application/json"],
                       ["Auth", `Bearer ${key}`],
-                      ["Protocolo", "MCP 2024-11-05 / JSON-RPC 2.0"],
+                      [t("mcpDocs.generic.protocol"), "MCP 2024-11-05 / JSON-RPC 2.0"],
                     ].map(([label, value]) => (
                       <tr key={label} className="py-1">
                         <td className="pr-3 font-medium text-muted-foreground w-28 py-1">{label}</td>
@@ -454,10 +444,10 @@ curl -X POST "${mcpUrl}" \\
                 </table>
               </div>
 
-              <CodeBlock code={genericFetch} label="Ejemplos curl" />
+              <CodeBlock code={genericFetch} label={t("mcpDocs.generic.curlExamples")} />
 
               <div>
-                <p className="text-xs font-medium mb-1.5">Config genérica (cualquier cliente MCP HTTP)</p>
+                <p className="text-xs font-medium mb-1.5">{t("mcpDocs.generic.configLabel")}</p>
                 <CodeBlock
                   code={JSON.stringify(
                     {
@@ -478,7 +468,7 @@ curl -X POST "${mcpUrl}" \\
               <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  Especificación completa:{" "}
+                  {t("mcpDocs.generic.fullSpec")}{" "}
                   <a
                     href="https://spec.modelcontextprotocol.io"
                     target="_blank"

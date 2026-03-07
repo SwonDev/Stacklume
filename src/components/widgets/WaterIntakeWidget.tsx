@@ -14,6 +14,7 @@ import {
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface WaterIntakeWidgetProps {
   widget: Widget;
@@ -45,6 +46,7 @@ function getInitialWaterData(widgetConfig: unknown): { goal: number; current: nu
 }
 
 export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
+  const { t } = useTranslation();
   // Use lazy state initializers to avoid effects for initialization
   const [currentGlasses, setCurrentGlasses] = useState(() =>
     getInitialWaterData(widget.config).current
@@ -111,7 +113,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Droplets className="w-4 h-4 text-blue-500" />
-            <span className="text-sm font-medium">Agua</span>
+            <span className="text-sm font-medium">{t("waterIntake.title")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -119,7 +121,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
               size="icon"
               className="h-7 w-7"
               onClick={resetToday}
-              title="Reiniciar"
+              title={t("waterIntake.reset")}
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </Button>
@@ -133,7 +135,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <Label htmlFor="goal" className="text-xs">
-                      Meta diaria (vasos)
+                      {t("waterIntake.dailyGoal")}
                     </Label>
                     <Input
                       id="goal"
@@ -148,7 +150,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
                     />
                   </div>
                   <Button size="sm" className="w-full" onClick={saveGoal}>
-                    Guardar
+                    {t("waterIntake.save")}
                   </Button>
                 </div>
               </PopoverContent>
@@ -230,7 +232,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
                 / {goalGlasses}
               </span>
             </motion.div>
-            <p className="text-xs text-muted-foreground mt-1">vasos de agua</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("waterIntake.glassesOfWater")}</p>
           </div>
 
           {/* Progress bar */}
@@ -291,7 +293,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
                 exit={{ opacity: 0 }}
                 className="text-xs text-green-600 dark:text-green-400 mt-3 text-center font-medium"
               >
-                Meta alcanzada!
+                {t("waterIntake.goalReached")}
               </motion.p>
             ) : (
               <motion.p
@@ -301,7 +303,7 @@ export function WaterIntakeWidget({ widget }: WaterIntakeWidgetProps) {
                 exit={{ opacity: 0 }}
                 className="text-xs text-muted-foreground mt-3 text-center"
               >
-                Faltan {goalGlasses - currentGlasses} vasos
+                {t("waterIntake.remaining", { count: String(goalGlasses - currentGlasses) })}
               </motion.p>
             )}
           </AnimatePresence>
