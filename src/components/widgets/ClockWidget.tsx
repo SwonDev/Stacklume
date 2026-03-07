@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from "@/lib/i18n";
 
 export function ClockWidget() {
+  const { t, language } = useTranslation();
   const [time, setTime] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -19,8 +21,10 @@ export function ClockWidget() {
   const minutes = time.getMinutes().toString().padStart(2, "0");
   const seconds = time.getSeconds().toString().padStart(2, "0");
 
+  const locale = language === "en" ? "en-US" : "es-ES";
+
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString("es-ES", {
+    return date.toLocaleDateString(locale, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -28,7 +32,7 @@ export function ClockWidget() {
   };
 
   const getDayOfWeek = (date: Date): string => {
-    return date.toLocaleDateString("es-ES", {
+    return date.toLocaleDateString(locale, {
       weekday: "long",
     });
   };
@@ -137,7 +141,7 @@ export function ClockWidget() {
           className="hidden @xl:flex mt-4 px-3 py-1 rounded-full bg-primary/5 border border-primary/10"
         >
           <span className="text-xs font-medium text-primary">
-            {parseInt(hours) < 12 ? "Morning" : parseInt(hours) < 18 ? "Afternoon" : "Evening"}
+            {parseInt(hours) < 12 ? t("clock.morning") : parseInt(hours) < 18 ? t("clock.afternoon") : t("clock.evening")}
           </span>
         </motion.div>
       </div>

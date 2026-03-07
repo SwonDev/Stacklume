@@ -1,0 +1,11 @@
+import { readFileSync } from 'fs';
+const es = JSON.parse(readFileSync('./src/lib/i18n/es.json', 'utf8'));
+const en = JSON.parse(readFileSync('./src/lib/i18n/en.json', 'utf8'));
+console.log('ES keys:', Object.keys(es).length);
+console.log('EN keys:', Object.keys(en).length);
+const missingInEn = Object.keys(es).filter(k => !(k in en));
+const missingInEs = Object.keys(en).filter(k => !(k in es));
+console.log('Missing in EN:', missingInEn.length);
+if (missingInEn.length > 0) console.log(missingInEn.join('\n'));
+console.log('Missing in ES:', missingInEs.length);
+if (missingInEs.length > 0) console.log(missingInEs.join('\n'));

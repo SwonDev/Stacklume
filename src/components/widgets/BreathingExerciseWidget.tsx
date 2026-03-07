@@ -20,6 +20,7 @@ import {
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface BreathingExerciseWidgetProps {
   widget: Widget;
@@ -28,8 +29,8 @@ interface BreathingExerciseWidgetProps {
 type BreathingPreset = "4-7-8" | "box" | "calm";
 
 interface BreathingPattern {
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   inhale: number;
   hold1: number;
   exhale: number;
@@ -38,24 +39,24 @@ interface BreathingPattern {
 
 const BREATHING_PRESETS: Record<BreathingPreset, BreathingPattern> = {
   "4-7-8": {
-    name: "4-7-8",
-    description: "Relajacion profunda",
+    nameKey: "breathing.preset478",
+    descriptionKey: "breathing.presetDeepRelaxation",
     inhale: 4,
     hold1: 7,
     exhale: 8,
     hold2: 0,
   },
   box: {
-    name: "Respiracion cuadrada",
-    description: "Balance y calma",
+    nameKey: "breathing.presetBox",
+    descriptionKey: "breathing.presetBalanceCalm",
     inhale: 4,
     hold1: 4,
     exhale: 4,
     hold2: 4,
   },
   calm: {
-    name: "Calma",
-    description: "Respiracion suave",
+    nameKey: "breathing.presetCalm",
+    descriptionKey: "breathing.presetSoftBreathing",
     inhale: 4,
     hold1: 2,
     exhale: 6,
@@ -65,15 +66,16 @@ const BREATHING_PRESETS: Record<BreathingPreset, BreathingPattern> = {
 
 type Phase = "inhale" | "hold1" | "exhale" | "hold2" | "idle";
 
-const PHASE_LABELS: Record<Phase, string> = {
-  inhale: "Inhala",
-  hold1: "Manten",
-  exhale: "Exhala",
-  hold2: "Manten",
-  idle: "Listo",
+const PHASE_LABEL_KEYS: Record<Phase, string> = {
+  inhale: "breathing.inhale",
+  hold1: "breathing.hold",
+  exhale: "breathing.exhale",
+  hold2: "breathing.hold",
+  idle: "breathing.ready",
 };
 
 export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps) {
+  const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<Phase>("idle");
   const [phaseTime, setPhaseTime] = useState(0);
@@ -173,6 +175,7 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
         clearInterval(intervalRef.current);
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getNextPhase and getPhaseDuration are plain functions that only depend on pattern, already in deps; currentPhase is managed via setState callback
   }, [isRunning, pattern]);
 
   const handleStartStop = () => {
@@ -230,7 +233,7 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Wind className="w-4 h-4 text-cyan-500" />
-            <span className="text-sm font-medium">Respiracion</span>
+            <span className="text-sm font-medium">{t("breathing.title")}</span>
           </div>
           <Popover>
             <PopoverTrigger asChild>
@@ -240,7 +243,7 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
             </PopoverTrigger>
             <PopoverContent className="w-56">
               <div className="space-y-3">
-                <Label className="text-xs">Tipo de ejercicio</Label>
+                <Label className="text-xs">{t("breathing.exerciseType")}</Label>
                 <Select
                   value={selectedPreset}
                   onValueChange={(v) => handlePresetChange(v as BreathingPreset)}
@@ -252,9 +255,9 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
                     {Object.entries(BREATHING_PRESETS).map(([key, preset]) => (
                       <SelectItem key={key} value={key}>
                         <div className="flex flex-col">
-                          <span>{preset.name}</span>
+                          <span>{t(preset.nameKey)}</span>
                           <span className="text-xs text-muted-foreground">
-                            {preset.description}
+                            {t(preset.descriptionKey)}
                           </span>
                         </div>
                       </SelectItem>
@@ -264,12 +267,12 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
 
                 <div className="pt-2 text-xs text-muted-foreground">
                   <p>
-                    Inhala: {pattern.inhale}s
-                    {pattern.hold1 > 0 && ` | Manten: ${pattern.hold1}s`}
+                    {t("breathing.inhale")}: {pattern.inhale}s
+                    {pattern.hold1 > 0 && ` | ${t("breathing.hold")}: ${pattern.hold1}s`}
                   </p>
                   <p>
-                    Exhala: {pattern.exhale}s
-                    {pattern.hold2 > 0 && ` | Manten: ${pattern.hold2}s`}
+                    {t("breathing.exhale")}: {pattern.exhale}s
+                    {pattern.hold2 > 0 && ` | ${t("breathing.hold")}: ${pattern.hold2}s`}
                   </p>
                 </div>
               </div>
@@ -322,7 +325,7 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
                   className="text-center"
                 >
                   <p className="text-sm @sm:text-base @md:text-lg font-medium">
-                    {PHASE_LABELS[currentPhase]}
+                    {t(PHASE_LABEL_KEYS[currentPhase])}
                   </p>
                   {currentPhase !== "idle" && (
                     <p className="text-2xl @sm:text-3xl @md:text-4xl font-bold tabular-nums">
@@ -373,7 +376,7 @@ export function BreathingExerciseWidget({ widget }: BreathingExerciseWidgetProps
 
           {/* Pattern name */}
           <p className="text-xs text-muted-foreground mb-4">
-            {pattern.name}
+            {t(pattern.nameKey)}
           </p>
 
           {/* Controls */}

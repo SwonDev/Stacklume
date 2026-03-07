@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { Clock, Plus, Trash2, GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface TimeBlockingWidgetProps {
   widget: Widget;
@@ -41,19 +42,20 @@ interface TimeBlockingConfig {
 }
 
 const BLOCK_COLORS = [
-  { name: "Azul", value: "bg-blue-500/80" },
-  { name: "Verde", value: "bg-green-500/80" },
-  { name: "Amarillo", value: "bg-yellow-500/80" },
-  { name: "Naranja", value: "bg-orange-500/80" },
-  { name: "Rojo", value: "bg-red-500/80" },
-  { name: "Morado", value: "bg-purple-500/80" },
-  { name: "Rosa", value: "bg-pink-500/80" },
-  { name: "Cyan", value: "bg-cyan-500/80" },
+  { nameKey: "timeBlocking.colorBlue", value: "bg-blue-500/80" },
+  { nameKey: "timeBlocking.colorGreen", value: "bg-green-500/80" },
+  { nameKey: "timeBlocking.colorYellow", value: "bg-yellow-500/80" },
+  { nameKey: "timeBlocking.colorOrange", value: "bg-orange-500/80" },
+  { nameKey: "timeBlocking.colorRed", value: "bg-red-500/80" },
+  { nameKey: "timeBlocking.colorPurple", value: "bg-purple-500/80" },
+  { nameKey: "timeBlocking.colorPink", value: "bg-pink-500/80" },
+  { nameKey: "timeBlocking.colorCyan", value: "bg-cyan-500/80" },
 ];
 
 export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
+  const { t } = useTranslation();
   const config: TimeBlockingConfig = widget.config || {};
-  const timeBlocks: TimeBlock[] = config.timeBlocks || [];
+  const timeBlocks: TimeBlock[] = useMemo(() => config.timeBlocks || [], [config.timeBlocks]);
   const startHour = config.startHour ?? (config.workHoursOnly ? 8 : 6);
   const endHour = config.endHour ?? (config.workHoursOnly ? 18 : 22);
 
@@ -149,9 +151,9 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
-    if (dateStr === todayStr) return "Hoy";
-    if (dateStr === yesterdayStr) return "Ayer";
-    if (dateStr === tomorrowStr) return "Manana";
+    if (dateStr === todayStr) return t("timeBlocking.today");
+    if (dateStr === yesterdayStr) return t("timeBlocking.yesterday");
+    if (dateStr === tomorrowStr) return t("timeBlocking.tomorrow");
 
     return date.toLocaleDateString("es-ES", {
       weekday: "short",
@@ -193,7 +195,7 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Bloques de Tiempo</span>
+            <span className="text-sm font-medium">{t("timeBlocking.title")}</span>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -203,21 +205,21 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Agregar Bloque de Tiempo</DialogTitle>
+                <DialogTitle>{t("timeBlocking.addBlock")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="block-title">Titulo</Label>
+                  <Label htmlFor="block-title">{t("timeBlocking.blockTitle")}</Label>
                   <Input
                     id="block-title"
                     value={newBlockTitle}
                     onChange={(e) => setNewBlockTitle(e.target.value)}
-                    placeholder="Ej: Trabajo profundo..."
+                    placeholder={t("timeBlocking.blockTitlePlaceholder")}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Hora de inicio</Label>
+                    <Label>{t("timeBlocking.startTime")}</Label>
                     <select
                       value={newBlockStartHour}
                       onChange={(e) => setNewBlockStartHour(Number(e.target.value))}
@@ -231,7 +233,7 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Hora de fin</Label>
+                    <Label>{t("timeBlocking.endTime")}</Label>
                     <select
                       value={newBlockEndHour}
                       onChange={(e) => setNewBlockEndHour(Number(e.target.value))}
@@ -246,7 +248,7 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Color</Label>
+                  <Label>{t("timeBlocking.color")}</Label>
                   <div className="flex gap-2 flex-wrap">
                     {BLOCK_COLORS.map((color) => (
                       <button
@@ -259,13 +261,13 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
                             ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                             : ""
                         )}
-                        title={color.name}
+                        title={t(color.nameKey)}
                       />
                     ))}
                   </div>
                 </div>
                 <Button onClick={addBlock} className="w-full" disabled={!newBlockTitle.trim()}>
-                  Agregar Bloque
+                  {t("timeBlocking.addBlockBtn")}
                 </Button>
               </div>
             </DialogContent>
@@ -349,8 +351,8 @@ export function TimeBlockingWidget({ widget }: TimeBlockingWidgetProps) {
         {todayBlocks.length === 0 && (
           <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
             <Clock className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-xs">Sin bloques para este dia</p>
-            <p className="text-[10px]">Haz clic en + para agregar uno</p>
+            <p className="text-xs">{t("timeBlocking.noBlocks")}</p>
+            <p className="text-[10px]">{t("timeBlocking.clickToAdd")}</p>
           </div>
         )}
       </div>

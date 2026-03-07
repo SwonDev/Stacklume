@@ -61,6 +61,7 @@ import {
   useColumnWipStatus,
 } from "@/stores/kanban-store";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
@@ -87,15 +88,8 @@ function getWidgetTypeDistribution(widgets: Widget[]) {
     }));
 }
 
-// WIP Limit options
-const WIP_LIMIT_OPTIONS = [
-  { value: undefined, label: "Sin límite" },
-  { value: 3, label: "3 widgets" },
-  { value: 5, label: "5 widgets" },
-  { value: 8, label: "8 widgets" },
-  { value: 10, label: "10 widgets" },
-  { value: 15, label: "15 widgets" },
-];
+// WIP Limit options (values only, labels are i18n'd at render time)
+const WIP_LIMIT_VALUES = [undefined, 3, 5, 8, 10, 15] as const;
 
 export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
@@ -106,6 +100,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
     },
   });
 
+  const { t } = useTranslation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStats, setShowStats] = useState(false);
 
@@ -145,17 +140,17 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
 
   const handleDelete = () => {
     if (!canDelete) {
-      toast.error("No puedes eliminar la última columna");
+      toast.error(t("kanban.cannotDeleteLast"));
       return;
     }
     removeColumn(column.id);
-    toast.success("Columna eliminada");
+    toast.success(t("kanban.columnDeleted"));
     setShowDeleteDialog(false);
   };
 
   const handleColorChange = (color: string) => {
     updateColumn(column.id, { color });
-    toast.success("Color actualizado");
+    toast.success(t("kanban.colorUpdated"));
   };
 
   const handleMoveLeft = () => {
@@ -177,9 +172,9 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
   const handleSetWipLimit = (limit: number | undefined) => {
     setColumnWipLimit(column.id, limit);
     if (limit) {
-      toast.success(`Límite WIP establecido: ${limit} widgets`);
+      toast.success(t("kanban.wipSet", { count: limit }));
     } else {
-      toast.success("Límite WIP eliminado");
+      toast.success(t("kanban.wipRemoved"));
     }
   };
 
@@ -260,7 +255,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Colapsar columna</TooltipContent>
+              <TooltipContent>{t("kanban.collapseColumn")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
@@ -303,17 +298,19 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                 {column.wipLimit ? (
                   isOverLimit ? (
                     <span className="text-destructive">
-                      ¡Límite WIP superado! ({widgets.length}/{column.wipLimit})
+                      {t("kanban.wipExceeded", { current: widgets.length, limit: column.wipLimit })}
                     </span>
                   ) : isNearLimit ? (
                     <span className="text-amber-500">
-                      Cerca del límite WIP ({Math.round(limitPercentage)}%)
+                      {t("kanban.wipNear", { percentage: Math.round(limitPercentage) })}
                     </span>
                   ) : (
-                    `${widgets.length} de ${column.wipLimit} widgets`
+                    t("kanban.widgetCount", { current: widgets.length, limit: column.wipLimit })
                   )
                 ) : (
-                  `${widgets.length} widget${widgets.length !== 1 ? "s" : ""}`
+                  widgets.length !== 1
+                    ? t("kanban.widgetCountSimplePlural", { count: widgets.length })
+                    : t("kanban.widgetCountSimple", { count: widgets.length })
                 )}
               </TooltipContent>
             </Tooltip>
@@ -337,7 +334,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {showStats ? "Ocultar estadísticas" : "Ver estadísticas"}
+                  {showStats ? t("kanban.hideStats") : t("kanban.showStats")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -358,7 +355,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Añadir widget</TooltipContent>
+              <TooltipContent>{t("kanban.addWidget")}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
@@ -377,14 +374,14 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
               {/* Edit Column */}
               <DropdownMenuItem onClick={handleEdit}>
                 <Pencil className="w-4 h-4 mr-2" />
-                Editar columna
+                {t("kanban.editColumn")}
               </DropdownMenuItem>
 
               {/* Color Submenu */}
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Palette className="w-4 h-4 mr-2" />
-                  Cambiar color
+                  {t("kanban.changeColor")}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="p-2">
                   <div className="grid grid-cols-4 gap-2">
@@ -410,28 +407,28 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Gauge className="w-4 h-4 mr-2" />
-                  Límite WIP
+                  {t("kanban.wipLimit")}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Límite de trabajo en progreso
+                    {t("kanban.wipLimitDesc")}
                   </DropdownMenuLabel>
-                  {WIP_LIMIT_OPTIONS.map((option) => (
+                  {WIP_LIMIT_VALUES.map((value) => (
                     <DropdownMenuItem
-                      key={option.value ?? "none"}
-                      onClick={() => handleSetWipLimit(option.value)}
+                      key={value ?? "none"}
+                      onClick={() => handleSetWipLimit(value)}
                     >
                       <span
                         className={cn(
                           "w-4 h-4 mr-2 rounded-full border flex items-center justify-center text-[10px]",
-                          column.wipLimit === option.value
+                          column.wipLimit === value
                             ? "bg-primary border-primary text-primary-foreground"
                             : "border-muted-foreground/30"
                         )}
                       >
-                        {column.wipLimit === option.value && "✓"}
+                        {column.wipLimit === value && "✓"}
                       </span>
-                      {option.label}
+                      {value === undefined ? t("kanban.noLimit") : t("kanban.wipWidgets", { count: value })}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuSubContent>
@@ -442,19 +439,19 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
               {/* Move Left */}
               <DropdownMenuItem onClick={handleMoveLeft} disabled={isFirst}>
                 <ChevronLeft className="w-4 h-4 mr-2" />
-                Mover a la izquierda
+                {t("kanban.moveLeft")}
               </DropdownMenuItem>
 
               {/* Move Right */}
               <DropdownMenuItem onClick={handleMoveRight} disabled={isLast}>
                 <ChevronRight className="w-4 h-4 mr-2" />
-                Mover a la derecha
+                {t("kanban.moveRight")}
               </DropdownMenuItem>
 
               {/* Collapse */}
               <DropdownMenuItem onClick={handleToggleCollapse}>
                 <ChevronUp className="w-4 h-4 mr-2" />
-                Colapsar columna
+                {t("kanban.collapseColumn")}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
@@ -466,7 +463,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar columna
+                {t("kanban.deleteColumn")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -496,7 +493,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <BarChart2 className="w-3 h-3" />
-              Distribución por tipo
+              {t("kanban.typeDistribution")}
             </span>
             <Button
               variant="ghost"
@@ -529,7 +526,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
             ))}
             {widgets.length > 3 && typeDistribution.length === 3 && (
               <div className="text-xs text-muted-foreground text-center pt-1">
-                +{Object.keys(getWidgetTypeDistribution(widgets)).length - 3} más tipos
+                {t("kanban.moreTypes", { count: Object.keys(getWidgetTypeDistribution(widgets)).length - 3 })}
               </div>
             )}
           </div>
@@ -558,8 +555,8 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                   >
                     <Plus className="w-5 h-5" style={{ color: column.color }} />
                   </div>
-                  <p className="text-sm">Sin widgets</p>
-                  <p className="text-xs mt-1">Arrastra widgets aquí</p>
+                  <p className="text-sm">{t("kanban.noWidgets")}</p>
+                  <p className="text-xs mt-1">{t("kanban.dragWidgetsHere")}</p>
                 </div>
               ) : (
                 widgets.map((widget) => (
@@ -575,16 +572,15 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar columna &ldquo;{column.title}&rdquo;?</AlertDialogTitle>
+            <AlertDialogTitle>{t("kanban.deleteColumnTitle", { title: column.title })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Los widgets de esta columna ({widgets.length}) se moverán a la primera columna disponible.
-              Esta acción no se puede deshacer.
+              {t("kanban.deleteColumnDesc", { count: widgets.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>
-              Eliminar
+              {t("btn.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

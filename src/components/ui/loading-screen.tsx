@@ -37,7 +37,7 @@ export function LoadingScreen({ isLoading, minDuration = 800 }: LoadingScreenPro
           {/* Animated background gradient */}
           <div className="absolute inset-0 overflow-hidden">
             <motion.div
-              className="absolute -inset-[100%] opacity-30"
+              className="absolute -inset-[100%] opacity-30 will-change-transform"
               style={{
                 background: "radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.15) 0%, transparent 50%)",
               }}

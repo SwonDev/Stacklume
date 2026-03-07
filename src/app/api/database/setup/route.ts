@@ -12,15 +12,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { connectionString } = body;
 
-    if (!connectionString) {
+    if (!connectionString || typeof connectionString !== "string") {
       return NextResponse.json(
         { success: false, error: "Connection string is required" },
         { status: 400 }
       );
     }
 
+    // Sanitize newlines to prevent header injection and env file corruption
+    const sanitizedConnectionString = connectionString.replace(/[\n\r]/g, "").trim();
+
     // Validate connection string format
-    if (!connectionString.startsWith("postgresql://") && !connectionString.startsWith("postgres://")) {
+    if (!sanitizedConnectionString.startsWith("postgresql://") && !sanitizedConnectionString.startsWith("postgres://")) {
       return NextResponse.json(
         {
           success: false,
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Test the connection
     try {
-      const sql = neon(connectionString);
+      const sql = neon(sanitizedConnectionString);
 
       // Run a simple query to test the connection
       const result = await sql`SELECT 1 as test, current_timestamp as time`;
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
             // Replace existing DATABASE_URL
             envContent = envContent.replace(
               /DATABASE_URL=.*/,
-              `DATABASE_URL=${connectionString}`
+              `DATABASE_URL=${sanitizedConnectionString}`
             );
           } else {
             // Add DATABASE_URL

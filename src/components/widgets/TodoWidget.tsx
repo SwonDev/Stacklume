@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface TodoWidgetProps {
   widget: Widget;
@@ -43,6 +44,7 @@ const priorityBgColors = {
 };
 
 export function TodoWidget({ widget }: TodoWidgetProps) {
+  const { t } = useTranslation();
   // Note: Use getState() for updateWidget to prevent re-render loops
   const [newTodo, setNewTodo] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
@@ -119,7 +121,7 @@ export function TodoWidget({ widget }: TodoWidgetProps) {
           <div className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-primary" />
             <span className="text-xs text-muted-foreground">
-              {completedCount}/{totalCount} completadas
+              {t("todo.completedCount", { completed: completedCount, total: totalCount })}
             </span>
           </div>
           <Button
@@ -127,7 +129,7 @@ export function TodoWidget({ widget }: TodoWidgetProps) {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={toggleShowCompleted}
-            title={showCompleted ? "Ocultar completadas" : "Mostrar completadas"}
+            title={showCompleted ? t("todo.hideCompleted") : t("todo.showCompleted")}
           >
             {showCompleted ? (
               <Eye className="w-4 h-4" />
@@ -144,7 +146,7 @@ export function TodoWidget({ widget }: TodoWidgetProps) {
             size="sm"
             className={cn("h-8 w-8 p-0", priorityColors[priority])}
             onClick={cyclePriority}
-            title={`Prioridad: ${priority === "low" ? "baja" : priority === "medium" ? "media" : "alta"}`}
+            title={`${t("todo.priority")}: ${priority === "low" ? t("todo.priorityLow") : priority === "medium" ? t("todo.priorityMedium") : t("todo.priorityHigh")}`}
           >
             <Flag className="w-4 h-4" />
           </Button>
@@ -152,7 +154,7 @@ export function TodoWidget({ widget }: TodoWidgetProps) {
             value={newTodo}
             onChange={(e) => setNewTodo(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addTodo()}
-            placeholder="Nueva tarea..."
+            placeholder={t("todo.newTask")}
             className="h-8 text-sm flex-1"
           />
           <Button
@@ -178,8 +180,8 @@ export function TodoWidget({ widget }: TodoWidgetProps) {
                 <CheckSquare className="w-8 h-8 mb-2 opacity-50" />
                 <p className="text-sm">
                   {todoItems.length === 0
-                    ? "Sin tareas pendientes"
-                    : "Todas las tareas completadas"}
+                    ? t("todo.noTasks")
+                    : t("todo.allCompleted")}
                 </p>
               </motion.div>
             ) : (
@@ -252,7 +254,7 @@ export function TodoWidget({ widget }: TodoWidgetProps) {
               }
             >
               <Trash2 className="w-3 h-3 mr-1" />
-              Limpiar completadas ({completedCount})
+              {t("todo.clearCompleted", { count: completedCount })}
             </Button>
           </motion.div>
         )}

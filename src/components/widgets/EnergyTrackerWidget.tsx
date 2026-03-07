@@ -20,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface EnergyTrackerWidgetProps {
   widget: Widget;
@@ -40,23 +41,24 @@ interface EnergyTrackerConfig {
 }
 
 const TIME_SLOTS: { key: TimeSlot; label: string; icon: React.ComponentType<{ className?: string }>; time: string }[] = [
-  { key: "morning", label: "Manana", icon: Sunrise, time: "6-9" },
-  { key: "late-morning", label: "Media Manana", icon: Sun, time: "9-12" },
-  { key: "afternoon", label: "Tarde", icon: Sunset, time: "12-18" },
-  { key: "evening", label: "Noche", icon: Moon, time: "18-22" },
+  { key: "morning", label: "energyTracker.morning", icon: Sunrise, time: "6-9" },
+  { key: "late-morning", label: "energyTracker.midMorning", icon: Sun, time: "9-12" },
+  { key: "afternoon", label: "energyTracker.afternoon", icon: Sunset, time: "12-18" },
+  { key: "evening", label: "energyTracker.night", icon: Moon, time: "18-22" },
 ];
 
 const ENERGY_LEVELS: { level: 1 | 2 | 3 | 4 | 5; label: string; color: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { level: 1, label: "Muy bajo", color: "bg-red-500", icon: BatteryLow },
-  { level: 2, label: "Bajo", color: "bg-orange-500", icon: BatteryLow },
-  { level: 3, label: "Normal", color: "bg-yellow-500", icon: BatteryMedium },
-  { level: 4, label: "Alto", color: "bg-green-500", icon: BatteryMedium },
-  { level: 5, label: "Muy alto", color: "bg-emerald-500", icon: BatteryFull },
+  { level: 1, label: "energyTracker.veryLow", color: "bg-red-500", icon: BatteryLow },
+  { level: 2, label: "energyTracker.low", color: "bg-orange-500", icon: BatteryLow },
+  { level: 3, label: "energyTracker.normal", color: "bg-yellow-500", icon: BatteryMedium },
+  { level: 4, label: "energyTracker.high", color: "bg-green-500", icon: BatteryMedium },
+  { level: 5, label: "energyTracker.veryHigh", color: "bg-emerald-500", icon: BatteryFull },
 ];
 
 export function EnergyTrackerWidget({ widget }: EnergyTrackerWidgetProps) {
+  const { t } = useTranslation();
   const config: EnergyTrackerConfig = widget.config || {};
-  const energyLogs: EnergyLog[] = config.energyLogs || [];
+  const energyLogs: EnergyLog[] = useMemo(() => config.energyLogs || [], [config.energyLogs]);
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
@@ -174,7 +176,7 @@ export function EnergyTrackerWidget({ widget }: EnergyTrackerWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Energia del Dia</span>
+            <span className="text-sm font-medium">{t("energyTracker.title")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -205,7 +207,7 @@ export function EnergyTrackerWidget({ widget }: EnergyTrackerWidgetProps) {
             <span className="text-sm font-medium">{formatDateDisplay(selectedDate)}</span>
             {todayAverage > 0 && viewMode === "day" && (
               <div className="flex items-center justify-center gap-1 mt-0.5">
-                <span className="text-xs text-muted-foreground">Promedio:</span>
+                <span className="text-xs text-muted-foreground">{t("energyTracker.average")}:</span>
                 <div className={cn("w-2 h-2 rounded-full", getEnergyColor(todayAverage))} />
                 <span className="text-xs font-medium">{todayAverage}/5</span>
               </div>
@@ -272,7 +274,7 @@ export function EnergyTrackerWidget({ widget }: EnergyTrackerWidgetProps) {
                     {log && (
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
                         <span className="text-xs text-muted-foreground">
-                          Nivel: {ENERGY_LEVELS.find((e) => e.level === log.level)?.label}
+                          {t("energyTracker.level")}: {ENERGY_LEVELS.find((e) => e.level === log.level)?.label}
                         </span>
                         <button
                           onClick={() => removeLog(slot.key)}
@@ -341,7 +343,7 @@ export function EnergyTrackerWidget({ widget }: EnergyTrackerWidgetProps) {
 
               {/* Weekly Average */}
               <div className="p-3 rounded-lg bg-muted/30 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Promedio semanal</p>
+                <p className="text-xs text-muted-foreground mb-1">{t("energyTracker.weeklyAverage")}</p>
                 <div className="flex items-center justify-center gap-2">
                   {(() => {
                     const weekAvg = Math.round(
@@ -360,7 +362,7 @@ export function EnergyTrackerWidget({ widget }: EnergyTrackerWidgetProps) {
                   })()}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {weeklyStats.filter((d) => d.logs.length > 0).length} dias registrados
+                  {weeklyStats.filter((d) => d.logs.length > 0).length} {t("energyTracker.daysRecorded")}
                 </p>
               </div>
             </div>

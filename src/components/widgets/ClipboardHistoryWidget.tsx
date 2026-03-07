@@ -18,6 +18,7 @@ import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface ClipboardHistoryWidgetProps {
   widget: Widget;
@@ -61,25 +62,8 @@ function detectContentType(content: string): "text" | "url" | "code" {
   return "text";
 }
 
-function formatTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-
-  if (minutes < 1) return "Ahora";
-  if (minutes < 60) return `Hace ${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Hace ${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `Hace ${days}d`;
-
-  return date.toLocaleDateString("es-ES", { month: "short", day: "numeric" });
-}
-
 export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
@@ -97,12 +81,30 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
     [widget.id, widget.config]
   );
 
+  const formatTimestamp = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+
+    if (minutes < 1) return t("clipboardHistory.timeNow");
+    if (minutes < 60) return t("clipboardHistory.timeMinutes", { count: minutes });
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t("clipboardHistory.timeHours", { count: hours });
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) return t("clipboardHistory.timeDays", { count: days });
+
+    return date.toLocaleDateString("es-ES", { month: "short", day: "numeric" });
+  };
+
   const addFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
 
       if (!text.trim()) {
-        toast.error("El portapapeles esta vacio");
+        toast.error(t("clipboardHistory.emptyClipboard"));
         return;
       }
 
@@ -112,7 +114,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
       );
 
       if (isDuplicate) {
-        toast.info("Este contenido ya existe en el historial");
+        toast.info(t("clipboardHistory.alreadyExists"));
         return;
       }
 
@@ -124,29 +126,29 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
       };
 
       saveHistory([newItem, ...clipboardHistory]);
-      toast.success("Contenido agregado al historial");
+      toast.success(t("clipboardHistory.added"));
     } catch (_error) {
-      toast.error("No se pudo acceder al portapapeles");
+      toast.error(t("clipboardHistory.accessError"));
     }
   };
 
   const copyToClipboard = async (item: ClipboardItem) => {
     try {
       await navigator.clipboard.writeText(item.content);
-      toast.success("Copiado al portapapeles");
+      toast.success(t("clipboardHistory.copied"));
     } catch (_error) {
-      toast.error("Error al copiar");
+      toast.error(t("clipboardHistory.copyError"));
     }
   };
 
   const deleteItem = (id: string) => {
     saveHistory(clipboardHistory.filter((item) => item.id !== id));
-    toast.success("Elemento eliminado");
+    toast.success(t("clipboardHistory.deleted"));
   };
 
   const clearAll = () => {
     saveHistory([]);
-    toast.success("Historial limpiado");
+    toast.success(t("clipboardHistory.cleared"));
   };
 
   const filteredItems = searchQuery.trim()
@@ -169,11 +171,11 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
   const getTypeLabel = (type: ClipboardItem["type"]) => {
     switch (type) {
       case "url":
-        return "URL";
+        return t("clipboardHistory.typeUrl");
       case "code":
-        return "Codigo";
+        return t("clipboardHistory.typeCode");
       default:
-        return "Texto";
+        return t("clipboardHistory.typeText");
     }
   };
 
@@ -185,13 +187,13 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
           <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-3">
             <Clipboard className="w-6 h-6 text-purple-500" />
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Sin historial</p>
+          <p className="text-sm text-muted-foreground mb-1">{t("clipboardHistory.noHistory")}</p>
           <p className="text-xs text-muted-foreground/60 mb-4">
-            Agrega contenido del portapapeles
+            {t("clipboardHistory.noHistoryDesc")}
           </p>
           <Button size="sm" onClick={addFromClipboard}>
             <Plus className="w-4 h-4 mr-2" />
-            Agregar actual
+            {t("clipboardHistory.addCurrent")}
           </Button>
         </div>
       </div>
@@ -206,7 +208,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
           <div className="flex items-center gap-2">
             <Clipboard className="w-4 h-4 text-purple-500" />
             <span className="text-xs text-muted-foreground hidden @sm:inline">
-              {clipboardHistory.length} elementos
+              {t("clipboardHistory.elements", { count: clipboardHistory.length })}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -215,7 +217,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setIsSearching(!isSearching)}
-              title="Buscar"
+              title={t("clipboardHistory.search")}
             >
               <Search className="w-4 h-4" />
             </Button>
@@ -224,7 +226,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
               size="sm"
               className="h-7 w-7 p-0"
               onClick={addFromClipboard}
-              title="Agregar desde portapapeles"
+              title={t("clipboardHistory.addFromClipboard")}
             >
               <Plus className="w-4 h-4" />
             </Button>
@@ -234,7 +236,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
                 size="sm"
                 className="h-7 w-7 p-0 text-destructive"
                 onClick={clearAll}
-                title="Limpiar todo"
+                title={t("clipboardHistory.clearAll")}
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -256,7 +258,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar en historial..."
+                  placeholder={t("clipboardHistory.searchPlaceholder")}
                   className="h-8 text-sm pl-8 pr-8"
                   autoFocus
                 />
@@ -285,7 +287,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
                 className="flex flex-col items-center justify-center py-8 text-muted-foreground"
               >
                 <Search className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-sm">Sin resultados</p>
+                <p className="text-sm">{t("clipboardHistory.noResults")}</p>
               </motion.div>
             ) : (
               <div className="space-y-2">
@@ -330,7 +332,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
                           size="sm"
                           className="h-6 w-6 p-0"
                           onClick={() => copyToClipboard(item)}
-                          title="Copiar"
+                          title={t("clipboardHistory.copy")}
                         >
                           <Copy className="w-3 h-3" />
                         </Button>
@@ -339,7 +341,7 @@ export function ClipboardHistoryWidget({ widget }: ClipboardHistoryWidgetProps) 
                           size="sm"
                           className="h-6 w-6 p-0 text-destructive"
                           onClick={() => deleteItem(item.id)}
-                          title="Eliminar"
+                          title={t("clipboardHistory.delete")}
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>

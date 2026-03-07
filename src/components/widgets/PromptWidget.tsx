@@ -50,6 +50,7 @@ import { toast } from "sonner";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface PromptWidgetProps {
   widget: Widget;
@@ -75,16 +76,16 @@ interface PromptWidgetConfig {
   searchQuery?: string;
 }
 
-const CATEGORY_LABELS: Record<PromptCategory | "all" | "favorites", string> = {
-  all: "Todos",
-  favorites: "Favoritos",
-  coding: "Código",
-  writing: "Escritura",
-  analysis: "Análisis",
-  business: "Negocios",
-  learning: "Aprendizaje",
-  creative: "Creativo",
-  general: "General",
+const CATEGORY_LABEL_KEYS: Record<PromptCategory | "all" | "favorites", string> = {
+  all: "prompt.catAll",
+  favorites: "prompt.catFavorites",
+  coding: "prompt.catCoding",
+  writing: "prompt.catWriting",
+  analysis: "prompt.catAnalysis",
+  business: "prompt.catBusiness",
+  learning: "prompt.catLearning",
+  creative: "prompt.catCreative",
+  general: "prompt.catGeneral",
 };
 
 const CATEGORY_COLORS: Record<PromptCategory, string> = {
@@ -103,46 +104,46 @@ type OutputFormat = "paragraphs" | "bullets" | "steps" | "table" | "code" | "out
 type ToneType = "formal" | "casual" | "technical" | "friendly" | "academic" | "creative";
 type DepthLevel = "basic" | "intermediate" | "advanced" | "expert";
 
-const TASK_LABELS: Record<TaskType, { label: string; description: string; icon: string }> = {
-  explain: { label: "Explicar", description: "Hacer comprensible un concepto", icon: "💡" },
-  analyze: { label: "Analizar", description: "Examinar en profundidad", icon: "🔍" },
-  create: { label: "Crear", description: "Generar contenido nuevo", icon: "✨" },
-  compare: { label: "Comparar", description: "Contrastar opciones", icon: "⚖️" },
-  summarize: { label: "Resumir", description: "Condensar información", icon: "📝" },
-  solve: { label: "Resolver", description: "Encontrar soluciones", icon: "🧩" },
-  brainstorm: { label: "Idear", description: "Generar ideas", icon: "🧠" },
-  review: { label: "Revisar", description: "Evaluar y mejorar", icon: "👁️" },
-  translate: { label: "Traducir", description: "Adaptar a otro contexto", icon: "🌐" },
-  improve: { label: "Mejorar", description: "Optimizar existente", icon: "📈" },
+const TASK_LABEL_KEYS: Record<TaskType, { labelKey: string; descriptionKey: string; icon: string }> = {
+  explain: { labelKey: "prompt.taskExplain", descriptionKey: "prompt.taskExplainDesc", icon: "💡" },
+  analyze: { labelKey: "prompt.taskAnalyze", descriptionKey: "prompt.taskAnalyzeDesc", icon: "🔍" },
+  create: { labelKey: "prompt.taskCreate", descriptionKey: "prompt.taskCreateDesc", icon: "✨" },
+  compare: { labelKey: "prompt.taskCompare", descriptionKey: "prompt.taskCompareDesc", icon: "⚖️" },
+  summarize: { labelKey: "prompt.taskSummarize", descriptionKey: "prompt.taskSummarizeDesc", icon: "📝" },
+  solve: { labelKey: "prompt.taskSolve", descriptionKey: "prompt.taskSolveDesc", icon: "🧩" },
+  brainstorm: { labelKey: "prompt.taskBrainstorm", descriptionKey: "prompt.taskBrainstormDesc", icon: "🧠" },
+  review: { labelKey: "prompt.taskReview", descriptionKey: "prompt.taskReviewDesc", icon: "👁️" },
+  translate: { labelKey: "prompt.taskTranslate", descriptionKey: "prompt.taskTranslateDesc", icon: "🌐" },
+  improve: { labelKey: "prompt.taskImprove", descriptionKey: "prompt.taskImproveDesc", icon: "📈" },
 };
 
-const FORMAT_LABELS: Record<OutputFormat, string> = {
-  paragraphs: "Párrafos",
-  bullets: "Lista con viñetas",
-  steps: "Pasos numerados",
-  table: "Tabla comparativa",
-  code: "Código/pseudocódigo",
-  outline: "Esquema jerárquico",
-  conversation: "Diálogo/Q&A",
+const FORMAT_LABEL_KEYS: Record<OutputFormat, string> = {
+  paragraphs: "prompt.formatParagraphs",
+  bullets: "prompt.formatBullets",
+  steps: "prompt.formatSteps",
+  table: "prompt.formatTable",
+  code: "prompt.formatCode",
+  outline: "prompt.formatOutline",
+  conversation: "prompt.formatConversation",
 };
 
-const TONE_LABELS: Record<ToneType, string> = {
-  formal: "Formal",
-  casual: "Casual",
-  technical: "Técnico",
-  friendly: "Amigable",
-  academic: "Académico",
-  creative: "Creativo",
+const TONE_LABEL_KEYS: Record<ToneType, string> = {
+  formal: "prompt.toneFormal",
+  casual: "prompt.toneCasual",
+  technical: "prompt.toneTechnical",
+  friendly: "prompt.toneFriendly",
+  academic: "prompt.toneAcademic",
+  creative: "prompt.toneCreative",
 };
 
-const DEPTH_LABELS: Record<DepthLevel, { label: string; description: string }> = {
-  basic: { label: "Básico", description: "Para principiantes" },
-  intermediate: { label: "Intermedio", description: "Conocimiento previo" },
-  advanced: { label: "Avanzado", description: "Profundo y detallado" },
-  expert: { label: "Experto", description: "Nivel profesional" },
+const DEPTH_LABEL_KEYS: Record<DepthLevel, { labelKey: string; descriptionKey: string }> = {
+  basic: { labelKey: "prompt.depthBasic", descriptionKey: "prompt.depthBasicDesc" },
+  intermediate: { labelKey: "prompt.depthIntermediate", descriptionKey: "prompt.depthIntermediateDesc" },
+  advanced: { labelKey: "prompt.depthAdvanced", descriptionKey: "prompt.depthAdvancedDesc" },
+  expert: { labelKey: "prompt.depthExpert", descriptionKey: "prompt.depthExpertDesc" },
 };
 
-// Smart prompt generator function
+// Smart prompt generator function — generates prompt CONTENT (not UI), kept in Spanish as functional text
 function generateSmartPrompt(
   concept: string,
   task: TaskType,
@@ -672,6 +673,7 @@ function generateId(): string {
 }
 
 export function PromptWidget({ widget }: PromptWidgetProps) {
+  const { t } = useTranslation();
   // Note: Use getState() for updateWidget to prevent re-render loops
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -696,7 +698,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
   const [generatedPreview, setGeneratedPreview] = useState("");
 
   const config = widget.config as PromptWidgetConfig | undefined;
-  const prompts = config?.prompts || [];
+  const prompts = useMemo(() => config?.prompts || [], [config?.prompts]);
   const selectedCategory = config?.selectedCategory || "all";
   const searchQuery = config?.searchQuery || "";
 
@@ -755,12 +757,12 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
       );
       updateConfig({ prompts: updatedPrompts });
 
-      toast.success("Prompt copiado", {
+      toast.success(t("prompt.copied"), {
         description: prompt.title,
       });
     } catch (error) {
       console.error("Failed to copy prompt:", error);
-      toast.error("Error al copiar");
+      toast.error(t("prompt.copyError"));
     }
   };
 
@@ -773,7 +775,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
 
   const handleAddPrompt = () => {
     if (!formTitle.trim() || !formContent.trim()) {
-      toast.error("Completa los campos requeridos");
+      toast.error(t("prompt.requiredFields"));
       return;
     }
 
@@ -785,8 +787,8 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
       category: formCategory,
       tags: formTags
         .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t),
+        .map((tg) => tg.trim())
+        .filter((tg) => tg),
       isFavorite: false,
       createdAt: now,
       updatedAt: now,
@@ -794,7 +796,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
     };
 
     updateConfig({ prompts: [...prompts, newPrompt] });
-    toast.success("Prompt añadido", {
+    toast.success(t("prompt.added"), {
       description: newPrompt.title,
     });
 
@@ -808,7 +810,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
 
   const handleEditPrompt = () => {
     if (!editingPrompt || !formTitle.trim() || !formContent.trim()) {
-      toast.error("Completa los campos requeridos");
+      toast.error(t("prompt.requiredFields"));
       return;
     }
 
@@ -821,14 +823,14 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
             category: formCategory,
             tags: formTags
               .split(",")
-              .map((t) => t.trim())
-              .filter((t) => t),
+              .map((tg) => tg.trim())
+              .filter((tg) => tg),
           }
         : p
     );
 
     updateConfig({ prompts: updatedPrompts });
-    toast.success("Prompt actualizado");
+    toast.success(t("prompt.updated"));
 
     setEditingPrompt(null);
     setIsEditDialogOpen(false);
@@ -837,7 +839,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
   const handleDeletePrompt = (promptId: string) => {
     const updatedPrompts = prompts.filter((p) => p.id !== promptId);
     updateConfig({ prompts: updatedPrompts });
-    toast.success("Prompt eliminado");
+    toast.success(t("prompt.deleted"));
   };
 
   const openEditDialog = (prompt: Prompt) => {
@@ -884,12 +886,12 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
 
   const handleSaveSmartPrompt = () => {
     if (!smartConcept.trim() || !generatedPreview) {
-      toast.error("Escribe un concepto para generar el prompt");
+      toast.error(t("prompt.smartGeneratorError"));
       return;
     }
 
-    const taskLabel = TASK_LABELS[smartTask].label;
-    const title = `${TASK_LABELS[smartTask].icon} ${taskLabel}: ${smartConcept.slice(0, 30)}${smartConcept.length > 30 ? "..." : ""}`;
+    const taskLabel = t(TASK_LABEL_KEYS[smartTask].labelKey);
+    const title = `${TASK_LABEL_KEYS[smartTask].icon} ${taskLabel}: ${smartConcept.slice(0, 30)}${smartConcept.length > 30 ? "..." : ""}`;
 
     // Map task to category
     const taskToCategoryMap: Record<TaskType, PromptCategory> = {
@@ -919,7 +921,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
     };
 
     updateConfig({ prompts: [...prompts, newPrompt] });
-    toast.success("Prompt inteligente creado", {
+    toast.success(t("prompt.smartCreated"), {
       description: title,
     });
 
@@ -934,10 +936,10 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
     if (!generatedPreview) return;
     try {
       await navigator.clipboard.writeText(generatedPreview);
-      toast.success("Prompt copiado al portapapeles");
+      toast.success(t("prompt.copiedToClipboard"));
     } catch (error) {
       console.error("Failed to copy:", error);
-      toast.error("Error al copiar");
+      toast.error(t("prompt.copyError"));
     }
   };
 
@@ -957,9 +959,9 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 via-blue-500 to-purple-500 flex items-center justify-center mb-3">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Sin prompts guardados</p>
+          <p className="text-sm text-muted-foreground mb-1">{t("prompt.noPrompts")}</p>
           <p className="text-xs text-muted-foreground/60 mb-4">
-            Crea o genera prompts para IA
+            {t("prompt.noPromptsDesc")}
           </p>
           <div className="flex flex-col gap-2 relative z-10">
             <Button
@@ -975,7 +977,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
               className="bg-gradient-to-r from-amber-500 via-purple-500 to-blue-500 text-white hover:opacity-90"
             >
               <Zap className="w-4 h-4 mr-2" />
-              Generador Inteligente
+              {t("prompt.smartGenerator")}
             </Button>
             <div className="flex gap-2">
               <Button
@@ -991,7 +993,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                 }}
               >
                 <Wand2 className="w-4 h-4 mr-2" />
-                Plantillas
+                {t("prompt.templates")}
               </Button>
               <Button
                 type="button"
@@ -1006,7 +1008,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                 }}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Manual
+                {t("prompt.manual")}
               </Button>
             </div>
           </div>
@@ -1062,7 +1064,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar prompts..."
+                placeholder={t("prompt.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-8 h-9 text-sm"
@@ -1083,7 +1085,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
               size="sm"
               className="h-9 w-9 p-0 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
               onClick={() => setIsSmartGeneratorOpen(true)}
-              title="Generador inteligente"
+              title={t("prompt.smartGenerator")}
             >
               <Zap className="w-4 h-4" />
             </Button>
@@ -1092,7 +1094,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
               size="sm"
               className="h-9 w-9 p-0"
               onClick={() => setIsGeneratorOpen(true)}
-              title="Plantillas"
+              title={t("prompt.templates")}
             >
               <Wand2 className="w-4 h-4" />
             </Button>
@@ -1101,7 +1103,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
               size="sm"
               className="h-9 w-9 p-0"
               onClick={() => setIsAddDialogOpen(true)}
-              title="Agregar prompt"
+              title={t("prompt.addPrompt")}
             >
               <Plus className="w-4 h-4" />
             </Button>
@@ -1119,7 +1121,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                   onClick={() => handleCategoryChange(cat)}
                 >
                   {cat === "favorites" && <Star className="w-3 h-3 mr-1" />}
-                  {CATEGORY_LABELS[cat]}
+                  {t(CATEGORY_LABEL_KEYS[cat])}
                 </Button>
               )
             )}
@@ -1137,7 +1139,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                   className="flex flex-col items-center justify-center py-8 text-muted-foreground"
                 >
                   <Search className="w-8 h-8 mb-2 opacity-50" />
-                  <p className="text-sm">No se encontraron prompts</p>
+                  <p className="text-sm">{t("prompt.noResults")}</p>
                 </motion.div>
               ) : (
                 filteredPrompts.map((prompt, index) => (
@@ -1205,14 +1207,14 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                                   onClick={() => openEditDialog(prompt)}
                                 >
                                   <Edit className="w-3.5 h-3.5 mr-2" />
-                                  Editar
+                                  {t("prompt.edit")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleDeletePrompt(prompt.id)}
                                   className="text-destructive"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                  Eliminar
+                                  {t("prompt.delete")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1224,7 +1226,7 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                             variant="outline"
                             className={cn("text-xs", CATEGORY_COLORS[prompt.category])}
                           >
-                            {CATEGORY_LABELS[prompt.category]}
+                            {t(CATEGORY_LABEL_KEYS[prompt.category])}
                           </Badge>
                           {prompt.tags.map((tag) => (
                             <Badge
@@ -1237,7 +1239,9 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
                           ))}
                           {prompt.usageCount > 0 && (
                             <span className="text-xs text-muted-foreground ml-auto">
-                              {prompt.usageCount} {prompt.usageCount === 1 ? "uso" : "usos"}
+                              {prompt.usageCount === 1
+                                ? t("prompt.usageSingular", { count: prompt.usageCount })
+                                : t("prompt.usagePlural", { count: prompt.usageCount })}
                             </span>
                           )}
                         </div>
@@ -1253,8 +1257,8 @@ export function PromptWidget({ widget }: PromptWidgetProps) {
         {/* Footer stats */}
         <div className="border-t p-2 bg-muted/30">
           <div className="flex items-center justify-between text-xs text-muted-foreground px-2">
-            <span>{filteredPrompts.length} prompts</span>
-            <span>{prompts.filter((p) => p.isFavorite).length} favoritos</span>
+            <span>{t("prompt.promptCount", { count: filteredPrompts.length })}</span>
+            <span>{t("prompt.favoriteCount", { count: prompts.filter((p) => p.isFavorite).length })}</span>
           </div>
         </div>
       </div>
@@ -1376,6 +1380,8 @@ function PromptDialogs({
   handleSaveSmartPrompt,
   handleCopyGeneratedPrompt,
 }: PromptDialogsProps) {
+  const { t } = useTranslation();
+
   return (
     <>
       {/* Add/Edit Dialog */}
@@ -1397,43 +1403,43 @@ function PromptDialogs({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              {isEditDialogOpen ? "Editar Prompt" : "Agregar Prompt"}
+              {isEditDialogOpen ? t("prompt.editPrompt") : t("prompt.addPrompt")}
             </DialogTitle>
             <DialogDescription>
-              Crea un prompt reutilizable para tus consultas con IA
+              {t("prompt.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto -mx-6 px-6 scrollbar-thin">
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="prompt-title">Título</Label>
+                <Label htmlFor="prompt-title">{t("prompt.titleLabel")}</Label>
                 <Input
                   id="prompt-title"
-                  placeholder="ej. Revisar código Python"
+                  placeholder={t("prompt.titlePlaceholder")}
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="prompt-content">Contenido del Prompt</Label>
+                <Label htmlFor="prompt-content">{t("prompt.contentLabel")}</Label>
                 <Textarea
                   id="prompt-content"
-                  placeholder="Escribe tu prompt aquí. Usa {{variable}} para placeholders..."
+                  placeholder={t("prompt.contentPlaceholder")}
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
                   rows={6}
                   className="font-mono text-sm resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Tip: Usa dobles llaves para variables, ej: Analiza este código en {"{{lenguaje}}"}
+                  {t("prompt.contentTip")}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="prompt-category">Categoría</Label>
+                  <Label htmlFor="prompt-category">{t("prompt.categoryLabel")}</Label>
                   <Select
                     value={formCategory}
                     onValueChange={(value) => setFormCategory(value as PromptCategory)}
@@ -1442,22 +1448,22 @@ function PromptDialogs({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="coding">Código</SelectItem>
-                      <SelectItem value="writing">Escritura</SelectItem>
-                      <SelectItem value="analysis">Análisis</SelectItem>
-                      <SelectItem value="business">Negocios</SelectItem>
-                      <SelectItem value="learning">Aprendizaje</SelectItem>
-                      <SelectItem value="creative">Creativo</SelectItem>
+                      <SelectItem value="general">{t("prompt.catGeneral")}</SelectItem>
+                      <SelectItem value="coding">{t("prompt.catCoding")}</SelectItem>
+                      <SelectItem value="writing">{t("prompt.catWriting")}</SelectItem>
+                      <SelectItem value="analysis">{t("prompt.catAnalysis")}</SelectItem>
+                      <SelectItem value="business">{t("prompt.catBusiness")}</SelectItem>
+                      <SelectItem value="learning">{t("prompt.catLearning")}</SelectItem>
+                      <SelectItem value="creative">{t("prompt.catCreative")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="prompt-tags">Tags (opcional)</Label>
+                  <Label htmlFor="prompt-tags">{t("prompt.tagsLabel")}</Label>
                   <Input
                     id="prompt-tags"
-                    placeholder="python, debug, performance"
+                    placeholder={t("prompt.tagsPlaceholder")}
                     value={formTags}
                     onChange={(e) => setFormTags(e.target.value)}
                   />
@@ -1474,10 +1480,10 @@ function PromptDialogs({
                 setIsEditDialogOpen(false);
               }}
             >
-              Cancelar
+              {t("prompt.cancel")}
             </Button>
             <Button onClick={isEditDialogOpen ? handleEditPrompt : handleAddPrompt}>
-              {isEditDialogOpen ? "Actualizar" : "Agregar"}
+              {isEditDialogOpen ? t("prompt.update") : t("prompt.addButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1489,10 +1495,10 @@ function PromptDialogs({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wand2 className="w-5 h-5 text-primary" />
-              Plantillas de Prompts
+              {t("prompt.templatesTitle")}
             </DialogTitle>
             <DialogDescription>
-              Selecciona una plantilla profesional para empezar
+              {t("prompt.templatesDesc")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1513,7 +1519,7 @@ function PromptDialogs({
                       variant="outline"
                       className={cn("text-xs", CATEGORY_COLORS[template.category])}
                     >
-                      {CATEGORY_LABELS[template.category]}
+                      {t(CATEGORY_LABEL_KEYS[template.category])}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-3 font-mono">
@@ -1521,7 +1527,7 @@ function PromptDialogs({
                   </p>
                   <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Plus className="w-3 h-3" />
-                    <span className="text-xs">Usar plantilla</span>
+                    <span className="text-xs">{t("prompt.useTemplate")}</span>
                   </div>
                 </motion.button>
               ))}
@@ -1538,10 +1544,10 @@ function PromptDialogs({
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 via-purple-500 to-blue-500 flex items-center justify-center">
                 <Zap className="w-4 h-4 text-white" />
               </div>
-              Generador Inteligente de Prompts
+              {t("prompt.smartGeneratorTitle")}
             </DialogTitle>
             <DialogDescription>
-              Escribe un concepto y personaliza cómo quieres que la IA lo procese
+              {t("prompt.smartGeneratorDesc")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1551,11 +1557,11 @@ function PromptDialogs({
               <div className="space-y-2">
                 <Label htmlFor="smart-concept" className="flex items-center gap-2">
                   <span className="text-lg">✨</span>
-                  ¿Sobre qué quieres un prompt?
+                  {t("prompt.conceptQuestion")}
                 </Label>
                 <Input
                   id="smart-concept"
-                  placeholder="ej. Hooks de React, Marketing digital, Machine Learning..."
+                  placeholder={t("prompt.conceptPlaceholder")}
                   value={smartConcept}
                   onChange={(e) => setSmartConcept(e.target.value)}
                   className="text-base"
@@ -1566,10 +1572,10 @@ function PromptDialogs({
               <div className="space-y-3">
                 <Label className="flex items-center gap-2">
                   <span className="text-lg">🎯</span>
-                  ¿Qué quieres hacer?
+                  {t("prompt.taskQuestion")}
                 </Label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {(Object.keys(TASK_LABELS) as TaskType[]).map((task) => (
+                  {(Object.keys(TASK_LABEL_KEYS) as TaskType[]).map((task) => (
                     <button
                       key={task}
                       type="button"
@@ -1581,9 +1587,9 @@ function PromptDialogs({
                           : "border-border hover:border-primary/50"
                       )}
                     >
-                      <div className="text-lg sm:text-xl mb-1">{TASK_LABELS[task].icon}</div>
-                      <div className="text-xs sm:text-sm font-medium">{TASK_LABELS[task].label}</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">{TASK_LABELS[task].description}</div>
+                      <div className="text-lg sm:text-xl mb-1">{TASK_LABEL_KEYS[task].icon}</div>
+                      <div className="text-xs sm:text-sm font-medium">{t(TASK_LABEL_KEYS[task].labelKey)}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">{t(TASK_LABEL_KEYS[task].descriptionKey)}</div>
                     </button>
                   ))}
                 </div>
@@ -1593,15 +1599,15 @@ function PromptDialogs({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Format */}
                 <div className="space-y-2">
-                  <Label>📋 Formato de salida</Label>
+                  <Label>{t("prompt.outputFormat")}</Label>
                   <Select value={smartFormat} onValueChange={(v) => setSmartFormat(v as OutputFormat)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(FORMAT_LABELS) as OutputFormat[]).map((format) => (
+                      {(Object.keys(FORMAT_LABEL_KEYS) as OutputFormat[]).map((format) => (
                         <SelectItem key={format} value={format}>
-                          {FORMAT_LABELS[format]}
+                          {t(FORMAT_LABEL_KEYS[format])}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1610,15 +1616,15 @@ function PromptDialogs({
 
                 {/* Tone */}
                 <div className="space-y-2">
-                  <Label>🎭 Tono</Label>
+                  <Label>{t("prompt.tone")}</Label>
                   <Select value={smartTone} onValueChange={(v) => setSmartTone(v as ToneType)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(TONE_LABELS) as ToneType[]).map((tone) => (
+                      {(Object.keys(TONE_LABEL_KEYS) as ToneType[]).map((tone) => (
                         <SelectItem key={tone} value={tone}>
-                          {TONE_LABELS[tone]}
+                          {t(TONE_LABEL_KEYS[tone])}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1627,15 +1633,15 @@ function PromptDialogs({
 
                 {/* Depth */}
                 <div className="space-y-2">
-                  <Label>📊 Profundidad</Label>
+                  <Label>{t("prompt.depth")}</Label>
                   <Select value={smartDepth} onValueChange={(v) => setSmartDepth(v as DepthLevel)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(DEPTH_LABELS) as DepthLevel[]).map((depth) => (
+                      {(Object.keys(DEPTH_LABEL_KEYS) as DepthLevel[]).map((depth) => (
                         <SelectItem key={depth} value={depth}>
-                          {DEPTH_LABELS[depth].label} - {DEPTH_LABELS[depth].description}
+                          {t(DEPTH_LABEL_KEYS[depth].labelKey)} - {t(DEPTH_LABEL_KEYS[depth].descriptionKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1646,11 +1652,11 @@ function PromptDialogs({
               {/* Additional Context */}
               <div className="space-y-2">
                 <Label htmlFor="smart-context">
-                  💬 Contexto adicional (opcional)
+                  {t("prompt.additionalContext")}
                 </Label>
                 <Textarea
                   id="smart-context"
-                  placeholder="Añade cualquier contexto específico, restricciones, o detalles..."
+                  placeholder={t("prompt.contextPlaceholder")}
                   value={smartContext}
                   onChange={(e) => setSmartContext(e.target.value)}
                   rows={2}
@@ -1664,7 +1670,7 @@ function PromptDialogs({
                   <div className="flex items-center justify-between">
                     <Label className="flex items-center gap-2">
                       <ChevronRight className="w-4 h-4" />
-                      Prompt Generado
+                      {t("prompt.generatedPrompt")}
                     </Label>
                     <Button
                       variant="ghost"
@@ -1673,7 +1679,7 @@ function PromptDialogs({
                       className="h-7"
                     >
                       <Copy className="w-3.5 h-3.5 mr-1" />
-                      Copiar
+                      {t("prompt.copy")}
                     </Button>
                   </div>
                   <div className="rounded-lg border bg-muted/30 p-4 max-h-[150px] overflow-y-auto scrollbar-thin">
@@ -1686,7 +1692,7 @@ function PromptDialogs({
 
           <DialogFooter className="border-t pt-4 -mx-6 px-6 flex-wrap gap-2">
             <Button variant="ghost" onClick={() => setIsSmartGeneratorOpen(false)}>
-              Cancelar
+              {t("prompt.cancel")}
             </Button>
             <Button
               variant="outline"
@@ -1694,7 +1700,7 @@ function PromptDialogs({
               disabled={!generatedPreview}
             >
               <Copy className="w-4 h-4 mr-2" />
-              Solo copiar
+              {t("prompt.copyOnly")}
             </Button>
             <Button
               onClick={handleSaveSmartPrompt}
@@ -1702,7 +1708,7 @@ function PromptDialogs({
               className="bg-gradient-to-r from-amber-500 via-purple-500 to-blue-500 text-white hover:opacity-90"
             >
               <Save className="w-4 h-4 mr-2" />
-              Guardar prompt
+              {t("prompt.savePrompt")}
             </Button>
           </DialogFooter>
         </DialogContent>

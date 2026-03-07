@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import {
   Activity,
   Plus,
-  Trash2,
   RefreshCw,
   CheckCircle2,
   XCircle,
@@ -31,6 +30,7 @@ import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ensureProtocol, extractHostname } from "@/lib/url-utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface SiteStatusMonitorWidgetProps {
   widget: Widget;
@@ -50,32 +50,33 @@ interface SiteStatus {
   error?: string;
 }
 
-function formatLastChecked(timestamp: string): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-
-  if (seconds < 60) return "Hace unos segundos";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `Hace ${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Hace ${hours}h`;
-
-  return date.toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps) {
+  const { t } = useTranslation();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newSite, setNewSite] = useState({ url: "", name: "" });
   const [statuses, setStatuses] = useState<Record<string, SiteStatus>>({});
   const [isChecking, setIsChecking] = useState(false);
 
   const monitoredSites: MonitoredSite[] = widget.config?.monitoredSites || [];
+
+  const formatLastChecked = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const seconds = Math.floor(diff / 1000);
+
+    if (seconds < 60) return t("siteMonitor.timeSeconds");
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return t("siteMonitor.timeMinutes", { count: minutes });
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t("siteMonitor.timeHours", { count: hours });
+
+    return date.toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const saveSites = useCallback(
     (sites: MonitoredSite[]) => {
@@ -116,7 +117,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
       return {
         status: "offline",
         lastChecked: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Error desconocido",
+        error: error instanceof Error ? error.message : t("siteMonitor.unknownError"),
       };
     }
   };
@@ -151,6 +152,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
 
     setStatuses(newStatuses);
     setIsChecking(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSite is a plain function; its only external dep (t) is stable
   }, [monitoredSites]);
 
   // Check on mount and when sites change
@@ -161,7 +163,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
       });
       return () => cancelAnimationFrame(frame);
     }
-  }, [monitoredSites.length]);
+  }, [monitoredSites.length, checkAllSites]);
 
   const addSite = () => {
     if (!newSite.url.trim()) return;
@@ -171,7 +173,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
     // Check for duplicates
     const isDuplicate = monitoredSites.some((site) => site.url === normalizedUrl);
     if (isDuplicate) {
-      toast.error("Este sitio ya esta siendo monitoreado");
+      toast.error(t("siteMonitor.alreadyMonitored"));
       return;
     }
 
@@ -185,7 +187,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
     saveSites([...monitoredSites, site]);
     setNewSite({ url: "", name: "" });
     setIsAddDialogOpen(false);
-    toast.success("Sitio agregado");
+    toast.success(t("siteMonitor.siteAdded"));
 
     // Check the new site immediately
     checkSite(site).then((status) => {
@@ -200,7 +202,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
       delete newStatuses[id];
       return newStatuses;
     });
-    toast.success("Sitio eliminado");
+    toast.success(t("siteMonitor.siteRemoved"));
   };
 
   const getStatusIcon = (status: SiteStatus["status"]) => {
@@ -229,7 +231,63 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
     }
   };
 
+  const getStatusLabel = (status: SiteStatus["status"]) => {
+    switch (status) {
+      case "online":
+        return t("siteMonitor.statusOnline");
+      case "offline":
+        return t("siteMonitor.statusOffline");
+      case "checking":
+        return "...";
+      default:
+        return "?";
+    }
+  };
+
   const onlineCount = Object.values(statuses).filter((s) => s.status === "online").length;
+
+  // Add Dialog (shared between empty state and main view)
+  const addDialog = (
+    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-green-500" />
+            {t("siteMonitor.addSite")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="site-url">{t("siteMonitor.siteUrl")}</Label>
+            <Input
+              id="site-url"
+              placeholder={t("siteMonitor.urlPlaceholder")}
+              value={newSite.url}
+              onChange={(e) => setNewSite({ ...newSite, url: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && addSite()}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="site-name">{t("siteMonitor.siteName")}</Label>
+            <Input
+              id="site-name"
+              placeholder={t("siteMonitor.namePlaceholder")}
+              value={newSite.name}
+              onChange={(e) => setNewSite({ ...newSite, name: e.target.value })}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>
+            {t("siteMonitor.cancel")}
+          </Button>
+          <Button onClick={addSite} disabled={!newSite.url.trim()}>
+            {t("siteMonitor.add")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   // Empty state
   if (monitoredSites.length === 0) {
@@ -239,55 +297,16 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
           <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mb-3">
             <Activity className="w-6 h-6 text-green-500" />
           </div>
-          <p className="text-sm text-muted-foreground mb-1">Sin sitios monitoreados</p>
+          <p className="text-sm text-muted-foreground mb-1">{t("siteMonitor.noSites")}</p>
           <p className="text-xs text-muted-foreground/60 mb-4">
-            Agrega sitios para monitorear su estado
+            {t("siteMonitor.noSitesDesc")}
           </p>
           <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Agregar sitio
+            {t("siteMonitor.addSite")}
           </Button>
 
-          {/* Add Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-green-500" />
-                  Agregar Sitio
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="site-url">URL del sitio</Label>
-                  <Input
-                    id="site-url"
-                    placeholder="ejemplo.com o https://ejemplo.com"
-                    value={newSite.url}
-                    onChange={(e) => setNewSite({ ...newSite, url: e.target.value })}
-                    onKeyDown={(e) => e.key === "Enter" && addSite()}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="site-name">Nombre (opcional)</Label>
-                  <Input
-                    id="site-name"
-                    placeholder="Mi sitio web"
-                    value={newSite.name}
-                    onChange={(e) => setNewSite({ ...newSite, name: e.target.value })}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={addSite} disabled={!newSite.url.trim()}>
-                  Agregar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {addDialog}
         </div>
       </div>
     );
@@ -301,7 +320,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-green-500" />
             <span className="text-xs text-muted-foreground">
-              {onlineCount}/{monitoredSites.length} online
+              {onlineCount}/{monitoredSites.length} {t("siteMonitor.online")}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -311,7 +330,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
               className="h-7 w-7 p-0"
               onClick={checkAllSites}
               disabled={isChecking}
-              title="Verificar todos"
+              title={t("siteMonitor.checkAll")}
             >
               <RefreshCw className={cn("w-4 h-4", isChecking && "animate-spin")} />
             </Button>
@@ -320,7 +339,7 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
               size="sm"
               className="h-7 w-7 p-0"
               onClick={() => setIsAddDialogOpen(true)}
-              title="Agregar sitio"
+              title={t("siteMonitor.addSite")}
             >
               <Plus className="w-4 h-4" />
             </Button>
@@ -375,20 +394,14 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
                           getStatusBadgeClass(status?.status || "unknown")
                         )}
                       >
-                        {status?.status === "online"
-                          ? "Online"
-                          : status?.status === "offline"
-                          ? "Offline"
-                          : status?.status === "checking"
-                          ? "..."
-                          : "?"}
+                        {getStatusLabel(status?.status || "unknown")}
                       </Badge>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => removeSite(site.id)}
-                        title="Eliminar"
+                        title={t("siteMonitor.remove")}
                       >
                         <X className="w-3 h-3 text-destructive" />
                       </Button>
@@ -405,52 +418,13 @@ export function SiteStatusMonitorWidget({ widget }: SiteStatusMonitorWidgetProps
           <div className="mt-2 pt-2 border-t text-center">
             <span className="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
               <Clock className="w-3 h-3" />
-              Ultima verificacion:{" "}
+              {t("siteMonitor.lastCheck")}{" "}
               {formatLastChecked(Object.values(statuses)[0]?.lastChecked || new Date().toISOString())}
             </span>
           </div>
         )}
 
-        {/* Add Dialog */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-green-500" />
-                Agregar Sitio
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="site-url-new">URL del sitio</Label>
-                <Input
-                  id="site-url-new"
-                  placeholder="ejemplo.com o https://ejemplo.com"
-                  value={newSite.url}
-                  onChange={(e) => setNewSite({ ...newSite, url: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && addSite()}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="site-name-new">Nombre (opcional)</Label>
-                <Input
-                  id="site-name-new"
-                  placeholder="Mi sitio web"
-                  value={newSite.name}
-                  onChange={(e) => setNewSite({ ...newSite, name: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={addSite} disabled={!newSite.url.trim()}>
-                Agregar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {addDialog}
       </div>
     </div>
   );

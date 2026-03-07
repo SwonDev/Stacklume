@@ -209,6 +209,7 @@ import {
 import type { WidgetType, WidgetSize } from "@/types/widget";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 const formSchema = z.object({
   type: z.enum([
@@ -408,7 +409,7 @@ const formSchema = z.object({
     "password-manager",
     "custom-user",
   ]),
-  title: z.string().min(1, "El título es obligatorio"),
+  title: z.string().min(1),
   size: z.enum(["small", "medium", "large", "wide", "tall"]),
   categoryId: z.string().optional(),
   tagId: z.string().optional(),
@@ -437,1249 +438,232 @@ function sizeFromDims(w: number, h: number): WidgetSize {
   return "medium";
 }
 
-// Widget type options with icons and labels in Spanish
+// Widget type options with icons - labels/descriptions resolved via i18n
 const widgetTypeOptions: Array<{
   type: WidgetType;
-  label: string;
-  description: string;
+  labelKey: string;
+  descKey: string;
   icon: React.ElementType;
   requiresCategory?: boolean;
   requiresTag?: boolean;
 }> = [
-  {
-    type: "favorites",
-    label: "Favoritos",
-    description: "Muestra enlaces favoritos",
-    icon: Star,
-  },
-  {
-    type: "recent",
-    label: "Recientes",
-    description: "Muestra enlaces recientes",
-    icon: Clock,
-  },
-  {
-    type: "category",
-    label: "Categoría",
-    description: "Enlaces de una categoría",
-    icon: FolderOpen,
-    requiresCategory: true,
-  },
-  {
-    type: "tag",
-    label: "Etiqueta",
-    description: "Enlaces de una etiqueta",
-    icon: TagIcon,
-    requiresTag: true,
-  },
-  {
-    type: "categories",
-    label: "Categorías",
-    description: "Vista de todas las categorías",
-    icon: Folders,
-  },
-  {
-    type: "quick-add",
-    label: "Añadir Rápido",
-    description: "Formulario de añadir enlace",
-    icon: Plus,
-  },
-  {
-    type: "stats",
-    label: "Estadísticas",
-    description: "Panel de estadísticas",
-    icon: BarChart3,
-  },
-  {
-    type: "link-analytics",
-    label: "Analíticas",
-    description: "Estadísticas detalladas de enlaces",
-    icon: PieChart,
-  },
-  {
-    type: "clock",
-    label: "Reloj",
-    description: "Reloj y hora actual",
-    icon: Clock3,
-  },
-  {
-    type: "notes",
-    label: "Notas",
-    description: "Widget de notas",
-    icon: StickyNote,
-  },
-  {
-    type: "progress",
-    label: "Progreso",
-    description: "Seguimiento de metas",
-    icon: Target,
-  },
-  {
-    type: "search",
-    label: "Búsqueda",
-    description: "Buscar enlaces",
-    icon: Search,
-  },
-  {
-    type: "bookmarks",
-    label: "Marcadores",
-    description: "Enlaces destacados",
-    icon: Bookmark,
-  },
-  {
-    type: "image",
-    label: "Imagen",
-    description: "Banner o imagen",
-    icon: Image,
-  },
-  {
-    type: "weather",
-    label: "Clima",
-    description: "Información del tiempo",
-    icon: Cloud,
-  },
-  {
-    type: "quote",
-    label: "Cita",
-    description: "Citas inspiradoras",
-    icon: Quote,
-  },
-  {
-    type: "pomodoro",
-    label: "Pomodoro",
-    description: "Temporizador productivo",
-    icon: Timer,
-  },
-  {
-    type: "calendar",
-    label: "Calendario",
-    description: "Calendario mensual",
-    icon: Calendar,
-  },
-  {
-    type: "todo",
-    label: "Tareas",
-    description: "Lista de tareas",
-    icon: CheckSquare,
-  },
-  {
-    type: "custom",
-    label: "Personalizado",
-    description: "Widget configurable",
-    icon: Sparkles,
-  },
-  {
-    type: "countdown",
-    label: "Cuenta Atrás",
-    description: "Temporizador para eventos",
-    icon: Hourglass,
-  },
-  {
-    type: "habit-tracker",
-    label: "Hábitos",
-    description: "Seguimiento de hábitos",
-    icon: CheckCircle,
-  },
-  {
-    type: "tag-cloud",
-    label: "Nube de Tags",
-    description: "Visualización de etiquetas",
-    icon: Cloud,
-  },
-  {
-    type: "random-link",
-    label: "Enlace Aleatorio",
-    description: "Descubre enlaces al azar",
-    icon: Shuffle,
-  },
-  {
-    type: "github-activity",
-    label: "Actividad",
-    description: "Gráfico estilo GitHub",
-    icon: Github,
-  },
-  {
-    type: "bookmark-growth",
-    label: "Crecimiento",
-    description: "Estadísticas de crecimiento",
-    icon: TrendingUp,
-  },
-  {
-    type: "rss-feed",
-    label: "RSS Feed",
-    description: "Agregador de feeds",
-    icon: Rss,
-  },
-  {
-    type: "reading-streak",
-    label: "Racha de Lectura",
-    description: "Calendario de actividad",
-    icon: Flame,
-  },
-  {
-    type: "github-trending",
-    label: "GitHub Trending",
-    description: "Repos trending de @tom_doerr",
-    icon: Sparkles,
-  },
-  {
-    type: "steam-games",
-    label: "Steam Games",
-    description: "Novedades, próximos y ofertas",
-    icon: Gamepad2,
-  },
-  {
-    type: "nintendo-deals",
-    label: "Nintendo eShop",
-    description: "Ofertas, ranking y novedades de Switch",
-    icon: Gamepad2,
-  },
-  {
-    type: "github-search",
-    label: "GitHub Search",
-    description: "Busca repos de GitHub",
-    icon: Github,
-  },
-  // New widgets
-  {
-    type: "codepen",
-    label: "CodePen",
-    description: "Snippets de código embebidos",
-    icon: Code,
-  },
-  {
-    type: "spotify",
-    label: "Spotify",
-    description: "Música y podcasts",
-    icon: Music,
-  },
-  {
-    type: "youtube",
-    label: "YouTube",
-    description: "Videos embebidos",
-    icon: PlayCircle,
-  },
-  {
-    type: "crypto",
-    label: "Cripto",
-    description: "Precios de criptomonedas",
-    icon: Bitcoin,
-  },
-  {
-    type: "world-clock",
-    label: "Reloj Mundial",
-    description: "Múltiples zonas horarias",
-    icon: Globe,
-  },
-  {
-    type: "color-palette",
-    label: "Paleta de Colores",
-    description: "Gestor de colores",
-    icon: Palette,
-  },
-  {
-    type: "unsplash",
-    label: "Unsplash",
-    description: "Fotos aleatorias",
-    icon: ImageIcon,
-  },
-  {
-    type: "qr-code",
-    label: "Código QR",
-    description: "Generador de QR",
-    icon: QrCode,
-  },
-  {
-    type: "website-monitor",
-    label: "Monitor Web",
-    description: "Estado de sitios web",
-    icon: Activity,
-  },
-  {
-    type: "embed",
-    label: "Embed",
-    description: "Contenido embebido genérico",
-    icon: Code2,
-  },
-  {
-    type: "prompt",
-    label: "Prompts",
-    description: "Almacena y genera prompts para IA",
-    icon: MessageSquareText,
-  },
-  {
-    type: "prompt-builder",
-    label: "Prompt Builder",
-    description: "Genera prompts con enlaces y stack tecnológico",
-    icon: Wand2,
-  },
-  {
-    type: "mcp-explorer",
-    label: "MCP Explorer",
-    description: "Explora servidores MCP para Claude",
-    icon: Puzzle,
-  },
-  {
-    type: "deployment-status",
-    label: "Deployments",
-    description: "Estado de Vercel/Netlify",
-    icon: Rocket,
-  },
-  {
-    type: "voice-notes",
-    label: "Notas de Voz",
-    description: "Graba y transcribe notas",
-    icon: Mic,
-  },
-  {
-    type: "link-manager",
-    label: "Link Manager",
-    description: "Gestiona y organiza tus enlaces",
-    icon: LayoutList,
-  },
-  // Social/News Feed widgets
-  {
-    type: "twitter-feed",
-    label: "Twitter / X",
-    description: "Timeline de un usuario de Twitter",
-    icon: Twitter,
-  },
-  {
-    type: "reddit",
-    label: "Reddit",
-    description: "Posts de tus subreddits favoritos",
-    icon: MessageCircle,
-  },
-  {
-    type: "hacker-news",
-    label: "Hacker News",
-    description: "Las mejores historias de HN",
-    icon: Newspaper,
-  },
-  {
-    type: "product-hunt",
-    label: "Product Hunt",
-    description: "Productos trending",
-    icon: Rocket,
-  },
-  {
-    type: "devto-feed",
-    label: "DEV.to",
-    description: "Articulos de la comunidad DEV",
-    icon: Code,
-  },
-  // Utility widgets
-  {
-    type: "calculator",
-    label: "Calculadora",
-    description: "Calculadora para operaciones rápidas",
-    icon: Calculator,
-  },
-  {
-    type: "stopwatch",
-    label: "Cronómetro",
-    description: "Cronómetro con vueltas y tiempos",
-    icon: TimerIcon,
-  },
-  {
-    type: "json-formatter",
-    label: "JSON Formatter",
-    description: "Formatea y valida JSON",
-    icon: Braces,
-  },
-  {
-    type: "base64-tool",
-    label: "Base64",
-    description: "Codifica y decodifica Base64",
-    icon: Binary,
-  },
-  {
-    type: "text-tools",
-    label: "Text Tools",
-    description: "Herramientas de texto",
-    icon: Type,
-  },
-  {
-    type: "password-generator",
-    label: "Contraseñas",
-    description: "Genera contraseñas seguras",
-    icon: KeyRound,
-  },
-  {
-    type: "lorem-ipsum",
-    label: "Lorem Ipsum",
-    description: "Genera texto de relleno",
-    icon: FileText,
-  },
-  {
-    type: "dice-roller",
-    label: "Dados",
-    description: "Lanza dados virtuales",
-    icon: Dices,
-  },
-  // Developer/Converter widgets
-  {
-    type: "unit-converter",
-    label: "Convertidor de Unidades",
-    description: "Convierte entre unidades de medida",
-    icon: Scale,
-  },
-  {
-    type: "currency-converter",
-    label: "Convertidor de Divisas",
-    description: "Convierte entre divisas",
-    icon: Coins,
-  },
-  {
-    type: "markdown-preview",
-    label: "Markdown Editor",
-    description: "Editor con vista previa en vivo",
-    icon: FileCode,
-  },
-  {
-    type: "regex-tester",
-    label: "Regex Tester",
-    description: "Prueba expresiones regulares",
-    icon: Regex,
-  },
-  {
-    type: "color-converter",
-    label: "Convertidor de Colores",
-    description: "Convierte entre formatos de color",
-    icon: Palette,
-  },
-  {
-    type: "timezone-converter",
-    label: "Convertidor de Zonas Horarias",
-    description: "Convierte horarios entre zonas",
-    icon: Globe,
-  },
-  {
-    type: "hash-generator",
-    label: "Generador de Hash",
-    description: "Genera hashes MD5, SHA",
-    icon: Hash,
-  },
-  {
-    type: "ip-info",
-    label: "IP Info",
-    description: "Información de tu IP y red",
-    icon: Network,
-  },
-  // Generator/Calculator widgets
-  {
-    type: "uuid-generator",
-    label: "UUID Generator",
-    description: "Genera identificadores UUID v1/v4",
-    icon: Fingerprint,
-  },
-  {
-    type: "number-converter",
-    label: "Number Converter",
-    description: "Convierte binario, octal, decimal, hex",
-    icon: Binary,
-  },
-  {
-    type: "gradient-generator",
-    label: "Gradient Generator",
-    description: "Genera gradientes CSS",
-    icon: Blend,
-  },
-  {
-    type: "box-shadow-generator",
-    label: "Box Shadow",
-    description: "Genera sombras CSS box-shadow",
-    icon: Square,
-  },
-  {
-    type: "aspect-ratio",
-    label: "Aspect Ratio",
-    description: "Calculadora de proporción",
-    icon: RectangleHorizontal,
-  },
-  {
-    type: "jwt-decoder",
-    label: "JWT Decoder",
-    description: "Decodifica tokens JWT",
-    icon: Key,
-  },
-  {
-    type: "age-calculator",
-    label: "Age Calculator",
-    description: "Calcula edad desde fecha de nacimiento",
-    icon: Cake,
-  },
-  {
-    type: "word-counter",
-    label: "Word Counter",
-    description: "Cuenta palabras y caracteres",
-    icon: FileText,
-  },
-  // Web Design widgets
-  {
-    type: "typography-scale",
-    label: "Typography Scale",
-    description: "Calculadora de escala tipográfica",
-    icon: ALargeSmall,
-  },
-  {
-    type: "spacing-calculator",
-    label: "Spacing Calculator",
-    description: "Calcula sistemas de espaciado CSS",
-    icon: Ruler,
-  },
-  {
-    type: "flexbox-playground",
-    label: "Flexbox Playground",
-    description: "Visualizador interactivo de Flexbox",
-    icon: Boxes,
-  },
-  {
-    type: "contrast-checker",
-    label: "Contrast Checker",
-    description: "Verifica contraste WCAG",
-    icon: Eye,
-  },
-  {
-    type: "css-animation",
-    label: "CSS Animation",
-    description: "Generador de animaciones CSS",
-    icon: Sparkle,
-  },
-  {
-    type: "glassmorphism",
-    label: "Glassmorphism",
-    description: "Generador de efecto glass CSS",
-    icon: Layers,
-  },
-  {
-    type: "neumorphism",
-    label: "Neumorphism",
-    description: "Generador de Soft UI CSS",
-    icon: Square,
-  },
-  {
-    type: "tailwind-colors",
-    label: "Tailwind Colors",
-    description: "Paleta de colores Tailwind CSS",
-    icon: SwatchBook,
-  },
-  {
-    type: "css-filter",
-    label: "CSS Filter",
-    description: "Generador de filtros CSS",
-    icon: SlidersHorizontal,
-  },
-  {
-    type: "css-grid",
-    label: "CSS Grid",
-    description: "Generador visual de CSS Grid",
-    icon: LayoutGrid,
-  },
-  {
-    type: "svg-wave",
-    label: "SVG Wave",
-    description: "Generador de ondas SVG",
-    icon: Waves,
-  },
-  {
-    type: "text-shadow-generator",
-    label: "Text Shadow",
-    description: "Generador de sombra de texto CSS",
-    icon: Type,
-  },
-  {
-    type: "clip-path-generator",
-    label: "Clip Path",
-    description: "Generador de clip-path CSS",
-    icon: Pentagon,
-  },
-  {
-    type: "css-transform",
-    label: "CSS Transform",
-    description: "Generador de transformaciones CSS",
-    icon: Move3d,
-  },
-  // Game Development widgets
-  {
-    type: "easing-functions",
-    label: "Easing Functions",
-    description: "Visualizador de funciones de easing",
-    icon: Zap,
-  },
-  {
-    type: "sprite-sheet",
-    label: "Sprite Sheet",
-    description: "Cortador y previsualizador de sprites",
-    icon: Film,
-  },
-  {
-    type: "color-ramp",
-    label: "Color Ramp",
-    description: "Generador de rampas de color",
-    icon: Paintbrush,
-  },
-  {
-    type: "game-math",
-    label: "Game Math",
-    description: "Calculadora matemática para juegos",
-    icon: Compass,
-  },
-  {
-    type: "noise-generator",
-    label: "Noise Generator",
-    description: "Generador de ruido procedural",
-    icon: Mountain,
-  },
-  {
-    type: "particle-system",
-    label: "Particle System",
-    description: "Editor de sistemas de partículas",
-    icon: SparklesIcon,
-  },
-  {
-    type: "screen-resolution",
-    label: "Screen Resolution",
-    description: "Calculadora de resoluciones",
-    icon: Monitor,
-  },
-  {
-    type: "bezier-curve",
-    label: "Bezier Curve",
-    description: "Editor de curvas Bezier",
-    icon: Spline,
-  },
-  {
-    type: "rpg-stats",
-    label: "RPG Stats",
-    description: "Calculadora de stats y daño RPG",
-    icon: Sword,
-  },
-  {
-    type: "tilemap-editor",
-    label: "Tilemap Editor",
-    description: "Editor de tilemaps 2D",
-    icon: Map,
-  },
-  {
-    type: "frame-rate",
-    label: "Frame Rate",
-    description: "Calculadora de FPS y tiempos",
-    icon: Gauge,
-  },
-  {
-    type: "state-machine",
-    label: "State Machine",
-    description: "Editor de máquinas de estados",
-    icon: CircleDot,
-  },
-  {
-    type: "pixel-art",
-    label: "Pixel Art",
-    description: "Canvas para dibujar pixel art",
-    icon: PenTool,
-  },
-  {
-    type: "loot-table",
-    label: "Loot Table",
-    description: "Calculadora de tablas de loot",
-    icon: Gift,
-  },
-  // New Game Development widgets
-  {
-    type: "hitbox-editor",
-    label: "Hitbox Editor",
-    description: "Editor visual de hitboxes y colisiones",
-    icon: SquareIcon,
-  },
-  {
-    type: "pathfinding",
-    label: "Pathfinding",
-    description: "Visualizador de algoritmos de pathfinding",
-    icon: Route,
-  },
-  {
-    type: "dialogue-tree",
-    label: "Dialogue Tree",
-    description: "Editor de árboles de diálogo para RPGs",
-    icon: MessageSquare,
-  },
-  {
-    type: "skill-tree",
-    label: "Skill Tree",
-    description: "Editor de árboles de habilidades",
-    icon: TreePine,
-  },
-  {
-    type: "wave-spawner",
-    label: "Wave Spawner",
-    description: "Diseñador de oleadas de enemigos",
-    icon: Users,
-  },
-  {
-    type: "camera-shake",
-    label: "Camera Shake",
-    description: "Diseñador de efectos de vibración de cámara",
-    icon: Camera,
-  },
-  {
-    type: "health-bar",
-    label: "Health Bar",
-    description: "Diseñador de barras HP/MP/Stamina",
-    icon: Heart,
-  },
-  {
-    type: "damage-calculator",
-    label: "Damage Calculator",
-    description: "Calculadora de fórmulas de daño",
-    icon: Sword,
-  },
-  {
-    type: "input-mapper",
-    label: "Input Mapper",
-    description: "Mapeador de controles para juegos",
-    icon: Gamepad2,
-  },
-  {
-    type: "level-progress",
-    label: "Level Progress",
-    description: "Diseñador de curvas de progresión de nivel",
-    icon: TrendingUpIcon,
-  },
-  {
-    type: "behavior-tree",
-    label: "Behavior Tree",
-    description: "Editor de árboles de comportamiento para IA",
-    icon: GitBranch,
-  },
-  {
-    type: "name-generator",
-    label: "Name Generator",
-    description: "Generador de nombres procedurales",
-    icon: Wand2,
-  },
-  {
-    type: "inventory-grid",
-    label: "Inventory Grid",
-    description: "Diseñador de inventario estilo RE4/Diablo",
-    icon: Package,
-  },
-  {
-    type: "achievement",
-    label: "Achievement",
-    description: "Diseñador de sistema de logros",
-    icon: Trophy,
-  },
-  {
-    type: "quest-designer",
-    label: "Quest Designer",
-    description: "Diseñador de misiones y quests",
-    icon: Scroll,
-  },
-  {
-    type: "physics-playground",
-    label: "Physics Playground",
-    description: "Simulación de físicas 2D interactiva",
-    icon: Atom,
-  },
-  // Organization & Productivity widgets
-  {
-    type: "design-tokens",
-    label: "Design Tokens",
-    description: "Gestor de tokens de diseño",
-    icon: Palette,
-  },
-  {
-    type: "code-snippets",
-    label: "Code Snippets",
-    description: "Biblioteca de fragmentos de código",
-    icon: Code,
-  },
-  {
-    type: "sprint-tasks",
-    label: "Sprint Tasks",
-    description: "Tablero de tareas tipo kanban",
-    icon: LayoutGrid,
-  },
-  {
-    type: "decision-log",
-    label: "Decision Log",
-    description: "Registro de decisiones de arquitectura",
-    icon: FileText,
-  },
-  {
-    type: "eisenhower-matrix",
-    label: "Eisenhower Matrix",
-    description: "Matriz de prioridades urgente/importante",
-    icon: Grid3x3,
-  },
-  {
-    type: "standup-notes",
-    label: "Standup Notes",
-    description: "Notas de daily standup",
-    icon: Users,
-  },
-  {
-    type: "mood-board",
-    label: "Mood Board",
-    description: "Colector de inspiración visual",
-    icon: ImageIcon,
-  },
-  {
-    type: "api-reference",
-    label: "API Reference",
-    description: "Referencia rápida de endpoints API",
-    icon: Code2,
-  },
-  {
-    type: "meeting-notes",
-    label: "Meeting Notes",
-    description: "Notas de reuniones con acciones",
-    icon: StickyNote,
-  },
-  {
-    type: "weekly-goals",
-    label: "Weekly Goals",
-    description: "Objetivos y OKRs semanales",
-    icon: Target,
-  },
-  {
-    type: "parking-lot",
-    label: "Parking Lot",
-    description: "Backlog de ideas y features",
-    icon: Package,
-  },
-  {
-    type: "pr-checklist",
-    label: "PR Checklist",
-    description: "Checklist de revisión de PRs",
-    icon: CheckSquare,
-  },
-  {
-    type: "tech-debt",
-    label: "Tech Debt",
-    description: "Tracker de deuda técnica",
-    icon: Activity,
-  },
-  {
-    type: "project-timeline",
-    label: "Project Timeline",
-    description: "Timeline de hitos del proyecto",
-    icon: Calendar,
-  },
-  {
-    type: "component-docs",
-    label: "Component Docs",
-    description: "Documentación de componentes",
-    icon: Boxes,
-  },
-  {
-    type: "wireframe",
-    label: "Wireframe",
-    description: "Herramienta de wireframing rápido",
-    icon: PenTool,
-  },
-  {
-    type: "design-review",
-    label: "Design Review",
-    description: "Checklist de revisión de diseño",
-    icon: Eye,
-  },
-  {
-    type: "env-vars",
-    label: "Env Variables",
-    description: "Gestor de variables de entorno",
-    icon: KeyRound,
-  },
-  {
-    type: "git-commands",
-    label: "Git Commands",
-    description: "Cheatsheet de comandos Git",
-    icon: GitBranch,
-  },
-  {
-    type: "shadcn-builder",
-    label: "shadcn/ui Builder",
-    description: "Configura componentes y tema shadcn/ui",
-    icon: Palette,
-  },
-  // Wellness & Life Tracking widgets
-  {
-    type: "mood-tracker",
-    label: "Estado de Ánimo",
-    description: "Registro diario de estado emocional con emojis",
-    icon: Smile,
-  },
-  {
-    type: "water-intake",
-    label: "Hidratación",
-    description: "Contador de vasos de agua con meta diaria",
-    icon: Droplets,
-  },
-  {
-    type: "sleep-log",
-    label: "Registro de Sueño",
-    description: "Registro de horas de sueño con tendencias",
-    icon: Moon,
-  },
-  {
-    type: "breathing-exercise",
-    label: "Respiración",
-    description: "Ejercicios de respiración guiados",
-    icon: Wind,
-  },
-  {
-    type: "gratitude-journal",
-    label: "Diario de Gratitud",
-    description: "Registro diario de 3 gratitudes",
-    icon: Heart,
-  },
-  {
-    type: "daily-affirmations",
-    label: "Afirmaciones",
-    description: "Afirmaciones positivas diarias",
-    icon: Sparkles,
-  },
-  // Finance widgets
-  {
-    type: "expense-tracker",
-    label: "Gastos",
-    description: "Registro rápido de gastos por categoría",
-    icon: Receipt,
-  },
-  {
-    type: "budget-progress",
-    label: "Presupuesto",
-    description: "Progreso de presupuesto por categoría",
-    icon: PieChart,
-  },
-  {
-    type: "savings-goal",
-    label: "Metas de Ahorro",
-    description: "Seguimiento de metas de ahorro",
-    icon: PiggyBank,
-  },
-  {
-    type: "subscription-manager",
-    label: "Suscripciones",
-    description: "Gestión de suscripciones y renovaciones",
-    icon: CreditCard,
-  },
-  // Advanced Productivity widgets
-  {
-    type: "focus-score",
-    label: "Puntuación de Enfoque",
-    description: "Seguimiento de sesiones de concentración",
-    icon: Target,
-  },
-  {
-    type: "time-blocking",
-    label: "Bloques de Tiempo",
-    description: "Planificación visual del día",
-    icon: CalendarClock,
-  },
-  {
-    type: "daily-review",
-    label: "Revisión Diaria",
-    description: "Resumen del día: logros y mejoras",
-    icon: ClipboardCheck,
-  },
-  {
-    type: "parking-lot-enhanced",
-    label: "Parking Lot+",
-    description: "Ideas y tareas con votación",
-    icon: Lightbulb,
-  },
-  {
-    type: "energy-tracker",
-    label: "Energía",
-    description: "Niveles de energía durante el día",
-    icon: Battery,
-  },
-  // Entertainment & Media widgets
-  {
-    type: "movie-tracker",
-    label: "Películas",
-    description: "Seguimiento de películas y series",
-    icon: Film,
-  },
-  {
-    type: "book-tracker",
-    label: "Libros",
-    description: "Seguimiento de lecturas",
-    icon: BookOpen,
-  },
-  {
-    type: "anime-list",
-    label: "Anime/Manga",
-    description: "Seguimiento de anime y manga",
-    icon: Tv,
-  },
-  {
-    type: "game-backlog",
-    label: "Juegos",
-    description: "Backlog de videojuegos",
-    icon: Gamepad2,
-  },
-  {
-    type: "wishlist",
-    label: "Lista de Deseos",
-    description: "Wishlist con precios y enlaces",
-    icon: Gift,
-  },
-  // AI & Intelligence widgets
-  {
-    type: "ai-chat",
-    label: "Chat IA",
-    description: "Chat con inteligencia artificial",
-    icon: Bot,
-  },
-  {
-    type: "ai-daily-summary",
-    label: "Resumen IA",
-    description: "Resumen diario de tu actividad",
-    icon: Wand2,
-  },
-  {
-    type: "smart-suggestions",
-    label: "Sugerencias",
-    description: "Links recomendados para ti",
-    icon: Sparkles,
-  },
-  // Additional Social widget
-  {
-    type: "reddit-widget",
-    label: "Reddit Widget",
-    description: "Posts de subreddits (widget alternativo)",
-    icon: MessageCircle,
-  },
-  // Design & Creativity widgets
-  {
-    type: "color-of-day",
-    label: "Color del Día",
-    description: "Color destacado con paletas",
-    icon: Palette,
-  },
-  {
-    type: "font-pairing",
-    label: "Tipografías",
-    description: "Combinaciones de fuentes",
-    icon: Type,
-  },
-  {
-    type: "design-inspiration",
-    label: "Inspiración",
-    description: "Inspiración de diseño aleatoria",
-    icon: Image,
-  },
-  {
-    type: "icon-picker",
-    label: "Iconos",
-    description: "Buscador de iconos Lucide",
-    icon: Search,
-  },
-  {
-    type: "screenshot-mockup",
-    label: "Mockups",
-    description: "Generador de mockups rápidos",
-    icon: Smartphone,
-  },
-  // Utility widgets (new)
-  {
-    type: "clipboard-history",
-    label: "Portapapeles",
-    description: "Historial de portapapeles",
-    icon: Clipboard,
-  },
-  {
-    type: "sticky-notes",
-    label: "Notas Adhesivas",
-    description: "Post-its coloridos",
-    icon: StickyNote,
-  },
-  {
-    type: "link-previewer",
-    label: "Preview URL",
-    description: "Vista previa de URLs",
-    icon: Link,
-  },
-  {
-    type: "site-status",
-    label: "Estado de Sitios",
-    description: "Monitor de uptime multi-sitio",
-    icon: Activity,
-  },
-  {
-    type: "api-tester",
-    label: "API Tester",
-    description: "Pruebas rápidas de API REST",
-    icon: Terminal,
-  },
-  {
-    type: "cron-builder",
-    label: "Cron Builder",
-    description: "Constructor de expresiones cron",
-    icon: Clock,
-  },
-  {
-    type: "diff-viewer",
-    label: "Diff Viewer",
-    description: "Comparador de textos",
-    icon: GitCompare,
-  },
-  {
-    type: "password-manager",
-    label: "Gestor de Contraseñas",
-    description: "Almacena logins, usuarios y contraseñas con acceso a las webs",
-    icon: KeyRound,
-  },
+  { type: "favorites", labelKey: "widget.favorites.label", descKey: "widget.favorites.desc", icon: Star },
+  { type: "recent", labelKey: "widget.recent.label", descKey: "widget.recent.desc", icon: Clock },
+  { type: "category", labelKey: "widget.category.label", descKey: "widget.category.desc", icon: FolderOpen, requiresCategory: true },
+  { type: "tag", labelKey: "widget.tag.label", descKey: "widget.tag.desc", icon: TagIcon, requiresTag: true },
+  { type: "categories", labelKey: "widget.categories.label", descKey: "widget.categories.desc", icon: Folders },
+  { type: "quick-add", labelKey: "widget.quick-add.label", descKey: "widget.quick-add.desc", icon: Plus },
+  { type: "stats", labelKey: "widget.stats.label", descKey: "widget.stats.desc", icon: BarChart3 },
+  { type: "link-analytics", labelKey: "widget.link-analytics.label", descKey: "widget.link-analytics.desc", icon: PieChart },
+  { type: "clock", labelKey: "widget.clock.label", descKey: "widget.clock.desc", icon: Clock3 },
+  { type: "notes", labelKey: "widget.notes.label", descKey: "widget.notes.desc", icon: StickyNote },
+  { type: "progress", labelKey: "widget.progress.label", descKey: "widget.progress.desc", icon: Target },
+  { type: "search", labelKey: "widget.search.label", descKey: "widget.search.desc", icon: Search },
+  { type: "bookmarks", labelKey: "widget.bookmarks.label", descKey: "widget.bookmarks.desc", icon: Bookmark },
+  { type: "image", labelKey: "widget.image.label", descKey: "widget.image.desc", icon: Image },
+  { type: "weather", labelKey: "widget.weather.label", descKey: "widget.weather.desc", icon: Cloud },
+  { type: "quote", labelKey: "widget.quote.label", descKey: "widget.quote.desc", icon: Quote },
+  { type: "pomodoro", labelKey: "widget.pomodoro.label", descKey: "widget.pomodoro.desc", icon: Timer },
+  { type: "calendar", labelKey: "widget.calendar.label", descKey: "widget.calendar.desc", icon: Calendar },
+  { type: "todo", labelKey: "widget.todo.label", descKey: "widget.todo.desc", icon: CheckSquare },
+  { type: "custom", labelKey: "widget.custom.label", descKey: "widget.custom.desc", icon: Sparkles },
+  { type: "countdown", labelKey: "widget.countdown.label", descKey: "widget.countdown.desc", icon: Hourglass },
+  { type: "habit-tracker", labelKey: "widget.habit-tracker.label", descKey: "widget.habit-tracker.desc", icon: CheckCircle },
+  { type: "tag-cloud", labelKey: "widget.tag-cloud.label", descKey: "widget.tag-cloud.desc", icon: Cloud },
+  { type: "random-link", labelKey: "widget.random-link.label", descKey: "widget.random-link.desc", icon: Shuffle },
+  { type: "github-activity", labelKey: "widget.github-activity.label", descKey: "widget.github-activity.desc", icon: Github },
+  { type: "bookmark-growth", labelKey: "widget.bookmark-growth.label", descKey: "widget.bookmark-growth.desc", icon: TrendingUp },
+  { type: "rss-feed", labelKey: "widget.rss-feed.label", descKey: "widget.rss-feed.desc", icon: Rss },
+  { type: "reading-streak", labelKey: "widget.reading-streak.label", descKey: "widget.reading-streak.desc", icon: Flame },
+  { type: "github-trending", labelKey: "widget.github-trending.label", descKey: "widget.github-trending.desc", icon: Sparkles },
+  { type: "steam-games", labelKey: "widget.steam-games.label", descKey: "widget.steam-games.desc", icon: Gamepad2 },
+  { type: "nintendo-deals", labelKey: "widget.nintendo-deals.label", descKey: "widget.nintendo-deals.desc", icon: Gamepad2 },
+  { type: "github-search", labelKey: "widget.github-search.label", descKey: "widget.github-search.desc", icon: Github },
+  { type: "codepen", labelKey: "widget.codepen.label", descKey: "widget.codepen.desc", icon: Code },
+  { type: "spotify", labelKey: "widget.spotify.label", descKey: "widget.spotify.desc", icon: Music },
+  { type: "youtube", labelKey: "widget.youtube.label", descKey: "widget.youtube.desc", icon: PlayCircle },
+  { type: "crypto", labelKey: "widget.crypto.label", descKey: "widget.crypto.desc", icon: Bitcoin },
+  { type: "world-clock", labelKey: "widget.world-clock.label", descKey: "widget.world-clock.desc", icon: Globe },
+  { type: "color-palette", labelKey: "widget.color-palette.label", descKey: "widget.color-palette.desc", icon: Palette },
+  { type: "unsplash", labelKey: "widget.unsplash.label", descKey: "widget.unsplash.desc", icon: ImageIcon },
+  { type: "qr-code", labelKey: "widget.qr-code.label", descKey: "widget.qr-code.desc", icon: QrCode },
+  { type: "website-monitor", labelKey: "widget.website-monitor.label", descKey: "widget.website-monitor.desc", icon: Activity },
+  { type: "embed", labelKey: "widget.embed.label", descKey: "widget.embed.desc", icon: Code2 },
+  { type: "prompt", labelKey: "widget.prompt.label", descKey: "widget.prompt.desc", icon: MessageSquareText },
+  { type: "prompt-builder", labelKey: "widget.prompt-builder.label", descKey: "widget.prompt-builder.desc", icon: Wand2 },
+  { type: "mcp-explorer", labelKey: "widget.mcp-explorer.label", descKey: "widget.mcp-explorer.desc", icon: Puzzle },
+  { type: "deployment-status", labelKey: "widget.deployment-status.label", descKey: "widget.deployment-status.desc", icon: Rocket },
+  { type: "voice-notes", labelKey: "widget.voice-notes.label", descKey: "widget.voice-notes.desc", icon: Mic },
+  { type: "link-manager", labelKey: "widget.link-manager.label", descKey: "widget.link-manager.desc", icon: LayoutList },
+  { type: "twitter-feed", labelKey: "widget.twitter-feed.label", descKey: "widget.twitter-feed.desc", icon: Twitter },
+  { type: "reddit", labelKey: "widget.reddit.label", descKey: "widget.reddit.desc", icon: MessageCircle },
+  { type: "hacker-news", labelKey: "widget.hacker-news.label", descKey: "widget.hacker-news.desc", icon: Newspaper },
+  { type: "product-hunt", labelKey: "widget.product-hunt.label", descKey: "widget.product-hunt.desc", icon: Rocket },
+  { type: "devto-feed", labelKey: "widget.devto-feed.label", descKey: "widget.devto-feed.desc", icon: Code },
+  { type: "calculator", labelKey: "widget.calculator.label", descKey: "widget.calculator.desc", icon: Calculator },
+  { type: "stopwatch", labelKey: "widget.stopwatch.label", descKey: "widget.stopwatch.desc", icon: TimerIcon },
+  { type: "json-formatter", labelKey: "widget.json-formatter.label", descKey: "widget.json-formatter.desc", icon: Braces },
+  { type: "base64-tool", labelKey: "widget.base64-tool.label", descKey: "widget.base64-tool.desc", icon: Binary },
+  { type: "text-tools", labelKey: "widget.text-tools.label", descKey: "widget.text-tools.desc", icon: Type },
+  { type: "password-generator", labelKey: "widget.password-generator.label", descKey: "widget.password-generator.desc", icon: KeyRound },
+  { type: "lorem-ipsum", labelKey: "widget.lorem-ipsum.label", descKey: "widget.lorem-ipsum.desc", icon: FileText },
+  { type: "dice-roller", labelKey: "widget.dice-roller.label", descKey: "widget.dice-roller.desc", icon: Dices },
+  { type: "unit-converter", labelKey: "widget.unit-converter.label", descKey: "widget.unit-converter.desc", icon: Scale },
+  { type: "currency-converter", labelKey: "widget.currency-converter.label", descKey: "widget.currency-converter.desc", icon: Coins },
+  { type: "markdown-preview", labelKey: "widget.markdown-preview.label", descKey: "widget.markdown-preview.desc", icon: FileCode },
+  { type: "regex-tester", labelKey: "widget.regex-tester.label", descKey: "widget.regex-tester.desc", icon: Regex },
+  { type: "color-converter", labelKey: "widget.color-converter.label", descKey: "widget.color-converter.desc", icon: Palette },
+  { type: "timezone-converter", labelKey: "widget.timezone-converter.label", descKey: "widget.timezone-converter.desc", icon: Globe },
+  { type: "hash-generator", labelKey: "widget.hash-generator.label", descKey: "widget.hash-generator.desc", icon: Hash },
+  { type: "ip-info", labelKey: "widget.ip-info.label", descKey: "widget.ip-info.desc", icon: Network },
+  { type: "uuid-generator", labelKey: "widget.uuid-generator.label", descKey: "widget.uuid-generator.desc", icon: Fingerprint },
+  { type: "number-converter", labelKey: "widget.number-converter.label", descKey: "widget.number-converter.desc", icon: Binary },
+  { type: "gradient-generator", labelKey: "widget.gradient-generator.label", descKey: "widget.gradient-generator.desc", icon: Blend },
+  { type: "box-shadow-generator", labelKey: "widget.box-shadow-generator.label", descKey: "widget.box-shadow-generator.desc", icon: Square },
+  { type: "aspect-ratio", labelKey: "widget.aspect-ratio.label", descKey: "widget.aspect-ratio.desc", icon: RectangleHorizontal },
+  { type: "jwt-decoder", labelKey: "widget.jwt-decoder.label", descKey: "widget.jwt-decoder.desc", icon: Key },
+  { type: "age-calculator", labelKey: "widget.age-calculator.label", descKey: "widget.age-calculator.desc", icon: Cake },
+  { type: "word-counter", labelKey: "widget.word-counter.label", descKey: "widget.word-counter.desc", icon: FileText },
+  { type: "typography-scale", labelKey: "widget.typography-scale.label", descKey: "widget.typography-scale.desc", icon: ALargeSmall },
+  { type: "spacing-calculator", labelKey: "widget.spacing-calculator.label", descKey: "widget.spacing-calculator.desc", icon: Ruler },
+  { type: "flexbox-playground", labelKey: "widget.flexbox-playground.label", descKey: "widget.flexbox-playground.desc", icon: Boxes },
+  { type: "contrast-checker", labelKey: "widget.contrast-checker.label", descKey: "widget.contrast-checker.desc", icon: Eye },
+  { type: "css-animation", labelKey: "widget.css-animation.label", descKey: "widget.css-animation.desc", icon: Sparkle },
+  { type: "glassmorphism", labelKey: "widget.glassmorphism.label", descKey: "widget.glassmorphism.desc", icon: Layers },
+  { type: "neumorphism", labelKey: "widget.neumorphism.label", descKey: "widget.neumorphism.desc", icon: Square },
+  { type: "tailwind-colors", labelKey: "widget.tailwind-colors.label", descKey: "widget.tailwind-colors.desc", icon: SwatchBook },
+  { type: "css-filter", labelKey: "widget.css-filter.label", descKey: "widget.css-filter.desc", icon: SlidersHorizontal },
+  { type: "css-grid", labelKey: "widget.css-grid.label", descKey: "widget.css-grid.desc", icon: LayoutGrid },
+  { type: "svg-wave", labelKey: "widget.svg-wave.label", descKey: "widget.svg-wave.desc", icon: Waves },
+  { type: "text-shadow-generator", labelKey: "widget.text-shadow-generator.label", descKey: "widget.text-shadow-generator.desc", icon: Type },
+  { type: "clip-path-generator", labelKey: "widget.clip-path-generator.label", descKey: "widget.clip-path-generator.desc", icon: Pentagon },
+  { type: "css-transform", labelKey: "widget.css-transform.label", descKey: "widget.css-transform.desc", icon: Move3d },
+  { type: "easing-functions", labelKey: "widget.easing-functions.label", descKey: "widget.easing-functions.desc", icon: Zap },
+  { type: "sprite-sheet", labelKey: "widget.sprite-sheet.label", descKey: "widget.sprite-sheet.desc", icon: Film },
+  { type: "color-ramp", labelKey: "widget.color-ramp.label", descKey: "widget.color-ramp.desc", icon: Paintbrush },
+  { type: "game-math", labelKey: "widget.game-math.label", descKey: "widget.game-math.desc", icon: Compass },
+  { type: "noise-generator", labelKey: "widget.noise-generator.label", descKey: "widget.noise-generator.desc", icon: Mountain },
+  { type: "particle-system", labelKey: "widget.particle-system.label", descKey: "widget.particle-system.desc", icon: SparklesIcon },
+  { type: "screen-resolution", labelKey: "widget.screen-resolution.label", descKey: "widget.screen-resolution.desc", icon: Monitor },
+  { type: "bezier-curve", labelKey: "widget.bezier-curve.label", descKey: "widget.bezier-curve.desc", icon: Spline },
+  { type: "rpg-stats", labelKey: "widget.rpg-stats.label", descKey: "widget.rpg-stats.desc", icon: Sword },
+  { type: "tilemap-editor", labelKey: "widget.tilemap-editor.label", descKey: "widget.tilemap-editor.desc", icon: Map },
+  { type: "frame-rate", labelKey: "widget.frame-rate.label", descKey: "widget.frame-rate.desc", icon: Gauge },
+  { type: "state-machine", labelKey: "widget.state-machine.label", descKey: "widget.state-machine.desc", icon: CircleDot },
+  { type: "pixel-art", labelKey: "widget.pixel-art.label", descKey: "widget.pixel-art.desc", icon: PenTool },
+  { type: "loot-table", labelKey: "widget.loot-table.label", descKey: "widget.loot-table.desc", icon: Gift },
+  { type: "hitbox-editor", labelKey: "widget.hitbox-editor.label", descKey: "widget.hitbox-editor.desc", icon: SquareIcon },
+  { type: "pathfinding", labelKey: "widget.pathfinding.label", descKey: "widget.pathfinding.desc", icon: Route },
+  { type: "dialogue-tree", labelKey: "widget.dialogue-tree.label", descKey: "widget.dialogue-tree.desc", icon: MessageSquare },
+  { type: "skill-tree", labelKey: "widget.skill-tree.label", descKey: "widget.skill-tree.desc", icon: TreePine },
+  { type: "wave-spawner", labelKey: "widget.wave-spawner.label", descKey: "widget.wave-spawner.desc", icon: Users },
+  { type: "camera-shake", labelKey: "widget.camera-shake.label", descKey: "widget.camera-shake.desc", icon: Camera },
+  { type: "health-bar", labelKey: "widget.health-bar.label", descKey: "widget.health-bar.desc", icon: Heart },
+  { type: "damage-calculator", labelKey: "widget.damage-calculator.label", descKey: "widget.damage-calculator.desc", icon: Sword },
+  { type: "input-mapper", labelKey: "widget.input-mapper.label", descKey: "widget.input-mapper.desc", icon: Gamepad2 },
+  { type: "level-progress", labelKey: "widget.level-progress.label", descKey: "widget.level-progress.desc", icon: TrendingUpIcon },
+  { type: "behavior-tree", labelKey: "widget.behavior-tree.label", descKey: "widget.behavior-tree.desc", icon: GitBranch },
+  { type: "name-generator", labelKey: "widget.name-generator.label", descKey: "widget.name-generator.desc", icon: Wand2 },
+  { type: "inventory-grid", labelKey: "widget.inventory-grid.label", descKey: "widget.inventory-grid.desc", icon: Package },
+  { type: "achievement", labelKey: "widget.achievement.label", descKey: "widget.achievement.desc", icon: Trophy },
+  { type: "quest-designer", labelKey: "widget.quest-designer.label", descKey: "widget.quest-designer.desc", icon: Scroll },
+  { type: "physics-playground", labelKey: "widget.physics-playground.label", descKey: "widget.physics-playground.desc", icon: Atom },
+  { type: "design-tokens", labelKey: "widget.design-tokens.label", descKey: "widget.design-tokens.desc", icon: Palette },
+  { type: "code-snippets", labelKey: "widget.code-snippets.label", descKey: "widget.code-snippets.desc", icon: Code },
+  { type: "sprint-tasks", labelKey: "widget.sprint-tasks.label", descKey: "widget.sprint-tasks.desc", icon: LayoutGrid },
+  { type: "decision-log", labelKey: "widget.decision-log.label", descKey: "widget.decision-log.desc", icon: FileText },
+  { type: "eisenhower-matrix", labelKey: "widget.eisenhower-matrix.label", descKey: "widget.eisenhower-matrix.desc", icon: Grid3x3 },
+  { type: "standup-notes", labelKey: "widget.standup-notes.label", descKey: "widget.standup-notes.desc", icon: Users },
+  { type: "mood-board", labelKey: "widget.mood-board.label", descKey: "widget.mood-board.desc", icon: ImageIcon },
+  { type: "api-reference", labelKey: "widget.api-reference.label", descKey: "widget.api-reference.desc", icon: Code2 },
+  { type: "meeting-notes", labelKey: "widget.meeting-notes.label", descKey: "widget.meeting-notes.desc", icon: StickyNote },
+  { type: "weekly-goals", labelKey: "widget.weekly-goals.label", descKey: "widget.weekly-goals.desc", icon: Target },
+  { type: "parking-lot", labelKey: "widget.parking-lot.label", descKey: "widget.parking-lot.desc", icon: Package },
+  { type: "pr-checklist", labelKey: "widget.pr-checklist.label", descKey: "widget.pr-checklist.desc", icon: CheckSquare },
+  { type: "tech-debt", labelKey: "widget.tech-debt.label", descKey: "widget.tech-debt.desc", icon: Activity },
+  { type: "project-timeline", labelKey: "widget.project-timeline.label", descKey: "widget.project-timeline.desc", icon: Calendar },
+  { type: "component-docs", labelKey: "widget.component-docs.label", descKey: "widget.component-docs.desc", icon: Boxes },
+  { type: "wireframe", labelKey: "widget.wireframe.label", descKey: "widget.wireframe.desc", icon: PenTool },
+  { type: "design-review", labelKey: "widget.design-review.label", descKey: "widget.design-review.desc", icon: Eye },
+  { type: "env-vars", labelKey: "widget.env-vars.label", descKey: "widget.env-vars.desc", icon: KeyRound },
+  { type: "git-commands", labelKey: "widget.git-commands.label", descKey: "widget.git-commands.desc", icon: GitBranch },
+  { type: "shadcn-builder", labelKey: "widget.shadcn-builder.label", descKey: "widget.shadcn-builder.desc", icon: Palette },
+  { type: "mood-tracker", labelKey: "widget.mood-tracker.label", descKey: "widget.mood-tracker.desc", icon: Smile },
+  { type: "water-intake", labelKey: "widget.water-intake.label", descKey: "widget.water-intake.desc", icon: Droplets },
+  { type: "sleep-log", labelKey: "widget.sleep-log.label", descKey: "widget.sleep-log.desc", icon: Moon },
+  { type: "breathing-exercise", labelKey: "widget.breathing-exercise.label", descKey: "widget.breathing-exercise.desc", icon: Wind },
+  { type: "gratitude-journal", labelKey: "widget.gratitude-journal.label", descKey: "widget.gratitude-journal.desc", icon: Heart },
+  { type: "daily-affirmations", labelKey: "widget.daily-affirmations.label", descKey: "widget.daily-affirmations.desc", icon: Sparkles },
+  { type: "expense-tracker", labelKey: "widget.expense-tracker.label", descKey: "widget.expense-tracker.desc", icon: Receipt },
+  { type: "budget-progress", labelKey: "widget.budget-progress.label", descKey: "widget.budget-progress.desc", icon: PieChart },
+  { type: "savings-goal", labelKey: "widget.savings-goal.label", descKey: "widget.savings-goal.desc", icon: PiggyBank },
+  { type: "subscription-manager", labelKey: "widget.subscription-manager.label", descKey: "widget.subscription-manager.desc", icon: CreditCard },
+  { type: "focus-score", labelKey: "widget.focus-score.label", descKey: "widget.focus-score.desc", icon: Target },
+  { type: "time-blocking", labelKey: "widget.time-blocking.label", descKey: "widget.time-blocking.desc", icon: CalendarClock },
+  { type: "daily-review", labelKey: "widget.daily-review.label", descKey: "widget.daily-review.desc", icon: ClipboardCheck },
+  { type: "parking-lot-enhanced", labelKey: "widget.parking-lot-enhanced.label", descKey: "widget.parking-lot-enhanced.desc", icon: Lightbulb },
+  { type: "energy-tracker", labelKey: "widget.energy-tracker.label", descKey: "widget.energy-tracker.desc", icon: Battery },
+  { type: "movie-tracker", labelKey: "widget.movie-tracker.label", descKey: "widget.movie-tracker.desc", icon: Film },
+  { type: "book-tracker", labelKey: "widget.book-tracker.label", descKey: "widget.book-tracker.desc", icon: BookOpen },
+  { type: "anime-list", labelKey: "widget.anime-list.label", descKey: "widget.anime-list.desc", icon: Tv },
+  { type: "game-backlog", labelKey: "widget.game-backlog.label", descKey: "widget.game-backlog.desc", icon: Gamepad2 },
+  { type: "wishlist", labelKey: "widget.wishlist.label", descKey: "widget.wishlist.desc", icon: Gift },
+  { type: "ai-chat", labelKey: "widget.ai-chat.label", descKey: "widget.ai-chat.desc", icon: Bot },
+  { type: "ai-daily-summary", labelKey: "widget.ai-daily-summary.label", descKey: "widget.ai-daily-summary.desc", icon: Wand2 },
+  { type: "smart-suggestions", labelKey: "widget.smart-suggestions.label", descKey: "widget.smart-suggestions.desc", icon: Sparkles },
+  { type: "reddit-widget", labelKey: "widget.reddit-widget.label", descKey: "widget.reddit-widget.desc", icon: MessageCircle },
+  { type: "color-of-day", labelKey: "widget.color-of-day.label", descKey: "widget.color-of-day.desc", icon: Palette },
+  { type: "font-pairing", labelKey: "widget.font-pairing.label", descKey: "widget.font-pairing.desc", icon: Type },
+  { type: "design-inspiration", labelKey: "widget.design-inspiration.label", descKey: "widget.design-inspiration.desc", icon: Image },
+  { type: "icon-picker", labelKey: "widget.icon-picker.label", descKey: "widget.icon-picker.desc", icon: Search },
+  { type: "screenshot-mockup", labelKey: "widget.screenshot-mockup.label", descKey: "widget.screenshot-mockup.desc", icon: Smartphone },
+  { type: "clipboard-history", labelKey: "widget.clipboard-history.label", descKey: "widget.clipboard-history.desc", icon: Clipboard },
+  { type: "sticky-notes", labelKey: "widget.sticky-notes.label", descKey: "widget.sticky-notes.desc", icon: StickyNote },
+  { type: "link-previewer", labelKey: "widget.link-previewer.label", descKey: "widget.link-previewer.desc", icon: Link },
+  { type: "site-status", labelKey: "widget.site-status.label", descKey: "widget.site-status.desc", icon: Activity },
+  { type: "api-tester", labelKey: "widget.api-tester.label", descKey: "widget.api-tester.desc", icon: Terminal },
+  { type: "cron-builder", labelKey: "widget.cron-builder.label", descKey: "widget.cron-builder.desc", icon: Clock },
+  { type: "diff-viewer", labelKey: "widget.diff-viewer.label", descKey: "widget.diff-viewer.desc", icon: GitCompare },
+  { type: "password-manager", labelKey: "widget.password-manager.label", descKey: "widget.password-manager.desc", icon: KeyRound },
 ];
 
-// Size options in Spanish
-const sizeOptions: Array<{ value: WidgetSize; label: string }> = [
-  { value: "small", label: "Pequeño" },
-  { value: "medium", label: "Mediano" },
-  { value: "large", label: "Grande" },
-  { value: "wide", label: "Ancho" },
-  { value: "tall", label: "Alto" },
+// Size options - labels resolved via i18n
+const sizeOptions: Array<{ value: WidgetSize; labelKey: string }> = [
+  { value: "small", labelKey: "addWidget.sizeSmall" },
+  { value: "medium", labelKey: "addWidget.sizeMedium" },
+  { value: "large", labelKey: "addWidget.sizeLarge" },
+  { value: "wide", labelKey: "addWidget.sizeWide" },
+  { value: "tall", labelKey: "addWidget.sizeTall" },
 ];
 
 // Widget categories for folder organization
 interface WidgetCategory {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   color: string;
   widgets: WidgetType[];
 }
 
 const WIDGET_CATEGORIES: WidgetCategory[] = [
-  {
-    id: "links",
-    label: "Enlaces",
-    icon: Link,
-    color: "blue",
-    widgets: ["favorites", "recent", "category", "tag", "categories", "quick-add", "bookmarks", "search", "random-link", "link-manager"],
-  },
-  {
-    id: "productivity",
-    label: "Productividad",
-    icon: Clock,
-    color: "green",
-    widgets: ["clock", "notes", "progress", "pomodoro", "calendar", "todo", "countdown", "habit-tracker", "weather", "quote", "custom"],
-  },
-  {
-    id: "analytics",
-    label: "Analítica",
-    icon: BarChart3,
-    color: "purple",
-    widgets: ["stats", "link-analytics", "github-activity", "bookmark-growth", "reading-streak", "tag-cloud", "rss-feed"],
-  },
-  {
-    id: "external",
-    label: "Contenido Externo",
-    icon: Globe,
-    color: "cyan",
-    widgets: ["github-trending", "steam-games", "nintendo-deals", "github-search", "codepen", "spotify", "youtube", "crypto", "unsplash", "embed"],
-  },
-  {
-    id: "social",
-    label: "Redes Sociales",
-    icon: MessageCircle,
-    color: "pink",
-    widgets: ["twitter-feed", "reddit", "reddit-widget", "hacker-news", "product-hunt", "devto-feed"],
-  },
-  {
-    id: "utilities",
-    label: "Utilidades",
-    icon: Calculator,
-    color: "orange",
-    widgets: ["calculator", "stopwatch", "world-clock", "qr-code", "website-monitor", "image", "color-palette", "dice-roller"],
-  },
-  {
-    id: "developer",
-    label: "Desarrollador",
-    icon: Code,
-    color: "slate",
-    widgets: ["json-formatter", "base64-tool", "text-tools", "password-generator", "lorem-ipsum", "regex-tester", "hash-generator", "ip-info", "uuid-generator", "jwt-decoder", "markdown-preview"],
-  },
-  {
-    id: "converters",
-    label: "Conversores",
-    icon: Scale,
-    color: "teal",
-    widgets: ["unit-converter", "currency-converter", "color-converter", "timezone-converter", "number-converter", "aspect-ratio", "age-calculator", "word-counter"],
-  },
-  {
-    id: "css-generators",
-    label: "Generadores CSS",
-    icon: Paintbrush,
-    color: "violet",
-    widgets: ["gradient-generator", "box-shadow-generator", "text-shadow-generator", "contrast-checker", "spacing-calculator", "flexbox-playground", "glassmorphism", "neumorphism", "svg-wave", "css-animation", "tailwind-colors", "css-filter", "css-grid", "typography-scale", "clip-path-generator", "css-transform"],
-  },
-  {
-    id: "gamedev",
-    label: "Game Dev",
-    icon: Gamepad2,
-    color: "red",
-    widgets: ["easing-functions", "sprite-sheet", "color-ramp", "game-math", "noise-generator", "particle-system", "screen-resolution", "bezier-curve", "rpg-stats", "tilemap-editor", "frame-rate", "state-machine", "pixel-art", "loot-table", "hitbox-editor", "pathfinding", "dialogue-tree", "skill-tree", "wave-spawner", "camera-shake", "health-bar", "damage-calculator", "input-mapper", "level-progress", "behavior-tree", "name-generator", "inventory-grid", "achievement", "quest-designer", "physics-playground"],
-  },
-  {
-    id: "organization",
-    label: "Organización",
-    icon: LayoutList,
-    color: "amber",
-    widgets: ["design-tokens", "code-snippets", "sprint-tasks", "decision-log", "eisenhower-matrix", "standup-notes", "mood-board", "api-reference", "meeting-notes", "weekly-goals", "parking-lot", "pr-checklist", "tech-debt", "project-timeline", "component-docs", "wireframe", "design-review", "env-vars", "git-commands", "shadcn-builder"],
-  },
-  {
-    id: "wellness",
-    label: "Bienestar",
-    icon: Heart,
-    color: "rose",
-    widgets: ["mood-tracker", "water-intake", "sleep-log", "breathing-exercise", "gratitude-journal", "daily-affirmations"],
-  },
-  {
-    id: "finance",
-    label: "Finanzas",
-    icon: Coins,
-    color: "emerald",
-    widgets: ["expense-tracker", "budget-progress", "savings-goal", "subscription-manager"],
-  },
-  {
-    id: "entertainment",
-    label: "Entretenimiento",
-    icon: Film,
-    color: "indigo",
-    widgets: ["movie-tracker", "book-tracker", "anime-list", "game-backlog", "wishlist"],
-  },
-  {
-    id: "ai",
-    label: "IA & Inteligencia",
-    icon: Bot,
-    color: "fuchsia",
-    widgets: ["ai-chat", "ai-daily-summary", "smart-suggestions", "prompt", "prompt-builder", "mcp-explorer", "voice-notes"],
-  },
-  {
-    id: "creativity",
-    label: "Diseño & Creatividad",
-    icon: Palette,
-    color: "lime",
-    widgets: ["color-of-day", "font-pairing", "design-inspiration", "icon-picker", "screenshot-mockup"],
-  },
-  {
-    id: "productivity-ext",
-    label: "Productividad Avanzada",
-    icon: Rocket,
-    color: "sky",
-    widgets: ["focus-score", "time-blocking", "daily-review", "energy-tracker", "parking-lot-enhanced", "deployment-status"],
-  },
-  {
-    id: "utility-ext",
-    label: "Utilidades Avanzadas",
-    icon: Terminal,
-    color: "zinc",
-    widgets: ["clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer", "password-manager"],
-  },
+  { id: "links", labelKey: "addWidget.catLinks", icon: Link, color: "blue", widgets: ["favorites", "recent", "category", "tag", "categories", "quick-add", "bookmarks", "search", "random-link", "link-manager"] },
+  { id: "productivity", labelKey: "addWidget.catProductivity", icon: Clock, color: "green", widgets: ["clock", "notes", "progress", "pomodoro", "calendar", "todo", "countdown", "habit-tracker", "weather", "quote", "custom"] },
+  { id: "analytics", labelKey: "addWidget.catAnalytics", icon: BarChart3, color: "purple", widgets: ["stats", "link-analytics", "github-activity", "bookmark-growth", "reading-streak", "tag-cloud", "rss-feed"] },
+  { id: "external", labelKey: "addWidget.catExternal", icon: Globe, color: "cyan", widgets: ["github-trending", "steam-games", "nintendo-deals", "github-search", "codepen", "spotify", "youtube", "crypto", "unsplash", "embed"] },
+  { id: "social", labelKey: "addWidget.catSocial", icon: MessageCircle, color: "pink", widgets: ["twitter-feed", "reddit", "reddit-widget", "hacker-news", "product-hunt", "devto-feed"] },
+  { id: "utilities", labelKey: "addWidget.catUtilities", icon: Calculator, color: "orange", widgets: ["calculator", "stopwatch", "world-clock", "qr-code", "website-monitor", "image", "color-palette", "dice-roller"] },
+  { id: "developer", labelKey: "addWidget.catDeveloper", icon: Code, color: "slate", widgets: ["json-formatter", "base64-tool", "text-tools", "password-generator", "lorem-ipsum", "regex-tester", "hash-generator", "ip-info", "uuid-generator", "jwt-decoder", "markdown-preview"] },
+  { id: "converters", labelKey: "addWidget.catConverters", icon: Scale, color: "teal", widgets: ["unit-converter", "currency-converter", "color-converter", "timezone-converter", "number-converter", "aspect-ratio", "age-calculator", "word-counter"] },
+  { id: "css-generators", labelKey: "addWidget.catCssGenerators", icon: Paintbrush, color: "violet", widgets: ["gradient-generator", "box-shadow-generator", "text-shadow-generator", "contrast-checker", "spacing-calculator", "flexbox-playground", "glassmorphism", "neumorphism", "svg-wave", "css-animation", "tailwind-colors", "css-filter", "css-grid", "typography-scale", "clip-path-generator", "css-transform"] },
+  { id: "gamedev", labelKey: "addWidget.catGamedev", icon: Gamepad2, color: "red", widgets: ["easing-functions", "sprite-sheet", "color-ramp", "game-math", "noise-generator", "particle-system", "screen-resolution", "bezier-curve", "rpg-stats", "tilemap-editor", "frame-rate", "state-machine", "pixel-art", "loot-table", "hitbox-editor", "pathfinding", "dialogue-tree", "skill-tree", "wave-spawner", "camera-shake", "health-bar", "damage-calculator", "input-mapper", "level-progress", "behavior-tree", "name-generator", "inventory-grid", "achievement", "quest-designer", "physics-playground"] },
+  { id: "organization", labelKey: "addWidget.catOrganization", icon: LayoutList, color: "amber", widgets: ["design-tokens", "code-snippets", "sprint-tasks", "decision-log", "eisenhower-matrix", "standup-notes", "mood-board", "api-reference", "meeting-notes", "weekly-goals", "parking-lot", "pr-checklist", "tech-debt", "project-timeline", "component-docs", "wireframe", "design-review", "env-vars", "git-commands", "shadcn-builder"] },
+  { id: "wellness", labelKey: "addWidget.catWellness", icon: Heart, color: "rose", widgets: ["mood-tracker", "water-intake", "sleep-log", "breathing-exercise", "gratitude-journal", "daily-affirmations"] },
+  { id: "finance", labelKey: "addWidget.catFinance", icon: Coins, color: "emerald", widgets: ["expense-tracker", "budget-progress", "savings-goal", "subscription-manager"] },
+  { id: "entertainment", labelKey: "addWidget.catEntertainment", icon: Film, color: "indigo", widgets: ["movie-tracker", "book-tracker", "anime-list", "game-backlog", "wishlist"] },
+  { id: "ai", labelKey: "addWidget.catAi", icon: Bot, color: "fuchsia", widgets: ["ai-chat", "ai-daily-summary", "smart-suggestions", "prompt", "prompt-builder", "mcp-explorer", "voice-notes"] },
+  { id: "creativity", labelKey: "addWidget.catCreativity", icon: Palette, color: "lime", widgets: ["color-of-day", "font-pairing", "design-inspiration", "icon-picker", "screenshot-mockup"] },
+  { id: "productivity-ext", labelKey: "addWidget.catProductivityExt", icon: Rocket, color: "sky", widgets: ["focus-score", "time-blocking", "daily-review", "energy-tracker", "parking-lot-enhanced", "deployment-status"] },
+  { id: "utility-ext", labelKey: "addWidget.catUtilityExt", icon: Terminal, color: "zinc", widgets: ["clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer", "password-manager"] },
 ];
 
 // LocalStorage key for category order persistence
@@ -1715,9 +699,10 @@ interface WidgetCategoryFolderProps {
   onToggleWidget: (type: WidgetType) => void;
   isDragging?: boolean;
   dragProps?: React.HTMLAttributes<HTMLDivElement>;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggleWidget, isDragging, dragProps }: WidgetCategoryFolderProps) {
+function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggleWidget, isDragging, dragProps, t }: WidgetCategoryFolderProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const categoryWidgets = useMemo(() => {
@@ -1786,14 +771,14 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
         {/* Category Label & Count */}
         <div className="flex-1 flex items-center gap-2">
           <Icon className={`w-4 h-4 ${colors.text}`} />
-          <span className="font-medium text-sm">{category.label}</span>
+          <span className="font-medium text-sm">{t(category.labelKey)}</span>
         </div>
 
         {/* Badge with widget count */}
         <div className="flex items-center gap-2">
           {selectedCount > 0 && (
             <Badge variant="default" className="h-5 px-2 text-xs bg-primary">
-              {selectedCount} sel.
+              {selectedCount} {t("addWidget.sel")}
             </Badge>
           )}
           <Badge variant="secondary" className="h-5 px-2 text-xs">
@@ -1803,7 +788,7 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
 
         {/* Double-click hint */}
         <span className="text-[10px] text-muted-foreground/60 absolute bottom-1 right-2">
-          doble clic
+          {t("addWidget.doubleClick")}
         </span>
       </div>
 
@@ -1849,7 +834,7 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
                       )}
                     </AnimatePresence>
                     <WidgetIcon className={`w-5 h-5 ${isSelected ? "text-primary" : "text-foreground"}`} />
-                    <p className="text-xs font-medium leading-tight">{option.label}</p>
+                    <p className="text-xs font-medium leading-tight">{t(option.labelKey)}</p>
                   </motion.button>
                 );
               })}
@@ -1867,9 +852,10 @@ interface SortableCategoryFolderProps {
   widgetOptions: typeof widgetTypeOptions;
   selectedTypes: WidgetType[];
   onToggleWidget: (type: WidgetType) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-function SortableCategoryFolder({ category, widgetOptions, selectedTypes, onToggleWidget }: SortableCategoryFolderProps) {
+function SortableCategoryFolder({ category, widgetOptions, selectedTypes, onToggleWidget, t }: SortableCategoryFolderProps) {
   const {
     attributes,
     listeners,
@@ -1894,12 +880,14 @@ function SortableCategoryFolder({ category, widgetOptions, selectedTypes, onTogg
         onToggleWidget={onToggleWidget}
         isDragging={isDragging}
         dragProps={listeners}
+        t={t}
       />
     </div>
   );
 }
 
 export function AddWidgetModal() {
+  const { t } = useTranslation();
   const isAddWidgetModalOpen = useWidgetStore((state) => state.isAddWidgetModalOpen);
   const closeAddWidgetModal = useWidgetStore((state) => state.closeAddWidgetModal);
   const addWidget = useWidgetStore((state) => state.addWidget);
@@ -1998,19 +986,19 @@ export function AddWidgetModal() {
 
     const query = deferredSearchQuery.toLowerCase().trim();
     return widgetTypeOptions.filter((option) =>
-      option.label.toLowerCase().includes(query) ||
-      option.description.toLowerCase().includes(query) ||
+      t(option.labelKey).toLowerCase().includes(query) ||
+      t(option.descKey).toLowerCase().includes(query) ||
       option.type.toLowerCase().includes(query)
     );
-  }, [deferredSearchQuery]);
+  }, [deferredSearchQuery, t]);
 
   const filteredCustomTypes = useMemo(() => {
     if (!deferredSearchQuery.trim()) return customWidgetTypesList;
     const q = deferredSearchQuery.toLowerCase().trim();
     return customWidgetTypesList.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        (t.description ?? "").toLowerCase().includes(q)
+      (ct) =>
+        ct.name.toLowerCase().includes(q) ||
+        (ct.description ?? "").toLowerCase().includes(q)
     );
   }, [customWidgetTypesList, deferredSearchQuery]);
 
@@ -2036,7 +1024,7 @@ export function AddWidgetModal() {
     setSelectedTypes((prev) => {
       const isSelected = prev.includes(type);
       if (isSelected) {
-        return prev.filter((t) => t !== type);
+        return prev.filter((wt) => wt !== type);
       } else {
         return [...prev, type];
       }
@@ -2044,7 +1032,7 @@ export function AddWidgetModal() {
 
     // If only one widget is selected, update form values
     const newSelection = selectedTypes.includes(type)
-      ? selectedTypes.filter((t) => t !== type)
+      ? selectedTypes.filter((wt) => wt !== type)
       : [...selectedTypes, type];
 
     if (newSelection.length === 1) {
@@ -2089,14 +1077,14 @@ export function AddWidgetModal() {
         projectId: activeProjectId,
         layout: { x: 0, y: 0, w: customType.defaultWidth, h: customType.defaultHeight },
       });
-      toast.success(`Widget "${customType.name}" añadido al panel`);
+      toast.success(t("addWidget.customAdded", { name: customType.name }));
       form.reset();
       setSelectedTypes([]);
       setSelectedTags([]);
       setSearchQuery("");
       closeAddWidgetModal();
     } catch {
-      toast.error("Error al crear el widget");
+      toast.error(t("addWidget.errorCreatingWidget"));
     } finally {
       setIsLoading(false);
     }
@@ -2145,14 +1133,14 @@ export function AddWidgetModal() {
 
   const handleDeleteCustomType = useCallback(async (customType: CustomWidgetTypeEntry, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`¿Eliminar el tipo de widget "${customType.name}"? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(t("addWidget.confirmDelete", { name: customType.name }))) return;
     try {
       const res = await fetch(`/api/custom-widget-types/${customType.id}`, {
         method: "DELETE",
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Error al eliminar");
-      setCustomWidgetTypesList((prev) => prev.filter((t) => t.id !== customType.id));
+      if (!res.ok) throw new Error("Delete failed");
+      setCustomWidgetTypesList((prev) => prev.filter((ct) => ct.id !== customType.id));
       setCustomFavorites((prev) => {
         const next = new Set(prev);
         next.delete(customType.id);
@@ -2161,15 +1149,15 @@ export function AddWidgetModal() {
         } catch {}
         return next;
       });
-      toast.success(`Tipo "${customType.name}" eliminado`);
+      toast.success(t("addWidget.typeDeleted", { name: customType.name }));
     } catch {
-      toast.error("Error al eliminar el tipo de widget");
+      toast.error(t("addWidget.errorDeleting"));
     }
-  }, []);
+  }, [t]);
 
   const onSubmit = async (values: FormValues) => {
     if (selectedTypes.length === 0) {
-      toast.error("Selecciona al menos un widget");
+      toast.error(t("addWidget.selectAtLeast"));
       return;
     }
 
@@ -2205,13 +1193,13 @@ export function AddWidgetModal() {
 
       toast.success(
         selectedTypes.length === 1
-          ? "Widget añadido al panel"
-          : `${selectedTypes.length} widgets añadidos al panel`
+          ? t("addWidget.addedToPanel")
+          : t("addWidget.addedMultiToPanel", { count: selectedTypes.length })
       );
       handleClose();
     } catch (error) {
       console.error("Error creating widgets:", error);
-      toast.error("Error al crear los widgets");
+      toast.error(t("addWidget.errorCreating"));
     } finally {
       setIsLoading(false);
     }
@@ -2244,21 +1232,21 @@ export function AddWidgetModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Grid3x3 className="w-5 h-5 text-primary" />
-            Añadir widgets
+            {t("addWidget.title")}
             {selectedTypes.length > 0 && (
               <Badge variant="secondary" className="ml-2">
-                {selectedTypes.length} seleccionado{selectedTypes.length > 1 ? "s" : ""}
+                {selectedTypes.length} {selectedTypes.length > 1 ? t("addWidget.selectedPlural") : t("addWidget.selected")}
               </Badge>
             )}
           </DialogTitle>
           <DialogDescription>
-            Selecciona uno o varios widgets para añadir a tu panel
+            {t("addWidget.description")}
           </DialogDescription>
           {/* Search input */}
           <div className="relative pt-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 mt-1 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar widgets..."
+              placeholder={t("addWidget.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9"
@@ -2284,8 +1272,8 @@ export function AddWidgetModal() {
               disabled={filteredWidgetOptions.length === 0}
             >
               {filteredWidgetOptions.length > 0 && filteredWidgetOptions.every((o) => selectedTypes.includes(o.type))
-                ? "Deseleccionar todos"
-                : "Seleccionar todos"}
+                ? t("addWidget.deselectAll")
+                : t("addWidget.selectAll")}
             </Button>
             {selectedTypes.length > 0 && (
               <Button
@@ -2295,12 +1283,12 @@ export function AddWidgetModal() {
                 onClick={handleClearSelection}
                 className="h-7 text-xs text-muted-foreground"
               >
-                Limpiar
+                {t("addWidget.clear")}
               </Button>
             )}
             {deferredSearchQuery && filteredWidgetOptions.length > 0 && (
               <span className="text-xs text-muted-foreground ml-auto">
-                {filteredWidgetOptions.length} resultado{filteredWidgetOptions.length !== 1 ? "s" : ""}
+                {filteredWidgetOptions.length} {filteredWidgetOptions.length !== 1 ? t("addWidget.results") : t("addWidget.result")}
               </span>
             )}
           </div>
@@ -2311,7 +1299,7 @@ export function AddWidgetModal() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Widget Type Selection - Multi-select */}
             <FormItem>
-              <FormLabel>Tipo de widget</FormLabel>
+              <FormLabel>{t("addWidget.widgetType")}</FormLabel>
               <AnimatePresence mode="wait">
                 {/* No search results */}
                 {deferredSearchQuery.trim() && filteredWidgetOptions.length === 0 ? (
@@ -2324,10 +1312,10 @@ export function AddWidgetModal() {
                   >
                     <Search className="w-10 h-10 text-muted-foreground/50 mb-3" />
                     <p className="text-sm font-medium text-foreground">
-                      No se encontraron widgets
+                      {t("addWidget.noResults")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      No hay widgets que coincidan con &quot;{deferredSearchQuery}&quot;
+                      {t("addWidget.noMatchQuery")} &quot;{deferredSearchQuery}&quot;
                     </p>
                     <Button
                       type="button"
@@ -2336,7 +1324,7 @@ export function AddWidgetModal() {
                       onClick={() => setSearchQuery("")}
                       className="mt-3"
                     >
-                      Limpiar búsqueda
+                      {t("addWidget.clearSearch")}
                     </Button>
                   </motion.div>
                 ) : deferredSearchQuery.trim() ? (
@@ -2350,7 +1338,7 @@ export function AddWidgetModal() {
                   >
                     <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                       <Search className="w-3 h-3" />
-                      <span>Resultados para &quot;{deferredSearchQuery}&quot;</span>
+                      <span>{t("addWidget.resultsFor")} &quot;{deferredSearchQuery}&quot;</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {filteredWidgetOptions.map((option) => {
@@ -2394,10 +1382,10 @@ export function AddWidgetModal() {
                             />
                             <div>
                               <p className="text-sm font-medium">
-                                {option.label}
+                                {t(option.labelKey)}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                {option.description}
+                                {t(option.descKey)}
                               </p>
                             </div>
                           </motion.button>
@@ -2416,7 +1404,7 @@ export function AddWidgetModal() {
                   >
                     <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                       <Folder className="w-3 h-3" />
-                      <span>Arrastra para reordenar. Doble clic para abrir.</span>
+                      <span>{t("addWidget.dragToReorder")}</span>
                     </div>
                     <DndContext
                       sensors={sensors}
@@ -2434,6 +1422,7 @@ export function AddWidgetModal() {
                             widgetOptions={widgetTypeOptions}
                             selectedTypes={selectedTypes}
                             onToggleWidget={handleTypeToggle}
+                            t={t}
                           />
                         ))}
                       </SortableContext>
@@ -2448,7 +1437,7 @@ export function AddWidgetModal() {
               <div className="space-y-3 border-t pt-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Puzzle className="w-4 h-4 text-primary" />
-                  <span>Mis widgets personalizados</span>
+                  <span>{t("addWidget.customWidgets")}</span>
                   {filteredCustomTypes.length > 0 && (
                     <Badge variant="secondary">{filteredCustomTypes.length}</Badge>
                   )}
@@ -2494,7 +1483,7 @@ export function AddWidgetModal() {
                               <button
                                 type="button"
                                 onClick={(e) => handleToggleCustomFavorite(customType.id, e)}
-                                title={isFav ? "Quitar de favoritos" : "Marcar como favorito"}
+                                title={isFav ? t("addWidget.removeFavorite") : t("addWidget.addFavorite")}
                                 className={cn(
                                   "p-1 rounded hover:bg-accent transition-colors",
                                   isFav ? "text-yellow-400" : "text-muted-foreground"
@@ -2509,7 +1498,7 @@ export function AddWidgetModal() {
                               <button
                                 type="button"
                                 onClick={(e) => handleExportCustomType(customType, e)}
-                                title="Exportar widget como archivo JSON"
+                                title={t("addWidget.exportAsJson")}
                                 className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                               >
                                 <Download className="w-3.5 h-3.5" />
@@ -2517,7 +1506,7 @@ export function AddWidgetModal() {
                               <button
                                 type="button"
                                 onClick={(e) => handleDeleteCustomType(customType, e)}
-                                title="Eliminar tipo de widget"
+                                title={t("addWidget.deleteType")}
                                 className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -2546,9 +1535,9 @@ export function AddWidgetModal() {
                     name="title"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Título del widget</FormLabel>
+                        <FormLabel>{t("addWidget.widgetTitle")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Mi Widget" {...field} />
+                          <Input placeholder={t("addWidget.widgetTitlePlaceholder")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -2561,7 +1550,7 @@ export function AddWidgetModal() {
                     name="size"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tamaño</FormLabel>
+                        <FormLabel>{t("addWidget.size")}</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
@@ -2574,7 +1563,7 @@ export function AddWidgetModal() {
                           <SelectContent>
                             {sizeOptions.map((size) => (
                               <SelectItem key={size.value} value={size.value}>
-                                {size.label}
+                                {t(size.labelKey)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -2587,7 +1576,7 @@ export function AddWidgetModal() {
                   {/* Size Preview */}
                   <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
                     <p className="text-xs text-muted-foreground mb-3">
-                      Vista previa del tamaño
+                      {t("addWidget.sizePreview")}
                     </p>
                     <div className="flex items-center gap-4">
                       <div
@@ -2603,12 +1592,10 @@ export function AddWidgetModal() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         <p>
-                          Ancho: {currentSizePreset.w} columna
-                          {currentSizePreset.w > 1 ? "s" : ""}
+                          {t("addWidget.width")}: {currentSizePreset.w} {currentSizePreset.w > 1 ? t("addWidget.columns") : t("addWidget.column")}
                         </p>
                         <p>
-                          Alto: {currentSizePreset.h} fila
-                          {currentSizePreset.h > 1 ? "s" : ""}
+                          {t("addWidget.height")}: {currentSizePreset.h} {currentSizePreset.h > 1 ? t("addWidget.rows") : t("addWidget.row")}
                         </p>
                       </div>
                     </div>
@@ -2621,20 +1608,20 @@ export function AddWidgetModal() {
                       name="categoryId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Categoría</FormLabel>
+                          <FormLabel>{t("addWidget.category")}</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una categoría" />
+                                <SelectValue placeholder={t("addWidget.selectCategory")} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {categories.length === 0 ? (
                                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                  No hay categorías disponibles
+                                  {t("addWidget.noCategories")}
                                 </div>
                               ) : (
                                 categories.map((category: Category) => (
@@ -2658,20 +1645,20 @@ export function AddWidgetModal() {
                       name="tagId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Filtrar por etiqueta</FormLabel>
+                          <FormLabel>{t("addWidget.filterByTag")}</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una etiqueta" />
+                                <SelectValue placeholder={t("addWidget.selectTag")} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {tags.length === 0 ? (
                                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                  No hay etiquetas disponibles
+                                  {t("addWidget.noTags")}
                                 </div>
                               ) : (
                                 tags.map((tag: Tag) => (
@@ -2696,9 +1683,9 @@ export function AddWidgetModal() {
                   {/* Widget Tags Assignment (for all widget types) */}
                   {tags.length > 0 && (
                     <div className="space-y-2">
-                      <FormLabel>Etiquetas del widget (opcional)</FormLabel>
+                      <FormLabel>{t("addWidget.widgetTags")}</FormLabel>
                       <p className="text-xs text-muted-foreground">
-                        Asigna etiquetas para organizar tus widgets
+                        {t("addWidget.assignTags")}
                       </p>
                       <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-border/50 bg-secondary/20 min-h-[60px]">
                         {tags.map((tag: Tag) => {
@@ -2732,7 +1719,7 @@ export function AddWidgetModal() {
                       </div>
                       {selectedTags.length > 0 && (
                         <p className="text-xs text-muted-foreground">
-                          {selectedTags.length} etiqueta{selectedTags.length > 1 ? "s" : ""} seleccionada{selectedTags.length > 1 ? "s" : ""}
+                          {selectedTags.length > 1 ? t("addWidget.tagsSelectedPlural", { count: selectedTags.length }) : t("addWidget.tagsSelected", { count: selectedTags.length })}
                         </p>
                       )}
                     </div>
@@ -2754,11 +1741,10 @@ export function AddWidgetModal() {
                     <Grid3x3 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                     <div className="text-sm">
                       <p className="font-medium text-foreground">
-                        {selectedTypes.length} widgets seleccionados
+                        {t("addWidget.multiSelectedTitle", { count: selectedTypes.length })}
                       </p>
                       <p className="text-muted-foreground mt-1">
-                        Se crearán con sus configuraciones predeterminadas.
-                        Podrás personalizarlos después desde el menú de cada widget.
+                        {t("addWidget.multiSelectedDesc")}
                       </p>
                     </div>
                   </div>
@@ -2769,15 +1755,15 @@ export function AddWidgetModal() {
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="ghost" onClick={handleClose}>
-                Cancelar
+                {t("addWidget.cancel")}
               </Button>
               <Button type="submit" disabled={isLoading || selectedTypes.length === 0}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {selectedTypes.length === 0
-                  ? "Selecciona widgets"
+                  ? t("addWidget.selectWidgets")
                   : selectedTypes.length === 1
-                  ? "Crear widget"
-                  : `Crear ${selectedTypes.length} widgets`}
+                  ? t("addWidget.createWidget")
+                  : t("addWidget.createWidgets", { count: selectedTypes.length })}
               </Button>
             </div>
             </form>

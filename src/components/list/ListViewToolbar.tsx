@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,10 +55,10 @@ interface ListViewToolbarProps {
   filteredLinks: number;
 }
 
-const sortByLabels: Record<SortBy, string> = {
-  createdAt: "Fecha de creacion",
-  updatedAt: "Ultima actualizacion",
-  title: "Titulo",
+const sortByLabelKeys: Record<SortBy, string> = {
+  createdAt: "listView.sortByCreatedAt",
+  updatedAt: "listView.sortByUpdatedAt",
+  title: "listView.sortByTitle",
 };
 
 export function ListViewToolbar({
@@ -66,6 +67,7 @@ export function ListViewToolbar({
   totalLinks,
   filteredLinks,
 }: ListViewToolbarProps) {
+  const { t } = useTranslation();
   const categories = useLinksStore((state) => state.categories);
   const tags = useLinksStore((state) => state.tags);
   const activeFilter = useLayoutStore((state) => state.activeFilter);
@@ -114,7 +116,7 @@ export function ListViewToolbar({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Buscar enlaces..."
+            placeholder={t("listView.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-9"
@@ -136,7 +138,7 @@ export function ListViewToolbar({
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-9 gap-2">
               <Folder className="w-4 h-4" />
-              <span className="hidden sm:inline">Categoria</span>
+              <span className="hidden sm:inline">{t("listView.category")}</span>
               {activeCategory && (
                 <Badge variant="secondary" className="ml-1">
                   {activeCategory.name}
@@ -147,16 +149,16 @@ export function ListViewToolbar({
           </PopoverTrigger>
           <PopoverContent className="w-56 p-0" align="start">
             <Command>
-              <CommandInput placeholder="Buscar categoria..." />
+              <CommandInput placeholder={t("listView.searchCategory")} />
               <CommandList>
-                <CommandEmpty>No hay categorias</CommandEmpty>
+                <CommandEmpty>{t("listView.noCategories")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
                     onSelect={() => setActiveFilter({ type: "all", id: undefined })}
                     className="cursor-pointer"
                   >
                     <span className={cn(!activeCategory && "font-semibold")}>
-                      Todas las categorias
+                      {t("listView.allCategories")}
                     </span>
                   </CommandItem>
                   {categories.map((cat: Category) => (
@@ -192,7 +194,7 @@ export function ListViewToolbar({
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-9 gap-2">
               <Tag className="w-4 h-4" />
-              <span className="hidden sm:inline">Etiqueta</span>
+              <span className="hidden sm:inline">{t("listView.tag")}</span>
               {activeTag && (
                 <TagBadge
                   name={activeTag.name}
@@ -206,16 +208,16 @@ export function ListViewToolbar({
           </PopoverTrigger>
           <PopoverContent className="w-56 p-0" align="start">
             <Command>
-              <CommandInput placeholder="Buscar etiqueta..." />
+              <CommandInput placeholder={t("listView.searchTag")} />
               <CommandList>
-                <CommandEmpty>No hay etiquetas</CommandEmpty>
+                <CommandEmpty>{t("listView.noTags")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
                     onSelect={() => setActiveFilter({ type: "all", id: undefined })}
                     className="cursor-pointer"
                   >
                     <span className={cn(!activeTag && "font-semibold")}>
-                      Todas las etiquetas
+                      {t("listView.allTags")}
                     </span>
                   </CommandItem>
                   {tags.map((tag: TagType) => (
@@ -256,7 +258,7 @@ export function ListViewToolbar({
               activeFilter.type === "favorites" && "fill-yellow-500 text-yellow-500"
             )}
           />
-          <span className="hidden sm:inline">Favoritos</span>
+          <span className="hidden sm:inline">{t("listView.favorites")}</span>
         </Button>
 
         {/* Sort dropdown */}
@@ -268,40 +270,40 @@ export function ListViewToolbar({
               ) : (
                 <SortDesc className="w-4 h-4" />
               )}
-              <span className="hidden sm:inline">{sortByLabels[sortBy]}</span>
+              <span className="hidden sm:inline">{t(sortByLabelKeys[sortBy])}</span>
               <ChevronDown className="w-3.5 h-3.5 ml-1" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("listView.sortBy")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup
               value={sortBy}
               onValueChange={(value) => setSortBy(value as SortBy)}
             >
               <DropdownMenuRadioItem value="createdAt">
-                Fecha de creacion
+                {t("listView.sortByCreatedAt")}
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="updatedAt">
-                Ultima actualizacion
+                {t("listView.sortByUpdatedAt")}
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="title">
-                Titulo
+                {t("listView.sortByTitle")}
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Direccion</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("listView.direction")}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={sortOrder}
               onValueChange={(value) => setSortOrder(value as SortOrder)}
             >
               <DropdownMenuRadioItem value="desc">
                 <SortDesc className="w-4 h-4 mr-2" />
-                Descendente
+                {t("listView.descending")}
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="asc">
                 <SortAsc className="w-4 h-4 mr-2" />
-                Ascendente
+                {t("listView.ascending")}
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
@@ -317,20 +319,20 @@ export function ListViewToolbar({
             size="sm"
             className="h-7 px-2 gap-1.5"
             onClick={() => collapseAll(categoryIds)}
-            title="Contraer todas las categorias"
+            title={t("listView.collapseAll")}
           >
             <ChevronsDownUp className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-xs">Contraer</span>
+            <span className="hidden sm:inline text-xs">{t("listView.collapse")}</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className="h-7 px-2 gap-1.5"
             onClick={() => expandAll()}
-            title="Expandir todas las categorias"
+            title={t("listView.expandAll")}
           >
             <ChevronsUpDown className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-xs">Expandir</span>
+            <span className="hidden sm:inline text-xs">{t("listView.expand")}</span>
           </Button>
 
           <div className="h-4 w-px bg-border" />
@@ -340,7 +342,7 @@ export function ListViewToolbar({
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 px-2 gap-1.5">
                 <Filter className="w-3.5 h-3.5" />
-                <span className="text-xs">Opciones</span>
+                <span className="text-xs">{t("listView.options")}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -348,13 +350,13 @@ export function ListViewToolbar({
                 checked={showEmptyCategories}
                 onCheckedChange={setShowEmptyCategories}
               >
-                Mostrar categorias vacias
+                {t("listView.showEmptyCategories")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={showUncategorized}
                 onCheckedChange={setShowUncategorized}
               >
-                Mostrar sin categoria
+                {t("listView.showUncategorized")}
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -370,7 +372,7 @@ export function ListViewToolbar({
                 onClick={handleClearFilters}
               >
                 <X className="w-3.5 h-3.5" />
-                <span className="text-xs">Limpiar filtros</span>
+                <span className="text-xs">{t("listView.clearFilters")}</span>
               </Button>
             </>
           )}
@@ -379,10 +381,10 @@ export function ListViewToolbar({
         {/* Link count */}
         <div className="text-xs text-muted-foreground">
           {filteredLinks === totalLinks ? (
-            <span>{totalLinks} enlaces</span>
+            <span>{t("listView.linksCount", { count: totalLinks })}</span>
           ) : (
             <span>
-              {filteredLinks} de {totalLinks} enlaces
+              {t("listView.linksFiltered", { filtered: filteredLinks, total: totalLinks })}
             </span>
           )}
         </div>

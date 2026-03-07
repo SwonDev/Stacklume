@@ -26,6 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface AnimeListWidgetProps {
   widget: Widget;
@@ -46,10 +47,10 @@ interface AnimeItem {
 }
 
 const statusLabels: Record<AnimeStatus, string> = {
-  planToWatch: "Por ver",
-  watching: "Viendo",
-  completed: "Completado",
-  dropped: "Abandonado",
+  planToWatch: "animeList.planToWatch",
+  watching: "animeList.watching",
+  completed: "animeList.completed",
+  dropped: "animeList.dropped",
 };
 
 const statusColors: Record<AnimeStatus, string> = {
@@ -67,8 +68,8 @@ const statusIcons: Record<AnimeStatus, React.ReactNode> = {
 };
 
 const typeLabels: Record<AnimeType, string> = {
-  anime: "Anime",
-  manga: "Manga",
+  anime: "animeList.anime",
+  manga: "animeList.manga",
 };
 
 const typeIcons: Record<AnimeType, React.ReactNode> = {
@@ -77,6 +78,7 @@ const typeIcons: Record<AnimeType, React.ReactNode> = {
 };
 
 export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
@@ -235,7 +237,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
             <div className="flex items-center gap-1.5 mb-0.5">
               <Badge variant="outline" className="text-[8px] @sm:text-[9px] h-4 px-1">
                 {typeIcons[item.type]}
-                <span className="ml-0.5">{typeLabels[item.type]}</span>
+                <span className="ml-0.5">{t(typeLabels[item.type])}</span>
               </Badge>
             </div>
             <p className="text-xs @sm:text-sm font-medium truncate">{item.title}</p>
@@ -312,7 +314,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
                 onClick={() => updateAnimeStatus(item.id, "completed")}
               >
                 <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                Completar
+                {t("animeList.complete")}
               </Button>
             </div>
           )}
@@ -323,7 +325,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
               <div className="flex items-center gap-1 mb-1">
                 <Star className="w-3 h-3 text-amber-500" />
                 <span className="text-[9px] text-muted-foreground">
-                  {item.score > 0 ? `${item.score}/10` : "Sin puntaje"}
+                  {item.score > 0 ? `${item.score}/10` : t("animeList.noScore")}
                 </span>
               </div>
               {renderScoreSelector(item)}
@@ -342,7 +344,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
                 onClick={() => updateAnimeStatus(item.id, "watching")}
               >
                 <Play className="w-3 h-3 mr-0.5" />
-                Empezar
+                {t("animeList.start")}
               </Button>
             )}
             <Button
@@ -352,7 +354,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
               onClick={() => updateAnimeStatus(item.id, "dropped")}
             >
               <XCircle className="w-3 h-3 mr-0.5" />
-              Abandonar
+              {t("animeList.drop")}
             </Button>
           </div>
         )}
@@ -375,7 +377,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
           <div className="flex items-center gap-2">
             <Badge variant="outline" className={cn("text-[10px]", statusColors[status])}>
               {statusIcons[status]}
-              <span className="ml-1">{statusLabels[status]}</span>
+              <span className="ml-1">{t(statusLabels[status])}</span>
             </Badge>
             <span className="text-xs text-muted-foreground">({items.length})</span>
           </div>
@@ -394,7 +396,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
               className="space-y-1 overflow-hidden"
             >
               {items.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">Sin items</p>
+                <p className="text-xs text-muted-foreground text-center py-2">{t("animeList.noFilterItems")}</p>
               ) : (
                 items.map(renderAnimeCard)
               )}
@@ -437,7 +439,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
             className="h-6 px-2 text-[10px]"
             onClick={() => setFilterType("all")}
           >
-            Todos
+            {t("animeList.all")}
           </Button>
           <Button
             variant={filterType === "anime" ? "default" : "outline"}
@@ -471,7 +473,7 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
               <Input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Titulo..."
+                placeholder={t("animeList.titlePlaceholder")}
                 className="h-8 text-sm"
                 autoFocus
               />
@@ -533,8 +535,8 @@ export function AnimeListWidget({ widget }: AnimeListWidgetProps) {
           {animeList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Tv className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">Sin anime/manga guardado</p>
-              <p className="text-xs">Agrega uno para comenzar</p>
+              <p className="text-sm">{t("animeList.noItems")}</p>
+              <p className="text-xs">{t("animeList.addOneToStart")}</p>
             </div>
           ) : (
             <div className="space-y-3">

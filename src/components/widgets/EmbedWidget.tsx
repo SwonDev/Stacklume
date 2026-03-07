@@ -26,6 +26,30 @@ import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
+import DOMPurify from "dompurify";
+
+// Domains trusted enough for allow-same-origin in sandbox
+const SAFE_EMBED_DOMAINS = [
+  "youtube.com", "www.youtube.com", "youtube-nocookie.com", "www.youtube-nocookie.com",
+  "open.spotify.com", "codepen.io", "codesandbox.io",
+  "figma.com", "www.figma.com",
+  "docs.google.com", "drive.google.com",
+  "stackblitz.com",
+  "excalidraw.com",
+  "canva.com",
+  "vimeo.com",
+  "soundcloud.com",
+];
+
+function isSafeDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return SAFE_EMBED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+  } catch {
+    return false;
+  }
+}
 
 interface EmbedWidgetProps {
   widget: Widget;
@@ -68,8 +92,7 @@ function detectEmbedType(url: string): string | null {
 }
 
 export function EmbedWidget({ widget }: EmbedWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -79,12 +102,12 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
     const config = widget.config as EmbedConfig | undefined;
     if (config?.embedUrl) {
       const detectedType = detectEmbedType(config.embedUrl);
-      openAddLinkModal({
+      useLinksStore.getState().openAddLinkModal({
         url: config.embedUrl,
-        title: config.title || detectedType || "Contenido embebido",
-        description: detectedType ? `Embed de ${detectedType}` : "Contenido embebido",
+        title: config.title || detectedType || t("embed.embeddedContent"),
+        description: detectedType ? t("embed.embedOf", { type: detectedType }) : t("embed.embeddedContent"),
       });
-      toast.success("Abriendo formulario para guardar enlace");
+      toast.success(t("embed.openingForm"));
     }
   };
 
@@ -94,7 +117,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
   const embedHtml = config?.embedHtml || "";
   const title = config?.title || "Embedded Content";
   const allowFullscreen = config?.allowFullscreen !== false;
-  const sandbox = config?.sandbox || "allow-scripts allow-same-origin allow-forms allow-popups";
+  const sandbox = config?.sandbox || "allow-scripts allow-forms allow-popups allow-presentation";
 
   const [formData, setFormData] = useState<EmbedConfig>({
     embedType,
@@ -106,7 +129,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
   });
 
   const handleSave = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...formData,
@@ -136,13 +159,13 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-3">
           <Code className="w-6 h-6 text-purple-500" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay contenido embebido</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("embed.noContent")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega una URL o codigo HTML para embeber
+          {t("embed.addUrlHint")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("embed.configure")}
         </Button>
 
         {/* Settings Dialog for empty state */}
@@ -151,29 +174,29 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Code className="w-5 h-5 text-purple-500" />
-                Configurar Embed
+                {t("embed.configureEmbed")}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Tipo de embed</Label>
+                <Label>{t("embed.embedType")}</Label>
                 <Select
                   value={formData.embedType}
                   onValueChange={(value: EmbedType) => setFormData({ ...formData, embedType: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tipo" />
+                    <SelectValue placeholder={t("embed.selectType")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="url">URL (iframe)</SelectItem>
-                    <SelectItem value="html">Codigo HTML</SelectItem>
+                    <SelectItem value="html">{t("embed.htmlCode")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {formData.embedType === "url" ? (
                 <div className="space-y-2">
-                  <Label htmlFor="embed-url">URL a embeber</Label>
+                  <Label htmlFor="embed-url">{t("embed.urlToEmbed")}</Label>
                   <Input
                     id="embed-url"
                     placeholder="https://..."
@@ -181,12 +204,12 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
                     onChange={(e) => setFormData({ ...formData, embedUrl: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Soporta: Google Maps, Docs, Figma, Notion, Airtable, Typeform, etc.
+                    {t("embed.supportedServices")}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="embed-html">Codigo HTML</Label>
+                  <Label htmlFor="embed-html">{t("embed.htmlCode")}</Label>
                   <Textarea
                     id="embed-html"
                     placeholder="<iframe src='...'></iframe>"
@@ -196,16 +219,16 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
                     className="font-mono text-xs"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Pega el codigo de embed proporcionado por el servicio
+                    {t("embed.pasteEmbedCode")}
                   </p>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="embed-title">Titulo (para accesibilidad)</Label>
+                <Label htmlFor="embed-title">{t("embed.titleAccessibility")}</Label>
                 <Input
                   id="embed-title"
-                  placeholder="Contenido embebido"
+                  placeholder={t("embed.embeddedContent")}
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
@@ -213,9 +236,9 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Permitir pantalla completa</Label>
+                  <Label>{t("embed.allowFullscreen")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Permite expandir el embed
+                    {t("embed.allowFullscreenDesc")}
                   </p>
                 </div>
                 <Switch
@@ -226,10 +249,10 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-                Cancelar
+                {t("embed.cancel")}
               </Button>
               <Button onClick={handleSave}>
-                Guardar
+                {t("embed.save")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -246,7 +269,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
             {detectedType && (
-              <p className="text-xs text-muted-foreground">Cargando {detectedType}...</p>
+              <p className="text-xs text-muted-foreground">{t("embed.loading", { type: detectedType || "" })}</p>
             )}
           </div>
         </div>
@@ -256,9 +279,9 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
           <AlertCircle className="w-8 h-8 text-destructive mb-2" />
-          <p className="text-sm text-muted-foreground">Error al cargar el contenido</p>
+          <p className="text-sm text-muted-foreground">{t("embed.loadError")}</p>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Es posible que el sitio no permita embeds
+            {t("embed.loadErrorHint")}
           </p>
           <Button
             size="sm"
@@ -269,7 +292,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
               setIsLoading(true);
             }}
           >
-            Reintentar
+            {t("embed.retry")}
           </Button>
         </div>
       )}
@@ -285,7 +308,10 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
           title={title}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen={allowFullscreen}
-          sandbox={sandbox}
+          sandbox={isSafeDomain(embedUrl)
+            ? "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
+            : "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          }
           loading="lazy"
           onLoad={handleIframeLoad}
           onError={handleIframeError}
@@ -293,7 +319,16 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
       ) : (
         // Use srcdoc iframe to sandbox HTML content and prevent styles/scripts from propagating
         <iframe
-          srcDoc={`
+          srcDoc={(() => {
+            const sanitizedHtml = typeof window !== 'undefined'
+              ? DOMPurify.sanitize(embedHtml, {
+                  ALLOW_TAGS: ['div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u', 'code', 'pre', 'blockquote', 'figure', 'figcaption', 'video', 'audio', 'source', 'canvas', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'symbol', 'style'],
+                  ALLOW_ATTR: ['class', 'id', 'style', 'href', 'src', 'alt', 'width', 'height', 'target', 'rel', 'type', 'viewBox', 'xmlns', 'd', 'fill', 'stroke', 'stroke-width', 'cx', 'cy', 'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'transform', 'text-anchor', 'font-size', 'controls', 'autoplay', 'loop', 'muted'],
+                  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+                  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onsubmit', 'onchange', 'oninput'],
+                })
+              : embedHtml;
+            return `
             <!DOCTYPE html>
             <html>
               <head>
@@ -306,15 +341,16 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
                   iframe { width: 100%; height: 100%; border: none; }
                 </style>
               </head>
-              <body>${embedHtml}</body>
+              <body>${sanitizedHtml}</body>
             </html>
-          `}
+          `;
+          })()}
           className={cn(
             "absolute inset-0 w-full h-full border-0",
             isLoading && "invisible"
           )}
           title={title}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+          sandbox="allow-scripts allow-forms allow-popups allow-presentation"
           allowFullScreen={allowFullscreen}
           loading="lazy"
           onLoad={handleIframeLoad}
@@ -335,7 +371,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
             variant="secondary"
             className="h-7 w-7 bg-black/50 hover:bg-black/70"
             onClick={handleSaveAsLink}
-            title="Guardar como enlace"
+            title={t("embed.saveAsLink")}
           >
             <Bookmark className="w-3.5 h-3.5 text-white" />
           </Button>
@@ -368,12 +404,12 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Code className="w-5 h-5 text-purple-500" />
-              Configurar Embed
+              {t("embed.configureEmbed")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Tipo de embed</Label>
+              <Label>{t("embed.embedType")}</Label>
               <Select
                 value={formData.embedType}
                 onValueChange={(value: EmbedType) => setFormData({ ...formData, embedType: value })}
@@ -383,14 +419,14 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="url">URL (iframe)</SelectItem>
-                  <SelectItem value="html">Codigo HTML</SelectItem>
+                  <SelectItem value="html">{t("embed.htmlCode")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {formData.embedType === "url" ? (
               <div className="space-y-2">
-                <Label htmlFor="embed-url-edit">URL a embeber</Label>
+                <Label htmlFor="embed-url-edit">{t("embed.urlToEmbed")}</Label>
                 <Input
                   id="embed-url-edit"
                   placeholder="https://..."
@@ -400,7 +436,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="embed-html-edit">Codigo HTML</Label>
+                <Label htmlFor="embed-html-edit">{t("embed.htmlCode")}</Label>
                 <Textarea
                   id="embed-html-edit"
                   placeholder="<iframe src='...'></iframe>"
@@ -413,7 +449,7 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="embed-title-edit">Titulo</Label>
+              <Label htmlFor="embed-title-edit">{t("embed.title")}</Label>
               <Input
                 id="embed-title-edit"
                 placeholder="Contenido embebido"
@@ -434,10 +470,10 @@ export function EmbedWidget({ widget }: EmbedWidgetProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
+              {t("embed.cancel")}
             </Button>
             <Button onClick={handleSave}>
-              Guardar
+              {t("embed.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

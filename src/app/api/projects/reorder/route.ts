@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, projects, withRetry } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { reorderSchema, validateRequest } from "@/lib/validations";
 
 // PUT reorder projects
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderedIds } = body;
 
-    // Validate input - accept array of project IDs
-    if (!Array.isArray(orderedIds)) {
+    // Validate input with Zod - UUID format + array length limit
+    const validation = validateRequest(reorderSchema, body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "orderedIds debe ser un array" },
+        { error: validation.errors.join(", ") },
         { status: 400 }
       );
     }
+
+    const { orderedIds } = validation.data;
 
     // Update each project's order based on array index with retry logic
     const updatePromises = orderedIds.map((id: string, index: number) =>

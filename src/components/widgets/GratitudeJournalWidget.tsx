@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface GratitudeJournalWidgetProps {
   widget: Widget;
@@ -22,13 +23,14 @@ interface GratitudeEntry {
 }
 
 export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [gratitude1, setGratitude1] = useState("");
   const [gratitude2, setGratitude2] = useState("");
   const [gratitude3, setGratitude3] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const gratitudeEntries: GratitudeEntry[] = widget.config?.gratitudeEntries || [];
+  const gratitudeEntries: GratitudeEntry[] = useMemo(() => widget.config?.gratitudeEntries || [], [widget.config?.gratitudeEntries]);
 
   const getTodayISO = (): string => {
     return new Date().toISOString().split("T")[0];
@@ -120,10 +122,10 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
   };
 
   const formatDate = (date: Date): string => {
-    if (isToday) return "Hoy";
+    if (isToday) return t("gratitudeJournal.today");
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    if (getDateISO(date) === getDateISO(yesterday)) return "Ayer";
+    if (getDateISO(date) === getDateISO(yesterday)) return t("gratitudeJournal.yesterday");
 
     return date.toLocaleDateString("es-ES", {
       weekday: "short",
@@ -164,10 +166,10 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-            <span className="text-sm font-medium">Gratitud</span>
+            <span className="text-sm font-medium">{t("gratitudeJournal.title")}</span>
             {streak > 0 && (
               <span className="text-xs text-rose-500 font-medium">
-                {streak} dias
+                {t("gratitudeJournal.streak", { count: streak })}
               </span>
             )}
           </div>
@@ -180,7 +182,7 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
             >
               <Edit2 className="w-3.5 h-3.5 mr-1" />
               <span className="hidden @sm:inline">
-                {currentEntry ? "Editar" : "Escribir"}
+                {currentEntry ? t("gratitudeJournal.edit") : t("gratitudeJournal.write")}
               </span>
             </Button>
           )}
@@ -229,7 +231,7 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
               className="flex-1 flex flex-col"
             >
               <p className="text-xs text-muted-foreground text-center mb-3">
-                Por que estas agradecido/a hoy?
+                {t("gratitudeJournal.question")}
               </p>
 
               <div className="space-y-2 flex-1">
@@ -245,7 +247,7 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
                     <Input
                       value={value}
                       onChange={(e) => setter(e.target.value)}
-                      placeholder={`Gratitud ${num}...`}
+                      placeholder={t("gratitudeJournal.placeholder", { num })}
                       className="h-9 text-sm flex-1"
                     />
                   </div>
@@ -259,7 +261,7 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
                   className="flex-1"
                   onClick={cancelEditing}
                 >
-                  Cancelar
+                  {t("gratitudeJournal.cancel")}
                 </Button>
                 <Button
                   size="sm"
@@ -272,7 +274,7 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
                   }
                 >
                   <Save className="w-4 h-4 mr-1" />
-                  Guardar
+                  {t("gratitudeJournal.save")}
                 </Button>
               </div>
             </motion.div>
@@ -311,16 +313,16 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
                   {isToday ? (
                     <>
                       <p className="text-sm text-muted-foreground mb-3">
-                        Aun no has escrito hoy
+                        {t("gratitudeJournal.notWrittenToday")}
                       </p>
                       <Button size="sm" onClick={startEditing}>
                         <Edit2 className="w-4 h-4 mr-1" />
-                        Empezar
+                        {t("gratitudeJournal.start")}
                       </Button>
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      No hay entrada para este dia
+                      {t("gratitudeJournal.noEntryForDay")}
                     </p>
                   )}
                 </div>
@@ -330,7 +332,7 @@ export function GratitudeJournalWidget({ widget }: GratitudeJournalWidgetProps) 
               {isToday && gratitudeEntries.length > 0 && !currentEntry && (
                 <div className="mt-auto pt-3 border-t">
                   <p className="text-xs text-muted-foreground mb-2">
-                    Entradas recientes
+                    {t("gratitudeJournal.recentEntries")}
                   </p>
                   <div className="flex gap-1">
                     {gratitudeEntries.slice(0, 7).map((entry) => (

@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface MoodTrackerWidgetProps {
   widget: Widget;
@@ -24,15 +25,16 @@ interface MoodEntry {
   createdAt: string;
 }
 
-const MOOD_LEVELS: { value: MoodValue; emoji: string; label: string; color: string }[] = [
-  { value: 'terrible', emoji: "😢", label: "Terrible", color: "bg-red-500" },
-  { value: 'bad', emoji: "😔", label: "Mal", color: "bg-orange-500" },
-  { value: 'okay', emoji: "😐", label: "Regular", color: "bg-yellow-500" },
-  { value: 'good', emoji: "🙂", label: "Bien", color: "bg-lime-500" },
-  { value: 'great', emoji: "😄", label: "Excelente", color: "bg-green-500" },
+const MOOD_LEVELS: { value: MoodValue; emoji: string; labelKey: string; color: string }[] = [
+  { value: 'terrible', emoji: "😢", labelKey: "moodTracker.terrible", color: "bg-red-500" },
+  { value: 'bad', emoji: "😔", labelKey: "moodTracker.bad", color: "bg-orange-500" },
+  { value: 'okay', emoji: "😐", labelKey: "moodTracker.okay", color: "bg-yellow-500" },
+  { value: 'good', emoji: "🙂", labelKey: "moodTracker.good", color: "bg-lime-500" },
+  { value: 'great', emoji: "😄", labelKey: "moodTracker.excellent", color: "bg-green-500" },
 ];
 
 export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
+  const { t } = useTranslation();
   const [isAddingMood, setIsAddingMood] = useState(false);
   const [selectedMood, setSelectedMood] = useState<MoodValue | null>(null);
   const [note, setNote] = useState("");
@@ -142,7 +144,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Smile className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Estado de animo</span>
+            <span className="text-sm font-medium">{t("moodTracker.title")}</span>
           </div>
           {!isAddingMood && (
             <Button
@@ -153,7 +155,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
             >
               <Plus className="w-4 h-4 mr-1" />
               <span className="hidden @sm:inline">
-                {todayEntry ? "Actualizar" : "Registrar"}
+                {todayEntry ? t("moodTracker.update") : t("moodTracker.register")}
               </span>
             </Button>
           )}
@@ -171,7 +173,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
               {/* Mood Selection */}
               <div className="mb-4">
                 <p className="text-xs text-muted-foreground mb-3 text-center">
-                  Como te sientes hoy?
+                  {t("moodTracker.howDoYouFeel")}
                 </p>
                 <div className="flex justify-center gap-2 @sm:gap-3">
                   {MOOD_LEVELS.map((level) => (
@@ -187,7 +189,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
                     >
                       <span className="text-2xl @sm:text-3xl">{level.emoji}</span>
                       <span className="text-[9px] @sm:text-[10px] text-muted-foreground">
-                        {level.label}
+                        {t(level.labelKey)}
                       </span>
                     </button>
                   ))}
@@ -197,7 +199,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
               {/* Note Input */}
               <div className="mb-4">
                 <Textarea
-                  placeholder="Nota opcional sobre tu dia..."
+                  placeholder={t("moodTracker.optionalNote")}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   className="h-20 text-sm resize-none"
@@ -217,7 +219,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
                   }}
                 >
                   <X className="w-4 h-4 mr-1" />
-                  Cancelar
+                  {t("moodTracker.cancel")}
                 </Button>
                 <Button
                   size="sm"
@@ -225,7 +227,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
                   onClick={addMoodEntry}
                   disabled={!selectedMood}
                 >
-                  Guardar
+                  {t("moodTracker.save")}
                 </Button>
               </div>
             </motion.div>
@@ -244,7 +246,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium">
-                      {MOOD_LEVELS.find((m) => m.value === todayEntry.mood)?.label}
+                      {t(MOOD_LEVELS.find((m) => m.value === todayEntry.mood)?.labelKey ?? "")}
                     </p>
                     {todayEntry.note && (
                       <p className="text-xs text-muted-foreground truncate">
@@ -311,7 +313,7 @@ export function MoodTrackerWidget({ widget }: MoodTrackerWidgetProps) {
                         )}
                         title={
                           moodEntry
-                            ? `${moodLevel?.label}${moodEntry.note ? `: ${moodEntry.note}` : ""}`
+                            ? `${t(moodLevel?.labelKey ?? "")}${moodEntry.note ? `: ${moodEntry.note}` : ""}`
                             : undefined
                         }
                       >

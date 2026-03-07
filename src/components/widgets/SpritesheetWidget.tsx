@@ -13,14 +13,11 @@ import {
   Play,
   Pause,
   Grid3x3,
-  Image as ImageIcon,
   Download,
-  ZoomIn,
   Settings2,
   X,
   RotateCcw,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   Select,
   SelectContent,

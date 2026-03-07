@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, links, categories, tags, widgets, withRetry } from "@/lib/db";
 import { isNotNull, eq } from "drizzle-orm";
+import { z } from "zod";
+
+const uuidSchema = z.string().uuid();
 
 // Valid item types for trash operations
 type TrashItemType = "link" | "category" | "tag" | "widget";
@@ -74,6 +77,12 @@ export async function POST(request: NextRequest) {
         { error: "ID y tipo son requeridos" },
         { status: 400 }
       );
+    }
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     // Validate type
@@ -168,6 +177,12 @@ export async function DELETE(request: NextRequest) {
         { error: "ID y tipo son requeridos" },
         { status: 400 }
       );
+    }
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     // Validate type

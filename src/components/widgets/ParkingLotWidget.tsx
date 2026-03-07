@@ -87,9 +87,8 @@ const STATUS_COLORS = {
 };
 
 export default function ParkingLotWidget({ widget }: { widget: Widget }) {
-  const { updateWidget } = useWidgetStore();
   const config = (widget.config || {}) as ParkingLotConfig;
-  const ideas = config.ideas || [];
+  const ideas = useMemo(() => config.ideas || [], [config.ideas]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -114,7 +113,7 @@ export default function ParkingLotWidget({ widget }: { widget: Widget }) {
   });
 
   const updateConfig = (updates: Partial<ParkingLotConfig>) => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: { ...config, ...updates } as unknown as typeof widget.config,
     });
   };

@@ -37,7 +37,6 @@ interface CopiedState {
 }
 
 export function NumberConverterWidget({ widget }: NumberConverterWidgetProps) {
-  const { updateWidget } = useWidgetStore();
 
   // State from widget config or defaults
   const [inputValue, setInputValue] = useState<string>(
@@ -168,7 +167,7 @@ export function NumberConverterWidget({ widget }: NumberConverterWidgetProps) {
 
   // Persist state to widget config
   const persistConfig = (updates: Partial<typeof widget.config>) => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...updates,

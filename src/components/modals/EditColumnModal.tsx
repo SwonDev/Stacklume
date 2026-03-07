@@ -35,9 +35,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useKanbanStore, COLUMN_COLOR_PRESETS } from "@/stores/kanban-store";
+import { useTranslation } from "@/lib/i18n";
 
 const formSchema = z.object({
-  title: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres"),
+  title: z.string().min(1, "required").max(50, "max50"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -52,6 +53,7 @@ export function EditColumnModal() {
     columns,
   } = useKanbanStore();
 
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedColor, setSelectedColor] = useState(COLUMN_COLOR_PRESETS[0].value);
 
@@ -79,11 +81,11 @@ export function EditColumnModal() {
         title: values.title,
         color: selectedColor,
       });
-      toast.success("Columna actualizada correctamente");
+      toast.success(t("editColumn.successUpdate"));
       handleClose();
     } catch (error) {
       console.error("Error updating column:", error);
-      toast.error("Error al actualizar la columna");
+      toast.error(t("editColumn.errorUpdate"));
     } finally {
       setIsLoading(false);
     }
@@ -93,12 +95,12 @@ export function EditColumnModal() {
     if (!selectedColumn) return;
 
     if (columns.length <= 1) {
-      toast.error("No puedes eliminar la última columna");
+      toast.error(t("editColumn.cannotDeleteLast"));
       return;
     }
 
     removeColumn(selectedColumn.id);
-    toast.success("Columna eliminada correctamente");
+    toast.success(t("editColumn.successDelete"));
     handleClose();
   };
 
@@ -116,10 +118,10 @@ export function EditColumnModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-primary" />
-            Editar columna
+            {t("editColumn.title")}
           </DialogTitle>
           <DialogDescription>
-            Modifica el nombre y color de la columna
+            {t("editColumn.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -131,9 +133,9 @@ export function EditColumnModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nombre</FormLabel>
+                  <FormLabel>{t("editColumn.name")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: En revisión" {...field} />
+                    <Input placeholder={t("editColumn.namePlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -142,7 +144,7 @@ export function EditColumnModal() {
 
             {/* Color Selection */}
             <div>
-              <label className="text-sm font-medium">Color del encabezado</label>
+              <label className="text-sm font-medium">{t("editColumn.headerColor")}</label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {COLUMN_COLOR_PRESETS.map((color) => (
                   <button
@@ -163,14 +165,14 @@ export function EditColumnModal() {
 
             {/* Preview */}
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Vista previa</label>
+              <label className="text-sm font-medium text-muted-foreground">{t("editColumn.preview")}</label>
               <div className="mt-2 p-3 rounded-lg border bg-secondary/20">
                 <div
                   className="h-1 rounded-full mb-2"
                   style={{ backgroundColor: selectedColor }}
                 />
                 <span className="text-sm font-semibold">
-                  {form.watch("title") || "Nombre de columna"}
+                  {form.watch("title") || t("editColumn.columnNameDefault")}
                 </span>
               </div>
             </div>
@@ -185,24 +187,23 @@ export function EditColumnModal() {
                     variant="destructive"
                     size="sm"
                     disabled={columns.length <= 1}
-                    title={columns.length <= 1 ? "No puedes eliminar la última columna" : "Eliminar columna"}
+                    title={columns.length <= 1 ? t("editColumn.cannotDeleteLast") : t("editColumn.deleteTooltip")}
                   >
                     <Trash2 className="w-4 h-4 mr-1" />
-                    Eliminar
+                    {t("btn.delete")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar columna?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("editColumn.deleteTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Los widgets de esta columna se moverán a la primera columna disponible.
-                      Esta acción no se puede deshacer.
+                      {t("editColumn.deleteDesc")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDelete}>
-                      Eliminar
+                      {t("btn.delete")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -210,11 +211,11 @@ export function EditColumnModal() {
 
               <div className="flex gap-2">
                 <Button type="button" variant="ghost" onClick={handleClose}>
-                  Cancelar
+                  {t("btn.cancel")}
                 </Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Guardar cambios
+                  {t("editColumn.saveChanges")}
                 </Button>
               </div>
             </div>

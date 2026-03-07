@@ -69,8 +69,6 @@ function generateId(): string {
 }
 
 export function WebsiteMonitorWidget({ widget }: WebsiteMonitorWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
   const hasInitialCheck = useRef(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -80,7 +78,7 @@ export function WebsiteMonitorWidget({ widget }: WebsiteMonitorWidgetProps) {
   const [newWebsite, setNewWebsite] = useState({ url: "", name: "" });
 
   const handleSaveAsLink = (website: WebsiteInfo) => {
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: website.url,
       title: website.name || extractHostname(website.url),
       description: `Sitio web monitoreado`,
@@ -181,7 +179,7 @@ export function WebsiteMonitorWidget({ widget }: WebsiteMonitorWidgetProps) {
       name: newWebsite.name.trim() || undefined,
     };
 
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         websites: [...websites, website],
@@ -193,7 +191,7 @@ export function WebsiteMonitorWidget({ widget }: WebsiteMonitorWidgetProps) {
   };
 
   const removeWebsite = (websiteId: string) => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         websites: websites.filter((w) => w.id !== websiteId),
@@ -458,7 +456,7 @@ export function WebsiteMonitorWidget({ widget }: WebsiteMonitorWidgetProps) {
                 max="300"
                 value={refreshInterval}
                 onChange={(e) => {
-                  updateWidget(widget.id, {
+                  useWidgetStore.getState().updateWidget(widget.id, {
                     config: {
                       ...widget.config,
                       refreshInterval: parseInt(e.target.value) || 60,

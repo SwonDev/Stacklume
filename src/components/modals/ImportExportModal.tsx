@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLinksStore } from "@/stores/links-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import {
   generateVisualHTML,
   generatePDFHTML,
@@ -40,6 +41,7 @@ interface ImportExportModalProps {
 }
 
 export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps) {
+  const { t } = useTranslation();
   const exportToJSON = useLinksStore((state) => state.exportToJSON);
   const refreshAllData = useLinksStore((state) => state.refreshAllData);
   const links = useLinksStore((state) => state.links);
@@ -75,10 +77,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Copia de seguridad exportada correctamente");
+      toast.success(t("importExport.jsonExportSuccess"));
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Error al exportar los datos");
+      toast.error(t("importExport.jsonExportError"));
     } finally {
       setIsExporting(false);
       setExportingType(null);
@@ -99,10 +101,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Marcadores exportados correctamente");
+      toast.success(t("importExport.netscapeExportSuccess"));
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Error al exportar los marcadores");
+      toast.error(t("importExport.netscapeExportError"));
     } finally {
       setIsExporting(false);
       setExportingType(null);
@@ -123,10 +125,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Exportacion visual HTML completada");
+      toast.success(t("importExport.visualExportSuccess"));
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Error al exportar HTML visual");
+      toast.error(t("importExport.visualExportError"));
     } finally {
       setIsExporting(false);
       setExportingType(null);
@@ -144,7 +146,7 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       // This avoids html2canvas issues with lab() colors from Tailwind CSS v4
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
-        toast.error("Por favor permite las ventanas emergentes para exportar");
+        toast.error(t("importExport.allowPopups"));
         return;
       }
 
@@ -158,10 +160,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
         }, 800);
       };
 
-      toast.success("Usa 'Guardar como PDF' en el dialogo de impresion");
+      toast.success(t("importExport.pdfExportSuccess"));
     } catch (error) {
       console.error("PDF Export error:", error);
-      toast.error("Error al exportar PDF");
+      toast.error(t("importExport.pdfExportError"));
     } finally {
       setIsExporting(false);
       setExportingType(null);
@@ -204,17 +206,17 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
             // Recargar todo el estado desde el servidor sin caché (evita datos obsoletos en Tauri/WebView2)
             await refreshAllData();
 
-            toast.success(`Importados ${result.imported} enlaces correctamente`);
+            toast.success(t("importExport.importedLinks", { count: result.imported }));
             setImportResult({
               success: true,
-              message: `Importados ${result.imported} enlaces correctamente`,
+              message: t("importExport.importedLinks", { count: result.imported }),
             });
           } else {
-            toast.error("Error al importar");
-            throw new Error("Error al importar");
+            toast.error(t("importExport.importError"));
+            throw new Error(t("importExport.importError"));
           }
         } else {
-          throw new Error("Formato JSON no valido");
+          throw new Error(t("importExport.invalidJsonFormat"));
         }
       } else if (file.name.endsWith(".html")) {
         // Import HTML bookmarks (Netscape format)
@@ -233,21 +235,21 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
           // Recargar todo el estado desde el servidor sin caché
           await refreshAllData();
 
-          toast.success(`Importados ${result.imported} marcadores correctamente`);
+          toast.success(t("importExport.importedBookmarks", { count: result.imported }));
           setImportResult({
             success: true,
-            message: `Importados ${result.imported} marcadores correctamente`,
+            message: t("importExport.importedBookmarks", { count: result.imported }),
           });
         } else {
-          toast.error("Error al importar HTML");
-          throw new Error("Error al importar HTML");
+          toast.error(t("importExport.importHtmlError"));
+          throw new Error(t("importExport.importHtmlError"));
         }
       } else {
-        throw new Error("Formato de archivo no soportado");
+        throw new Error(t("importExport.unsupportedFormat"));
       }
     } catch (error) {
       console.error("Import error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Error al importar";
+      const errorMessage = error instanceof Error ? error.message : t("importExport.importError");
       toast.error(errorMessage);
       setImportResult({
         success: false,
@@ -265,10 +267,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
     setIsExportingWidgets(true);
     try {
       const res = await fetch("/api/custom-widget-types", { credentials: "include" });
-      if (!res.ok) throw new Error("Error al obtener widgets personalizados");
+      if (!res.ok) throw new Error(t("importExport.widgetFetchError"));
       const types = await res.json();
       if (!Array.isArray(types) || types.length === 0) {
-        toast.info("No hay widgets personalizados para exportar");
+        toast.info(t("importExport.noWidgetsToExport"));
         return;
       }
       const exportData = types.map((t: Record<string, unknown>) => ({
@@ -292,9 +294,9 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success(`${exportData.length} tipo(s) de widget exportados`);
+      toast.success(t("importExport.widgetsExported", { count: exportData.length }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al exportar");
+      toast.error(error instanceof Error ? error.message : t("importExport.exportError"));
     } finally {
       setIsExportingWidgets(false);
     }
@@ -317,7 +319,7 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
           headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
           credentials: "include",
           body: JSON.stringify({
-            name: item.name || "Widget importado",
+            name: item.name || t("importExport.importedWidget"),
             description: item.description || undefined,
             category: item.category || "custom",
             icon: item.icon || "Puzzle",
@@ -330,10 +332,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
         });
         if (res.ok) imported++;
       }
-      setWidgetImportResult({ success: true, message: `${imported} tipo(s) de widget importados` });
-      toast.success(`${imported} tipo(s) de widget importados`);
+      setWidgetImportResult({ success: true, message: t("importExport.widgetsImported", { count: imported }) });
+      toast.success(t("importExport.widgetsImported", { count: imported }));
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Error al importar";
+      const msg = error instanceof Error ? error.message : t("importExport.importError");
       setWidgetImportResult({ success: false, message: msg });
       toast.error(msg);
     } finally {
@@ -345,30 +347,30 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
   const exportOptions = [
     {
       id: "visual",
-      title: "HTML Visual",
-      description: "Pagina web elegante con previsualizaciones y etiquetas",
+      titleKey: "importExport.visualTitle",
+      descKey: "importExport.visualDesc",
       icon: Sparkles,
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
       hoverBg: "group-hover:bg-purple-500",
       onClick: handleExportVisualHTML,
-      badge: "Nuevo",
+      badgeKey: "importExport.badgeNew",
     },
     {
       id: "pdf",
-      title: "Imprimir / PDF",
-      description: "Abre dialogo de impresion (guarda como PDF)",
+      titleKey: "importExport.pdfTitle",
+      descKey: "importExport.pdfDesc",
       icon: FileText,
       color: "text-red-500",
       bgColor: "bg-red-500/10",
       hoverBg: "group-hover:bg-red-500",
       onClick: handleExportPDF,
-      badge: "Nuevo",
+      badgeKey: "importExport.badgeNew",
     },
     {
       id: "netscape",
-      title: "Marcadores HTML",
-      description: "Compatible con Chrome, Firefox, Edge y Safari",
+      titleKey: "importExport.netscapeTitle",
+      descKey: "importExport.netscapeDesc",
       icon: Globe,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
@@ -377,8 +379,8 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
     },
     {
       id: "json",
-      title: "Copia de seguridad JSON",
-      description: "Backup completo con todos los datos y etiquetas",
+      titleKey: "importExport.jsonTitle",
+      descKey: "importExport.jsonDesc",
       icon: FileJson,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
@@ -393,10 +395,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="w-5 h-5 text-primary" />
-            Importar / Exportar
+            {t("importExport.title")}
           </DialogTitle>
           <DialogDescription>
-            Exporta tus enlaces en diferentes formatos o importa desde otro navegador
+            {t("importExport.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -404,11 +406,11 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="export" className="gap-2">
               <Download className="w-4 h-4" />
-              Exportar
+              {t("importExport.export")}
             </TabsTrigger>
             <TabsTrigger value="import" className="gap-2">
               <Upload className="w-4 h-4" />
-              Importar
+              {t("importExport.import")}
             </TabsTrigger>
             <TabsTrigger value="widgets" className="gap-2">
               <Puzzle className="w-4 h-4" />
@@ -419,10 +421,10 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
           <TabsContent value="export" className="space-y-4 mt-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
-                {links.length} enlaces en {categories.length} categorias
+                {t("importExport.linksInCategories", { links: links.length, categories: categories.length })}
               </span>
               <span className="text-muted-foreground">
-                {tags.length} etiquetas
+                {t("importExport.tagsCount", { count: tags.length })}
               </span>
             </div>
 
@@ -458,15 +460,15 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-medium text-sm">{option.title}</h4>
-                        {option.badge && (
+                        <h4 className="font-medium text-sm">{t(option.titleKey)}</h4>
+                        {option.badgeKey && (
                           <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-primary/20 text-primary">
-                            {option.badge}
+                            {t(option.badgeKey)}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {option.description}
+                        {t(option.descKey)}
                       </p>
                     </div>
                   </button>
@@ -476,21 +478,21 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
 
             {links.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-4">
-                No tienes enlaces guardados para exportar
+                {t("importExport.noLinksToExport")}
               </p>
             )}
           </TabsContent>
 
           <TabsContent value="import" className="space-y-4 mt-4">
             <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
-              <h4 className="font-medium text-sm">Formatos soportados</h4>
+              <h4 className="font-medium text-sm">{t("importExport.supportedFormats")}</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-start gap-2">
                   <FileJson className="w-4 h-4 text-blue-500 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium">JSON</p>
                     <p className="text-xs text-muted-foreground">
-                      Copia de seguridad de Stacklume
+                      {t("importExport.jsonBackupDesc")}
                     </p>
                   </div>
                 </div>
@@ -499,7 +501,7 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
                   <div>
                     <p className="text-sm font-medium">HTML</p>
                     <p className="text-xs text-muted-foreground">
-                      Marcadores de navegador
+                      {t("importExport.htmlBookmarksDesc")}
                     </p>
                   </div>
                 </div>
@@ -526,7 +528,7 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
               ) : (
                 <Upload className="w-4 h-4" />
               )}
-              {isImporting ? "Importando..." : "Seleccionar archivo"}
+              {isImporting ? t("importExport.importing") : t("importExport.selectFile")}
             </Button>
 
             {/* Import result */}
@@ -549,14 +551,14 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
             )}
 
             <p className="text-xs text-muted-foreground text-center">
-              Los enlaces duplicados se ignoraran automaticamente
+              {t("importExport.duplicatesIgnored")}
             </p>
           </TabsContent>
 
           {/* Custom Widget Types tab */}
           <TabsContent value="widgets" className="space-y-4 mt-4">
             <p className="text-sm text-muted-foreground">
-              Exporta e importa tipos de widget personalizados creados con el servidor MCP.
+              {t("importExport.widgetsTabDesc")}
             </p>
 
             {/* Export */}
@@ -573,9 +575,9 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
                 {isExportingWidgets ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
               </div>
               <div>
-                <h4 className="font-medium text-sm">Exportar widgets personalizados</h4>
+                <h4 className="font-medium text-sm">{t("importExport.exportCustomWidgets")}</h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Descarga todos tus widgets personalizados como JSON
+                  {t("importExport.exportCustomWidgetsDesc")}
                 </p>
               </div>
             </button>
@@ -596,7 +598,7 @@ export function ImportExportModal({ open, onOpenChange }: ImportExportModalProps
               size="lg"
             >
               {isImportingWidget ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              {isImportingWidget ? "Importando..." : "Importar widgets (.json)"}
+              {isImportingWidget ? t("importExport.importing") : t("importExport.importWidgets")}
             </Button>
 
             {widgetImportResult && (

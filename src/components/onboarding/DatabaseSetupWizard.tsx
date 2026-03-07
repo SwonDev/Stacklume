@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 const STORAGE_KEY = "stacklume-db-setup-completed";
 const LOCAL_MODE_KEY = "stacklume-local-mode";
@@ -37,6 +38,7 @@ export function DatabaseSetupWizard({
   onComplete,
   forceShow = false,
 }: DatabaseSetupWizardProps) {
+  const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome");
@@ -97,7 +99,7 @@ export function DatabaseSetupWizard({
 
   const handleTestConnection = useCallback(async () => {
     if (!connectionString.trim()) {
-      setErrorMessage("Por favor ingresa una cadena de conexion");
+      setErrorMessage(t("dbSetup.errorEmptyConnection"));
       setConnectionStatus("error");
       return;
     }
@@ -123,16 +125,16 @@ export function DatabaseSetupWizard({
       } else {
         setConnectionStatus("error");
         setErrorMessage(
-          data.error || "No se pudo conectar a la base de datos"
+          data.error || t("dbSetup.errorConnectionFailed")
         );
       }
     } catch {
       setConnectionStatus("error");
-      setErrorMessage("Error al verificar la conexion");
+      setErrorMessage(t("dbSetup.errorVerifyConnection"));
     } finally {
       setIsTestingConnection(false);
     }
-  }, [connectionString]);
+  }, [connectionString, t]);
 
   const handleComplete = useCallback(
     (mode: "cloud" | "local") => {
@@ -163,10 +165,9 @@ export function DatabaseSetupWizard({
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Configura tu Base de Datos</h2>
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>{t("dbSetup.welcomeTitle")}</h2>
           <p className="max-w-md mx-auto" style={{ color: "#8b9dc3" }}>
-            Stacklume puede guardar tus datos en la nube para acceder desde
-            cualquier dispositivo, o localmente en tu navegador.
+            {t("dbSetup.welcomeDescription")}
           </p>
         </div>
 
@@ -177,20 +178,20 @@ export function DatabaseSetupWizard({
           >
             <div className="flex items-center gap-2" style={{ color: "#d4a853" }}>
               <Cloud className="w-5 h-5" />
-              <span className="font-semibold">Base de Datos en la Nube</span>
+              <span className="font-semibold">{t("dbSetup.cloudDb")}</span>
             </div>
             <ul className="text-sm space-y-1.5" style={{ color: "#8b9dc3" }}>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                Sincroniza entre dispositivos
+                {t("dbSetup.cloudSync")}
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                Backups automaticos
+                {t("dbSetup.cloudBackups")}
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                Gratis con Neon
+                {t("dbSetup.cloudFreeNeon")}
               </li>
             </ul>
           </div>
@@ -201,20 +202,20 @@ export function DatabaseSetupWizard({
           >
             <div className="flex items-center gap-2" style={{ color: "#8b9dc3" }}>
               <HardDrive className="w-5 h-5" />
-              <span className="font-semibold">Solo en este Navegador</span>
+              <span className="font-semibold">{t("dbSetup.localOnly")}</span>
             </div>
             <ul className="text-sm space-y-1.5" style={{ color: "#8b9dc3" }}>
               <li className="flex items-center gap-2">
                 <XCircle className="w-4 h-4 text-orange-500" />
-                Datos solo en este navegador
+                {t("dbSetup.localDataOnly")}
               </li>
               <li className="flex items-center gap-2">
                 <XCircle className="w-4 h-4 text-orange-500" />
-                Se pierden al limpiar cache
+                {t("dbSetup.localLostOnClear")}
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                Funciona sin configuracion
+                {t("dbSetup.localNoConfig")}
               </li>
             </ul>
           </div>
@@ -228,7 +229,7 @@ export function DatabaseSetupWizard({
             style={{ borderColor: "#2a3a5c", color: "#c5cee0", backgroundColor: "transparent" }}
           >
             <HardDrive className="w-4 h-4 mr-2" />
-            Continuar sin Base de Datos
+            {t("dbSetup.continueWithoutDb")}
           </Button>
           <Button
             className="flex-1"
@@ -236,7 +237,7 @@ export function DatabaseSetupWizard({
             style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
           >
             <Cloud className="w-4 h-4 mr-2" />
-            Configurar Base de Datos
+            {t("dbSetup.configureDb")}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -246,10 +247,9 @@ export function DatabaseSetupWizard({
     choice: (
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Elige como conectar</h2>
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>{t("dbSetup.choiceTitle")}</h2>
           <p style={{ color: "#8b9dc3" }}>
-            Recomendamos Neon por su plan gratuito generoso y facil
-            configuracion.
+            {t("dbSetup.choiceDescription")}
           </p>
         </div>
 
@@ -270,22 +270,21 @@ export function DatabaseSetupWizard({
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-lg" style={{ color: "#f5f5f5" }}>Neon PostgreSQL</span>
                   <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 text-xs font-medium">
-                    Recomendado
+                    {t("dbSetup.recommended")}
                   </span>
                 </div>
                 <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
-                  Base de datos serverless gratuita. 512MB storage, sin limite
-                  de tiempo.
+                  {t("dbSetup.neonDescription")}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#8b9dc3" }}>
-                    <Zap className="w-3 h-3" /> Rapido
+                    <Zap className="w-3 h-3" /> {t("dbSetup.fast")}
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#8b9dc3" }}>
-                    <Shield className="w-3 h-3" /> Seguro
+                    <Shield className="w-3 h-3" /> {t("dbSetup.secure")}
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#8b9dc3" }}>
-                    <Globe className="w-3 h-3" /> Global
+                    <Globe className="w-3 h-3" /> {t("dbSetup.global")}
                   </span>
                 </div>
               </div>
@@ -306,9 +305,9 @@ export function DatabaseSetupWizard({
                 <Database className="w-6 h-6" style={{ color: "#8b9dc3" }} />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="font-semibold" style={{ color: "#f5f5f5" }}>Ya tengo una Base de Datos</span>
+                <span className="font-semibold" style={{ color: "#f5f5f5" }}>{t("dbSetup.existingDb")}</span>
                 <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
-                  Conecta tu propia base de datos PostgreSQL existente.
+                  {t("dbSetup.existingDbDescription")}
                 </p>
               </div>
               <ArrowRight className="w-5 h-5" style={{ color: "#8b9dc3" }} />
@@ -324,7 +323,7 @@ export function DatabaseSetupWizard({
             style={{ color: "#8b9dc3" }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Atras
+            {t("dbSetup.back")}
           </Button>
         </div>
       </div>
@@ -333,9 +332,9 @@ export function DatabaseSetupWizard({
     "neon-guide": (
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Crear Base de Datos en Neon</h2>
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>{t("dbSetup.neonGuideTitle")}</h2>
           <p style={{ color: "#8b9dc3" }}>
-            Sigue estos 3 simples pasos para configurar tu base de datos gratis.
+            {t("dbSetup.neonGuideDescription")}
           </p>
         </div>
 
@@ -351,9 +350,9 @@ export function DatabaseSetupWizard({
               1
             </div>
             <div>
-              <p className="font-medium" style={{ color: "#f5f5f5" }}>Crea una cuenta gratis en Neon</p>
+              <p className="font-medium" style={{ color: "#f5f5f5" }}>{t("dbSetup.neonStep1Title")}</p>
               <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
-                Puedes usar tu cuenta de GitHub, Google, o email.
+                {t("dbSetup.neonStep1Description")}
               </p>
               <Button
                 variant="outline"
@@ -364,7 +363,7 @@ export function DatabaseSetupWizard({
                 }
                 style={{ borderColor: "#2a3a5c", color: "#c5cee0", backgroundColor: "transparent" }}
               >
-                Ir a Neon
+                {t("dbSetup.goToNeon")}
                 <ExternalLink className="w-3 h-3 ml-2" />
               </Button>
             </div>
@@ -381,10 +380,9 @@ export function DatabaseSetupWizard({
               2
             </div>
             <div>
-              <p className="font-medium" style={{ color: "#f5f5f5" }}>Crea un nuevo proyecto</p>
+              <p className="font-medium" style={{ color: "#f5f5f5" }}>{t("dbSetup.neonStep2Title")}</p>
               <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
-                Dale un nombre (ej: &quot;stacklume&quot;) y selecciona la region mas
-                cercana.
+                {t("dbSetup.neonStep2Description")}
               </p>
             </div>
           </div>
@@ -400,10 +398,9 @@ export function DatabaseSetupWizard({
               3
             </div>
             <div>
-              <p className="font-medium" style={{ color: "#f5f5f5" }}>Copia la cadena de conexion</p>
+              <p className="font-medium" style={{ color: "#f5f5f5" }}>{t("dbSetup.neonStep3Title")}</p>
               <p className="text-sm mt-1" style={{ color: "#8b9dc3" }}>
-                En el dashboard, busca &quot;Connection string&quot; y copia la URL
-                completa.
+                {t("dbSetup.neonStep3Description")}
               </p>
               <div
                 className="mt-2 p-2 rounded-lg font-mono text-xs break-all"
@@ -423,14 +420,14 @@ export function DatabaseSetupWizard({
             style={{ color: "#8b9dc3" }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Atras
+            {t("dbSetup.back")}
           </Button>
           <Button
             onClick={() => setCurrentStep("connection")}
             className="flex-1"
             style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
           >
-            Ya tengo mi conexion
+            {t("dbSetup.haveConnection")}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -440,16 +437,16 @@ export function DatabaseSetupWizard({
     connection: (
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Conecta tu Base de Datos</h2>
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>{t("dbSetup.connectionTitle")}</h2>
           <p style={{ color: "#8b9dc3" }}>
-            Pega tu cadena de conexion PostgreSQL para verificar la conexion.
+            {t("dbSetup.connectionDescription")}
           </p>
         </div>
 
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block" style={{ color: "#c5cee0" }}>
-              Cadena de Conexion (DATABASE_URL)
+              {t("dbSetup.connectionStringLabel")}
             </label>
             <div className="relative">
               <Input
@@ -488,7 +485,7 @@ export function DatabaseSetupWizard({
           >
             <div className="flex items-center justify-between">
               <span className="text-xs" style={{ color: "#8b9dc3" }}>
-                Ejemplo de formato:
+                {t("dbSetup.formatExample")}
               </span>
               <Button
                 variant="ghost"
@@ -498,7 +495,7 @@ export function DatabaseSetupWizard({
                 style={{ color: "#8b9dc3" }}
               >
                 <Copy className="w-3 h-3 mr-1" />
-                {copied ? "Copiado!" : "Copiar"}
+                {copied ? t("dbSetup.copied") : t("dbSetup.copy")}
               </Button>
             </div>
             <code className="text-xs block break-all" style={{ color: "#8b9dc3" }}>
@@ -515,12 +512,12 @@ export function DatabaseSetupWizard({
             {isTestingConnection ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Verificando conexion...
+                {t("dbSetup.verifying")}
               </>
             ) : (
               <>
                 <Database className="w-4 h-4 mr-2" />
-                Verificar y Guardar
+                {t("dbSetup.verifyAndSave")}
               </>
             )}
           </Button>
@@ -534,7 +531,7 @@ export function DatabaseSetupWizard({
             style={{ color: "#8b9dc3" }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Atras
+            {t("dbSetup.back")}
           </Button>
           <Button
             variant="outline"
@@ -542,7 +539,7 @@ export function DatabaseSetupWizard({
             className="flex-1"
             style={{ borderColor: "#2a3a5c", color: "#c5cee0", backgroundColor: "transparent" }}
           >
-            Continuar sin DB
+            {t("dbSetup.continueWithoutDb")}
           </Button>
         </div>
       </div>
@@ -555,17 +552,16 @@ export function DatabaseSetupWizard({
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>Conexion Exitosa!</h2>
+          <h2 className="text-2xl font-bold" style={{ color: "#f5f5f5" }}>{t("dbSetup.successTitle")}</h2>
           <p className="max-w-md mx-auto" style={{ color: "#8b9dc3" }}>
-            Tu base de datos esta configurada correctamente. Tus datos se
-            sincronizaran automaticamente.
+            {t("dbSetup.successDescription")}
           </p>
         </div>
 
         <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
           <div className="flex items-center justify-center gap-2 text-green-600">
             <Cloud className="w-5 h-5" />
-            <span className="font-medium">Base de datos conectada</span>
+            <span className="font-medium">{t("dbSetup.dbConnected")}</span>
           </div>
         </div>
 
@@ -575,7 +571,7 @@ export function DatabaseSetupWizard({
           onClick={() => handleComplete("cloud")}
           style={{ backgroundColor: "#d4a853", color: "#0a1628" }}
         >
-          Comenzar a usar Stacklume
+          {t("dbSetup.startUsing")}
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>

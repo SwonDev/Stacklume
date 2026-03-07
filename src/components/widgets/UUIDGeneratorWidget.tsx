@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface UUIDGeneratorWidgetProps {
   widget: Widget;
@@ -78,6 +79,7 @@ function formatUUID(uuid: string, uppercase: boolean, includeHyphens: boolean): 
 }
 
 export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const config = (widget.config as unknown as UUIDConfig) || {};
 
@@ -205,7 +207,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Fingerprint className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-sm">UUID Generator</h3>
+          <h3 className="font-semibold text-sm">{t("uuidGenerator.title")}</h3>
         </div>
         <Button
           variant="ghost"
@@ -285,7 +287,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
       <div className="grid @sm:grid-cols-2 gap-3 py-2 border-y">
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="uppercase" className="text-xs cursor-pointer">
-            Uppercase
+            {t("uuidGenerator.uppercase")}
           </Label>
           <Switch
             id="uppercase"
@@ -295,7 +297,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
         </div>
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="hyphens" className="text-xs cursor-pointer">
-            Hyphens
+            {t("uuidGenerator.hyphens")}
           </Label>
           <Switch
             id="hyphens"
@@ -313,7 +315,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
           onClick={() => setShowBulkMode(!showBulkMode)}
           className="flex-1 h-8"
         >
-          {showBulkMode ? "Single Mode" : "Bulk Generate"}
+          {showBulkMode ? t("uuidGenerator.singleMode") : t("uuidGenerator.bulkGenerate")}
         </Button>
       </div>
 
@@ -334,14 +336,14 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
                 value={bulkCount}
                 onChange={(e) => setBulkCount(e.target.value)}
                 className="flex-1 h-9"
-                placeholder="Count"
+                placeholder={t("uuidGenerator.count")}
               />
               <Button
                 onClick={generateBulk}
                 size="sm"
                 className="h-9"
               >
-                Generate
+                {t("uuidGenerator.generate")}
               </Button>
             </div>
           </motion.div>
@@ -354,7 +356,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
           <div className="flex items-center gap-1.5">
             <History className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">
-              History ({history.length})
+              {t("uuidGenerator.history")} ({history.length})
             </span>
           </div>
           <div className="flex gap-1">
@@ -363,7 +365,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
               size="sm"
               onClick={downloadHistory}
               className="h-6 px-2"
-              title="Download history"
+              title={t("uuidGenerator.downloadHistory")}
             >
               <Download className="w-3 h-3" />
             </Button>
@@ -372,7 +374,7 @@ export function UUIDGeneratorWidget({ widget }: UUIDGeneratorWidgetProps) {
               size="sm"
               onClick={clearHistory}
               className="h-6 px-2"
-              title="Clear history"
+              title={t("uuidGenerator.clearHistory")}
             >
               <Trash2 className="w-3 h-3" />
             </Button>

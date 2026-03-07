@@ -42,6 +42,7 @@ import { TagBadge } from "@/components/ui/tag-badge";
 import { useLinksStore } from "@/stores/links-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -53,19 +54,19 @@ interface LinkManagerItemProps {
   onEdit: () => void;
 }
 
-// Content type labels in Spanish
-const contentTypeLabels: Record<ContentType, string> = {
-  video: "Video",
-  game: "Juego",
-  music: "Musica",
-  code: "Codigo",
-  article: "Articulo",
-  social: "Social",
-  shopping: "Tienda",
-  image: "Imagen",
-  document: "Documento",
-  tool: "Herramienta",
-  website: "Web",
+// Content type label keys for i18n
+const contentTypeLabelKeys: Record<ContentType, string> = {
+  video: "contentType.video",
+  game: "contentType.game",
+  music: "contentType.music",
+  code: "contentType.code",
+  article: "contentType.article",
+  social: "contentType.social",
+  shopping: "contentType.shopping",
+  image: "contentType.image",
+  document: "contentType.document",
+  tool: "contentType.tool",
+  website: "contentType.website",
 };
 
 export function LinkManagerItem({
@@ -75,6 +76,7 @@ export function LinkManagerItem({
   onSelect,
   onEdit,
 }: LinkManagerItemProps) {
+  const { t } = useTranslation();
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
 
@@ -173,7 +175,7 @@ export function LinkManagerItem({
 
   // Handle delete
   const handleDelete = useCallback(async () => {
-    if (!confirm("¿Eliminar este enlace?")) return;
+    if (!confirm(t("linkManager.confirmDeleteLink"))) return;
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
@@ -184,7 +186,7 @@ export function LinkManagerItem({
     } catch (error) {
       console.error("Error deleting link:", error);
     }
-  }, [link.id, removeLink]);
+  }, [link.id, removeLink, t]);
 
   // Copy URL
   const handleCopyUrl = useCallback(() => {
@@ -229,6 +231,7 @@ export function LinkManagerItem({
         {/* Favicon */}
         <div className="flex-shrink-0">
           {link.faviconUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={link.faviconUrl}
               alt=""
@@ -266,7 +269,7 @@ export function LinkManagerItem({
                   className="text-[10px] px-1.5 py-0.5 rounded font-medium text-white flex-shrink-0"
                   style={{ backgroundColor: platformColor }}
                 >
-                  {contentTypeLabels[contentType]}
+                  {t(contentTypeLabelKeys[contentType])}
                 </span>
               )}
               <span className="text-xs text-muted-foreground truncate">
@@ -300,7 +303,7 @@ export function LinkManagerItem({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Agregar etiqueta"
+                  title={t("linkManager.addTag")}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </Button>
@@ -308,18 +311,18 @@ export function LinkManagerItem({
               <PopoverContent className="w-56 p-0" align="end">
                 <Command shouldFilter={false}>
                   <CommandInput
-                    placeholder="Buscar etiquetas..."
+                    placeholder={t("linkManager.searchTags")}
                     value={tagSearch}
                     onValueChange={setTagSearch}
                   />
                   <CommandList>
                     <CommandEmpty>
                       <div className="py-4 text-center text-sm text-muted-foreground">
-                        No hay etiquetas disponibles
+                        {t("linkManager.noTagsAvailable")}
                       </div>
                     </CommandEmpty>
                     {filteredTags.length > 0 && (
-                      <CommandGroup heading="Etiquetas disponibles">
+                      <CommandGroup heading={t("linkManager.availableTags")}>
                         {filteredTags.map((tag: Tag) => (
                           <CommandItem
                             key={tag.id}
@@ -337,7 +340,7 @@ export function LinkManagerItem({
                       </CommandGroup>
                     )}
                     {selectedTags.length > 0 && (
-                      <CommandGroup heading="Etiquetas asignadas">
+                      <CommandGroup heading={t("linkManager.assignedTags")}>
                         {selectedTags.map((tag: Tag) => (
                           <CommandItem
                             key={tag.id}
@@ -369,7 +372,7 @@ export function LinkManagerItem({
             size="sm"
             className="h-7 w-7 p-0"
             onClick={handleFavoriteToggle}
-            title={link.isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+            title={link.isFavorite ? t("linkManager.removeFromFavorites") : t("linkManager.addToFavorites")}
           >
             <Star
               className={cn(
@@ -387,7 +390,7 @@ export function LinkManagerItem({
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 p-0"
-                title="Mas opciones"
+                title={t("linkManager.moreOptions")}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
@@ -395,11 +398,11 @@ export function LinkManagerItem({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className="w-4 h-4 mr-2" />
-                Editar
+                {t("linkManager.edit")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyUrl}>
                 <Copy className="w-4 h-4 mr-2" />
-                Copiar URL
+                {t("linkManager.copyUrl")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -407,7 +410,7 @@ export function LinkManagerItem({
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar
+                {t("linkManager.delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -417,7 +420,7 @@ export function LinkManagerItem({
             target="_blank"
             rel="noopener noreferrer"
             className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
-            title="Abrir enlace"
+            title={t("linkManager.openLink")}
           >
             <ExternalLink className="w-4 h-4 text-muted-foreground" />
           </a>

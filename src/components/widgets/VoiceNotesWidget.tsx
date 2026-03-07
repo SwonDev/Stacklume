@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Mic,
   MicOff,
   Play,
   Pause,
   Trash2,
-  Download,
   Clock,
-  Settings,
   Copy,
   Check,
   AlertCircle,
@@ -24,14 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget, VoiceNote } from "@/types/widget";
-import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { toast } from "sonner";
 
 interface VoiceNotesWidgetProps {
@@ -68,7 +58,7 @@ function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString: string, t: (key: string, params?: Record<string, string | number>) => string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -76,10 +66,10 @@ function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return "ahora mismo";
-  if (diffMins < 60) return `hace ${diffMins}m`;
-  if (diffHours < 24) return `hace ${diffHours}h`;
-  return `hace ${diffDays}d`;
+  if (diffMins < 1) return t("voiceNotes.justNow");
+  if (diffMins < 60) return t("voiceNotes.agoMinutes", { count: diffMins });
+  if (diffHours < 24) return t("voiceNotes.agoHours", { count: diffHours });
+  return t("voiceNotes.agoDays", { count: diffDays });
 }
 
 // Type definitions for Web Speech API
@@ -133,17 +123,18 @@ declare global {
 }
 
 export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
-  const config = widget.config || {};
+  const config = useMemo(() => widget.config || {}, [widget.config]);
 
-  const voiceNotes = (config.voiceNotes as VoiceNote[]) || [];
+  const voiceNotes = useMemo(() => (config.voiceNotes as VoiceNote[]) || [], [config.voiceNotes]);
   const language = (config.voiceLanguage as string) || "es-ES";
   const continuousMode = config.voiceContinuousMode ?? true;
   const showTranscript = config.voiceShowTranscript ?? true;
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [_isPaused, setIsPaused] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -249,7 +240,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
       // Permission granted, stop the stream immediately
       stream.getTracks().forEach(track => track.stop());
       setPermissionState("granted");
-      toast.success("¡Permiso concedido! Ya puedes grabar.");
+      toast.success(t("voiceNotes.permissionGranted"));
       return true;
     } catch (error) {
       const err = error as Error;
@@ -269,18 +260,18 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
     } finally {
       setIsRequestingPermission(false);
     }
-  }, []);
+  }, [t]);
 
   const startRecording = useCallback(async () => {
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
-      toast.error("Tu navegador no soporta reconocimiento de voz");
+      toast.error(t("voiceNotes.browserNotSupported"));
       return;
     }
 
     // If permission is denied, show instructions
     if (permissionState === "denied") {
-      toast.error("El microfono esta bloqueado. Ve a Configuracion del navegador > Privacidad > Microfono y permite el acceso para este sitio.");
+      toast.error(t("voiceNotes.micBlocked"));
       return;
     }
 
@@ -327,7 +318,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error("Speech recognition error:", event.error);
         if (event.error === "not-allowed") {
-          toast.error("Permiso de microfono denegado");
+          toast.error(t("voiceNotes.micPermissionDenied"));
         } else if (event.error === "no-speech") {
           // Restart if no speech detected
           if (isRecording && continuousMode) {
@@ -379,25 +370,22 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
       setCurrentTranscript("");
       setInterimTranscript("");
 
-      toast.success("Grabacion iniciada");
+      toast.success(t("voiceNotes.recordingStarted"));
     } catch (error) {
       console.error("Error starting recording:", error);
       const err = error as Error;
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
         setPermissionState("denied");
-        toast.error(
-          "Permiso de microfono denegado. Haz clic en el icono del candado en la barra de direcciones y permite el acceso al microfono.",
-          { duration: 6000 }
-        );
+        toast.error(t("voiceNotes.micPermissionDeniedLong"), { duration: 6000 });
       } else if (err.name === "NotFoundError") {
-        toast.error("No se encontro ningun microfono conectado");
+        toast.error(t("voiceNotes.noMicFound"));
       } else if (err.name === "NotReadableError") {
-        toast.error("El microfono esta siendo usado por otra aplicacion");
+        toast.error(t("voiceNotes.micInUse"));
       } else {
-        toast.error("Error al iniciar la grabacion: " + err.message);
+        toast.error(t("voiceNotes.recordingError") + ": " + err.message);
       }
     }
-  }, [language, continuousMode, isRecording, permissionState]);
+  }, [language, continuousMode, isRecording, permissionState, t]);
 
   const stopRecording = useCallback(async () => {
     // Stop recognition
@@ -438,7 +426,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
     const finalTranscript = (currentTranscript + " " + interimTranscript).trim();
 
     if (!finalTranscript && !audioBlob) {
-      toast.error("No se detecto ninguna nota");
+      toast.error(t("voiceNotes.noNoteDetected"));
       setIsRecording(false);
       return;
     }
@@ -452,7 +440,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
     // Create new note
     const newNote: VoiceNote = {
       id: `note_${Date.now()}`,
-      title: finalTranscript.slice(0, 50) || "Nota de voz",
+      title: finalTranscript.slice(0, 50) || t("voiceNotes.defaultNoteTitle"),
       transcript: finalTranscript,
       audioUrl,
       duration: recordingDuration,
@@ -474,8 +462,8 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
     setInterimTranscript("");
     setRecordingDuration(0);
 
-    toast.success("Nota guardada");
-  }, [stopRecording, currentTranscript, interimTranscript, recordingDuration, language, voiceNotes, updateWidget, widget.id, config]);
+    toast.success(t("voiceNotes.noteSaved"));
+  }, [stopRecording, currentTranscript, interimTranscript, recordingDuration, language, voiceNotes, updateWidget, widget.id, config, t]);
 
   const handleDeleteNote = async (noteId: string) => {
     const updatedNotes = voiceNotes.filter(note => note.id !== noteId);
@@ -485,7 +473,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
         voiceNotes: updatedNotes,
       } as Record<string, unknown>,
     });
-    toast.success("Nota eliminada");
+    toast.success(t("voiceNotes.noteDeleted"));
   };
 
   const handleCopyTranscript = async (note: VoiceNote) => {
@@ -493,9 +481,9 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
       await navigator.clipboard.writeText(note.transcript);
       setCopiedId(note.id);
       setTimeout(() => setCopiedId(null), 2000);
-      toast.success("Texto copiado");
+      toast.success(t("voiceNotes.textCopied"));
     } catch {
-      toast.error("Error al copiar");
+      toast.error(t("voiceNotes.copyError"));
     }
   };
 
@@ -557,10 +545,9 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
 
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <AlertCircle className="w-12 h-12 text-muted-foreground mb-3" />
-          <h3 className="font-medium mb-1">No soportado</h3>
+          <h3 className="font-medium mb-1">{t("voiceNotes.notSupported")}</h3>
           <p className="text-sm text-muted-foreground">
-            Tu navegador no soporta reconocimiento de voz.
-            Usa Chrome, Edge o Safari para esta funcionalidad.
+            {t("voiceNotes.notSupportedDescription")}
           </p>
         </div>
       </div>
@@ -603,7 +590,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-sm font-medium text-red-500">Grabando</span>
+                <span className="text-sm font-medium text-red-500">{t("voiceNotes.recording")}</span>
                 <span className="text-sm text-muted-foreground">
                   {formatDuration(recordingDuration)}
                 </span>
@@ -615,7 +602,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
                 className="gap-1.5"
               >
                 <Square className="w-3 h-3 fill-current" />
-                Detener
+                {t("voiceNotes.stop")}
               </Button>
             </div>
 
@@ -625,7 +612,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
                 <span className="text-muted-foreground">{interimTranscript}</span>
                 {!currentTranscript && !interimTranscript && (
                   <span className="text-muted-foreground italic">
-                    Empieza a hablar...
+                    {t("voiceNotes.startSpeaking")}
                   </span>
                 )}
               </div>
@@ -637,23 +624,23 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
               <MicOff className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-destructive mb-2">
-                  Micrófono bloqueado
+                  {t("voiceNotes.micBlockedTitle")}
                 </p>
                 <p className="text-xs text-muted-foreground mb-2">
-                  El navegador bloqueó el acceso sin mostrar el diálogo. Prueba:
+                  {t("voiceNotes.micBlockedDescription")}
                 </p>
                 <div className="text-xs text-muted-foreground space-y-2 mb-3">
-                  <p><strong>1. Verifica Windows:</strong> Configuración → Privacidad → Micrófono → Activar</p>
-                  <p><strong>2. Permisos de Edge:</strong></p>
+                  <p><strong>{t("voiceNotes.micBlockedStep1")}</strong></p>
+                  <p><strong>{t("voiceNotes.micBlockedStep2")}</strong></p>
                   <ul className="list-disc list-inside ml-2 space-y-0.5">
-                    <li>Clic en el candado 🔒 junto a la URL</li>
-                    <li>Permisos del sitio → Micrófono → Permitir</li>
+                    <li>{t("voiceNotes.micBlockedStep2a")}</li>
+                    <li>{t("voiceNotes.micBlockedStep2b")}</li>
                   </ul>
-                  <p><strong>3. O abre:</strong>{" "}
+                  <p><strong>{t("voiceNotes.micBlockedStep3")}</strong>{" "}
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText("edge://settings/content/microphone");
-                        toast.success("URL copiada. Pégala en una nueva pestaña.");
+                        toast.success(t("voiceNotes.urlCopied"));
                       }}
                       className="text-primary underline hover:no-underline"
                     >
@@ -669,7 +656,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
                     className="gap-1.5"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Recargar
+                    {t("voiceNotes.reload")}
                   </Button>
                   <Button
                     size="sm"
@@ -680,7 +667,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
                     }}
                     className="gap-1.5"
                   >
-                    Reintentar
+                    {t("voiceNotes.retry")}
                   </Button>
                 </div>
               </div>
@@ -693,7 +680,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
             variant="outline"
           >
             <Mic className="w-4 h-4" />
-            Nueva nota de voz
+            {t("voiceNotes.newVoiceNote")}
           </Button>
         ) : (
           <div className="space-y-2">
@@ -708,10 +695,10 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
               ) : (
                 <Mic className="w-4 h-4" />
               )}
-              {isRequestingPermission ? "Solicitando permiso..." : "Permitir acceso al microfono"}
+              {isRequestingPermission ? t("voiceNotes.requestingPermission") : t("voiceNotes.allowMicrophone")}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              El navegador te pedira permiso para usar el microfono
+              {t("voiceNotes.browserWillAskFull")}
             </p>
           </div>
         )}
@@ -790,7 +777,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
                 </div>
 
                 <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                  {note.transcript || "Sin transcripcion"}
+                  {note.transcript || t("voiceNotes.noTranscription")}
                 </p>
 
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -798,7 +785,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
                     <Clock className="w-3 h-3" />
                     {formatDuration(note.duration)}
                   </span>
-                  <span>{formatRelativeTime(note.createdAt)}</span>
+                  <span>{formatRelativeTime(note.createdAt, t)}</span>
                   <Badge variant="outline" className="text-[10px] h-4">
                     {SUPPORTED_LANGUAGES.find(l => l.code === note.language)?.label.split(" ")[0] || note.language}
                   </Badge>
@@ -811,7 +798,7 @@ export function VoiceNotesWidget({ widget }: VoiceNotesWidgetProps) {
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <Volume2 className="w-8 h-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">
-            No hay notas de voz. Pulsa el boton para empezar a grabar.
+            {t("voiceNotes.noNotesDescription")}
           </p>
         </div>
       )}

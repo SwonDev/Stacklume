@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useProjectsStore } from "@/stores/projects-store";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Project } from "@/lib/db/schema";
+import { useTranslation } from "@/lib/i18n";
 
 // dnd-kit imports
 import {
@@ -51,6 +52,7 @@ function ProjectItemContent({
   isDragging,
   isOverlay,
 }: ProjectItemProps) {
+  const { t } = useTranslation();
   // Dynamically get the icon component
   const iconName = project.icon || "Folder";
   const IconComponent = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[
@@ -101,7 +103,7 @@ function ProjectItemContent({
               e.stopPropagation();
               onEdit();
             }}
-            title="Editar proyecto"
+            title={t("projects.editTooltip")}
           >
             <Settings className="h-3 w-3" />
           </Button>
@@ -158,6 +160,7 @@ interface ProjectListProps {
 }
 
 export function ProjectList({ isCollapsed = false, onToggle }: ProjectListProps) {
+  const { t } = useTranslation();
   const projects = useProjectsStore((state) => state.projects);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const setActiveProject = useProjectsStore((state) => state.setActiveProject);
@@ -243,7 +246,7 @@ export function ProjectList({ isCollapsed = false, onToggle }: ProjectListProps)
             >
               <ChevronDown className="h-3 w-3" />
             </motion.div>
-            Proyectos
+            {t("projects.title")}
             {sortedProjects.length > 0 && (
               <Badge variant="secondary" className="h-4 min-w-4 px-1 text-[10px] ml-1">
                 {sortedProjects.length}
@@ -252,7 +255,7 @@ export function ProjectList({ isCollapsed = false, onToggle }: ProjectListProps)
           </button>
         ) : (
           <span className="text-xs font-medium uppercase tracking-wider text-sidebar-foreground/50">
-            Proyectos
+            {t("projects.title")}
           </span>
         )}
         <Button
@@ -260,7 +263,7 @@ export function ProjectList({ isCollapsed = false, onToggle }: ProjectListProps)
           size="icon"
           className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
           onClick={openAddProjectModal}
-          title="Nuevo proyecto"
+          title={t("projects.newTooltip")}
         >
           <Plus className="h-3 w-3" />
         </Button>
@@ -319,7 +322,7 @@ export function ProjectList({ isCollapsed = false, onToggle }: ProjectListProps)
 
             {!isLoading && sortedProjects.length === 0 && (
               <p className="px-3 py-2 text-xs text-sidebar-foreground/40">
-                No hay proyectos creados
+                {t("projects.noProjects")}
               </p>
             )}
           </motion.div>

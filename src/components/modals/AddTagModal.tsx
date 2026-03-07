@@ -28,40 +28,41 @@ import { TagBadge, type TagColor } from "@/components/ui/tag-badge"
 import { useLinksStore } from "@/stores/links-store"
 import { cn } from "@/lib/utils"
 import { getCsrfHeaders } from "@/hooks/useCsrf"
+import { useTranslation } from "@/lib/i18n"
 
 const formSchema = z.object({
   name: z
     .string()
-    .min(1, "Tag name is required")
-    .max(50, "Tag name must be 50 characters or less")
-    .regex(/^[a-zA-Z0-9\s-_]+$/, "Only letters, numbers, spaces, hyphens, and underscores allowed"),
+    .min(1, "required")
+    .max(50, "max50")
+    .regex(/^[a-zA-Z0-9\s-_]+$/, "invalidChars"),
 })
 
 type FormValues = z.infer<typeof formSchema>
 
-const colorOptions: Array<{ value: TagColor; label: string }> = [
-  { value: "red", label: "Red" },
-  { value: "orange", label: "Orange" },
-  { value: "amber", label: "Amber" },
-  { value: "yellow", label: "Yellow" },
-  { value: "lime", label: "Lime" },
-  { value: "green", label: "Green" },
-  { value: "emerald", label: "Emerald" },
-  { value: "teal", label: "Teal" },
-  { value: "cyan", label: "Cyan" },
-  { value: "sky", label: "Sky" },
-  { value: "blue", label: "Blue" },
-  { value: "indigo", label: "Indigo" },
-  { value: "violet", label: "Violet" },
-  { value: "purple", label: "Purple" },
-  { value: "fuchsia", label: "Fuchsia" },
-  { value: "pink", label: "Pink" },
-  { value: "rose", label: "Rose" },
-  { value: "slate", label: "Slate" },
-  { value: "gray", label: "Gray" },
-  { value: "zinc", label: "Zinc" },
-  { value: "neutral", label: "Neutral" },
-  { value: "stone", label: "Stone" },
+const colorOptions: Array<{ value: TagColor; labelKey: string }> = [
+  { value: "red", labelKey: "color.red" },
+  { value: "orange", labelKey: "color.orange" },
+  { value: "amber", labelKey: "color.amber" },
+  { value: "yellow", labelKey: "color.yellow" },
+  { value: "lime", labelKey: "color.lime" },
+  { value: "green", labelKey: "color.green" },
+  { value: "emerald", labelKey: "color.emerald" },
+  { value: "teal", labelKey: "color.teal" },
+  { value: "cyan", labelKey: "color.cyan" },
+  { value: "sky", labelKey: "color.sky" },
+  { value: "blue", labelKey: "color.blue" },
+  { value: "indigo", labelKey: "color.indigo" },
+  { value: "violet", labelKey: "color.violet" },
+  { value: "purple", labelKey: "color.purple" },
+  { value: "fuchsia", labelKey: "color.fuchsia" },
+  { value: "pink", labelKey: "color.pink" },
+  { value: "rose", labelKey: "color.rose" },
+  { value: "slate", labelKey: "color.slate" },
+  { value: "gray", labelKey: "color.gray" },
+  { value: "zinc", labelKey: "color.zinc" },
+  { value: "neutral", labelKey: "color.neutral" },
+  { value: "stone", labelKey: "color.stone" },
 ]
 
 const getColorStyles = (color: TagColor) => {
@@ -96,6 +97,7 @@ export function AddTagModal() {
   const isAddTagModalOpen = useLinksStore((state) => state.isAddTagModalOpen);
   const setAddTagModalOpen = useLinksStore((state) => state.setAddTagModalOpen);
   const addTag = useLinksStore((state) => state.addTag);
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false)
   const [selectedColor, setSelectedColor] = useState<TagColor>("blue")
 
@@ -127,21 +129,21 @@ export function AddTagModal() {
       if (response.ok) {
         const newTag = await response.json()
         addTag(newTag)
-        toast.success("Etiqueta creada correctamente")
+        toast.success(t("addTag.successCreate"))
         handleClose()
       } else {
         const error = await response.json()
         console.error("Error creating tag:", error)
-        toast.error("Error al crear la etiqueta")
+        toast.error(t("addTag.errorCreate"))
         form.setError("name", {
-          message: error.message || "Failed to create tag",
+          message: error.message || t("addTag.errorCreate"),
         })
       }
     } catch (error) {
       console.error("Error creating tag:", error)
-      toast.error("Error al guardar la etiqueta")
+      toast.error(t("addTag.errorSave"))
       form.setError("name", {
-        message: "An unexpected error occurred",
+        message: t("addTag.unexpectedError"),
       })
     } finally {
       setIsLoading(false)
@@ -160,10 +162,10 @@ export function AddTagModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TagIcon className="w-5 h-5 text-primary" />
-            Create New Tag
+            {t("addTag.title")}
           </DialogTitle>
           <DialogDescription>
-            Create a tag to organize and categorize your links
+            {t("addTag.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -175,10 +177,10 @@ export function AddTagModal() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tag Name</FormLabel>
+                  <FormLabel>{t("addTag.name")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., React, Design, Tutorial"
+                      placeholder={t("addTag.namePlaceholder")}
                       autoFocus
                       {...field}
                     />
@@ -190,7 +192,7 @@ export function AddTagModal() {
 
             {/* Color Selection */}
             <div className="space-y-3">
-              <label className="text-sm font-medium">Color</label>
+              <label className="text-sm font-medium">{t("addTag.tagColor")}</label>
               <div className="grid grid-cols-11 gap-2">
                 {colorOptions.map((color) => (
                   <motion.button
@@ -205,7 +207,7 @@ export function AddTagModal() {
                     style={{
                       backgroundColor: getColorStyles(color.value),
                     }}
-                    title={color.label}
+                    title={t(color.labelKey)}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
                   >
@@ -232,7 +234,7 @@ export function AddTagModal() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-2"
               >
-                <label className="text-sm font-medium">Preview</label>
+                <label className="text-sm font-medium">{t("addTag.preview")}</label>
                 <div className="flex items-center gap-2 p-3 rounded-md bg-muted/50">
                   <TagBadge name={tagName} color={selectedColor} size="md" />
                   <TagBadge name={tagName} color={selectedColor} size="sm" />
@@ -249,11 +251,11 @@ export function AddTagModal() {
                 onClick={handleClose}
                 disabled={isLoading}
               >
-                Cancel
+                {t("btn.cancel")}
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Create Tag
+                {t("addTag.createTag")}
               </Button>
             </div>
           </form>

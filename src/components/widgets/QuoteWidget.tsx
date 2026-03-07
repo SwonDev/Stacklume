@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface QuoteWidgetProps {
   widget: Widget;
@@ -209,13 +210,13 @@ const QUOTES: QuoteData[] = [
   },
 ];
 
-const CATEGORY_LABELS: Record<QuoteCategory, string> = {
-  all: "Todas",
-  motivation: "Motivación",
-  success: "Éxito",
-  life: "Vida",
-  wisdom: "Sabiduría",
-  creativity: "Creatividad",
+const CATEGORY_LABEL_KEYS: Record<QuoteCategory, string> = {
+  all: "quote.catAll",
+  motivation: "quote.catMotivation",
+  success: "quote.catSuccess",
+  life: "quote.catLife",
+  wisdom: "quote.catWisdom",
+  creativity: "quote.catCreativity",
 };
 
 const CATEGORY_COLORS: Record<QuoteCategory, string> = {
@@ -257,7 +258,7 @@ const _TRANSLATION_DICT: Record<string, string> = {
 };
 
 export function QuoteWidget({ widget }: QuoteWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const [currentQuote, setCurrentQuote] = useState<QuoteData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<QuoteCategory>("all");
   const [isFavorite, setIsFavorite] = useState(false);
@@ -342,8 +343,8 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
       return quote;
     } catch (error) {
       console.error("Failed to fetch quote from API:", error);
-      toast.error("No se pudo obtener una cita nueva", {
-        description: "Usando citas locales",
+      toast.error(t("quote.fetchError"), {
+        description: t("quote.usingLocal"),
       });
       return null;
     } finally {
@@ -358,30 +359,33 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
 
     const cachedTranslations = widget.config?.translationCache || {};
     setTranslationCache(cachedTranslations);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run only on mount to restore cached data
   }, []);
 
   // Save API quotes to widget config when they change
   useEffect(() => {
     if (apiQuotes.length > 0) {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           apiQuotes,
         },
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- widget.config would cause infinite loop since this effect updates it
   }, [apiQuotes]);
 
   // Save translation cache to widget config
   useEffect(() => {
     if (Object.keys(translationCache).length > 0) {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           translationCache,
         },
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- widget.config would cause infinite loop since this effect updates it
   }, [translationCache]);
 
   // Load initial quote
@@ -412,6 +416,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
     if (currentQuote) {
       setIsFavorite(favorites.includes(currentQuote.text));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredQuotes/currentQuote would cause circular dependency; favorites is read but not a trigger
   }, [widget.config?.currentQuoteText, widget.config?.category, allQuotes]);
 
   const getRandomQuote = (quotes: QuoteData[]): QuoteData => {
@@ -439,7 +444,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
       setCurrentQuote(newQuote);
 
       // Save to widget config
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           currentQuoteText: newQuote.text,
@@ -458,7 +463,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
     setSelectedCategory(category);
 
     // Save to widget config
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         category,
@@ -471,7 +476,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
     const newQuote = getRandomQuote(categoryQuotes);
     setCurrentQuote(newQuote);
 
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         currentQuoteText: newQuote.text,
@@ -488,7 +493,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
       ? favorites.filter((f: string) => f !== currentQuote.text)
       : [...favorites, currentQuote.text];
 
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         favorites: newFavorites,
@@ -519,7 +524,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
           {isLoading ? (
             <>
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Cargando nueva cita...</p>
+              <p className="text-sm text-muted-foreground">{t("quote.loadingQuote")}</p>
             </>
           ) : (
             <Quote className="w-8 h-8 text-muted-foreground animate-pulse" />
@@ -537,7 +542,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
           <div className="flex items-center gap-2">
             <Quote className="w-4 h-4 text-primary" />
             <span className="text-xs @lg:text-sm font-medium text-muted-foreground">
-              Cita del día
+              {t("quote.quoteOfDay")}
             </span>
           </div>
 
@@ -546,9 +551,9 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+              {Object.entries(CATEGORY_LABEL_KEYS).map(([value, labelKey]) => (
                 <SelectItem key={value} value={value} className="text-xs">
-                  {label}
+                  {t(labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -571,7 +576,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
             <Badge
               className={`text-xs ${CATEGORY_COLORS[currentQuote.category]} border-0`}
             >
-              {CATEGORY_LABELS[currentQuote.category]}
+              {t(CATEGORY_LABEL_KEYS[currentQuote.category])}
             </Badge>
             {currentQuote.source === "api" && (
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
@@ -663,7 +668,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
                 >
                   <Filter className="w-3 h-3" />
                   <span className="hidden @xs:inline">
-                    {CATEGORY_LABELS[selectedCategory]}
+                    {t(CATEGORY_LABEL_KEYS[selectedCategory])}
                   </span>
                 </Button>
               </div>
@@ -694,8 +699,8 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
                     }`}
                   />
                 )}
-                <span className="hidden @sm:inline">Nueva cita</span>
-                <span className="@sm:hidden">Otra</span>
+                <span className="hidden @sm:inline">{t("quote.newQuote")}</span>
+                <span className="@sm:hidden">{t("quote.another")}</span>
               </Button>
             </div>
           </div>
@@ -705,7 +710,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
             <Badge
               className={`text-xs ${CATEGORY_COLORS[currentQuote.category]} border-0`}
             >
-              {CATEGORY_LABELS[currentQuote.category]}
+              {t(CATEGORY_LABEL_KEYS[currentQuote.category])}
             </Badge>
             {currentQuote.source === "api" && (
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
@@ -722,7 +727,7 @@ export function QuoteWidget({ widget }: QuoteWidgetProps) {
           transition={{ delay: 0.5 }}
           className="hidden @xl:block absolute bottom-3 left-3 text-xs text-muted-foreground/50"
         >
-          {filteredQuotes.length} citas disponibles
+          {t("quote.quotesAvailable", { count: filteredQuotes.length })}
         </motion.div>
       </div>
     </div>

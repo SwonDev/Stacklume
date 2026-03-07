@@ -24,9 +24,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useKanbanStore, COLUMN_COLOR_PRESETS } from "@/stores/kanban-store";
+import { useTranslation } from "@/lib/i18n";
 
 const formSchema = z.object({
-  title: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres"),
+  title: z.string().min(1, "required").max(50, "max50"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -37,6 +38,7 @@ export function AddColumnModal() {
   const addColumn = useKanbanStore((state) => state.addColumn);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedColor, setSelectedColor] = useState(COLUMN_COLOR_PRESETS[0].value);
+  const { t } = useTranslation();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,11 +54,11 @@ export function AddColumnModal() {
         title: values.title,
         color: selectedColor,
       });
-      toast.success("Columna creada correctamente");
+      toast.success(t("addColumn.successCreate"));
       handleClose();
     } catch (error) {
       console.error("Error creating column:", error);
-      toast.error("Error al crear la columna");
+      toast.error(t("addColumn.errorCreate"));
     } finally {
       setIsLoading(false);
     }
@@ -74,10 +76,10 @@ export function AddColumnModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Columns3 className="w-5 h-5 text-primary" />
-            Nueva columna
+            {t("addColumn.title")}
           </DialogTitle>
           <DialogDescription>
-            Añade una nueva columna a tu tablero Kanban
+            {t("addColumn.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -89,9 +91,9 @@ export function AddColumnModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nombre</FormLabel>
+                  <FormLabel>{t("addColumn.name")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: En revisión" {...field} />
+                    <Input placeholder={t("addColumn.namePlaceholder")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -100,7 +102,7 @@ export function AddColumnModal() {
 
             {/* Color Selection */}
             <div>
-              <label className="text-sm font-medium">Color del encabezado</label>
+              <label className="text-sm font-medium">{t("addColumn.headerColor")}</label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {COLUMN_COLOR_PRESETS.map((color) => (
                   <button
@@ -121,14 +123,14 @@ export function AddColumnModal() {
 
             {/* Preview */}
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Vista previa</label>
+              <label className="text-sm font-medium text-muted-foreground">{t("addColumn.preview")}</label>
               <div className="mt-2 p-3 rounded-lg border bg-secondary/20">
                 <div
                   className="h-1 rounded-full mb-2"
                   style={{ backgroundColor: selectedColor }}
                 />
                 <span className="text-sm font-semibold">
-                  {form.watch("title") || "Nombre de columna"}
+                  {form.watch("title") || t("addColumn.columnNameDefault")}
                 </span>
               </div>
             </div>
@@ -136,11 +138,11 @@ export function AddColumnModal() {
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={handleClose}>
-                Cancelar
+                {t("btn.cancel")}
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Crear columna
+                {t("addColumn.createColumn")}
               </Button>
             </div>
           </form>

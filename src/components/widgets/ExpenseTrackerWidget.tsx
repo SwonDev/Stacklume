@@ -28,6 +28,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface ExpenseTrackerWidgetProps {
   widget: Widget;
@@ -56,37 +57,37 @@ const categoryConfig: Record<
   { label: string; icon: React.ElementType; color: string; bgColor: string }
 > = {
   food: {
-    label: "Comida",
+    label: "expenseTracker.food",
     icon: ShoppingCart,
     color: "text-orange-500",
     bgColor: "bg-orange-500/10",
   },
   transport: {
-    label: "Transporte",
+    label: "expenseTracker.transport",
     icon: Car,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
   },
   entertainment: {
-    label: "Entretenimiento",
+    label: "expenseTracker.entertainment",
     icon: Film,
     color: "text-purple-500",
     bgColor: "bg-purple-500/10",
   },
   shopping: {
-    label: "Compras",
+    label: "expenseTracker.shopping",
     icon: ShoppingBag,
     color: "text-pink-500",
     bgColor: "bg-pink-500/10",
   },
   bills: {
-    label: "Facturas",
+    label: "expenseTracker.bills",
     icon: FileText,
     color: "text-red-500",
     bgColor: "bg-red-500/10",
   },
   other: {
-    label: "Otros",
+    label: "expenseTracker.others",
     icon: MoreHorizontal,
     color: "text-gray-500",
     bgColor: "bg-gray-500/10",
@@ -129,12 +130,13 @@ const isThisMonth = (date: Date): boolean => {
 };
 
 export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
+  const { t } = useTranslation();
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("food");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("today");
 
-  const expenses: Expense[] = widget.config?.expenses || [];
+  const expenses: Expense[] = useMemo(() => widget.config?.expenses || [], [widget.config?.expenses]);
 
   const saveExpenses = useCallback(
     (items: Expense[]) => {
@@ -191,8 +193,8 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
 
   const periodLabels: Record<TimePeriod, string> = {
     today: "Hoy",
-    week: "Esta semana",
-    month: "Este mes",
+    week: t("expenseTracker.thisWeek"),
+    month: t("expenseTracker.thisMonth"),
   };
 
   return (
@@ -202,7 +204,7 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Gastos</span>
+            <span className="text-sm font-medium">{t("expenseTracker.title")}</span>
           </div>
           <Select
             value={timePeriod}
@@ -212,9 +214,9 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">Hoy</SelectItem>
-              <SelectItem value="week">Semana</SelectItem>
-              <SelectItem value="month">Mes</SelectItem>
+              <SelectItem value="today">{t("expenseTracker.today")}</SelectItem>
+              <SelectItem value="week">{t("expenseTracker.week")}</SelectItem>
+              <SelectItem value="month">{t("expenseTracker.month")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -268,7 +270,7 @@ export function ExpenseTrackerWidget({ widget }: ExpenseTrackerWidgetProps) {
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descripcion (opcional)..."
+              placeholder={t("expenseTracker.descriptionPlaceholder")}
               className="h-8 text-sm flex-1"
               onKeyDown={(e) => e.key === "Enter" && addExpense()}
             />

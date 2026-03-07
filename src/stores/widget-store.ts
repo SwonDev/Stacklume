@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/shallow";
 import type { Widget, WidgetType, WidgetSize } from "@/types/widget";
 import { WIDGET_SIZE_PRESETS, WIDGET_TYPE_METADATA, getDefaultWidgetConfig } from "@/types/widget";
 import type { Layout } from "react-grid-layout";
@@ -1022,7 +1023,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
 // Helper hook to get widget layouts for react-grid-layout
 export function useWidgetLayouts() {
-  const widgets = useWidgetStore((state) => state.widgets);
+  const widgets = useWidgetStore(useShallow((state) => state.widgets));
 
   return widgets.map((widget) => {
     const sizePreset = WIDGET_SIZE_PRESETS[widget.size];
@@ -1046,17 +1047,17 @@ export function useWidget(id: string): Widget | undefined {
 
 // Helper hook to get widgets by type
 export function useWidgetsByType(type: WidgetType): Widget[] {
-  return useWidgetStore((state) => state.getWidgetsByType(type));
+  return useWidgetStore(useShallow((state) => state.getWidgetsByType(type)));
 }
 
 // Helper hook to get filtered widgets by current project
 export function useFilteredWidgets(): Widget[] {
-  return useWidgetStore((state) => state.getFilteredWidgets());
+  return useWidgetStore(useShallow((state) => state.getFilteredWidgets()));
 }
 
 // Helper hook to get widgets by specific project
 export function useWidgetsByProject(projectId: string | null): Widget[] {
-  return useWidgetStore((state) => state.selectWidgetsByProject(projectId));
+  return useWidgetStore(useShallow((state) => state.selectWidgetsByProject(projectId)));
 }
 
 // Helper hook to get current project ID

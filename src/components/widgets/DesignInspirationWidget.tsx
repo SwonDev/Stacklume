@@ -158,7 +158,6 @@ export function DesignInspirationWidget({ widget }: DesignInspirationWidgetProps
   const storeWidget = useWidgetStore(
     (state) => state.widgets.find((w) => w.id === widget.id)
   );
-  const { openAddLinkModal } = useLinksStore();
 
   const currentWidget = storeWidget || widget;
   const config = currentWidget.config as DesignInspirationWidgetConfig | undefined;
@@ -249,7 +248,7 @@ export function DesignInspirationWidget({ widget }: DesignInspirationWidgetProps
 
   const saveAsLink = () => {
     if (!currentItem) return;
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: currentItem.sourceUrl,
       title: currentItem.title,
       description: `Inspiracion de ${currentItem.author} en ${currentItem.source}`,
@@ -321,6 +320,7 @@ export function DesignInspirationWidget({ widget }: DesignInspirationWidgetProps
                   exit={{ opacity: 0 }}
                   className="h-full w-full"
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={currentItem.imageUrl}
                     alt={currentItem.title}
@@ -452,6 +452,7 @@ export function DesignInspirationWidget({ widget }: DesignInspirationWidgetProps
                     className="relative aspect-[4/3] rounded-md overflow-hidden group"
                     onClick={() => loadFavorite(item)}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={item.imageUrl}
                       alt={item.title}

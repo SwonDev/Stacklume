@@ -94,10 +94,10 @@ export function SprintTasksWidget({ widget }: SprintTasksWidgetProps) {
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const config = (widget.config as unknown as SprintTasksConfig) || {};
 
-  const [sprint, setSprint] = useState<SprintInfo>(
+  const [sprint, _setSprint] = useState<SprintInfo>(
     config.sprint || { name: "Sprint 1", goal: "Initial sprint setup" }
   );
-  const [columns, setColumns] = useState<SprintColumn[]>(
+  const [columns, _setColumns] = useState<SprintColumn[]>(
     config.columns || DEFAULT_COLUMNS
   );
   const [tasks, setTasks] = useState<SprintTask[]>(config.sprintTasks || []);

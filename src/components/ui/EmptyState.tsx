@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export type EmptyStateVariant =
@@ -45,65 +46,58 @@ interface EmptyStateProps {
   size?: "sm" | "md" | "lg";
 }
 
-// Predefined configurations for each variant
+// Predefined configurations for each variant (uses translation keys)
 const VARIANT_CONFIGS: Record<
   Exclude<EmptyStateVariant, "custom">,
   {
     icon: React.ReactNode;
-    title: string;
-    description: string;
-    actionLabel?: string;
-    secondaryActionLabel?: string;
+    titleKey: string;
+    descriptionKey: string;
+    actionLabelKey?: string;
+    secondaryActionLabelKey?: string;
   }
 > = {
   "no-links": {
     icon: <Link2 className="w-8 h-8" />,
-    title: "No hay enlaces",
-    description:
-      "Empieza agregando tu primer enlace o importa tus marcadores del navegador.",
-    actionLabel: "Agregar enlace",
-    secondaryActionLabel: "Importar marcadores",
+    titleKey: "emptyState.noLinks.title",
+    descriptionKey: "emptyState.noLinks.description",
+    actionLabelKey: "emptyState.noLinks.action",
+    secondaryActionLabelKey: "emptyState.noLinks.secondaryAction",
   },
   "no-widgets": {
     icon: <LayoutGrid className="w-8 h-8" />,
-    title: "No hay widgets",
-    description:
-      "Personaliza tu panel agregando widgets. Hay mas de 120 tipos disponibles.",
-    actionLabel: "Agregar widget",
+    titleKey: "emptyState.noWidgets.title",
+    descriptionKey: "emptyState.noWidgets.description",
+    actionLabelKey: "emptyState.noWidgets.action",
   },
   "no-categories": {
     icon: <FolderOpen className="w-8 h-8" />,
-    title: "No hay categorias",
-    description:
-      "Organiza tus enlaces creando categorias. Te ayudaran a encontrar todo mas rapido.",
-    actionLabel: "Crear categoria",
+    titleKey: "emptyState.noCategories.title",
+    descriptionKey: "emptyState.noCategories.description",
+    actionLabelKey: "emptyState.noCategories.action",
   },
   "no-tags": {
     icon: <Tag className="w-8 h-8" />,
-    title: "No hay etiquetas",
-    description:
-      "Las etiquetas permiten clasificar enlaces de forma flexible y encontrarlos facilmente.",
-    actionLabel: "Crear etiqueta",
+    titleKey: "emptyState.noTags.title",
+    descriptionKey: "emptyState.noTags.description",
+    actionLabelKey: "emptyState.noTags.action",
   },
   "no-search-results": {
     icon: <Search className="w-8 h-8" />,
-    title: "Sin resultados",
-    description:
-      "No encontramos nada que coincida con tu busqueda. Intenta con otros terminos o limpia los filtros.",
-    actionLabel: "Limpiar busqueda",
+    titleKey: "emptyState.noSearchResults.title",
+    descriptionKey: "emptyState.noSearchResults.description",
+    actionLabelKey: "emptyState.noSearchResults.action",
   },
   "no-favorites": {
     icon: <BookMarked className="w-8 h-8" />,
-    title: "No hay favoritos",
-    description:
-      "Marca enlaces como favoritos para acceder a ellos rapidamente desde aqui.",
+    titleKey: "emptyState.noFavorites.title",
+    descriptionKey: "emptyState.noFavorites.description",
   },
   "no-recent": {
     icon: <Sparkles className="w-8 h-8" />,
-    title: "No hay enlaces recientes",
-    description:
-      "Los enlaces que agregues apareceran aqui ordenados por fecha.",
-    actionLabel: "Agregar primer enlace",
+    titleKey: "emptyState.noRecent.title",
+    descriptionKey: "emptyState.noRecent.description",
+    actionLabelKey: "emptyState.noRecent.action",
   },
 };
 
@@ -117,13 +111,14 @@ export function EmptyState({
   className,
   size = "md",
 }: EmptyStateProps) {
+  const { t } = useTranslation();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
 
   // Get config from variant or use custom props
   const config = variant !== "custom" ? VARIANT_CONFIGS[variant] : null;
-  const finalTitle = title || config?.title || "No hay contenido";
+  const finalTitle = title || (config?.titleKey ? t(config.titleKey) : t("emptyState.defaultTitle"));
   const finalDescription =
-    description || config?.description || "No hay nada que mostrar aqui.";
+    description || (config?.descriptionKey ? t(config.descriptionKey) : t("emptyState.defaultDescription"));
   const finalIcon = icon || config?.icon || <Grid3X3 className="w-8 h-8" />;
 
   // Size classes
@@ -202,9 +197,9 @@ export function EmptyState({
       </p>
 
       {/* Actions */}
-      {(action || secondaryAction || config?.actionLabel) && (
+      {(action || secondaryAction || config?.actionLabelKey) && (
         <div className="flex flex-col sm:flex-row items-center gap-2 mt-2">
-          {(action || config?.actionLabel) && (
+          {(action || config?.actionLabelKey) && (
             <Button
               variant={action?.variant || "default"}
               size={size === "sm" ? "sm" : "default"}
@@ -212,10 +207,10 @@ export function EmptyState({
               className="gap-2"
             >
               <Plus className="w-4 h-4" />
-              {action?.label || config?.actionLabel}
+              {action?.label || (config?.actionLabelKey ? t(config.actionLabelKey) : "")}
             </Button>
           )}
-          {(secondaryAction || config?.secondaryActionLabel) && (
+          {(secondaryAction || config?.secondaryActionLabelKey) && (
             <Button
               variant="outline"
               size={size === "sm" ? "sm" : "default"}
@@ -223,7 +218,7 @@ export function EmptyState({
               className="gap-2"
             >
               <FileUp className="w-4 h-4" />
-              {secondaryAction?.label || config?.secondaryActionLabel}
+              {secondaryAction?.label || (config?.secondaryActionLabelKey ? t(config.secondaryActionLabelKey) : "")}
             </Button>
           )}
         </div>
@@ -244,6 +239,7 @@ export function WidgetEmptyState({
   onAddWidget,
   className,
 }: WidgetEmptyStateProps) {
+  const { t } = useTranslation();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
 
   return (
@@ -262,10 +258,10 @@ export function WidgetEmptyState({
         <LayoutGrid className="w-6 h-6 text-primary/60" />
       </div>
       <p className="text-sm font-medium text-foreground mb-1">
-        {type ? `No hay ${type}` : "Espacio vacio"}
+        {type ? t("emptyState.widget.noType", { type }) : t("emptyState.widget.emptySpace")}
       </p>
       <p className="text-xs text-muted-foreground mb-3">
-        Agrega tu primer widget aqui
+        {t("emptyState.widget.addFirstWidget")}
       </p>
       {onAddWidget && (
         <Button
@@ -275,7 +271,7 @@ export function WidgetEmptyState({
           className="gap-2"
         >
           <Plus className="w-4 h-4" />
-          Agregar widget
+          {t("emptyState.widget.addWidget")}
         </Button>
       )}
     </motion.div>
@@ -298,22 +294,22 @@ export function SearchEmptyState({
   onClearFilter,
   className,
 }: SearchEmptyStateProps) {
+  const { t } = useTranslation();
   return (
     <EmptyState
       variant="no-search-results"
       description={
         query
-          ? `No hay resultados para "${query}"${
-              filterLabel ? ` en "${filterLabel}"` : ""
-            }`
+          ? t("emptyState.search.noResultsFor", { query }) +
+            (filterLabel ? ` ${t("emptyState.search.inFilter", { filter: filterLabel })}` : "")
           : filterLabel
-          ? `No hay widgets que contengan enlaces de "${filterLabel}"`
-          : "No hay resultados que mostrar"
+          ? t("emptyState.search.noWidgetsInFilter", { filter: filterLabel })
+          : t("emptyState.search.noResults")
       }
       action={
         onClearSearch || onClearFilter
           ? {
-              label: "Limpiar filtros",
+              label: t("emptyState.search.clearFilters"),
               onClick: () => {
                 onClearSearch?.();
                 onClearFilter?.();

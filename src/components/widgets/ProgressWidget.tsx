@@ -24,6 +24,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 // Goal types supported by the widget
 type GoalType = "numeric" | "percentage" | "boolean";
@@ -57,7 +58,7 @@ interface ProgressWidgetProps {
 }
 
 export function ProgressWidget({ widget }: ProgressWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -83,7 +84,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
   // Save goals to widget config
   const saveGoals = (newGoals: Goal[]) => {
     setGoals(newGoals);
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         goals: newGoals,
@@ -213,10 +214,10 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
             </motion.div>
             <div>
               <p className="text-sm font-medium text-foreground mb-1 @md:text-base">
-                Sin metas aún
+                {t("progress.noGoals")}
               </p>
               <p className="text-xs text-muted-foreground @md:text-sm">
-                Añade tu primera meta para empezar a seguir tu progreso
+                {t("progress.addFirstGoal")}
               </p>
             </div>
             <Button
@@ -225,7 +226,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
               className="gap-2 mt-2"
             >
               <Plus className="w-4 h-4" />
-              Añadir meta
+              {t("progress.addGoal")}
             </Button>
           </div>
         )}
@@ -335,7 +336,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <TrendingUp className="w-3 h-3" />
                             <span className="hidden @sm:inline">
-                              Faltan {formatValue(goal.target - goal.current, goal.unit)}
+                              {t("progress.remaining", { value: formatValue(goal.target - goal.current, goal.unit) })}
                             </span>
                           </div>
                         )}
@@ -344,7 +345,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
                       {/* Quick increment buttons for numeric goals */}
                       {goal.type === "numeric" && !isCompleted && (
                         <div className="hidden @md:flex items-center gap-2 mt-3 pt-3 border-t">
-                          <span className="text-xs text-muted-foreground">Actualización rápida:</span>
+                          <span className="text-xs text-muted-foreground">{t("progress.quickUpdate")}:</span>
                           {[1, 5, 10].map((increment) => (
                             <Button
                               key={increment}
@@ -378,7 +379,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
                 className="w-full gap-2"
               >
                 <Plus className="w-4 h-4" />
-                Añadir meta
+                {t("progress.addGoal")}
               </Button>
             </div>
           </>
@@ -389,19 +390,19 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Añadir nueva meta</DialogTitle>
+            <DialogTitle>{t("progress.addNewGoal")}</DialogTitle>
             <DialogDescription>
-              Crea una nueva meta para seguir tu progreso
+              {t("progress.addNewGoalDesc")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Goal name */}
             <div className="space-y-2">
-              <Label htmlFor="goal-name">Nombre de la meta</Label>
+              <Label htmlFor="goal-name">{t("progress.goalName")}</Label>
               <Input
                 id="goal-name"
-                placeholder="ej: Libros leídos, Días de ejercicio"
+                placeholder={t("progress.goalNamePlaceholder")}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
@@ -409,15 +410,15 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
 
             {/* Goal type */}
             <div className="space-y-2">
-              <Label htmlFor="goal-type">Tipo de meta</Label>
+              <Label htmlFor="goal-type">{t("progress.goalType")}</Label>
               <Select value={formType} onValueChange={(v) => setFormType(v as GoalType)}>
                 <SelectTrigger id="goal-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="numeric">Numérico (ej: 5/12)</SelectItem>
-                  <SelectItem value="percentage">Porcentaje (0-100%)</SelectItem>
-                  <SelectItem value="boolean">Completo/Incompleto</SelectItem>
+                  <SelectItem value="numeric">{t("progress.typeNumeric")}</SelectItem>
+                  <SelectItem value="percentage">{t("progress.typePercentage")}</SelectItem>
+                  <SelectItem value="boolean">{t("progress.typeBoolean")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -426,7 +427,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
             {formType !== "boolean" && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="goal-current">Actual</Label>
+                  <Label htmlFor="goal-current">{t("progress.current")}</Label>
                   <Input
                     id="goal-current"
                     type="number"
@@ -437,7 +438,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="goal-target">Objetivo</Label>
+                  <Label htmlFor="goal-target">{t("progress.target")}</Label>
                   <Input
                     id="goal-target"
                     type="number"
@@ -453,10 +454,10 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
             {/* Unit (only for numeric) */}
             {formType === "numeric" && (
               <div className="space-y-2">
-                <Label htmlFor="goal-unit">Unidad (opcional)</Label>
+                <Label htmlFor="goal-unit">{t("progress.unit")}</Label>
                 <Input
                   id="goal-unit"
-                  placeholder="ej: $, km, libros"
+                  placeholder={t("progress.unitPlaceholder")}
                   value={formUnit}
                   onChange={(e) => setFormUnit(e.target.value)}
                 />
@@ -465,7 +466,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
 
             {/* Color picker */}
             <div className="space-y-2">
-              <Label>Color</Label>
+              <Label>{t("progress.color")}</Label>
               <div className="flex flex-wrap gap-2">
                 {GOAL_COLORS.map((color) => (
                   <button
@@ -491,10 +492,10 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
               variant="outline"
               onClick={() => setIsAddDialogOpen(false)}
             >
-              Cancelar
+              {t("progress.cancel")}
             </Button>
             <Button onClick={handleAddGoal} disabled={!isFormValid()}>
-              Añadir meta
+              {t("progress.addGoal")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -504,19 +505,19 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar meta</DialogTitle>
+            <DialogTitle>{t("progress.editGoal")}</DialogTitle>
             <DialogDescription>
-              Actualiza los detalles y el progreso de tu meta
+              {t("progress.editGoalDesc")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Goal name */}
             <div className="space-y-2">
-              <Label htmlFor="edit-goal-name">Nombre de la meta</Label>
+              <Label htmlFor="edit-goal-name">{t("progress.goalName")}</Label>
               <Input
                 id="edit-goal-name"
-                placeholder="ej: Libros leídos, Días de ejercicio"
+                placeholder={t("progress.goalNamePlaceholder")}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
@@ -524,15 +525,15 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
 
             {/* Goal type */}
             <div className="space-y-2">
-              <Label htmlFor="edit-goal-type">Tipo de meta</Label>
+              <Label htmlFor="edit-goal-type">{t("progress.goalType")}</Label>
               <Select value={formType} onValueChange={(v) => setFormType(v as GoalType)}>
                 <SelectTrigger id="edit-goal-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="numeric">Numérico (ej: 5/12)</SelectItem>
-                  <SelectItem value="percentage">Porcentaje (0-100%)</SelectItem>
-                  <SelectItem value="boolean">Completo/Incompleto</SelectItem>
+                  <SelectItem value="numeric">{t("progress.typeNumeric")}</SelectItem>
+                  <SelectItem value="percentage">{t("progress.typePercentage")}</SelectItem>
+                  <SelectItem value="boolean">{t("progress.typeBoolean")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -541,7 +542,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
             {formType !== "boolean" && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-goal-current">Actual</Label>
+                  <Label htmlFor="edit-goal-current">{t("progress.current")}</Label>
                   <Input
                     id="edit-goal-current"
                     type="number"
@@ -552,7 +553,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-goal-target">Objetivo</Label>
+                  <Label htmlFor="edit-goal-target">{t("progress.target")}</Label>
                   <Input
                     id="edit-goal-target"
                     type="number"
@@ -568,10 +569,10 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
             {/* Unit (only for numeric) */}
             {formType === "numeric" && (
               <div className="space-y-2">
-                <Label htmlFor="edit-goal-unit">Unidad (opcional)</Label>
+                <Label htmlFor="edit-goal-unit">{t("progress.unit")}</Label>
                 <Input
                   id="edit-goal-unit"
-                  placeholder="ej: $, km, libros"
+                  placeholder={t("progress.unitPlaceholder")}
                   value={formUnit}
                   onChange={(e) => setFormUnit(e.target.value)}
                 />
@@ -580,7 +581,7 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
 
             {/* Color picker */}
             <div className="space-y-2">
-              <Label>Color</Label>
+              <Label>{t("progress.color")}</Label>
               <div className="flex flex-wrap gap-2">
                 {GOAL_COLORS.map((color) => (
                   <button
@@ -610,10 +611,10 @@ export function ProgressWidget({ widget }: ProgressWidgetProps) {
                 resetForm();
               }}
             >
-              Cancelar
+              {t("progress.cancel")}
             </Button>
             <Button onClick={handleUpdateGoal} disabled={!isFormValid()}>
-              Actualizar meta
+              {t("progress.updateGoal")}
             </Button>
           </DialogFooter>
         </DialogContent>

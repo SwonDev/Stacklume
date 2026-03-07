@@ -161,6 +161,7 @@ export function DesignTokensWidget({ widget: initialWidget }: DesignTokensWidget
         radii,
       } as unknown as typeof widget.config,
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- updateWidget is stable; widget.config would cause infinite loop since this effect updates it
   }, [colors, typography, spacing, shadows, radii, widget.id]);
 
   const resetForm = () => {

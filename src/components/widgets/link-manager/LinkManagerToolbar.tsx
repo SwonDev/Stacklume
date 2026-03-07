@@ -8,7 +8,6 @@ import {
   Table2,
   Filter,
   CheckSquare,
-  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 export type ViewMode = "list" | "grid" | "table";
 export type SortBy = "createdAt" | "title" | "updatedAt";
@@ -57,14 +57,7 @@ export function LinkManagerToolbar({
   totalCount,
   hasActiveFilters = false,
 }: LinkManagerToolbarProps) {
-  const getSortLabel = (sortBy: SortBy, sortOrder: SortOrder): string => {
-    const labels: Record<SortBy, string> = {
-      createdAt: "Fecha creación",
-      title: "Título",
-      updatedAt: "Fecha actualización",
-    };
-    return `${labels[sortBy]} (${sortOrder === "asc" ? "A-Z" : "Z-A"})`;
-  };
+  const { t } = useTranslation();
 
   const handleSortChange = (value: string) => {
     const [newSortBy, newSortOrder] = value.split("-") as [SortBy, SortOrder];
@@ -79,7 +72,7 @@ export function LinkManagerToolbar({
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Buscar enlaces..."
+            placeholder={t("linkManager.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
@@ -133,7 +126,7 @@ export function LinkManagerToolbar({
             className="relative"
           >
             <Filter className="size-4" />
-            <span className="hidden @sm:inline">Filtros</span>
+            <span className="hidden @sm:inline">{t("linkManager.filters")}</span>
             {hasActiveFilters && (
               <Badge
                 variant="default"
@@ -154,18 +147,18 @@ export function LinkManagerToolbar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="createdAt-desc">
-                Fecha creación (más recientes)
+                {t("linkManager.sortCreatedAtDesc")}
               </SelectItem>
               <SelectItem value="createdAt-asc">
-                Fecha creación (más antiguos)
+                {t("linkManager.sortCreatedAtAsc")}
               </SelectItem>
-              <SelectItem value="title-asc">Título (A-Z)</SelectItem>
-              <SelectItem value="title-desc">Título (Z-A)</SelectItem>
+              <SelectItem value="title-asc">{t("linkManager.sortTitleAsc")}</SelectItem>
+              <SelectItem value="title-desc">{t("linkManager.sortTitleDesc")}</SelectItem>
               <SelectItem value="updatedAt-desc">
-                Fecha actualización (más recientes)
+                {t("linkManager.sortUpdatedAtDesc")}
               </SelectItem>
               <SelectItem value="updatedAt-asc">
-                Fecha actualización (más antiguos)
+                {t("linkManager.sortUpdatedAtAsc")}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -180,7 +173,7 @@ export function LinkManagerToolbar({
             <span className="hidden @lg:inline">
               {isSelectionMode
                 ? `${selectedCount}/${totalCount}`
-                : "Seleccionar"}
+                : t("linkManager.select")}
             </span>
           </Button>
         </div>

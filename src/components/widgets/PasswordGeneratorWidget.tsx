@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Copy, RefreshCw, KeyRound, Check, Eye, EyeOff, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface PasswordGeneratorWidgetProps {
   widget: Widget;
@@ -51,12 +52,12 @@ const CHAR_SETS = {
 const AMBIGUOUS_CHARS = "0O1lI";
 
 export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
 
-  const config: PasswordConfig = {
+  const config: PasswordConfig = useMemo(() => ({
     ...DEFAULT_CONFIG,
     ...(widget.config as Partial<PasswordConfig>),
-  };
+  }), [widget.config]);
 
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(true);
@@ -67,9 +68,9 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
   const updateConfig = useCallback(
     (updates: Partial<PasswordConfig>) => {
       const newConfig = { ...config, ...updates };
-      updateWidget(widget.id, { config: newConfig });
+      useWidgetStore.getState().updateWidget(widget.id, { config: newConfig });
     },
-    [config, updateWidget, widget.id]
+    [config, widget.id]
   );
 
   const calculateStrength = useCallback((pwd: string, _cfg: PasswordConfig): PasswordStrength => {
@@ -110,7 +111,7 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
 
     // Validate at least one character type is selected
     if (!uppercase && !lowercase && !numbers && !symbols) {
-      toast.error("Select at least one character type");
+      toast.error(t("password.selectAtLeastOne"));
       return;
     }
 
@@ -154,7 +155,7 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
     }
 
     if (chars.length === 0) {
-      toast.error("No valid characters available");
+      toast.error(t("password.noValidChars"));
       return;
     }
 
@@ -186,19 +187,19 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
       return newHistory;
     });
 
-    toast.success("Password generated");
-  }, [config, calculateStrength, secureRandom]);
+    toast.success(t("password.generated"));
+  }, [config, calculateStrength, secureRandom, t]);
 
   const copyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(t("password.copied"));
       setTimeout(() => setCopied(false), 2000);
     } catch (_error) {
-      toast.error("Failed to copy");
+      toast.error(t("password.copyFailed"));
     }
-  }, []);
+  }, [t]);
 
   const strength = useMemo(() => {
     if (!password) return null;
@@ -207,14 +208,13 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
 
   const strengthConfig = useMemo(() => {
     const configs = {
-      "weak": { label: "Weak", color: "bg-red-500", textColor: "text-red-500", width: "25%" },
-      "medium": { label: "Medium", color: "bg-orange-500", textColor: "text-orange-500", width: "50%" },
-      "strong": { label: "Strong", color: "bg-yellow-500", textColor: "text-yellow-500", width: "75%" },
-      "very-strong": { label: "Very Strong", color: "bg-green-500", textColor: "text-green-500", width: "100%" },
+      "weak": { label: t("password.weak"), color: "bg-red-500", textColor: "text-red-500", width: "25%" },
+      "medium": { label: t("password.medium"), color: "bg-orange-500", textColor: "text-orange-500", width: "50%" },
+      "strong": { label: t("password.strong"), color: "bg-yellow-500", textColor: "text-yellow-500", width: "75%" },
+      "very-strong": { label: t("password.veryStrong"), color: "bg-green-500", textColor: "text-green-500", width: "100%" },
     };
     return strength ? configs[strength] : null;
-  }, [strength]);
-
+  }, [strength, t]);
   return (
     <div className="@container size-full">
       <div className="flex size-full flex-col gap-3 @xs:gap-4 p-3 @xs:p-4 @md:p-6">
@@ -222,7 +222,7 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <KeyRound className="size-4 @xs:size-5 text-primary" />
-            <h3 className="text-sm @xs:text-base font-semibold">Password Generator</h3>
+            <h3 className="text-sm @xs:text-base font-semibold">{t("password.title")}</h3>
           </div>
           <Button
             variant="ghost"
@@ -249,7 +249,7 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
                     {password ? (
                       showPassword ? password : "•".repeat(password.length)
                     ) : (
-                      "Generate a password"
+                      t("password.generatePrompt")
                     )}
                   </div>
 
@@ -287,7 +287,7 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
                 {password && strengthConfig && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs @xs:text-sm">
-                      <span className="text-muted-foreground">Strength</span>
+                      <span className="text-muted-foreground">{t("password.strength")}</span>
                       <span className={cn("font-medium", strengthConfig.textColor)}>
                         {strengthConfig.label}
                       </span>
@@ -307,7 +307,7 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
                 {/* Length Slider */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs @xs:text-sm">Length</Label>
+                    <Label className="text-xs @xs:text-sm">{t("password.length")}</Label>
                     <span className="text-xs @xs:text-sm font-medium tabular-nums">
                       {config.length}
                     </span>
@@ -373,10 +373,10 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
                 <div className="flex items-center justify-between rounded-lg border p-2 @xs:p-3">
                   <div className="space-y-0.5">
                     <Label htmlFor="excludeAmbiguous" className="text-xs @xs:text-sm cursor-pointer">
-                      Exclude Ambiguous
+                      {t("password.excludeAmbiguous")}
                     </Label>
                     <p className="text-[10px] @xs:text-xs text-muted-foreground">
-                      Exclude: 0, O, 1, l, I
+                      {t("password.excludeAmbiguousDesc")}
                     </p>
                   </div>
                   <Switch
@@ -394,20 +394,20 @@ export function PasswordGeneratorWidget({ widget }: PasswordGeneratorWidgetProps
                 size="lg"
               >
                 <RefreshCw className="size-3 @xs:size-4 mr-2" />
-                Generate Password
+                {t("password.generate")}
               </Button>
             </>
           ) : (
             /* History View */
             <div className="flex-1 space-y-2 overflow-y-auto">
               <h4 className="text-xs @xs:text-sm font-medium text-muted-foreground mb-3">
-                Recent Passwords
+                {t("password.recentPasswords")}
               </h4>
               {history.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-4">
                   <History className="size-8 @xs:size-10 text-muted-foreground/50 mb-2" />
                   <p className="text-xs @xs:text-sm text-muted-foreground">
-                    No passwords generated yet
+                    {t("password.noPasswordsYet")}
                   </p>
                 </div>
               ) : (

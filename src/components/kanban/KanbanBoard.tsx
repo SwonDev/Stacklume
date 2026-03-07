@@ -70,12 +70,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useTranslation } from "@/lib/i18n";
 
 interface KanbanBoardProps {
   className?: string;
 }
 
 export function KanbanBoard({ className }: KanbanBoardProps) {
+  const { t } = useTranslation();
   const widgets = useWidgetStore((state) => state.widgets);
   const initWidgets = useWidgetStore((state) => state.initWidgets);
   const widgetsInitialized = useWidgetStore((state) => state.isInitialized);
@@ -336,7 +338,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-pulse text-muted-foreground">
-          Cargando widgets...
+          {t("kanbanBoard.loadingWidgets")}
         </div>
       </div>
     );
@@ -350,20 +352,19 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
             <Sparkles className="w-8 h-8 text-muted-foreground" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-lg font-medium">No hay widgets</h3>
+            <h3 className="text-lg font-medium">{t("kanbanBoard.noWidgetsTitle")}</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              Comienza agregando widgets para personalizar tu dashboard en vista
-              Kanban.
+              {t("kanbanBoard.noWidgetsDesc")}
             </p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={openManageColumnsModal}>
               <Columns3 className="w-4 h-4 mr-2" />
-              Gestionar Columnas
+              {t("kanbanBoard.manageColumns")}
             </Button>
             <Button onClick={openAddWidgetModal}>
               <Plus className="w-4 h-4 mr-2" />
-              Agregar Widget
+              {t("kanbanBoard.addWidget")}
             </Button>
           </div>
         </div>
@@ -392,16 +393,16 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gold-gradient">
-                  Vista Kanban
+                  {t("kanbanBoard.title")}
                 </span>
                 <span className="text-xs text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">
                   {hasFilters ? (
                     <>
-                      {filteredCount} de {totalWidgets} widget{totalWidgets !== 1 ? "s" : ""}
+                      {t("kanbanBoard.filteredOf", { filtered: filteredCount, total: totalWidgets })} {totalWidgets !== 1 ? t("kanbanBoard.widgetCountPlural", { count: totalWidgets }) : t("kanbanBoard.widgetCount", { count: totalWidgets })}
                     </>
                   ) : (
                     <>
-                      {totalWidgets} widget{totalWidgets !== 1 ? "s" : ""} en {columns.length} columna{columns.length !== 1 ? "s" : ""}
+                      {totalWidgets !== 1 ? t("kanbanBoard.widgetCountPlural", { count: totalWidgets }) : t("kanbanBoard.widgetCount", { count: totalWidgets })} {columns.length !== 1 ? t("kanbanBoard.inColumnsPlural", { count: columns.length }) : t("kanbanBoard.inColumns", { count: columns.length })}
                     </>
                   )}
                 </span>
@@ -412,7 +413,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                     onClick={clearGlobalFilter}
                   >
                     <X className="w-3 h-3 mr-1" />
-                    Limpiar filtros
+                    {t("kanbanBoard.clearFilters")}
                   </Badge>
                 )}
               </div>
@@ -425,7 +426,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                   onClick={openManageColumnsModal}
                 >
                   <Settings2 className="w-3.5 h-3.5 mr-1.5" />
-                  Columnas
+                  {t("kanbanBoard.columnsButton")}
                 </Button>
                 {/* Quick Add Column */}
                 <Button
@@ -435,12 +436,12 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                   onClick={openAddColumnModal}
                 >
                   <Columns3 className="w-3.5 h-3.5 mr-1.5" />
-                  Nueva Columna
+                  {t("kanbanBoard.newColumn")}
                 </Button>
                 {/* Add Widget */}
                 <Button size="sm" onClick={openAddWidgetModal} className="h-8">
                   <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Agregar
+                  {t("kanbanBoard.addButton")}
                 </Button>
               </div>
             </div>
@@ -453,7 +454,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                 <Input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Buscar widgets... (/)"
+                  placeholder={t("kanbanBoard.searchPlaceholder")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-8 pl-8 pr-8 text-sm bg-secondary/30 border-primary/20 focus:border-primary/50"
@@ -480,7 +481,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                     )}
                   >
                     <Filter className="w-3.5 h-3.5 mr-1.5" />
-                    Tipo
+                    {t("kanbanBoard.filterType")}
                     {globalFilter.length > 0 && (
                       <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 px-1 bg-primary text-primary-foreground">
                         {globalFilter.length}
@@ -489,7 +490,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-auto">
-                  <DropdownMenuLabel>Filtrar por tipo de widget</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t("kanbanBoard.filterByWidgetType")}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {availableWidgetTypes.map((type) => {
                     const metadata = WIDGET_TYPE_METADATA[type];
@@ -533,7 +534,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {showCompactCards ? "Vista compacta activa" : "Vista normal activa"}
+                    {showCompactCards ? t("kanbanBoard.compactViewActive") : t("kanbanBoard.normalViewActive")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -560,7 +561,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {showWipWarnings ? "Avisos WIP activos" : "Avisos WIP desactivados"}
+                    {showWipWarnings ? t("kanbanBoard.wipWarningsOn") : t("kanbanBoard.wipWarningsOff")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -583,7 +584,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {allColumnsCollapsed ? "Expandir todas las columnas" : "Colapsar todas las columnas"}
+                    {allColumnsCollapsed ? t("kanbanBoard.expandAllColumns") : t("kanbanBoard.collapseAllColumns")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -605,7 +606,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm flex items-center gap-2">
                       <Keyboard className="h-4 w-4 text-primary" />
-                      Atajos de teclado
+                      {t("kanbanBoard.keyboardShortcuts")}
                     </h4>
                     <div className="space-y-1">
                       {shortcuts.map((shortcut) => (
@@ -652,7 +653,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                   className="w-full h-full min-h-[200px] rounded-lg border-2 border-dashed border-primary/20 hover:border-primary/50 bg-primary/5 hover:bg-primary/10 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary"
                 >
                   <Plus className="w-8 h-8" />
-                  <span className="text-sm font-medium">Añadir columna</span>
+                  <span className="text-sm font-medium">{t("kanbanBoard.addColumnButton")}</span>
                 </button>
               </div>
             </div>

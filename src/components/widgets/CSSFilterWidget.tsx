@@ -355,6 +355,7 @@ export function CSSFilterWidget({ widget }: CSSFilterWidgetProps) {
           >
             {/* Filtered Image */}
             <div className="absolute inset-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageUrl}
                 alt="Filtered"
@@ -369,6 +370,7 @@ export function CSSFilterWidget({ widget }: CSSFilterWidgetProps) {
               className="absolute inset-0 overflow-hidden"
               style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageUrl}
                 alt="Original"
@@ -402,6 +404,7 @@ export function CSSFilterWidget({ widget }: CSSFilterWidgetProps) {
             transition={{ duration: 0.3 }}
             className="relative w-full aspect-[16/10] @md:aspect-[16/9] rounded-lg border border-border overflow-hidden"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
               alt="Preview"
@@ -624,6 +627,7 @@ export function CSSFilterWidget({ widget }: CSSFilterWidgetProps) {
                     onClick={() => applyPreset(preset)}
                     className="relative aspect-[4/3] rounded-lg border border-border overflow-hidden group cursor-pointer"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={imageUrl}
                       alt={preset.name}

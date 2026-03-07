@@ -20,7 +20,7 @@ const ContentSecurityPolicy = `
   style-src 'self' 'unsafe-inline' http://localhost:*;
   img-src 'self' data: blob: https: http: http://localhost:*;
   font-src 'self' data: http://localhost:*;
-  connect-src 'self' http://localhost:* ws://localhost:* https: http://localhost:*;
+  connect-src 'self' http://localhost:* ws://localhost:* https://*.sentry.io https://ipapi.co https://api.coingecko.com https://api.github.com https://hacker-news.firebaseio.com https://dev.to;
   media-src 'self' https://www.youtube.com https://*.spotify.com http://localhost:*;
   frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://codepen.io http://localhost:*;
   frame-ancestors 'self';
@@ -132,7 +132,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "X-XSS-Protection",
-            value: "1; mode=block",
+            value: "0",
           },
           {
             key: "Referrer-Policy",
@@ -148,7 +148,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains",
+            value: "max-age=31536000; includeSubDomains; preload",
           },
         ],
       },

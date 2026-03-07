@@ -249,7 +249,7 @@ export function WeeklyGoalsWidget({ widget }: WeeklyGoalsWidgetProps) {
     setEditingGoalId(goal.id);
     setNewGoalTitle(goal.title);
     setNewGoalPriority(goal.priority);
-    setNewKeyResults(goal.keyResults.map(({ id, ...kr }) => kr));
+    setNewKeyResults(goal.keyResults.map(({ id: _id, ...kr }) => kr));
     setIsEditGoalOpen(true);
   };
 

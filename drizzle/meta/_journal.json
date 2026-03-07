@@ -29,6 +29,20 @@
       "when": 1772529807508,
       "tag": "0003_sour_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772836998711,
+      "tag": "0004_yielding_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772900000000,
+      "tag": "0005_links_personal_fields",
+      "breakpoints": true
     }
   ]
 }

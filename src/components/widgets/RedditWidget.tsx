@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MessageCircle, ArrowUp, ExternalLink, RefreshCw, Plus, X, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface RedditWidgetProps {
   widget: Widget;
@@ -36,8 +37,9 @@ interface RedditConfig {
 }
 
 export function RedditWidget({ widget }: RedditWidgetProps) {
-  const config = (widget.config as unknown as RedditConfig) || {};
-  const subreddits = config.subreddits || [];
+  const { t } = useTranslation();
+  const config = useMemo(() => (widget.config as unknown as RedditConfig) || {}, [widget.config]);
+  const subreddits = useMemo(() => config.subreddits || [], [config.subreddits]);
   const maxItems = config.redditMaxItems || 15;
   const sortBy = config.redditSortBy || "hot";
 
@@ -117,7 +119,7 @@ export function RedditWidget({ widget }: RedditWidgetProps) {
     if (subreddits.length > 0) {
       fetchPosts();
     }
-  }, [fetchPosts]);
+  }, [fetchPosts, subreddits.length]);
 
   // Add subreddit
   const handleAddSubreddit = useCallback(() => {
@@ -203,7 +205,7 @@ export function RedditWidget({ widget }: RedditWidgetProps) {
         <div className="border-b p-4">
           <div className="flex gap-2">
             <Input
-              placeholder="Nombre del subreddit (ej: programming)"
+              placeholder={t("reddit.subredditPlaceholder")}
               value={newSubreddit}
               onChange={(e) => setNewSubreddit(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddSubreddit()}
@@ -241,17 +243,17 @@ export function RedditWidget({ widget }: RedditWidgetProps) {
               </svg>
             </div>
             <div>
-              <h4 className="font-medium">Sin subreddits</h4>
+              <h4 className="font-medium">{t("reddit.noSubreddits")}</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Agrega subreddits para ver sus posts
+                {t("reddit.addSubredditsDescription")}
               </p>
             </div>
             <Button onClick={() => setIsAddingSubreddit(true)} size="sm">
               <Plus className="mr-2 h-4 w-4" />
-              Agregar subreddit
+              {t("reddit.addSubreddit")}
             </Button>
             <div className="mt-2 text-xs text-muted-foreground">
-              <p className="font-medium">Subreddits populares:</p>
+              <p className="font-medium">{t("reddit.popularSubreddits")}:</p>
               <div className="mt-1 flex flex-wrap justify-center gap-1">
                 {["programming", "webdev", "javascript", "reactjs", "gamedev"].map((sub) => (
                   <Badge
@@ -285,7 +287,7 @@ export function RedditWidget({ widget }: RedditWidgetProps) {
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Cargando posts...</p>
+              <p className="text-sm text-muted-foreground">{t("reddit.loading")}</p>
             </div>
           </div>
         ) : (
@@ -303,6 +305,7 @@ export function RedditWidget({ widget }: RedditWidgetProps) {
                     {/* Thumbnail */}
                     {post.thumbnail && (
                       <div className="hidden h-14 w-14 flex-shrink-0 overflow-hidden rounded @[280px]:block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={post.thumbnail}
                           alt=""

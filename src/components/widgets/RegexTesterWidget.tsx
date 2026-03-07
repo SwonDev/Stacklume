@@ -48,7 +48,7 @@ export function RegexTesterWidget({ widget }: RegexTesterWidgetProps) {
   const [copied, setCopied] = useState(false);
 
   // Compute regex and matches
-  const { regex, matches, isValid, errorMessage } = useMemo(() => {
+  const { regex: _regex, matches, isValid, errorMessage } = useMemo(() => {
     if (!pattern) {
       return { regex: null, matches: [], isValid: true, errorMessage: null };
     }

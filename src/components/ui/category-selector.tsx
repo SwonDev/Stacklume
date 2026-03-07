@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useLinksStore } from "@/stores/links-store"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/lib/i18n"
 import type { Category } from "@/lib/db/schema"
 
 // Mapa de nombres Tailwind → hex para compatibilidad con categorías guardadas antes del fix
@@ -46,12 +47,14 @@ export interface CategorySelectorProps {
 export function CategorySelector({
   selectedCategoryId,
   onCategoryChange,
-  placeholder = "Selecciona una categoría...",
+  placeholder,
   className,
 }: CategorySelectorProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const { categories, setAddCategoryModalOpen } = useLinksStore()
+  const categories = useLinksStore((s) => s.categories)
+  const effectivePlaceholder = placeholder || t("categorySelector.placeholder")
 
   const selectedCategory = categories.find((c: Category) => c.id === selectedCategoryId) || null
 
@@ -78,7 +81,7 @@ export function CategorySelector({
   const handleCreateCategory = () => {
     setOpen(false)
     setSearch("")
-    setAddCategoryModalOpen(true)
+    useLinksStore.getState().setAddCategoryModalOpen(true)
   }
 
   return (
@@ -102,7 +105,7 @@ export function CategorySelector({
               <span className="truncate">{selectedCategory.name}</span>
             </div>
           ) : (
-            <span className="text-muted-foreground truncate">{placeholder}</span>
+            <span className="text-muted-foreground truncate">{effectivePlaceholder}</span>
           )}
           <div className="flex items-center gap-1 ml-2 flex-shrink-0">
             {selectedCategory && (
@@ -125,14 +128,14 @@ export function CategorySelector({
         <div onWheel={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}>
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Buscar categoría..."
+            placeholder={t("categorySelector.search")}
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
             <CommandEmpty>
               <div className="flex flex-col items-center gap-2 py-6">
-                <p className="text-sm text-muted-foreground">No se encontraron categorías</p>
+                <p className="text-sm text-muted-foreground">{t("categorySelector.notFound")}</p>
                 {search && (
                   <Button
                     variant="ghost"
@@ -141,14 +144,14 @@ export function CategorySelector({
                     className="h-8"
                   >
                     <PlusCircleIcon className="mr-2 h-4 w-4" />
-                    Crear &quot;{search}&quot;
+                    {t("categorySelector.create", { name: search })}
                   </Button>
                 )}
               </div>
             </CommandEmpty>
 
             {filteredCategories.length > 0 && (
-              <CommandGroup heading="Categorías">
+              <CommandGroup heading={t("categorySelector.heading")}>
                 {filteredCategories.map((category: Category) => (
                   <CommandItem
                     key={category.id}
@@ -186,7 +189,7 @@ export function CategorySelector({
                 className="cursor-pointer justify-center text-primary"
               >
                 <PlusCircleIcon className="mr-2 h-4 w-4" />
-                Crear nueva categoría
+                {t("categorySelector.createNew")}
               </CommandItem>
             </CommandGroup>
           </CommandList>

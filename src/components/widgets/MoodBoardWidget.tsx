@@ -363,6 +363,7 @@ export default function MoodBoardWidget({ widget }: MoodBoardWidgetProps) {
       >
         {/* Content based on type */}
         {item.type === "image" && (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={item.content}
             alt="Mood board item"
@@ -389,6 +390,7 @@ export default function MoodBoardWidget({ widget }: MoodBoardWidgetProps) {
         {item.type === "link" && (
           <div className="w-full h-full bg-white dark:bg-gray-800 overflow-hidden">
             {item.linkPreview?.image && (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={item.linkPreview.image}
                 alt={item.linkPreview.title}

@@ -26,7 +26,6 @@ import {
   Target,
   Skull,
   Heart,
-  TrendingUp,
   Settings,
   ChevronDown,
   ChevronUp,
@@ -118,7 +117,7 @@ export function WaveSpawnerWidget({ widget }: WaveSpawnerWidgetProps) {
   const [activeWaveId, setActiveWaveId] = useState<string | null>(config.activeWaveId || null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [selectedEnemyType, setSelectedEnemyType] = useState<string | null>(null);
+  const [_selectedEnemyType, _setSelectedEnemyType] = useState<string | null>(null);
   const [showEnemyEditor, setShowEnemyEditor] = useState(false);
   const [expandedWaves, setExpandedWaves] = useState<Set<string>>(new Set());
 
@@ -525,7 +524,7 @@ spawnWave(currentWave);
           <ScrollArea className="flex-1 min-h-0">
             <div className="space-y-2 pr-3">
               <AnimatePresence mode="popLayout">
-                {waves.map((wave, index) => {
+                {waves.map((wave, _index) => {
                   const isExpanded = expandedWaves.has(wave.id);
                   const isActive = wave.id === activeWaveId;
 

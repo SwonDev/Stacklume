@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/shallow";
 import { persist } from "zustand/middleware";
 import type { WidgetType } from "@/types/widget";
 
@@ -322,8 +323,7 @@ export const useKanbanStore = create<KanbanState>()(
 
 // Helper hook to get sorted columns
 export function useSortedColumns(): KanbanColumn[] {
-  const columns = useKanbanStore((state) => state.columns);
-  return [...columns].sort((a, b) => a.order - b.order);
+  return useKanbanStore(useShallow((state) => [...state.columns].sort((a, b) => a.order - b.order)));
 }
 
 // Helper hook to get a column by ID

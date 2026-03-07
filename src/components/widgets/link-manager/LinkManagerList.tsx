@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LinkManagerItem } from "./LinkManagerItem";
+import { useTranslation } from "@/lib/i18n";
 import type { Link } from "@/lib/db/schema";
 
 interface LinkManagerListProps {
@@ -23,6 +24,7 @@ export function LinkManagerList({
   onSelectAll,
   onEdit,
 }: LinkManagerListProps) {
+  const { t } = useTranslation();
   const allSelected = links.length > 0 && selectedIds.size === links.length;
   const someSelected = selectedIds.size > 0 && selectedIds.size < links.length;
 
@@ -30,8 +32,8 @@ export function LinkManagerList({
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <div className="text-muted-foreground">
-          <p className="text-sm">No hay enlaces para mostrar</p>
-          <p className="text-xs mt-1">Prueba ajustando los filtros</p>
+          <p className="text-sm">{t("linkManager.noLinksToShow")}</p>
+          <p className="text-xs mt-1">{t("linkManager.tryAdjustingFilters")}</p>
         </div>
       </div>
     );
@@ -45,12 +47,16 @@ export function LinkManagerList({
           checked={allSelected ? true : someSelected ? "indeterminate" : false}
           onCheckedChange={onSelectAll}
           className="flex-shrink-0"
-          aria-label="Seleccionar todos"
+          aria-label={t("linkManager.selectAll")}
         />
         <span className="text-xs text-muted-foreground">
           {selectedIds.size > 0
-            ? `${selectedIds.size} seleccionado${selectedIds.size > 1 ? "s" : ""}`
-            : `${links.length} enlace${links.length > 1 ? "s" : ""}`}
+            ? selectedIds.size > 1
+              ? t("linkManager.selectedCountPlural", { count: selectedIds.size })
+              : t("linkManager.selectedCount", { count: selectedIds.size })
+            : links.length > 1
+              ? t("linkManager.linksCountPlural", { count: links.length })
+              : t("linkManager.linksCount", { count: links.length })}
         </span>
       </div>
 

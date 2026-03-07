@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo } from "react";
 import type { Widget } from "@/types/widget";
-import { useWidgetStore } from "@/stores/widget-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -120,7 +119,6 @@ const RPG_PRESETS: Record<RPGPreset, Partial<DamageFormula>> = {
 };
 
 export function RPGStatsWidget({ widget: _widget }: RPGStatsWidgetProps) {
-  const { updateWidget: _updateWidget } = useWidgetStore();
 
   // State for damage formula
   const [preset, setPreset] = useState<RPGPreset>("custom");
@@ -265,7 +263,7 @@ export function RPGStatsWidget({ widget: _widget }: RPGStatsWidgetProps) {
     if (xpPerPlayer < levelThresholds[3]) return { level: "Hard", color: "text-orange-400" };
     if (xpPerPlayer < levelThresholds[4]) return { level: "Deadly", color: "text-red-400" };
     return { level: "Legendary", color: "text-purple-400" };
-  }, [encounterXPBudget, partySize, partyLevel]);
+  }, [encounterXPBudget, partySize]);
 
   // Balance analysis
   const balanceAnalysis = useMemo(() => {

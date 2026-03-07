@@ -55,6 +55,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { KanbanColumn } from "@/stores/kanban-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface SortableColumnItemProps {
   column: KanbanColumn;
@@ -65,6 +66,7 @@ interface SortableColumnItemProps {
   canDelete: boolean;
   isFirst: boolean;
   isLast: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 function SortableColumnItem({
@@ -76,6 +78,7 @@ function SortableColumnItem({
   canDelete,
   isFirst,
   isLast,
+  t,
 }: SortableColumnItemProps) {
   const {
     attributes,
@@ -125,7 +128,7 @@ function SortableColumnItem({
           className="h-7 w-7"
           onClick={() => onMoveLeft(column.id)}
           disabled={isFirst}
-          title="Mover a la izquierda"
+          title={t("manageColumns.moveLeft")}
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </Button>
@@ -137,7 +140,7 @@ function SortableColumnItem({
           className="h-7 w-7"
           onClick={() => onMoveRight(column.id)}
           disabled={isLast}
-          title="Mover a la derecha"
+          title={t("manageColumns.moveRight")}
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </Button>
@@ -148,7 +151,7 @@ function SortableColumnItem({
           size="icon"
           className="h-7 w-7"
           onClick={() => onEdit(column)}
-          title="Editar columna"
+          title={t("manageColumns.editColumn")}
         >
           <Pencil className="w-3.5 h-3.5" />
         </Button>
@@ -161,23 +164,22 @@ function SortableColumnItem({
               size="icon"
               className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive"
               disabled={!canDelete}
-              title={canDelete ? "Eliminar columna" : "No puedes eliminar la última columna"}
+              title={canDelete ? t("manageColumns.deleteColumn") : t("manageColumns.cannotDeleteLast")}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar columna &ldquo;{column.title}&rdquo;?</AlertDialogTitle>
+              <AlertDialogTitle>{t("manageColumns.deleteColumnTitle", { title: column.title })}</AlertDialogTitle>
               <AlertDialogDescription>
-                Los widgets de esta columna se moverán a la primera columna disponible.
-                Esta acción no se puede deshacer.
+                {t("manageColumns.deleteColumnDesc")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
               <AlertDialogAction onClick={() => onDelete(column.id)}>
-                Eliminar
+                {t("btn.delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -201,6 +203,7 @@ export function ManageColumnsModal() {
   } = useKanbanStore();
 
   const columns = useSortedColumns();
+  const { t } = useTranslation();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const sensors = useSensors(
@@ -229,12 +232,12 @@ export function ManageColumnsModal() {
 
   const handleDelete = (id: string) => {
     removeColumn(id);
-    toast.success("Columna eliminada");
+    toast.success(t("manageColumns.columnDeleted"));
   };
 
   const handleReset = () => {
     resetToDefaults();
-    toast.success("Columnas restauradas a los valores por defecto");
+    toast.success(t("manageColumns.successReset"));
     setShowResetConfirm(false);
   };
 
@@ -254,10 +257,10 @@ export function ManageColumnsModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Columns3 className="w-5 h-5 text-primary" />
-            Gestionar columnas
+            {t("manageColumns.title")}
           </DialogTitle>
           <DialogDescription>
-            Añade, edita, elimina o reordena las columnas de tu tablero Kanban
+            {t("manageColumns.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -285,6 +288,7 @@ export function ManageColumnsModal() {
                       canDelete={columns.length > 1}
                       isFirst={index === 0}
                       isLast={index === columns.length - 1}
+                      t={t}
                     />
                   ))}
                 </div>
@@ -301,14 +305,14 @@ export function ManageColumnsModal() {
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                  Restaurar
+                  {t("manageColumns.resetButton")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>¿Restaurar columnas por defecto?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("manageColumns.resetTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Esto eliminará todas las columnas personalizadas y restaurará las columnas por defecto:
+                    {t("manageColumns.resetDesc")}
                     <ul className="mt-2 space-y-1">
                       {DEFAULT_KANBAN_COLUMNS.map((col) => (
                         <li key={col.id} className="flex items-center gap-2">
@@ -323,9 +327,9 @@ export function ManageColumnsModal() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
                   <AlertDialogAction onClick={handleReset}>
-                    Restaurar
+                    {t("manageColumns.resetButton")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -334,7 +338,7 @@ export function ManageColumnsModal() {
             {/* Add Column Button */}
             <Button onClick={handleAddColumn}>
               <Plus className="w-4 h-4 mr-1.5" />
-              Nueva columna
+              {t("manageColumns.newColumn")}
             </Button>
           </div>
         </div>

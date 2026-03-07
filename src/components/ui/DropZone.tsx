@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, forwardRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Download } from "lucide-react";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface DropZoneProps {
@@ -29,7 +30,7 @@ export const DropZone = forwardRef<HTMLDivElement, DropZoneProps>(
       onDragEnter,
       onDragLeave,
       accept,
-      dropHint = "Suelta aqui",
+      dropHint,
       disabled = false,
       className,
       activeClassName,
@@ -39,7 +40,9 @@ export const DropZone = forwardRef<HTMLDivElement, DropZoneProps>(
     },
     ref
   ) => {
+    const { t } = useTranslation();
     const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+    const finalDropHint = dropHint || t("dropZone.hint");
     const [isActive, setIsActive] = useState(false);
     const [isInvalid, setIsInvalid] = useState(false);
     const dragCounter = useRef(0);
@@ -126,7 +129,7 @@ export const DropZone = forwardRef<HTMLDivElement, DropZoneProps>(
         data-drop-zone
         data-drop-active={isActive && !isInvalid}
         data-drop-invalid={isActive && isInvalid}
-        data-drop-hint={dropHint}
+        data-drop-hint={finalDropHint}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -160,7 +163,7 @@ export const DropZone = forwardRef<HTMLDivElement, DropZoneProps>(
                 >
                   <Download className="w-8 h-8" />
                 </motion.div>
-                <span className="text-sm font-medium">{dropHint}</span>
+                <span className="text-sm font-medium">{finalDropHint}</span>
               </div>
             </motion.div>
           )}
@@ -332,8 +335,9 @@ export function FileDropZone({
   maxFiles,
   disabled = false,
   className,
-  dropHint = "Suelta archivos aqui",
+  dropHint,
 }: FileDropZoneProps) {
+  const { t } = useTranslation();
   const validateFiles = useCallback(
     (dataTransfer: DataTransfer): boolean => {
       const files = Array.from(dataTransfer.files);
@@ -388,7 +392,7 @@ export function FileDropZone({
     <DropZone
       onDrop={handleDrop}
       validateDrop={validateFiles}
-      dropHint={dropHint}
+      dropHint={dropHint || t("dropZone.fileHint")}
       disabled={disabled}
       className={className}
       accept={["Files"]}

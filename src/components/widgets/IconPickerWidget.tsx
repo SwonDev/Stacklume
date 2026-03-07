@@ -37,7 +37,7 @@ import {
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
-import { motion } from "motion/react";
+import { useTranslation } from "@/lib/i18n";
 import { toast } from "sonner";
 
 interface IconPickerWidgetProps {
@@ -127,6 +127,7 @@ const getAllIconNames = (): string[] => {
 const ALL_ICONS = getAllIconNames();
 
 export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const storeWidget = useWidgetStore(
     (state) => state.widgets.find((w) => w.id === widget.id)
@@ -140,7 +141,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"browse" | "recent" | "favorites">("browse");
-  const [copyFormat, setCopyFormat] = useState<"name" | "import" | "jsx">("name");
+  const [copyFormat, _setCopyFormat] = useState<"name" | "import" | "jsx">("name");
 
   const recentIcons = config?.recentIcons || [];
   const favoriteIcons = config?.favoriteIcons || [];
@@ -174,6 +175,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
       });
     }, 500);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentWidget.config would cause infinite loop since this effect updates it
   }, [searchQuery]);
 
   const addToRecent = (iconName: string) => {
@@ -199,7 +201,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
       },
     });
 
-    toast.success(isFav ? "Eliminado de favoritos" : "Agregado a favoritos");
+    toast.success(isFav ? t("iconPicker.removedFromFavorites") : t("iconPicker.addedToFavorites"));
   };
 
   const getFormattedCopy = (iconName: string, format: string): string => {
@@ -222,12 +224,12 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
     addToRecent(iconName);
 
     const formatLabels: Record<string, string> = {
-      name: "Nombre del icono",
+      name: t("iconPicker.iconName"),
       import: "Import statement",
-      jsx: "Componente JSX",
+      jsx: t("iconPicker.jsxComponent"),
     };
 
-    toast.success("Copiado al portapapeles", {
+    toast.success(t("iconPicker.copiedToClipboard"), {
       description: formatLabels[formatToUse],
       duration: 1500,
     });
@@ -298,7 +300,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
               onClick={() => toggleFavorite(iconName)}
             >
               <Star className={cn("w-3 h-3 mr-1", isFav && "fill-current")} />
-              {isFav ? "Quitar favorito" : "Agregar a favoritos"}
+              {isFav ? t("iconPicker.removeFavorite") : t("iconPicker.addToFavorites")}
             </Button>
           </div>
         </PopoverContent>
@@ -314,7 +316,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
           <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10">
             <Grid3X3 className="w-3.5 h-3.5 text-primary" />
           </div>
-          <h3 className="text-xs font-semibold">Iconos</h3>
+          <h3 className="text-xs font-semibold">{t("iconPicker.title")}</h3>
         </div>
         <Badge variant="outline" className="text-[9px] h-4">
           {ALL_ICONS.length}+ iconos
@@ -327,7 +329,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar iconos..."
+          placeholder={t("iconPicker.searchPlaceholder")}
           className="pl-7 h-8 text-xs"
         />
         {searchQuery && (
@@ -367,7 +369,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">
-                Todos los iconos
+                {t("iconPicker.allIcons")}
               </SelectItem>
               {Object.keys(ICON_CATEGORIES).map((category) => (
                 <SelectItem key={category} value={category} className="text-xs">
@@ -387,7 +389,7 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
             {filteredIcons.length === 0 && (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Search className="w-6 h-6 text-muted-foreground/50 mb-2" />
-                <p className="text-xs text-muted-foreground">No se encontraron iconos</p>
+                <p className="text-xs text-muted-foreground">{t("iconPicker.noIconsFound")}</p>
               </div>
             )}
           </ScrollArea>
@@ -403,9 +405,9 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
           {recentIcons.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <History className="w-8 h-8 text-muted-foreground/50 mb-2" />
-              <p className="text-xs text-muted-foreground">Sin iconos recientes</p>
+              <p className="text-xs text-muted-foreground">{t("iconPicker.noRecentIcons")}</p>
               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                Los iconos copiados apareceran aqui
+                {t("iconPicker.copiedIconsWillAppear")}
               </p>
             </div>
           ) : (
@@ -423,9 +425,9 @@ export function IconPickerWidget({ widget }: IconPickerWidgetProps) {
           {favoriteIcons.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Star className="w-8 h-8 text-muted-foreground/50 mb-2" />
-              <p className="text-xs text-muted-foreground">Sin favoritos</p>
+              <p className="text-xs text-muted-foreground">{t("iconPicker.noFavorites")}</p>
               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                Marca iconos como favoritos
+                {t("iconPicker.markAsFavorites")}
               </p>
             </div>
           ) : (

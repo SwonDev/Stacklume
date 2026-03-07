@@ -175,6 +175,7 @@ export function JSONFormatterWidget({ widget }: JSONFormatterWidgetProps) {
       setIsFormatted(false);
       toast.error("Error al formatear JSON");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortObjectKeys is a pure recursive function with no external deps
   }, [inputJSON, indentSize, sortKeys, saveJSON]);
 
   // Copy to clipboard

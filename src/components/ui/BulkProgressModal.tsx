@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export type BulkOperationType =
@@ -66,22 +67,22 @@ const OPERATION_ICONS: Record<BulkOperationType, React.ReactNode> = {
   custom: <Loader2 className="w-5 h-5" />,
 };
 
-const OPERATION_TITLES: Record<BulkOperationType, string> = {
-  delete: "Eliminando elementos",
-  import: "Importando datos",
-  export: "Exportando datos",
-  move: "Moviendo elementos",
-  sync: "Sincronizando",
-  custom: "Procesando",
+const OPERATION_TITLE_KEYS: Record<BulkOperationType, string> = {
+  delete: "bulkProgress.title.delete",
+  import: "bulkProgress.title.import",
+  export: "bulkProgress.title.export",
+  move: "bulkProgress.title.move",
+  sync: "bulkProgress.title.sync",
+  custom: "bulkProgress.title.custom",
 };
 
-const OPERATION_DESCRIPTIONS: Record<BulkOperationType, string> = {
-  delete: "Eliminando los elementos seleccionados...",
-  import: "Importando datos al sistema...",
-  export: "Preparando datos para exportar...",
-  move: "Moviendo elementos a la nueva ubicacion...",
-  sync: "Sincronizando datos...",
-  custom: "Procesando operacion...",
+const OPERATION_DESCRIPTION_KEYS: Record<BulkOperationType, string> = {
+  delete: "bulkProgress.description.delete",
+  import: "bulkProgress.description.import",
+  export: "bulkProgress.description.export",
+  move: "bulkProgress.description.move",
+  sync: "bulkProgress.description.sync",
+  custom: "bulkProgress.description.custom",
 };
 
 export function BulkProgressModal({
@@ -97,6 +98,7 @@ export function BulkProgressModal({
   canCancel = true,
   showItemDetails = true,
 }: BulkProgressModalProps) {
+  const { t } = useTranslation();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -112,8 +114,8 @@ export function BulkProgressModal({
     }
   }, [items, isComplete]);
 
-  const finalTitle = title || OPERATION_TITLES[operationType];
-  const finalDescription = description || OPERATION_DESCRIPTIONS[operationType];
+  const finalTitle = title || t(OPERATION_TITLE_KEYS[operationType]);
+  const finalDescription = description || t(OPERATION_DESCRIPTION_KEYS[operationType]);
 
   const successCount = items.filter((i) => i.status === "success").length;
   const errorCount = items.filter((i) => i.status === "error").length;
@@ -183,15 +185,14 @@ export function BulkProgressModal({
               <DialogTitle>
                 {isComplete
                   ? errorCount > 0
-                    ? "Completado con errores"
-                    : "Operacion completada"
+                    ? t("bulkProgress.completedWithErrors")
+                    : t("bulkProgress.operationCompleted")
                   : finalTitle}
               </DialogTitle>
               <DialogDescription>
                 {isComplete
-                  ? `${successCount} de ${totalCount} elementos procesados${
-                      errorCount > 0 ? ` (${errorCount} errores)` : ""
-                    }`
+                  ? t("bulkProgress.processedSummary", { success: successCount, total: totalCount }) +
+                    (errorCount > 0 ? ` (${errorCount} ${t("bulkProgress.errors")})` : "")
                   : finalDescription}
               </DialogDescription>
             </div>
@@ -203,7 +204,7 @@ export function BulkProgressModal({
           {/* Progress bar */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progreso</span>
+              <span className="text-muted-foreground">{t("bulkProgress.progress")}</span>
               <span className="font-medium">{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="h-2" />
@@ -214,7 +215,7 @@ export function BulkProgressModal({
             <div className="border border-border rounded-lg overflow-hidden">
               <div className="bg-muted/50 px-3 py-2 border-b border-border">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Elementos ({successCount + errorCount} / {totalCount})
+                  {t("bulkProgress.elements")} ({successCount + errorCount} / {totalCount})
                 </span>
               </div>
               <ScrollArea className="h-[200px]" ref={scrollAreaRef}>
@@ -269,12 +270,12 @@ export function BulkProgressModal({
             >
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                <span>{successCount} exitosos</span>
+                <span>{successCount} {t("bulkProgress.successful")}</span>
               </div>
               {errorCount > 0 && (
                 <div className="flex items-center gap-2 text-sm">
                   <XCircle className="w-4 h-4 text-destructive" />
-                  <span>{errorCount} errores</span>
+                  <span>{errorCount} {t("bulkProgress.errors")}</span>
                 </div>
               )}
             </motion.div>
@@ -285,11 +286,11 @@ export function BulkProgressModal({
           {!isComplete && canCancel && onCancel && (
             <Button variant="outline" onClick={onCancel}>
               <X className="w-4 h-4 mr-2" />
-              Cancelar
+              {t("bulkProgress.cancel")}
             </Button>
           )}
           {isComplete && (
-            <Button onClick={onClose}>Cerrar</Button>
+            <Button onClick={onClose}>{t("bulkProgress.close")}</Button>
           )}
         </DialogFooter>
       </DialogContent>
@@ -417,7 +418,7 @@ export function useBulkProgress(
           successCount++;
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "Error desconocido";
+            error instanceof Error ? error.message : "Unknown error";
           setItems((prev) => {
             const updated = [...prev];
             updated[i] = { ...updated[i], status: "error", error: errorMessage };

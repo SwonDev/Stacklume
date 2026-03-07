@@ -5,6 +5,7 @@ import { isTauriWebView } from "@/lib/desktop";
 import { Download, RefreshCw, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 // GitHub API tiene CORS abierto (Access-Control-Allow-Origin: *).
 // La URL de descarga directa redirige a una CDN sin CORS → "Failed to fetch".
@@ -63,6 +64,7 @@ async function runUpdateCheck(
  * manuales desde el menú de configuración.
  */
 export function UpdateChecker() {
+  const { t } = useTranslation();
   const [state, setState] = useState<UpdateState>({ phase: "idle" });
   const [dismissed, setDismissed] = useState(false);
 
@@ -73,15 +75,15 @@ export function UpdateChecker() {
         setState({ phase: "available", version, notes });
       },
       manual
-        ? () => toast.success("Ya tienes la última versión", { description: "Stacklume está al día." })
+        ? () => toast.success(t("updateChecker.upToDate"), { description: t("updateChecker.upToDateDesc") })
         : undefined,
     ).catch((err: unknown) => {
       if (manual) {
         const msg = err instanceof Error ? err.message : String(err);
-        toast.error("No se pudo comprobar actualizaciones", { description: msg });
+        toast.error(t("updateChecker.checkError"), { description: msg });
       }
     });
-  }, []);
+  }, [t]);
 
   // Comprobación automática 6 s tras el arranque
   useEffect(() => {
@@ -124,13 +126,13 @@ export function UpdateChecker() {
         });
         setState({
           phase: "error",
-          message: "Descarga abierta en tu navegador. Ejecuta el instalador manualmente.",
+          message: t("updateChecker.downloadOpenedInBrowser"),
         });
       } catch (e2) {
         setState({ phase: "error", message: String(e2) });
       }
     }
-  }, [state]);
+  }, [state, t]);
 
   // No mostrar nada en modo web, ni si fue descartado, ni en estado idle
   if (!isTauriWebView() || dismissed || state.phase === "idle") {
@@ -164,12 +166,12 @@ export function UpdateChecker() {
           <div className="min-w-0">
             <p className="text-sm font-medium leading-tight truncate">
               {isDone
-                ? "Instalando actualización…"
+                ? t("updateChecker.installing")
                 : isError
-                ? "Error al actualizar"
+                ? t("updateChecker.errorUpdating")
                 : isDownloading
-                ? "Descargando actualización…"
-                : `Nueva versión disponible`}
+                ? t("updateChecker.downloading")
+                : t("updateChecker.newVersionAvailable")}
             </p>
             {state.phase === "available" && (
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -188,7 +190,7 @@ export function UpdateChecker() {
           <button
             onClick={() => setDismissed(true)}
             className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Descartar"
+            aria-label={t("updateChecker.dismiss")}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -208,7 +210,7 @@ export function UpdateChecker() {
             />
           </div>
           <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
-            {state.progress > 0 ? `${state.progress}%` : "Descargando instalador…"}
+            {state.progress > 0 ? `${state.progress}%` : t("updateChecker.downloadingInstaller")}
           </p>
         </div>
       )}
@@ -222,21 +224,21 @@ export function UpdateChecker() {
                 onClick={() => setDismissed(true)}
                 className="flex-1 py-1.5 px-3 text-xs rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
               >
-                Más tarde
+                {t("updateChecker.later")}
               </button>
               <button
                 onClick={handleUpdate}
                 className="flex-1 py-1.5 px-3 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-1.5"
               >
                 <Download className="w-3 h-3" />
-                Actualizar
+                {t("updateChecker.update")}
               </button>
             </>
           )}
 
           {isDone && (
             <p className="text-xs text-muted-foreground">
-              Instalador iniciado. La app se cerrará y actualizará automáticamente.
+              {t("updateChecker.installerStarted")}
             </p>
           )}
 
@@ -246,7 +248,7 @@ export function UpdateChecker() {
               className="flex items-center gap-1.5 py-1.5 px-3 text-xs rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
               <RefreshCw className="w-3 h-3" />
-              Reintentar
+              {t("updateChecker.retry")}
             </button>
           )}
         </div>

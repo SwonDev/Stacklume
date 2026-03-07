@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { Button } from "@/components/ui/button";
@@ -241,12 +241,11 @@ const NOUNS = [
 ];
 
 export function NameGeneratorWidget({ widget }: NameGeneratorWidgetProps) {
-  const { updateWidget } = useWidgetStore();
 
-  const config: NameGeneratorConfig = {
+  const config: NameGeneratorConfig = useMemo(() => ({
     ...DEFAULT_CONFIG,
     ...(widget.config as Partial<NameGeneratorConfig>),
-  };
+  }), [widget.config]);
 
   const [currentNames, setCurrentNames] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
@@ -266,11 +265,12 @@ export function NameGeneratorWidget({ widget }: NameGeneratorWidgetProps) {
 
   const updateConfig = useCallback(
     (updates: Partial<NameGeneratorConfig>) => {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: { ...config, ...updates } as unknown as typeof widget.config
       });
     },
-    [config, updateWidget, widget.id]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- widget is only accessed via widget.id (already listed) and typeof widget.config (type-only cast)
+    [config, widget.id]
   );
 
   // Seeded random number generator for reproducible results
@@ -498,6 +498,7 @@ export function NameGeneratorWidget({ widget }: NameGeneratorWidgetProps) {
       }
     });
     return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run only on mount to generate initial names
   }, []);
 
   return (

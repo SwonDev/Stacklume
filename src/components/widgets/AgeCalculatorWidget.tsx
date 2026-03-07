@@ -118,7 +118,6 @@ const calculateAge = (birthDate: Date): AgeData => {
 };
 
 export function AgeCalculatorWidget({ widget }: AgeCalculatorWidgetProps) {
-  const { updateWidget } = useWidgetStore();
   const [birthDate, setBirthDate] = useState<string>("");
   const [ageData, setAgeData] = useState<AgeData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -164,7 +163,7 @@ export function AgeCalculatorWidget({ widget }: AgeCalculatorWidgetProps) {
     }
 
     // Save to widget config
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         birthDate: birthDate,
       },
@@ -182,7 +181,7 @@ export function AgeCalculatorWidget({ widget }: AgeCalculatorWidgetProps) {
     setBirthDate("");
     setAgeData(null);
     setIsEditing(true);
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         birthDate: "",
       },

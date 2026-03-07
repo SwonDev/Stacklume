@@ -6,6 +6,9 @@ import {
   exportBackupAsJson,
 } from "@/lib/backup/backup-service";
 import { DEFAULT_USER_ID } from "@/lib/auth-utils";
+import { z } from "zod";
+
+const uuidSchema = z.string().uuid();
 
 function getUserId(): string {
   return DEFAULT_USER_ID;
@@ -20,6 +23,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const userId = getUserId();
 
     const backup = await getBackup(userId, id);
@@ -57,6 +67,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const userId = getUserId();
 
     const deleted = await deleteBackup(userId, id);
@@ -87,6 +104,13 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const userId = getUserId();
     const body = await request.json();
 
