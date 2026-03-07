@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vercel build output
+    ".vercel/**",
+    // Tauri Rust build output and bundled resources
+    "src-tauri/target/**",
+    "src-tauri/resources/**",
+    // Temporary and generated files
+    "tmp/**",
+    "scripts/i18n-keys-*.json",
   ]),
   // Custom rule overrides
   {
