@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
@@ -38,19 +39,19 @@ interface LinkManagerGridProps {
   onEdit: (link: Link) => void;
 }
 
-// Content type labels
-const contentTypeLabels: Record<ContentType, string> = {
-  video: "Video",
-  game: "Juego",
-  music: "Musica",
-  code: "Codigo",
-  article: "Articulo",
-  social: "Social",
-  shopping: "Tienda",
-  image: "Imagen",
-  document: "Documento",
-  tool: "Herramienta",
-  website: "Web",
+// Content type label keys for i18n
+const contentTypeLabelKeys: Record<ContentType, string> = {
+  video: "contentType.video",
+  game: "contentType.game",
+  music: "contentType.music",
+  code: "contentType.code",
+  article: "contentType.article",
+  social: "contentType.social",
+  shopping: "contentType.shopping",
+  image: "contentType.image",
+  document: "contentType.document",
+  tool: "contentType.tool",
+  website: "contentType.website",
 };
 
 export function LinkManagerGrid({
@@ -60,6 +61,7 @@ export function LinkManagerGrid({
   onSelect,
   onEdit,
 }: LinkManagerGridProps) {
+  const { t } = useTranslation();
   const tags = useLinksStore((state) => state.tags);
   const updateLink = useLinksStore((state) => state.updateLink);
   const removeLink = useLinksStore((state) => state.removeLink);
@@ -69,7 +71,7 @@ export function LinkManagerGrid({
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <p className="text-muted-foreground text-sm">
-          No se encontraron enlaces
+          {t("linkManager.noLinksFound")}
         </p>
       </div>
     );
@@ -125,6 +127,8 @@ function LinkGridCard({
   reduceMotion,
   index,
 }: LinkGridCardProps) {
+  const { t } = useTranslation();
+
   const hostname = useMemo(() => {
     try {
       return new URL(link.url).hostname.replace("www.", "");
@@ -216,6 +220,7 @@ function LinkGridCard({
       {/* Image */}
       <div className="relative aspect-video bg-muted">
         {link.imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.imageUrl}
             alt=""
@@ -227,6 +232,7 @@ function LinkGridCard({
             style={{ backgroundColor: `${platformColor}20` }}
           >
             {link.faviconUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={link.faviconUrl}
                 alt=""
@@ -259,7 +265,7 @@ function LinkGridCard({
             className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-xs font-medium text-white"
             style={{ backgroundColor: platformColor }}
           >
-            {contentTypeLabels[contentType]}
+            {t(contentTypeLabelKeys[contentType])}
           </div>
         )}
       </div>
@@ -310,11 +316,11 @@ function LinkGridCard({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />
-              Editar
+              {t("linkManager.edit")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleCopyUrl}>
               <Copy className="w-4 h-4 mr-2" />
-              Copiar URL
+              {t("linkManager.copyUrl")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -322,7 +328,7 @@ function LinkGridCard({
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Eliminar
+              {t("linkManager.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

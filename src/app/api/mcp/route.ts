@@ -283,35 +283,51 @@ const TOOL_DEFINITIONS = [
   },
 ];
 
+// ─── CORS origin check ───────────────────────────────────────────────────────
+
+function getMcpCorsOrigin(request?: Request): string {
+  const origin = request?.headers.get("origin");
+  // In desktop mode, allow localhost origins
+  if (process.env.DESKTOP_MODE === "true") {
+    if (!origin || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) {
+      return origin || "http://127.0.0.1";
+    }
+  }
+  // MCP clients (Claude Desktop, Cursor) don't send Origin header
+  // For web, don't allow cross-origin at all — MCP is server-to-server
+  if (!origin) return "null";
+  return "null"; // Block cross-origin browser requests
+}
+
 // ─── Cabeceras de respuesta ────────────────────────────────────────────────────
 
-function mcpHeaders() {
+function mcpHeaders(request?: Request) {
   return {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": getMcpCorsOrigin(request),
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
 
-function jsonRpcOk(id: unknown, result: unknown): NextResponse {
+function jsonRpcOk(id: unknown, result: unknown, request?: Request): NextResponse {
   return NextResponse.json(
     { jsonrpc: "2.0", id, result },
-    { headers: mcpHeaders() }
+    { headers: mcpHeaders(request) }
   );
 }
 
-function jsonRpcError(id: unknown, code: number, message: string): NextResponse {
+function jsonRpcError(id: unknown, code: number, message: string, request?: Request): NextResponse {
   return NextResponse.json(
     { jsonrpc: "2.0", id, error: { code, message } },
-    { status: code >= -32099 && code <= -32000 ? 500 : 200, headers: mcpHeaders() }
+    { status: code >= -32099 && code <= -32000 ? 500 : 200, headers: mcpHeaders(request) }
   );
 }
 
 // ─── Preflight CORS ───────────────────────────────────────────────────────────
 
-export async function OPTIONS(): Promise<NextResponse> {
-  return new NextResponse(null, { status: 204, headers: mcpHeaders() });
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return new NextResponse(null, { status: 204, headers: mcpHeaders(request) });
 }
 
 // ─── Endpoint principal ───────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface HashGeneratorWidgetProps {
   widget: Widget;
@@ -194,7 +195,7 @@ async function generateHash(text: string, algorithm: 'md5' | 'sha1' | 'sha256' |
 }
 
 export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState<string>("");
   const [hashOutput, setHashOutput] = useState<string>("");
   const [algorithm, setAlgorithm] = useState<'md5' | 'sha1' | 'sha256' | 'sha512'>(
@@ -212,6 +213,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
     if (savedInput) {
       handleGenerate(savedInput, algorithm);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run only on mount to restore saved state
   }, []);
 
   // Auto-generate hash when typing (debounced for short inputs)
@@ -225,6 +227,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
     }, 500);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleGenerate is a regular function; including it would cause extra re-runs
   }, [inputText, algorithm, autoGenerate]);
 
   const handleGenerate = async (text?: string, algo?: typeof algorithm) => {
@@ -243,7 +246,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
       setHashOutput(hash);
 
       // Save to widget config
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           lastInput: textToHash,
@@ -293,17 +296,17 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm @sm:text-base @md:text-lg font-semibold truncate">
-              Hash Generator
+              {t("hash.title")}
             </h3>
             <p className="text-xs @sm:text-xs @md:text-sm text-muted-foreground truncate">
-              Generate cryptographic hashes
+              {t("hash.subtitle")}
             </p>
           </div>
         </div>
 
         {/* Algorithm Selector */}
         <div className="space-y-2">
-          <Label className="text-xs @sm:text-sm">Algorithm</Label>
+          <Label className="text-xs @sm:text-sm">{t("hash.algorithm")}</Label>
           <Select
             value={algorithm}
             onValueChange={(value) => {
@@ -328,16 +331,16 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
 
         {/* Input Text Area */}
         <div className="space-y-2 flex-1 min-h-0 flex flex-col">
-          <Label className="text-xs @sm:text-sm">Input Text</Label>
+          <Label className="text-xs @sm:text-sm">{t("hash.inputText")}</Label>
           <Textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Enter text to hash..."
+            placeholder={t("hash.inputPlaceholder")}
             className="flex-1 min-h-[60px] resize-none text-xs @sm:text-sm font-mono"
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              {inputText.length} characters
+              {t("hash.characters", { count: inputText.length })}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -361,12 +364,12 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
           {isGenerating ? (
             <>
               <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Generating...
+              {t("hash.generating")}
             </>
           ) : (
             <>
               <ArrowRight className="w-3.5 h-3.5 @sm:w-4 @sm:h-4" />
-              Generate Hash
+              {t("hash.generateHash")}
             </>
           )}
         </Button>
@@ -381,7 +384,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
               className="space-y-2"
             >
               <div className="flex items-center justify-between">
-                <Label className="text-xs @sm:text-sm">Hash Output</Label>
+                <Label className="text-xs @sm:text-sm">{t("hash.hashOutput")}</Label>
                 <div className="flex items-center gap-1 @sm:gap-2">
                   <Button
                     variant="ghost"
@@ -400,12 +403,12 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
                     {copied ? (
                       <>
                         <Check className="w-3 h-3" />
-                        Copied!
+                        {t("hash.copied")}
                       </>
                     ) : (
                       <>
                         <Copy className="w-3 h-3" />
-                        Copy
+                        {t("hash.copy")}
                       </>
                     )}
                   </Button>
@@ -422,7 +425,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
                   animate={{ opacity: 1, scale: 1 }}
                   className="mt-2 flex items-center justify-between text-xs text-muted-foreground"
                 >
-                  <span>{hashLength} characters</span>
+                  <span>{t("hash.characters", { count: hashLength })}</span>
                   <span>{algorithm.toUpperCase()}</span>
                 </motion.div>
               </div>
@@ -438,10 +441,10 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
             </div>
             <div className="space-y-1">
               <p className="text-xs @sm:text-sm font-medium text-muted-foreground">
-                No hash generated
+                {t("hash.noHash")}
               </p>
               <p className="text-xs text-muted-foreground/60">
-                Enter text and click generate
+                {t("hash.noHashHint")}
               </p>
             </div>
           </div>
@@ -450,7 +453,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
         {/* History - only show on larger containers */}
         {widget.config?.hashHistory && widget.config.hashHistory.length > 0 && (
           <div className="hidden @lg:block space-y-2 border-t pt-3">
-            <Label className="text-xs">Recent Hashes</Label>
+            <Label className="text-xs">{t("hash.recentHashes")}</Label>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {widget.config.hashHistory.slice(0, 3).map((item, index) => (
                 <motion.div
@@ -490,7 +493,7 @@ export function HashGeneratorWidget({ widget }: HashGeneratorWidgetProps) {
             className="w-full h-8 text-xs gap-2"
           >
             <RefreshCw className="w-3 h-3" />
-            Clear All
+            {t("hash.clearAll")}
           </Button>
         )}
       </div>

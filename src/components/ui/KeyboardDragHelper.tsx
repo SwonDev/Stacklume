@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, X, Move } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 export interface Position {
@@ -90,6 +91,7 @@ export function KeyboardDragHelper({
   onCancel,
   className,
 }: KeyboardDragHelperProps) {
+  const { t } = useTranslation();
   const prefersReducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -210,7 +212,7 @@ export function KeyboardDragHelper({
           transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", damping: 25, stiffness: 300 }}
           role="dialog"
           aria-modal="true"
-          aria-label={`Moviendo ${itemTitle}`}
+          aria-label={t("keyboardDrag.movingItem", { title: itemTitle })}
         >
           {/* Header */}
           <div className="flex items-center gap-2 mb-3">
@@ -218,7 +220,7 @@ export function KeyboardDragHelper({
               <Move className="w-4 h-4 text-primary" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm">Moviendo widget</h3>
+              <h3 className="font-semibold text-sm">{t("keyboardDrag.movingWidget")}</h3>
               <p className="text-xs text-muted-foreground truncate max-w-[250px]">
                 {itemTitle}
               </p>
@@ -233,21 +235,21 @@ export function KeyboardDragHelper({
             aria-atomic="true"
           >
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Posicion:</span>
+              <span className="text-muted-foreground">{t("keyboardDrag.position")}:</span>
               <span className="font-mono font-medium">
-                Columna {currentPosition.x + 1}, Fila {currentPosition.y + 1}
+                {t("keyboardDrag.column")} {currentPosition.x + 1}, {t("keyboardDrag.row")} {currentPosition.y + 1}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm mt-1">
-              <span className="text-muted-foreground">Elemento:</span>
+              <span className="text-muted-foreground">{t("keyboardDrag.element")}:</span>
               <span className="font-medium">
-                {itemIndex} de {totalItems}
+                {itemIndex} {t("keyboardDrag.of")} {totalItems}
               </span>
             </div>
             {hasMoved && (
               <div className="text-xs text-primary mt-2 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" aria-hidden="true" />
-                Posicion modificada
+                {t("keyboardDrag.positionModified")}
               </div>
             )}
           </div>
@@ -255,7 +257,7 @@ export function KeyboardDragHelper({
           {/* Instructions */}
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground font-medium mb-2">
-              Controles de teclado:
+              {t("keyboardDrag.keyboardControls")}:
             </p>
 
             {/* Arrow keys */}
@@ -274,7 +276,7 @@ export function KeyboardDragHelper({
                   <ArrowRight className="w-3 h-3 inline" aria-hidden="true" />
                 </kbd>
               </div>
-              <span className="text-muted-foreground">Mover</span>
+              <span className="text-muted-foreground">{t("keyboardDrag.move")}</span>
             </div>
 
             {/* Confirm */}
@@ -283,14 +285,14 @@ export function KeyboardDragHelper({
                 <kbd className="px-1.5 py-0.5 bg-secondary rounded text-[10px] font-mono border">
                   Enter
                 </kbd>
-                <span className="text-muted-foreground/60">o</span>
+                <span className="text-muted-foreground/60">{t("keyboardDrag.or")}</span>
                 <kbd className="px-1.5 py-0.5 bg-secondary rounded text-[10px] font-mono border">
-                  Espacio
+                  {t("keyboardDrag.space")}
                 </kbd>
               </div>
               <span className="text-muted-foreground flex items-center gap-1">
                 <Check className="w-3 h-3 text-green-500" aria-hidden="true" />
-                Confirmar
+                {t("keyboardDrag.confirm")}
               </span>
             </div>
 
@@ -301,7 +303,7 @@ export function KeyboardDragHelper({
               </kbd>
               <span className="text-muted-foreground flex items-center gap-1">
                 <X className="w-3 h-3 text-destructive" aria-hidden="true" />
-                Cancelar
+                {t("keyboardDrag.cancel")}
               </span>
             </div>
           </div>
@@ -316,7 +318,7 @@ export function KeyboardDragHelper({
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               )}
             >
-              Cancelar
+              {t("keyboardDrag.cancel")}
             </button>
             <button
               onClick={onConfirm}
@@ -326,7 +328,7 @@ export function KeyboardDragHelper({
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               )}
             >
-              Confirmar
+              {t("keyboardDrag.confirm")}
             </button>
           </div>
         </motion.div>

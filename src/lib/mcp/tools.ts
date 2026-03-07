@@ -3,6 +3,7 @@
  * Cada función recibe `args` y devuelve un ToolResult compatible con JSON-RPC.
  */
 
+import { z } from "zod";
 import { db, withRetry, generateId } from "@/lib/db";
 import {
   widgets,
@@ -15,6 +16,139 @@ import {
 } from "@/lib/db/schema";
 import { eq, isNull, and, desc } from "drizzle-orm";
 import { BUILTIN_WIDGET_CATALOG, getWidgetCatalogText } from "./widget-schemas";
+import {
+  updateSettingsSchema,
+} from "@/lib/validations";
+
+// ─── MCP-specific Zod schemas ──────────────────────────────────────────────────
+
+const uuidParam = z.string().uuid("Formato UUID inválido");
+const optionalUuidParam = z.string().uuid("Formato UUID inválido").nullable().optional();
+
+/** get_widget_type_schema */
+const getWidgetTypeSchemaArgs = z.object({
+  type: z.string().min(1, "El campo 'type' es obligatorio").max(100),
+});
+
+/** list_widgets */
+const listWidgetsArgs = z.object({
+  projectId: optionalUuidParam,
+});
+
+/** add_widget */
+const addWidgetArgs = z.object({
+  type: z.string().min(1, "El campo 'type' es obligatorio").max(100),
+  size: z.enum(["small", "medium", "large", "wide", "tall"]).optional().default("medium"),
+  title: z.string().max(200).nullable().optional(),
+  config: z.union([z.record(z.string(), z.unknown()), z.string().max(500_000)]).nullable().optional(),
+  projectId: optionalUuidParam,
+});
+
+/** update_widget */
+const updateWidgetArgs = z.object({
+  id: uuidParam,
+  title: z.string().max(200).nullable().optional(),
+  size: z.enum(["small", "medium", "large", "wide", "tall"]).optional(),
+  config: z.union([z.record(z.string(), z.unknown()), z.string().max(500_000)]).nullable().optional(),
+});
+
+/** remove_widget */
+const removeWidgetArgs = z.object({
+  id: uuidParam,
+});
+
+/** create_custom_widget_type */
+const createCustomWidgetTypeArgs = z.object({
+  name: z.string().min(1, "El campo 'name' es obligatorio").max(200),
+  description: z.string().max(1000).nullable().optional(),
+  category: z.string().max(100).optional().default("custom"),
+  icon: z.string().max(100).optional().default("Puzzle"),
+  htmlTemplate: z.string().min(1, "El campo 'htmlTemplate' es obligatorio").max(500_000, "htmlTemplate debe ser menor a 500KB"),
+  configSchema: z.record(z.string(), z.unknown()).nullable().optional(),
+  defaultConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+  defaultWidth: z.number().int().min(1).max(12).optional().default(2),
+  defaultHeight: z.number().int().min(1).max(12).optional().default(2),
+});
+
+/** update_custom_widget_type */
+const updateCustomWidgetTypeArgs = z.object({
+  id: uuidParam,
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  category: z.string().max(100).optional(),
+  icon: z.string().max(100).optional(),
+  htmlTemplate: z.string().min(1).max(500_000, "htmlTemplate debe ser menor a 500KB").optional(),
+  configSchema: z.record(z.string(), z.unknown()).nullable().optional(),
+  defaultConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+  defaultWidth: z.number().int().min(1).max(12).optional(),
+  defaultHeight: z.number().int().min(1).max(12).optional(),
+});
+
+/** delete_custom_widget_type */
+const deleteCustomWidgetTypeArgs = z.object({
+  id: uuidParam,
+});
+
+/** add_custom_widget */
+const addCustomWidgetArgs = z.object({
+  customWidgetTypeId: z.string().min(1).optional(),
+  customTypeId: z.string().min(1).optional(),
+  title: z.string().max(200).nullable().optional(),
+  config: z.union([z.record(z.string(), z.unknown()), z.string().max(500_000)]).nullable().optional(),
+  projectId: optionalUuidParam,
+});
+
+/** export_custom_widget_type */
+const exportCustomWidgetTypeArgs = z.object({
+  id: uuidParam,
+});
+
+/** import_custom_widget_type */
+const importCustomWidgetTypeArgs = z.object({
+  data: z.object({
+    stacklume_widget_type: z.literal("1.0"),
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().max(1000).nullable().optional(),
+    category: z.string().max(100).nullable().optional(),
+    icon: z.string().max(100).nullable().optional(),
+    htmlTemplate: z.string().min(1, "htmlTemplate es obligatorio").max(500_000, "htmlTemplate debe ser menor a 500KB"),
+    configSchema: z.record(z.string(), z.unknown()).nullable().optional(),
+    defaultConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+    defaultWidth: z.number().int().min(1).max(12).optional(),
+    defaultHeight: z.number().int().min(1).max(12).optional(),
+  }),
+});
+
+/** list_links */
+const listLinksArgs = z.object({
+  limit: z.number().int().min(1).max(200).optional().default(50),
+});
+
+/** add_link */
+const addLinkArgs = z.object({
+  url: z.string().min(1, "El campo 'url' es obligatorio").url("Debe ser una URL válida"),
+  title: z.string().min(1, "El campo 'title' es obligatorio").max(255),
+  description: z.string().max(5000).nullable().optional(),
+  categoryId: optionalUuidParam,
+  isFavorite: z.boolean().optional().default(false),
+});
+
+/** update_link */
+const updateLinkArgs = z.object({
+  id: uuidParam,
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().max(5000).nullable().optional(),
+  categoryId: optionalUuidParam,
+  isFavorite: z.boolean().optional(),
+});
+
+/** delete_link */
+const deleteLinkArgs = z.object({
+  id: uuidParam,
+});
+
+/** update_settings — reuses existing schema from validations */
+const updateSettingsMcpArgs = updateSettingsSchema;
 
 const DEFAULT_USER_ID = "default";
 
@@ -32,6 +166,24 @@ function err(message: string): ToolResult {
     content: [{ type: "text", text: JSON.stringify({ error: message }) }],
     isError: true,
   };
+}
+
+/**
+ * Validates args against a Zod schema.
+ * Returns parsed data on success, or a ToolResult error on failure.
+ */
+function validateArgs<T>(schema: z.ZodSchema<T>, args: unknown): { ok: true; data: T } | { ok: false; error: ToolResult } {
+  const result = schema.safeParse(args);
+  if (!result.success) {
+    const issues = result.error.issues.map(
+      (i) => `${i.path.length > 0 ? i.path.join(".") + ": " : ""}${i.message}`
+    );
+    return {
+      ok: false,
+      error: err(`Parámetros inválidos: ${issues.join("; ")}`),
+    };
+  }
+  return { ok: true, data: result.data };
 }
 
 /** Mapeo de tamaño de widget a dimensiones de cuadrícula */
@@ -100,7 +252,9 @@ async function handleListWidgetTypes(): Promise<ToolResult> {
 }
 
 async function handleGetWidgetTypeSchema(args: Record<string, unknown>): Promise<ToolResult> {
-  const type = args.type as string;
+  const v = validateArgs(getWidgetTypeSchemaArgs, args);
+  if (!v.ok) return v.error;
+  const { type } = v.data;
   const widget = BUILTIN_WIDGET_CATALOG.find((w) => w.type === type);
   if (!widget) {
     return err(`Tipo de widget '${type}' no encontrado. Usa list_widget_types para ver los disponibles.`);
@@ -111,11 +265,13 @@ async function handleGetWidgetTypeSchema(args: Record<string, unknown>): Promise
 // ─── Widgets (instancias) ──────────────────────────────────────────────────────
 
 async function handleListWidgets(args: Record<string, unknown>): Promise<ToolResult> {
+  const v = validateArgs(listWidgetsArgs, args);
+  if (!v.ok) return v.error;
   const allWidgets = await withRetry(
     () => db.select().from(widgets).where(isNull(widgets.deletedAt)).orderBy(desc(widgets.createdAt)),
     { operationName: "list widgets" }
   );
-  const projectId = args.projectId as string | undefined;
+  const projectId = v.data.projectId ?? undefined;
   const filtered = projectId
     ? allWidgets.filter((w) => w.projectId === projectId)
     : allWidgets;
@@ -133,17 +289,18 @@ async function handleListWidgets(args: Record<string, unknown>): Promise<ToolRes
 }
 
 async function handleAddWidget(args: Record<string, unknown>): Promise<ToolResult> {
-  const type = args.type as string;
-  const size = (args.size as string) || "medium";
+  const v = validateArgs(addWidgetArgs, args);
+  if (!v.ok) return v.error;
+  const { type, size, title, projectId } = v.data;
   const dims = SIZE_DIMS[size] || { w: 2, h: 2 };
 
   // Parsear config si llegó como string JSON (error de algunos clientes MCP)
   let widgetConfig: Record<string, unknown> | null = null;
-  if (args.config !== undefined) {
-    if (typeof args.config === "string") {
-      try { widgetConfig = JSON.parse(args.config) as Record<string, unknown>; } catch { widgetConfig = null; }
+  if (v.data.config !== undefined && v.data.config !== null) {
+    if (typeof v.data.config === "string") {
+      try { widgetConfig = JSON.parse(v.data.config) as Record<string, unknown>; } catch { widgetConfig = null; }
     } else {
-      widgetConfig = (args.config as Record<string, unknown>) || null;
+      widgetConfig = v.data.config || null;
     }
   }
 
@@ -155,10 +312,10 @@ async function handleAddWidget(args: Record<string, unknown>): Promise<ToolResul
           id: generateId(),
           userId: DEFAULT_USER_ID,
           type,
-          title: (args.title as string) || null,
+          title: title || null,
           size,
           config: widgetConfig,
-          projectId: (args.projectId as string) || null,
+          projectId: projectId || null,
           layoutX: 0,
           layoutY: 9999, // react-grid-layout lo reubica al final
           layoutW: dims.w,
@@ -177,18 +334,20 @@ async function handleAddWidget(args: Record<string, unknown>): Promise<ToolResul
 }
 
 async function handleUpdateWidget(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(updateWidgetArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (args.title !== undefined) updates.title = args.title;
-  if (args.size !== undefined) {
-    updates.size = args.size;
-    const dims = SIZE_DIMS[args.size as string];
+  if (v.data.title !== undefined) updates.title = v.data.title;
+  if (v.data.size !== undefined) {
+    updates.size = v.data.size;
+    const dims = SIZE_DIMS[v.data.size];
     if (dims) {
       updates.layoutW = dims.w;
       updates.layoutH = dims.h;
     }
   }
-  if (args.config !== undefined) updates.config = args.config;
+  if (v.data.config !== undefined) updates.config = v.data.config;
 
   const [updated] = await withRetry(
     () =>
@@ -204,7 +363,9 @@ async function handleUpdateWidget(args: Record<string, unknown>): Promise<ToolRe
 }
 
 async function handleRemoveWidget(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(removeWidgetArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   await withRetry(
     () => db.update(widgets).set({ deletedAt: new Date() } as never).where(eq(widgets.id, id)),
     { operationName: "remove widget" }
@@ -228,6 +389,10 @@ async function handleListCustomWidgetTypes(): Promise<ToolResult> {
 }
 
 async function handleCreateCustomWidgetType(args: Record<string, unknown>): Promise<ToolResult> {
+  const v = validateArgs(createCustomWidgetTypeArgs, args);
+  if (!v.ok) return v.error;
+  const { name, description, category, icon, htmlTemplate, configSchema, defaultConfig, defaultWidth, defaultHeight } = v.data;
+
   const [created] = await withRetry(
     () =>
       db
@@ -235,15 +400,15 @@ async function handleCreateCustomWidgetType(args: Record<string, unknown>): Prom
         .values({
           id: generateId(),
           userId: DEFAULT_USER_ID,
-          name: args.name as string,
-          description: (args.description as string) || null,
-          category: (args.category as string) || "custom",
-          icon: (args.icon as string) || "Puzzle",
-          htmlTemplate: args.htmlTemplate as string,
-          configSchema: (args.configSchema as Record<string, unknown>) || null,
-          defaultConfig: (args.defaultConfig as Record<string, unknown>) || null,
-          defaultWidth: (args.defaultWidth as number) || 2,
-          defaultHeight: (args.defaultHeight as number) || 2,
+          name,
+          description: description || null,
+          category,
+          icon,
+          htmlTemplate,
+          configSchema: configSchema || null,
+          defaultConfig: defaultConfig || null,
+          defaultWidth,
+          defaultHeight,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -258,11 +423,13 @@ async function handleCreateCustomWidgetType(args: Record<string, unknown>): Prom
 }
 
 async function handleUpdateCustomWidgetType(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(updateCustomWidgetTypeArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  const fields = ["name", "description", "category", "icon", "htmlTemplate", "configSchema", "defaultConfig", "defaultWidth", "defaultHeight"];
+  const fields = ["name", "description", "category", "icon", "htmlTemplate", "configSchema", "defaultConfig", "defaultWidth", "defaultHeight"] as const;
   for (const key of fields) {
-    if (args[key] !== undefined) updates[key] = args[key];
+    if (v.data[key] !== undefined) updates[key] = v.data[key];
   }
   const [updated] = await withRetry(
     () =>
@@ -278,7 +445,9 @@ async function handleUpdateCustomWidgetType(args: Record<string, unknown>): Prom
 }
 
 async function handleDeleteCustomWidgetType(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(deleteCustomWidgetTypeArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   await withRetry(
     () =>
       db
@@ -291,11 +460,14 @@ async function handleDeleteCustomWidgetType(args: Record<string, unknown>): Prom
 }
 
 async function handleAddCustomWidget(args: Record<string, unknown>): Promise<ToolResult> {
+  const v = validateArgs(addCustomWidgetArgs, args);
+  if (!v.ok) return v.error;
+
   // Acepta tanto 'customWidgetTypeId' (nombre preferido en el schema) como
   // 'customTypeId' (alias legado) para máxima compatibilidad con distintos clientes MCP.
   const customWidgetTypeId = (
-    (args.customWidgetTypeId as string) ||
-    (args.customTypeId as string) ||
+    (v.data.customWidgetTypeId as string) ||
+    (v.data.customTypeId as string) ||
     ""
   ).trim();
 
@@ -307,15 +479,15 @@ async function handleAddCustomWidget(args: Record<string, unknown>): Promise<Too
 
   // Si config llegó como JSON string (error de algunos clientes), lo parseamos.
   let parsedConfig: Record<string, unknown> | null = null;
-  if (args.config !== undefined) {
-    if (typeof args.config === "string") {
+  if (v.data.config !== undefined && v.data.config !== null) {
+    if (typeof v.data.config === "string") {
       try {
-        parsedConfig = JSON.parse(args.config) as Record<string, unknown>;
+        parsedConfig = JSON.parse(v.data.config) as Record<string, unknown>;
       } catch {
         parsedConfig = null;
       }
     } else {
-      parsedConfig = (args.config as Record<string, unknown>) || null;
+      parsedConfig = (v.data.config as Record<string, unknown>) || null;
     }
   }
 
@@ -345,10 +517,10 @@ async function handleAddCustomWidget(args: Record<string, unknown>): Promise<Too
           id: generateId(),
           userId: DEFAULT_USER_ID,
           type: "custom-user",
-          title: (args.title as string) || type.name,
+          title: v.data.title || type.name,
           size: derivedSize,
           config,
-          projectId: (args.projectId as string) || null,
+          projectId: v.data.projectId || null,
           layoutX: 0,
           layoutY: 9999,
           layoutW: type.defaultWidth,
@@ -367,7 +539,9 @@ async function handleAddCustomWidget(args: Record<string, unknown>): Promise<Too
 }
 
 async function handleExportCustomWidgetType(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(exportCustomWidgetTypeArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   const [type] = await withRetry(
     () =>
       db
@@ -394,10 +568,9 @@ async function handleExportCustomWidgetType(args: Record<string, unknown>): Prom
 }
 
 async function handleImportCustomWidgetType(args: Record<string, unknown>): Promise<ToolResult> {
-  const data = args.data as Record<string, unknown>;
-  if (!data || data.stacklume_widget_type !== "1.0") {
-    return err("Formato de exportación inválido. Se espera stacklume_widget_type: '1.0'");
-  }
+  const v = validateArgs(importCustomWidgetTypeArgs, args);
+  if (!v.ok) return v.error;
+  const { data } = v.data;
   const [created] = await withRetry(
     () =>
       db
@@ -405,15 +578,15 @@ async function handleImportCustomWidgetType(args: Record<string, unknown>): Prom
         .values({
           id: generateId(),
           userId: DEFAULT_USER_ID,
-          name: (data.name as string) || "Widget importado",
-          description: (data.description as string) || null,
-          category: (data.category as string) || "custom",
-          icon: (data.icon as string) || "Puzzle",
-          htmlTemplate: data.htmlTemplate as string,
+          name: data.name || "Widget importado",
+          description: data.description || null,
+          category: data.category || "custom",
+          icon: data.icon || "Puzzle",
+          htmlTemplate: data.htmlTemplate,
           configSchema: (data.configSchema as Record<string, unknown>) || null,
           defaultConfig: (data.defaultConfig as Record<string, unknown>) || null,
-          defaultWidth: (data.defaultWidth as number) || 2,
-          defaultHeight: (data.defaultHeight as number) || 2,
+          defaultWidth: data.defaultWidth || 2,
+          defaultHeight: data.defaultHeight || 2,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -426,7 +599,9 @@ async function handleImportCustomWidgetType(args: Record<string, unknown>): Prom
 // ─── Links ────────────────────────────────────────────────────────────────────
 
 async function handleListLinks(args: Record<string, unknown>): Promise<ToolResult> {
-  const limit = Math.min((args.limit as number) || 50, 200);
+  const v = validateArgs(listLinksArgs, args);
+  if (!v.ok) return v.error;
+  const limit = v.data.limit;
   const allLinks = await withRetry(
     () =>
       db
@@ -450,17 +625,20 @@ async function handleListLinks(args: Record<string, unknown>): Promise<ToolResul
 }
 
 async function handleAddLink(args: Record<string, unknown>): Promise<ToolResult> {
+  const v = validateArgs(addLinkArgs, args);
+  if (!v.ok) return v.error;
+  const { url, title, description, categoryId, isFavorite } = v.data;
   const [created] = await withRetry(
     () =>
       db
         .insert(links)
         .values({
           id: generateId(),
-          url: args.url as string,
-          title: args.title as string,
-          description: (args.description as string) || null,
-          categoryId: (args.categoryId as string) || null,
-          isFavorite: (args.isFavorite as boolean) || false,
+          url,
+          title,
+          description: description || null,
+          categoryId: categoryId || null,
+          isFavorite: isFavorite,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -471,10 +649,12 @@ async function handleAddLink(args: Record<string, unknown>): Promise<ToolResult>
 }
 
 async function handleUpdateLink(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(updateLinkArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  for (const key of ["title", "description", "categoryId", "isFavorite"]) {
-    if (args[key] !== undefined) updates[key] = args[key];
+  for (const key of ["title", "description", "categoryId", "isFavorite"] as const) {
+    if (v.data[key] !== undefined) updates[key] = v.data[key];
   }
   const [updated] = await withRetry(
     () =>
@@ -490,7 +670,9 @@ async function handleUpdateLink(args: Record<string, unknown>): Promise<ToolResu
 }
 
 async function handleDeleteLink(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = args.id as string;
+  const v = validateArgs(deleteLinkArgs, args);
+  if (!v.ok) return v.error;
+  const { id } = v.data;
   await withRetry(
     () => db.update(links).set({ deletedAt: new Date() } as never).where(eq(links.id, id)),
     { operationName: "delete link" }
@@ -559,9 +741,11 @@ async function handleGetSettings(): Promise<ToolResult> {
 }
 
 async function handleUpdateSettings(args: Record<string, unknown>): Promise<ToolResult> {
+  const v = validateArgs(updateSettingsMcpArgs, args);
+  if (!v.ok) return v.error;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  for (const key of ["theme", "viewDensity", "viewMode", "showTooltips", "reduceMotion"]) {
-    if (args[key] !== undefined) updates[key] = args[key];
+  for (const key of ["theme", "viewDensity", "viewMode", "showTooltips", "reduceMotion"] as const) {
+    if (v.data[key] !== undefined) updates[key] = v.data[key];
   }
   await withRetry(
     () =>

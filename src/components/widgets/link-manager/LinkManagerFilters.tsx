@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import type { Category, Tag } from "@/lib/db/schema";
 
 interface LinkManagerFiltersProps {
@@ -43,6 +44,8 @@ export function LinkManagerFilters({
   onFilterChange,
   onClearFilters,
 }: LinkManagerFiltersProps) {
+  const { t } = useTranslation();
+
   const handleCategoryChange = (value: string) => {
     const categoryId = value === "all" ? null : value;
     onFilterChange({
@@ -80,17 +83,17 @@ export function LinkManagerFilters({
     <div className="space-y-4">
       {/* Category filter */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Categoría</label>
+        <label className="text-sm font-medium">{t("linkManager.filterCategory")}</label>
         <Select
           value={filterCategoryId || "all"}
           onValueChange={handleCategoryChange}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Seleccionar categoría" />
+            <SelectValue placeholder={t("linkManager.filterSelectCategory")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="uncategorized">Sin categoría</SelectItem>
+            <SelectItem value="all">{t("linkManager.filterAllCategories")}</SelectItem>
+            <SelectItem value="uncategorized">{t("linkManager.filterUncategorized")}</SelectItem>
             {categories.map((category) => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}
@@ -102,10 +105,10 @@ export function LinkManagerFilters({
 
       {/* Tags filter */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Etiquetas</label>
+        <label className="text-sm font-medium">{t("linkManager.filterTags")}</label>
         {tags.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No hay etiquetas disponibles
+            {t("linkManager.filterNoTags")}
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -138,7 +141,7 @@ export function LinkManagerFilters({
       {/* Favorites only toggle */}
       <div className="flex items-center justify-between">
         <label htmlFor="favorites-only" className="text-sm font-medium">
-          Solo favoritos
+          {t("linkManager.filterFavoritesOnly")}
         </label>
         <Switch
           id="favorites-only"
@@ -156,7 +159,7 @@ export function LinkManagerFilters({
           className="w-full"
         >
           <X className="size-4" />
-          Limpiar filtros
+          {t("linkManager.filterClearFilters")}
         </Button>
       )}
     </div>
@@ -172,6 +175,7 @@ export function LinkManagerFiltersPopover({
   trigger,
   ...filterProps
 }: LinkManagerFiltersPopoverProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -180,7 +184,7 @@ export function LinkManagerFiltersPopover({
       <PopoverContent align="end" className="w-80">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Filtros</h3>
+            <h3 className="font-semibold">{t("linkManager.filterTitle")}</h3>
             <Button
               variant="ghost"
               size="icon-sm"

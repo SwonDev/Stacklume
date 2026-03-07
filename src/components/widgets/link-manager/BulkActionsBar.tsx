@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useTranslation } from "@/lib/i18n";
 import type { Category, Tag } from "@/lib/db/schema";
 
 interface BulkActionsBarProps {
@@ -62,6 +63,7 @@ export function BulkActionsBar({
   categories,
   tags,
 }: BulkActionsBarProps) {
+  const { t } = useTranslation();
   const [tagPopoverOpen, setTagPopoverOpen] = React.useState(false);
   const [selectedTagIds, setSelectedTagIds] = React.useState<string[]>([]);
   const [tagAction, setTagAction] = React.useState<"add" | "remove">("add");
@@ -146,12 +148,12 @@ export function BulkActionsBar({
           {...animationProps}
           className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2"
           role="region"
-          aria-label={`Barra de acciones: ${selectedCount} elemento${selectedCount !== 1 ? "s" : ""} seleccionado${selectedCount !== 1 ? "s" : ""}`}
+          aria-label={selectedCount !== 1 ? t("linkManager.bulkActionsBarPlural", { count: selectedCount }) : t("linkManager.bulkActionsBar", { count: selectedCount })}
         >
           <div
             ref={toolbarRef}
             role="toolbar"
-            aria-label="Acciones de seleccion multiple"
+            aria-label={t("linkManager.bulkActionsToolbar")}
             aria-orientation="horizontal"
             onKeyDown={handleToolbarKeyDown}
             className="bg-background/95 backdrop-blur-md border rounded-lg shadow-lg px-4 py-3 flex items-center gap-3"
@@ -164,7 +166,7 @@ export function BulkActionsBar({
                 aria-live="polite"
                 aria-atomic="true"
               >
-                {selectedCount} seleccionado{selectedCount !== 1 ? "s" : ""}
+                {selectedCount !== 1 ? t("linkManager.bulkSelectedCountPlural", { count: selectedCount }) : t("linkManager.bulkSelectedCount", { count: selectedCount })}
               </span>
               <div className="w-px h-6 bg-border" aria-hidden="true" />
             </div>
@@ -176,18 +178,18 @@ export function BulkActionsBar({
                   ref={(el) => { buttonRefs.current[0] = el; }}
                   variant="outline"
                   size="sm"
-                  aria-label="Mover a categoria"
+                  aria-label={t("linkManager.bulkMoveToCategory")}
                   aria-haspopup="menu"
                   tabIndex={0}
                 >
                   <FolderInput className="size-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Mover a</span>
+                  <span className="hidden sm:inline">{t("linkManager.bulkMoveTo")}</span>
                   <ChevronDown className="size-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={() => onMoveToCategory(null)}>
-                  Sin categoria
+                  {t("linkManager.bulkNoCategory")}
                 </DropdownMenuItem>
                 {categories.map((category) => (
                   <DropdownMenuItem
@@ -207,31 +209,31 @@ export function BulkActionsBar({
                   ref={(el) => { buttonRefs.current[1] = el; }}
                   variant="outline"
                   size="sm"
-                  aria-label="Gestionar etiquetas"
+                  aria-label={t("linkManager.bulkManageTagsAria")}
                   aria-haspopup="dialog"
                   aria-expanded={tagPopoverOpen}
                   tabIndex={-1}
                 >
                   <Tags className="size-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Etiquetas</span>
+                  <span className="hidden sm:inline">{t("linkManager.bulkTags")}</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="center" className="w-80" role="dialog" aria-label="Gestionar etiquetas">
+              <PopoverContent align="center" className="w-80" role="dialog" aria-label={t("linkManager.bulkManageTags")}>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 id="tags-dialog-title" className="font-semibold">Gestionar etiquetas</h3>
+                    <h3 id="tags-dialog-title" className="font-semibold">{t("linkManager.bulkManageTags")}</h3>
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => setTagPopoverOpen(false)}
-                      aria-label="Cerrar panel de etiquetas"
+                      aria-label={t("linkManager.bulkCloseTagsPanel")}
                     >
                       <X className="size-4" aria-hidden="true" />
                     </Button>
                   </div>
 
                   {/* Action selector */}
-                  <div className="flex gap-2" role="radiogroup" aria-label="Accion de etiquetas">
+                  <div className="flex gap-2" role="radiogroup" aria-label={t("linkManager.bulkTagActionLabel")}>
                     <Button
                       variant={tagAction === "add" ? "default" : "outline"}
                       size="sm"
@@ -241,7 +243,7 @@ export function BulkActionsBar({
                       aria-checked={tagAction === "add"}
                     >
                       <Plus className="size-4" aria-hidden="true" />
-                      Anadir
+                      {t("linkManager.bulkAddTags")}
                     </Button>
                     <Button
                       variant={tagAction === "remove" ? "default" : "outline"}
@@ -252,21 +254,21 @@ export function BulkActionsBar({
                       aria-checked={tagAction === "remove"}
                     >
                       <Minus className="size-4" aria-hidden="true" />
-                      Eliminar
+                      {t("linkManager.bulkRemoveTags")}
                     </Button>
                   </div>
 
                   {/* Tags selection */}
                   <fieldset className="space-y-2">
                     <legend className="text-sm font-medium">
-                      Seleccionar etiquetas
+                      {t("linkManager.bulkSelectTags")}
                     </legend>
                     {tags.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        No hay etiquetas disponibles
+                        {t("linkManager.bulkNoTagsAvailable")}
                       </p>
                     ) : (
-                      <div className="flex flex-wrap gap-2" role="group" aria-label="Lista de etiquetas">
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={t("linkManager.bulkTagsList")}>
                         {tags.map((tag) => {
                           const isSelected = selectedTagIds.includes(tag.id);
                           return (
@@ -309,11 +311,11 @@ export function BulkActionsBar({
                     className="w-full"
                     aria-describedby={selectedTagIds.length === 0 ? "tags-hint" : undefined}
                   >
-                    Aplicar cambios
+                    {t("linkManager.bulkApplyChanges")}
                   </Button>
                   {selectedTagIds.length === 0 && (
                     <span id="tags-hint" className="sr-only">
-                      Selecciona al menos una etiqueta para continuar
+                      {t("linkManager.bulkSelectAtLeastOneTag")}
                     </span>
                   )}
                 </div>
@@ -327,21 +329,21 @@ export function BulkActionsBar({
                   ref={(el) => { buttonRefs.current[2] = el; }}
                   variant="outline"
                   size="sm"
-                  aria-label="Gestionar favoritos"
+                  aria-label={t("linkManager.bulkManageFavorites")}
                   aria-haspopup="menu"
                   tabIndex={-1}
                 >
                   <Star className="size-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Favoritos</span>
+                  <span className="hidden sm:inline">{t("linkManager.bulkFavorites")}</span>
                   <ChevronDown className="size-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={() => onToggleFavorites(true)}>
-                  Marcar como favoritos
+                  {t("linkManager.bulkMarkAsFavorites")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onToggleFavorites(false)}>
-                  Desmarcar favoritos
+                  {t("linkManager.bulkUnmarkFavorites")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -353,29 +355,29 @@ export function BulkActionsBar({
                   ref={(el) => { buttonRefs.current[3] = el; }}
                   variant="outline"
                   size="sm"
-                  aria-label={`Eliminar ${selectedCount} enlace${selectedCount !== 1 ? "s" : ""}`}
+                  aria-label={selectedCount !== 1 ? t("linkManager.bulkDeleteAriaPlural", { count: selectedCount }) : t("linkManager.bulkDeleteAria", { count: selectedCount })}
                   tabIndex={-1}
                 >
                   <Trash2 className="size-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Eliminar</span>
+                  <span className="hidden sm:inline">{t("linkManager.bulkDelete")}</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>¿Estas seguro?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("linkManager.bulkDeleteConfirmTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Vas a eliminar {selectedCount} enlace
-                    {selectedCount !== 1 ? "s" : ""}. Esta accion no se puede
-                    deshacer.
+                    {selectedCount !== 1
+                      ? t("linkManager.bulkDeleteConfirmDescPlural", { count: selectedCount })
+                      : t("linkManager.bulkDeleteConfirmDesc", { count: selectedCount })}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogCancel>{t("linkManager.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={onDelete}
                     className="bg-destructive text-white hover:bg-destructive/90"
                   >
-                    Eliminar
+                    {t("linkManager.bulkDelete")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -387,7 +389,7 @@ export function BulkActionsBar({
               variant="ghost"
               size="icon-sm"
               onClick={onClearSelection}
-              aria-label="Limpiar seleccion"
+              aria-label={t("linkManager.bulkClearSelection")}
             >
               <X className="size-4" aria-hidden="true" />
             </Button>

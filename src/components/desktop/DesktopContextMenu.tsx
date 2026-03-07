@@ -14,13 +14,13 @@ import {
   Maximize2,
   X,
   LayoutDashboard,
-  Settings,
 } from "lucide-react";
 import { useElectron } from "@/hooks/useElectron";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 // ─── Zoom helpers ─────────────────────────────────────────────────────────────
 
@@ -56,9 +56,10 @@ interface MenuState {
 }
 
 export function DesktopContextMenu() {
+  const { t } = useTranslation();
   const { isTauri, minimizeWindow, maximizeWindow, closeWindow } = useElectron();
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => readZoom());
   const menuRef = useRef<HTMLDivElement>(null);
 
   const openAddWidgetModal = useWidgetStore((s) => s.openAddWidgetModal);
@@ -67,13 +68,11 @@ export function DesktopContextMenu() {
   const toggleEditMode = useLayoutStore((s) => s.toggleEditMode);
   const refreshAllData = useLinksStore((s) => s.refreshAllData);
 
-  // Aplicar zoom guardado al montar
+  // Aplicar zoom guardado al montar (solo side-effect del DOM, no setState)
   useEffect(() => {
     if (!isTauri) return;
-    const z = readZoom();
-    setZoom(z);
-    document.documentElement.style.zoom = `${z}`;
-  }, [isTauri]);
+    document.documentElement.style.zoom = `${zoom}`;
+  }, [isTauri, zoom]);
 
   const hideMenu = useCallback(() => {
     setMenu((m) => ({ ...m, visible: false }));
@@ -174,7 +173,7 @@ export function DesktopContextMenu() {
     <div
       ref={menuRef}
       role="menu"
-      aria-label="Menú contextual"
+      aria-label={t("contextMenu.ariaLabel")}
       className="fixed z-[9999] bg-popover/95 backdrop-blur-sm border border-border/70 rounded-lg shadow-2xl py-1 w-56 text-sm select-none"
       style={{ left: menu.x, top: menu.y }}
       onContextMenu={(e) => e.preventDefault()}
@@ -183,7 +182,7 @@ export function DesktopContextMenu() {
       <section className="px-1">
         <Item
           icon={RefreshCw}
-          label="Actualizar"
+          label={t("contextMenu.refresh")}
           shortcut="F5"
           onClick={() =>
             run(() => {
@@ -194,18 +193,18 @@ export function DesktopContextMenu() {
         />
         <Item
           icon={Plus}
-          label="Añadir widget"
+          label={t("contextMenu.addWidget")}
           onClick={() => run(openAddWidgetModal)}
         />
         <Item
           icon={Edit2}
-          label={isEditMode ? "Salir del modo edición" : "Modo edición"}
+          label={isEditMode ? t("contextMenu.exitEditMode") : t("contextMenu.editMode")}
           active={isEditMode}
           onClick={() => run(toggleEditMode)}
         />
         <Item
           icon={LayoutDashboard}
-          label="Ir al inicio"
+          label={t("contextMenu.goToTop")}
           onClick={() => run(() => window.scrollTo({ top: 0, behavior: "smooth" }))}
         />
       </section>
@@ -216,13 +215,13 @@ export function DesktopContextMenu() {
       <section className="px-1">
         <Item
           icon={Printer}
-          label="Imprimir página"
+          label={t("contextMenu.printPage")}
           shortcut="Ctrl+P"
           onClick={() => run(() => window.print())}
         />
         <Item
           icon={Copy}
-          label="Copiar selección"
+          label={t("contextMenu.copySelection")}
           onClick={() =>
             run(() => {
               const sel = window.getSelection();
@@ -240,21 +239,21 @@ export function DesktopContextMenu() {
       <section className="px-1">
         <Item
           icon={ZoomIn}
-          label="Acercar"
+          label={t("contextMenu.zoomIn")}
           shortcut="Ctrl++"
           disabled={zoom >= ZOOM_MAX}
           onClick={handleZoomIn}
         />
         <Item
           icon={ZoomOut}
-          label="Alejar"
+          label={t("contextMenu.zoomOut")}
           shortcut="Ctrl+–"
           disabled={zoom <= ZOOM_MIN}
           onClick={handleZoomOut}
         />
         <Item
           icon={Monitor}
-          label={isDefaultZoom ? "Zoom: 100%" : `Restablecer zoom (${zoomPct}%)`}
+          label={isDefaultZoom ? t("contextMenu.zoomDefault") : t("contextMenu.resetZoom", { pct: zoomPct })}
           shortcut="Ctrl+0"
           disabled={isDefaultZoom}
           onClick={handleZoomReset}
@@ -267,17 +266,17 @@ export function DesktopContextMenu() {
       <section className="px-1">
         <Item
           icon={Minimize2}
-          label="Minimizar"
+          label={t("contextMenu.minimize")}
           onClick={() => run(() => minimizeWindow())}
         />
         <Item
           icon={Maximize2}
-          label="Maximizar / Restaurar"
+          label={t("contextMenu.maximizeRestore")}
           onClick={() => run(() => maximizeWindow())}
         />
         <Item
           icon={X}
-          label="Cerrar Stacklume"
+          label={t("contextMenu.closeApp")}
           danger
           onClick={() => run(() => closeWindow())}
         />

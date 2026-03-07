@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface MovieTrackerWidgetProps {
   widget: Widget;
@@ -39,9 +40,9 @@ interface Movie {
 }
 
 const statusLabels: Record<MovieStatus, string> = {
-  toWatch: "Por ver",
-  watching: "Viendo",
-  watched: "Vistas",
+  toWatch: "movieTracker.planToWatch",
+  watching: "movieTracker.watching",
+  watched: "movieTracker.watched",
 };
 
 const statusColors: Record<MovieStatus, string> = {
@@ -57,6 +58,7 @@ const statusIcons: Record<MovieStatus, React.ReactNode> = {
 };
 
 export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newYear, setNewYear] = useState("");
@@ -167,6 +169,7 @@ export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
       {/* Poster */}
       <div className="flex-shrink-0 w-10 h-14 @sm:w-12 @sm:h-16 rounded overflow-hidden bg-muted">
         {movie.posterUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={movie.posterUrl}
             alt={movie.title}
@@ -239,7 +242,7 @@ export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
           <div className="flex items-center gap-2">
             <Badge variant="outline" className={cn("text-[10px]", statusColors[status])}>
               {statusIcons[status]}
-              <span className="ml-1">{statusLabels[status]}</span>
+              <span className="ml-1">{t(statusLabels[status])}</span>
             </Badge>
             <span className="text-xs text-muted-foreground">({sectionMovies.length})</span>
           </div>
@@ -259,7 +262,7 @@ export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
             >
               {sectionMovies.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
-                  Sin peliculas
+                  {t("movieTracker.noFilterMovies")}
                 </p>
               ) : (
                 sectionMovies.map(renderMovieCard)
@@ -307,7 +310,7 @@ export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
               <Input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Titulo de la pelicula..."
+                placeholder={t("movieTracker.titlePlaceholder")}
                 className="h-8 text-sm"
                 autoFocus
               />
@@ -315,13 +318,13 @@ export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
                 <Input
                   value={newYear}
                   onChange={(e) => setNewYear(e.target.value)}
-                  placeholder="Anio"
+                  placeholder={t("movieTracker.year")}
                   className="h-8 text-sm w-20"
                 />
                 <Input
                   value={newPosterUrl}
                   onChange={(e) => setNewPosterUrl(e.target.value)}
-                  placeholder="URL del poster (opcional)"
+                  placeholder={t("movieTracker.posterUrl")}
                   className="h-8 text-sm flex-1"
                 />
               </div>
@@ -357,8 +360,8 @@ export function MovieTrackerWidget({ widget }: MovieTrackerWidgetProps) {
           {movies.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Film className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">Sin peliculas guardadas</p>
-              <p className="text-xs">Agrega una para comenzar</p>
+              <p className="text-sm">{t("movieTracker.noMovies")}</p>
+              <p className="text-xs">{t("movieTracker.addOneToStart")}</p>
             </div>
           ) : (
             <div className="space-y-3">

@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface DevToFeedWidgetProps {
   widget: Widget;
@@ -60,8 +61,9 @@ interface DevToApiArticle {
 const ITEMS_PER_PAGE = 8;
 
 export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
-  const config = (widget.config as unknown as DevToConfig) || {};
-  const tags = config.devToTags || [];
+  const { t } = useTranslation();
+  const config = useMemo(() => (widget.config as unknown as DevToConfig) || {}, [widget.config]);
+  const tags = useMemo(() => config.devToTags || [], [config.devToTags]);
   const maxItems = config.devToMaxItems || 20;
 
   const [articles, setArticles] = useState<DevToArticle[]>([]);
@@ -95,7 +97,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
         );
 
         if (!response.ok) {
-          throw new Error("Error al obtener articulos");
+          throw new Error(t("devToFeed.fetchError"));
         }
 
         const data: DevToApiArticle[] = await response.json();
@@ -163,12 +165,12 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
       setLastFetch(new Date());
       setError(null);
     } catch (err) {
-      setError("Error al cargar articulos de DEV.to");
+      setError(t("devToFeed.loadError"));
       console.error("DEV.to fetch error:", err);
     } finally {
       setLoading(false);
     }
-  }, [tags, maxItems]);
+  }, [tags, maxItems, t]);
 
   // Auto-fetch on mount
   useEffect(() => {
@@ -222,7 +224,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
 
     if (days > 0) return `hace ${days}d`;
     if (hours > 0) return `hace ${hours}h`;
-    return "hace poco";
+    return t("devToFeed.justNow");
   };
 
   return (
@@ -266,7 +268,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
         <div className="border-b p-4">
           <div className="flex gap-2">
             <Input
-              placeholder="Filtrar por tag (ej: javascript, react)"
+              placeholder={t("devToFeed.filterByTag")}
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
@@ -292,7 +294,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
             </div>
           )}
           <div className="mt-2 text-xs text-muted-foreground">
-            <p>Tags populares:</p>
+            <p>{t("devToFeed.popularTags")}:</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {["javascript", "react", "webdev", "typescript", "nextjs"].map((t) => (
                 <Badge
@@ -329,7 +331,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Cargando articulos...</p>
+              <p className="text-sm text-muted-foreground">{t("devToFeed.loading")}</p>
             </div>
           </div>
         ) : articles.length === 0 ? (
@@ -338,9 +340,9 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
               <Code className="h-8 w-8" />
             </div>
             <div>
-              <h4 className="font-medium">Sin articulos</h4>
+              <h4 className="font-medium">{t("devToFeed.noArticles")}</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                No se encontraron articulos para los tags seleccionados
+                {t("devToFeed.noArticlesFound")} para los tags seleccionados
               </p>
             </div>
           </div>
@@ -359,6 +361,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
                     {/* Cover Image */}
                     {(article.coverImage || article.socialImage) && (
                       <div className="hidden h-16 w-20 flex-shrink-0 overflow-hidden rounded @[320px]:block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={article.coverImage || article.socialImage}
                           alt=""
@@ -388,6 +391,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {/* Author */}
                         <div className="flex items-center gap-1">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={article.user.profileImage}
                             alt=""
@@ -444,7 +448,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
                       className="h-8 gap-1 text-xs"
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
-                      Ver mas ({articles.length - visibleCount} restantes)
+                      {t("devToFeed.viewMore")} ({articles.length - visibleCount} restantes)
                     </Button>
                   )}
                   {canCollapse && (
@@ -455,7 +459,7 @@ export function DevToFeedWidget({ widget }: DevToFeedWidgetProps) {
                       className="h-8 gap-1 text-xs"
                     >
                       <ChevronUp className="h-3.5 w-3.5" />
-                      Colapsar
+                      {t("devToFeed.collapse")}
                     </Button>
                   )}
                 </div>

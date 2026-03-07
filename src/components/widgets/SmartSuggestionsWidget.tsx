@@ -6,7 +6,6 @@ import {
   RefreshCw,
   ExternalLink,
   Star,
-  Clock,
   Sparkles,
   History,
   Shuffle,
@@ -203,7 +202,8 @@ export function SmartSuggestionsWidget({ widget }: SmartSuggestionsWidgetProps) 
         lastRefreshDate: new Date().toISOString(),
       });
     }
-  }, [suggestions.length]); // Intentionally minimal deps to avoid loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally minimal deps to avoid loops; suggestions and updateConfig would trigger re-saves
+  }, [suggestions.length]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -328,6 +328,7 @@ export function SmartSuggestionsWidget({ widget }: SmartSuggestionsWidgetProps) 
                           <div className="flex-shrink-0">
                             {link.imageUrl ? (
                               <div className="w-10 h-10 rounded-md overflow-hidden bg-muted @sm:w-12 @sm:h-12">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={link.imageUrl}
                                   alt=""
@@ -339,6 +340,7 @@ export function SmartSuggestionsWidget({ widget }: SmartSuggestionsWidgetProps) 
                               </div>
                             ) : link.faviconUrl ? (
                               <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center @sm:w-12 @sm:h-12">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={link.faviconUrl}
                                   alt=""

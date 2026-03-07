@@ -181,7 +181,6 @@ function formatSaleEnd(dateStr?: string): string | null {
 }
 
 export function NintendoDealsWidget({ widget: _widget }: NintendoDealsWidgetProps) {
-  const { openAddLinkModal } = useLinksStore();
   const [categories, setCategories] = useState<Record<CategoryKey, CategoryState>>({
     sales: { ...initialCategoryState },
     ranking: { ...initialCategoryState },
@@ -388,7 +387,7 @@ export function NintendoDealsWidget({ widget: _widget }: NintendoDealsWidgetProp
 
   // Quick add link
   const handleQuickAdd = (game: NintendoGame) => {
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: game.storeUrl,
       title: game.title,
       description: game.isOnSale
@@ -473,6 +472,7 @@ export function NintendoDealsWidget({ widget: _widget }: NintendoDealsWidgetProp
         {/* Game Image with inline carousel */}
         <div className="relative aspect-video bg-muted overflow-hidden">
           {/* Main/Carousel Image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={displayImage}
             alt={game.title}

@@ -86,7 +86,6 @@ const MODE_OPTIONS = [
 ] as const;
 
 export function CustomWidget({ widget }: CustomWidgetProps) {
-  const { updateWidget } = useWidgetStore();
   const [isConfiguring, setIsConfiguring] = useState(false);
 
   const mode = (widget.config?.customMode || "links") as CustomMode;
@@ -120,7 +119,7 @@ export function CustomWidget({ widget }: CustomWidgetProps) {
   }, [background, textColor, gradient]);
 
   const updateConfig = (updates: Record<string, unknown>) => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...updates,
@@ -295,7 +294,7 @@ function TextMode({
   const sanitizedHtml = useMemo(() => {
     return DOMPurify.sanitize(text, {
       ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'span', 'div'],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
       ALLOW_DATA_ATTR: false,
     });
   }, [text]);
@@ -423,7 +422,17 @@ function EmbedMode({
 }) {
   if (isEmpty) return renderEmpty();
 
-  const isSafeDomain = SAFE_EMBED_DOMAINS.some((domain) => url.includes(domain));
+  // Use proper URL parsing to prevent domain bypass (e.g., "youtube.com.evil.com")
+  let isSafeDomain = false;
+  try {
+    const parsedUrl = new URL(url);
+    isSafeDomain = SAFE_EMBED_DOMAINS.some((domain) => {
+      const hostname = parsedUrl.hostname;
+      return hostname === domain || hostname.endsWith(`.${domain}`);
+    });
+  } catch {
+    isSafeDomain = false;
+  }
 
   if (!isSafeDomain) {
     return (
@@ -443,6 +452,10 @@ function EmbedMode({
         src={url}
         className="w-full h-full border-0"
         style={{ height }}
+        sandbox={isSafeDomain
+          ? "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
+          : "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation"
+        }
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
         title="Embedded content"
@@ -478,6 +491,7 @@ function GalleryMode({
             exit={{ opacity: 0, x: -100 }}
             className="flex-1 flex flex-col items-center justify-center"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={images[currentIndex].url}
               alt={images[currentIndex].alt || "Gallery image"}
@@ -545,6 +559,7 @@ function GalleryMode({
             className="relative aspect-square overflow-hidden rounded-lg group"
             whileHover={{ scale: 1.02 }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={image.url}
               alt={image.alt || "Gallery image"}
@@ -643,7 +658,7 @@ function ChecklistMode({
 function ConfigurationPanel({
   widget,
   mode,
-  onModeChange,
+  onModeChange: _onModeChange,
   onClose,
   updateConfig,
 }: {
@@ -1009,6 +1024,7 @@ function ConfigurationPanel({
                     key={image.id}
                     className="flex items-center gap-2 p-2 bg-secondary/30 rounded-lg"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={image.url}
                       alt={image.alt || ""}

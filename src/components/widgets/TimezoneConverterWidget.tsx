@@ -73,7 +73,7 @@ export function TimezoneConverterWidget({ widget }: TimezoneConverterWidgetProps
 
   // Time state
   const [sourceTime, setSourceTime] = useState<Date>(new Date());
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [_currentTime, setCurrentTime] = useState<Date>(new Date());
 
   // Update current time every second
   useEffect(() => {
@@ -190,7 +190,7 @@ export function TimezoneConverterWidget({ widget }: TimezoneConverterWidgetProps
     return found?.label || timezoneValue;
   };
 
-  const availableTimezones = COMMON_TIMEZONES.filter(
+  const _availableTimezones = COMMON_TIMEZONES.filter(
     (tz) => !targetTimezones.includes(tz.value)
   );
 

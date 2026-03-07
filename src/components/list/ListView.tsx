@@ -13,6 +13,7 @@ import { useLayoutStore } from "@/stores/layout-store";
 import { useListViewStore } from "@/stores/list-view-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 import type { Link, Category, LinkTag } from "@/lib/db/schema";
 
 // dnd-kit imports
@@ -38,6 +39,7 @@ interface ListViewProps {
 }
 
 export function ListView({ className }: ListViewProps) {
+  const { t } = useTranslation();
   const links = useLinksStore((state) => state.links);
   const categories = useLinksStore((state) => state.categories);
   const linkTags = useLinksStore((state) => state.linkTags);
@@ -289,7 +291,7 @@ export function ListView({ className }: ListViewProps) {
       <div className={cn("flex items-center justify-center h-64", className)}>
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-sm text-muted-foreground">Cargando enlaces...</p>
+          <p className="text-sm text-muted-foreground">{t("listView.loading")}</p>
         </div>
       </div>
     );
@@ -313,9 +315,9 @@ export function ListView({ className }: ListViewProps) {
             <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-4">
               <Link2Off className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-lg mb-2">No hay enlaces</h3>
+            <h3 className="font-semibold text-lg mb-2">{t("listView.noLinks")}</h3>
             <p className="text-sm text-muted-foreground">
-              Añade tu primer enlace usando el botón + en la barra lateral o el widget de agregar rápido.
+              {t("listView.noLinksDescription")}
             </p>
           </motion.div>
         </div>
@@ -341,9 +343,9 @@ export function ListView({ className }: ListViewProps) {
             <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-4">
               <FolderOpen className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-lg mb-2">Sin resultados</h3>
+            <h3 className="font-semibold text-lg mb-2">{t("listView.noResults")}</h3>
             <p className="text-sm text-muted-foreground">
-              No se encontraron enlaces que coincidan con los filtros actuales. Intenta ajustar tu búsqueda.
+              {t("listView.noResultsDescription")}
             </p>
           </motion.div>
         </div>

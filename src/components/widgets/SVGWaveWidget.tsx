@@ -47,6 +47,16 @@ interface WaveConfig {
   previewBg?: string;
 }
 
+// Sanitize color values to prevent SVG injection via user-provided strings
+const SAFE_COLOR_PATTERN = /^#[0-9a-fA-F]{3,8}$|^(rgb|hsl)a?\([^)]+\)$|^[a-zA-Z]+$/;
+function sanitizeColor(color: string): string {
+  const trimmed = color.trim();
+  if (SAFE_COLOR_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+  return "#000000"; // Fallback to black for invalid/malicious values
+}
+
 // Preset configurations
 const WAVE_PRESETS = [
   {
@@ -210,7 +220,6 @@ export function SVGWaveWidget({ widget }: SVGWaveWidgetProps) {
   const generateSVG = useMemo(() => {
     const viewBoxWidth = 1200;
     const viewBoxHeight = 200;
-    const centerY = viewBoxHeight / 2;
 
     const paths: string[] = [];
     const gradientId = `wave-gradient-${widget.id}`;
@@ -226,19 +235,22 @@ export function SVGWaveWidget({ widget }: SVGWaveWidgetProps) {
         ? `${wavePath} L ${viewBoxWidth} ${viewBoxHeight} L 0 ${viewBoxHeight} Z`
         : `${wavePath} L ${viewBoxWidth} 0 L 0 0 Z`;
 
-      const fillColor = useGradient ? `url(#${gradientId})` : color1;
+      const safeColor1 = sanitizeColor(color1);
+      const fillColor = useGradient ? `url(#${gradientId})` : safeColor1;
 
       paths.push(`<path d="${closedPath}" fill="${fillColor}" opacity="${layerOpacity}" />`);
     }
 
+    const safeColor1 = sanitizeColor(color1);
+    const safeColor2 = sanitizeColor(color2);
     const transformStyle = `${flipVertical ? 'scale(1, -1)' : ''} ${flipHorizontal ? 'scale(-1, 1)' : ''}`.trim();
     const transformAttr = transformStyle ? ` transform="${transformStyle}" transform-origin="center"` : '';
 
     const gradient = useGradient
       ? `<defs>
       <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
-        <stop offset="100%" style="stop-color:${color2};stop-opacity:1" />
+        <stop offset="0%" style="stop-color:${safeColor1};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${safeColor2};stop-opacity:1" />
       </linearGradient>
     </defs>`
       : '';
@@ -247,7 +259,7 @@ export function SVGWaveWidget({ widget }: SVGWaveWidgetProps) {
   ${gradient}
   ${paths.join('\n  ')}
 </svg>`;
-  }, [waveType, peaks, height, amplitude, complexity, flipVertical, flipHorizontal, color1, color2, useGradient, opacity, position, widget.id]);
+  }, [waveType, peaks, amplitude, complexity, flipVertical, flipHorizontal, color1, color2, useGradient, opacity, position, widget.id]);
 
   // Save config to widget store
   const saveConfig = () => {
@@ -587,11 +599,11 @@ background-position: ${position};`;
                       __html: `<svg viewBox="0 0 1200 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
                         <defs>
                           <linearGradient id="preview-${preset.name}" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:${preset.color1};stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:${preset.color2};stop-opacity:1" />
+                            <stop offset="0%" style="stop-color:${sanitizeColor(preset.color1)};stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:${sanitizeColor(preset.color2)};stop-opacity:1" />
                           </linearGradient>
                         </defs>
-                        <path d="M0,100 Q150,50,300,100 T600,100 T900,100 T1200,100 L1200,200 L0,200 Z" fill="${preset.useGradient ? `url(#preview-${preset.name})` : preset.color1}" opacity="${preset.opacity}" />
+                        <path d="M0,100 Q150,50,300,100 T600,100 T900,100 T1200,100 L1200,200 L0,200 Z" fill="${preset.useGradient ? `url(#preview-${preset.name})` : sanitizeColor(preset.color1)}" opacity="${preset.opacity}" />
                       </svg>`
                     }}
                   />

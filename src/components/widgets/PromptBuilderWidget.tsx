@@ -46,6 +46,7 @@ import { useLinksStore } from "@/stores/links-store";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
 import type { Link } from "@/lib/db/schema";
+import { useTranslation } from "@/lib/i18n";
 import { motion, AnimatePresence } from "motion/react";
 
 interface PromptBuilderWidgetProps {
@@ -171,8 +172,8 @@ function analyzeTechStack(links: Link[]) {
 // Intelligent prompt generation
 const PROMPT_STYLES = {
   integration: {
-    label: "Integrar Stack",
-    description: "Prompt inteligente para integrar tecnologias",
+    labelKey: "promptBuilder.style.integration",
+    descriptionKey: "promptBuilder.style.integrationDesc",
     icon: Layers,
     template: (links: Link[], customInstructions: string, includeDescriptions: boolean, _includePlatformInfo: boolean) => {
       const techStack = analyzeTechStack(links);
@@ -252,8 +253,8 @@ Por favor, genera una guia completa y detallada paso a paso.`;
     },
   },
   tutorial: {
-    label: "Tutorial",
-    description: "Genera un tutorial estructurado paso a paso",
+    labelKey: "promptBuilder.style.tutorial",
+    descriptionKey: "promptBuilder.style.tutorialDesc",
     icon: BookOpen,
     template: (links: Link[], customInstructions: string, includeDescriptions: boolean, _includePlatformInfo: boolean) => {
       const techStack = analyzeTechStack(links);
@@ -320,8 +321,8 @@ Incluye bloques de codigo completos y funcionales en cada seccion.`;
     },
   },
   comparison: {
-    label: "Comparativa",
-    description: "Analisis comparativo detallado de alternativas",
+    labelKey: "promptBuilder.style.comparison",
+    descriptionKey: "promptBuilder.style.comparisonDesc",
     icon: Filter,
     template: (links: Link[], customInstructions: string, includeDescriptions: boolean, includePlatformInfo: boolean) => {
       const items = links.map(link => {
@@ -387,8 +388,8 @@ Se objetivo y basa el analisis en hechos verificables.`;
     },
   },
   setup: {
-    label: "Setup Proyecto",
-    description: "Configuracion completa de proyecto desde cero",
+    labelKey: "promptBuilder.style.setup",
+    descriptionKey: "promptBuilder.style.setupDesc",
     icon: Package,
     template: (links: Link[], customInstructions: string, _includeDescriptions: boolean, _includePlatformInfo: boolean) => {
       const techStack = analyzeTechStack(links);
@@ -471,8 +472,8 @@ Proporciona todos los archivos completos y listos para copiar.`;
     },
   },
   custom: {
-    label: "Personalizado",
-    description: "Escribe tu propio prompt con contexto de enlaces",
+    labelKey: "promptBuilder.style.custom",
+    descriptionKey: "promptBuilder.style.customDesc",
     icon: Wand2,
     template: (links: Link[], customInstructions: string, includeDescriptions: boolean, includePlatformInfo: boolean) => {
       const techStack = analyzeTechStack(links);
@@ -508,11 +509,12 @@ ${customInstructions || "Escribe aqui tus instrucciones personalizadas para la I
 };
 
 export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
+  const { t } = useTranslation();
   const { links, categories } = useLinksStore();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
 
   const config = (widget.config || {}) as unknown as PromptBuilderConfig;
-  const selectedLinkIds = config.selectedLinks || [];
+  const selectedLinkIds = useMemo(() => config.selectedLinks || [], [config.selectedLinks]);
   const promptStyle = config.promptStyle || "integration";
   const customInstructions = config.customInstructions || "";
   const includeDescriptions = config.includeDescriptions !== false;
@@ -676,7 +678,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                     <Button variant="ghost" size="sm" className="w-full justify-between h-7 @sm:h-8 px-2">
                       <span className="flex items-center gap-1.5 text-[10px] @sm:text-xs">
                         <LinkIcon className="w-3 h-3" />
-                        Seleccionar Enlaces
+                        {t("promptBuilder.selectLinks")}
                       </span>
                       {isLinksExpanded ? (
                         <ChevronUp className="w-3 h-3" />
@@ -691,7 +693,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                       <div className="relative flex-1">
                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
                         <Input
-                          placeholder="Buscar enlaces..."
+                          placeholder={t("promptBuilder.searchLinks")}
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="h-7 @sm:h-8 pl-7 text-[10px] @sm:text-xs"
@@ -705,7 +707,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                           <SelectValue placeholder="Plataforma" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
+                          <SelectItem value="all">{t("promptBuilder.all")}</SelectItem>
                           {platforms.map(platform => (
                             <SelectItem key={platform} value={platform}>
                               {platform}
@@ -737,7 +739,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                         onClick={selectAllFiltered}
                         className="h-6 text-[10px] @sm:text-xs flex-1"
                       >
-                        Seleccionar todos
+                        {t("promptBuilder.selectAll")}
                       </Button>
                       <Button
                         variant="outline"
@@ -754,7 +756,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                     <div className="max-h-[200px] overflow-y-auto rounded-md border p-2 space-y-1">
                       {filteredLinks.length === 0 ? (
                         <p className="text-[10px] @sm:text-xs text-muted-foreground text-center py-4">
-                          No hay enlaces disponibles
+                          {t("promptBuilder.noLinks")}
                         </p>
                       ) : (
                         filteredLinks.map(link => {
@@ -837,7 +839,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
 
                 {/* Prompt Style Selection */}
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] @sm:text-xs">Estilo de Prompt</Label>
+                  <Label className="text-[10px] @sm:text-xs">{t("promptBuilder.promptStyle")}</Label>
                   <Select
                     value={promptStyle}
                     onValueChange={(value) => updateConfig({ promptStyle: value as PromptBuilderConfig["promptStyle"] })}
@@ -850,20 +852,20 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                         <SelectItem key={key} value={key}>
                           <span className="flex items-center gap-2">
                             <style.icon className="w-3 h-3" />
-                            {style.label}
+                            {t(style.labelKey)}
                           </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-[9px] @sm:text-[10px] text-muted-foreground">
-                    {PROMPT_STYLES[promptStyle].description}
+                    {t(PROMPT_STYLES[promptStyle].descriptionKey)}
                   </p>
                 </div>
 
                 {/* Custom Instructions */}
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] @sm:text-xs">Instrucciones Adicionales</Label>
+                  <Label className="text-[10px] @sm:text-xs">{t("promptBuilder.additionalInstructions")}</Label>
                   <Textarea
                     placeholder="Ej: Quiero crear una app de e-commerce con carrito y pagos..."
                     value={customInstructions}
@@ -876,7 +878,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="include-descriptions" className="text-[10px] @sm:text-xs cursor-pointer">
-                      Incluir descripciones
+                      {t("promptBuilder.includeDescriptions")}
                     </Label>
                     <Switch
                       id="include-descriptions"
@@ -886,7 +888,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="include-platform" className="text-[10px] @sm:text-xs cursor-pointer">
-                      Incluir info de plataforma
+                      {t("promptBuilder.includePlatformInfo")}
                     </Label>
                     <Switch
                       id="include-platform"
@@ -905,7 +907,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
                 <div className="text-center space-y-2">
                   <LinkIcon className="w-8 h-8 mx-auto opacity-50" />
-                  <p className="text-xs">Selecciona enlaces para generar el prompt</p>
+                  <p className="text-xs">{t("promptBuilder.selectLinksToGenerate")}</p>
                 </div>
               </div>
             ) : (
@@ -930,7 +932,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                     ) : (
                       <>
                         <Copy className="w-3 h-3 mr-1" />
-                        Copiar Prompt
+                        {t("promptBuilder.copyPrompt")}
                       </>
                     )}
                   </Button>
@@ -939,7 +941,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                 {/* Save Prompt */}
                 <div className="flex gap-2 flex-shrink-0">
                   <Input
-                    placeholder="Nombre del prompt..."
+                    placeholder={t("promptBuilder.promptNamePlaceholder")}
                     value={promptName}
                     onChange={(e) => setPromptName(e.target.value)}
                     className="h-7 @sm:h-8 text-[10px] @sm:text-xs flex-1"
@@ -966,7 +968,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                 <div className="flex items-center justify-center h-full text-muted-foreground">
                   <div className="text-center space-y-2 py-8">
                     <Save className="w-8 h-8 mx-auto opacity-50" />
-                    <p className="text-xs">No hay prompts guardados</p>
+                    <p className="text-xs">{t("promptBuilder.noSavedPrompts")}</p>
                   </div>
                 </div>
               ) : (
@@ -983,7 +985,7 @@ export function PromptBuilderWidget({ widget }: PromptBuilderWidgetProps) {
                         <div className="flex items-center justify-between">
                           <h4 className="text-[10px] @sm:text-xs font-medium">{savedPrompt.name}</h4>
                           <Badge variant="outline" className="text-[8px]">
-                            {PROMPT_STYLES[savedPrompt.style as keyof typeof PROMPT_STYLES]?.label || savedPrompt.style}
+                            {t(PROMPT_STYLES[savedPrompt.style as keyof typeof PROMPT_STYLES]?.labelKey ?? "") || savedPrompt.style}
                           </Badge>
                         </div>
                         <p className="text-[9px] text-muted-foreground">

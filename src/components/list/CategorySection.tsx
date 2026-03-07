@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { SortableLinkListItem } from "./LinkListItem";
 import { useListViewStore } from "@/stores/list-view-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Link, Category, LinkTag } from "@/lib/db/schema";
 
 // dnd-kit imports
@@ -72,6 +73,7 @@ export function CategorySection({
   className,
   isDragActiveOverThis = false,
 }: CategorySectionProps) {
+  const { t } = useTranslation();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const toggleCategoryCollapsed = useListViewStore((state) => state.toggleCategoryCollapsed);
 
@@ -87,7 +89,7 @@ export function CategorySection({
   const isCollapsed = useListViewStore((state) =>
     state.collapsedCategories.includes(categoryId)
   );
-  const categoryName = category?.name || "Sin categoría";
+  const categoryName = category?.name || t("categorySection.uncategorized");
   const categoryColor = category?.color || "gray";
   const colorClass = categoryColorClasses[categoryColor] || "bg-gray-500";
 
@@ -178,7 +180,7 @@ export function CategorySection({
 
           {/* Link count */}
           <Badge variant="secondary">
-            {links.length} {links.length === 1 ? "enlace" : "enlaces"}
+            {links.length === 1 ? t("categorySection.linkCount") : t("categorySection.linkCountPlural", { count: links.length })}
           </Badge>
         </button>
 
@@ -190,7 +192,7 @@ export function CategorySection({
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex-shrink-0"
-                title="Más opciones"
+                title={t("categorySection.moreOptions")}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
@@ -198,11 +200,11 @@ export function CategorySection({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleOpenAll}>
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Abrir todos ({links.length})
+                {t("categorySection.openAll", { count: links.length })}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyAllUrls}>
                 <Copy className="w-4 h-4 mr-2" />
-                Copiar todas las URLs
+                {t("categorySection.copyAllUrls")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -217,8 +219,8 @@ export function CategorySection({
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.2, ease: "easeInOut" }}
-            className="overflow-hidden"
+            transition={{ duration: reduceMotion ? 0 : 0.15, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden will-change-[height,opacity]"
           >
             <div className="border-t border-border/50">
               <SortableContext
@@ -237,7 +239,7 @@ export function CategorySection({
               {/* Drop zone indicator for empty categories during drag */}
               {sortedLinks.length === 0 && isDragActiveOverThis && (
                 <div className="flex items-center justify-center py-6 text-sm text-primary/70">
-                  Soltar aquí para mover a esta categoría
+                  {t("categorySection.dropToMove")}
                 </div>
               )}
             </div>
@@ -248,7 +250,7 @@ export function CategorySection({
       {/* Drop indicator on collapsed categories */}
       {isCollapsed && showDropIndicator && (
         <div className="border-t border-primary/30 px-4 py-2 text-xs text-primary/70 text-center">
-          Soltar para mover aquí
+          {t("categorySection.dropHere")}
         </div>
       )}
     </div>

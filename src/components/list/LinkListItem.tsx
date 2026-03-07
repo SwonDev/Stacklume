@@ -16,6 +16,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -53,19 +54,19 @@ interface LinkListItemProps {
   isOverlay?: boolean;
 }
 
-// Content type labels in Spanish
-const contentTypeLabels: Record<ContentType, string> = {
-  video: "Video",
-  game: "Juego",
-  music: "Musica",
-  code: "Codigo",
-  article: "Articulo",
-  social: "Social",
-  shopping: "Tienda",
-  image: "Imagen",
-  document: "Documento",
-  tool: "Herramienta",
-  website: "Web",
+// Content type translation keys (reuse addLink.contentType.* keys)
+const contentTypeLabelKeys: Record<ContentType, string> = {
+  video: "addLink.contentType.video",
+  game: "addLink.contentType.game",
+  music: "addLink.contentType.music",
+  code: "addLink.contentType.code",
+  article: "addLink.contentType.article",
+  social: "addLink.contentType.social",
+  shopping: "addLink.contentType.shopping",
+  image: "addLink.contentType.image",
+  document: "addLink.contentType.document",
+  tool: "addLink.contentType.tool",
+  website: "addLink.contentType.website",
 };
 
 // Inner content component used by both regular and sortable versions
@@ -78,6 +79,7 @@ export function LinkListItemContent({
   isOverlay = false,
   dragHandleProps,
 }: LinkListItemProps & { dragHandleProps?: React.HTMLAttributes<HTMLDivElement> }) {
+  const { t } = useTranslation();
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
   const tags = useLinksStore((state) => state.tags);
@@ -163,7 +165,7 @@ export function LinkListItemContent({
 
   // Handle delete
   const handleDelete = useCallback(async () => {
-    if (!confirm("¿Eliminar este enlace?")) return;
+    if (!confirm(t("listView.confirmDelete"))) return;
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
@@ -174,7 +176,7 @@ export function LinkListItemContent({
     } catch (error) {
       console.error("Error deleting link:", error);
     }
-  }, [link.id, removeLink]);
+  }, [link.id, removeLink, t]);
 
   // Handle edit
   const handleEdit = useCallback(() => {
@@ -239,6 +241,7 @@ export function LinkListItemContent({
       {/* Favicon */}
       <div className="flex-shrink-0">
         {link.faviconUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.faviconUrl}
             alt=""
@@ -289,7 +292,7 @@ export function LinkListItemContent({
                 className="text-[10px] px-1.5 py-0.5 rounded font-medium text-white flex-shrink-0"
                 style={{ backgroundColor: platformColor }}
               >
-                {contentTypeLabels[contentType]}
+                {t(contentTypeLabelKeys[contentType])}
               </span>
             )}
             <span className="text-xs text-muted-foreground truncate">
@@ -323,7 +326,7 @@ export function LinkListItemContent({
                 variant="ghost"
                 size="sm"
                 className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Agregar etiqueta"
+                title={t("listView.addTag")}
               >
                 <Plus className="w-3.5 h-3.5" />
               </Button>
@@ -331,18 +334,18 @@ export function LinkListItemContent({
             <PopoverContent className="w-56 p-0" align="end">
               <Command shouldFilter={false}>
                 <CommandInput
-                  placeholder="Buscar etiquetas..."
+                  placeholder={t("listView.searchTags")}
                   value={tagSearch}
                   onValueChange={setTagSearch}
                 />
                 <CommandList>
                   <CommandEmpty>
                     <div className="py-4 text-center text-sm text-muted-foreground">
-                      No hay etiquetas disponibles
+                      {t("listView.noTagsAvailable")}
                     </div>
                   </CommandEmpty>
                   {filteredTags.length > 0 && (
-                    <CommandGroup heading="Etiquetas disponibles">
+                    <CommandGroup heading={t("listView.availableTags")}>
                       {filteredTags.map((tag: Tag) => (
                         <CommandItem
                           key={tag.id}
@@ -360,7 +363,7 @@ export function LinkListItemContent({
                     </CommandGroup>
                   )}
                   {selectedTags.length > 0 && (
-                    <CommandGroup heading="Etiquetas asignadas">
+                    <CommandGroup heading={t("listView.assignedTags")}>
                       {selectedTags.map((tag: Tag) => (
                         <CommandItem
                           key={tag.id}
@@ -392,7 +395,7 @@ export function LinkListItemContent({
           size="sm"
           className="h-7 w-7 p-0"
           onClick={handleFavoriteToggle}
-          title={link.isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+          title={link.isFavorite ? t("listView.removeFromFavorites") : t("listView.addToFavorites")}
         >
           <Star
             className={cn(
@@ -410,7 +413,7 @@ export function LinkListItemContent({
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
-              title="Mas opciones"
+              title={t("listView.moreOptions")}
             >
               <MoreHorizontal className="w-4 h-4" />
             </Button>
@@ -418,11 +421,11 @@ export function LinkListItemContent({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleEdit}>
               <Pencil className="w-4 h-4 mr-2" />
-              Editar
+              {t("listView.edit")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleCopyUrl}>
               <Copy className="w-4 h-4 mr-2" />
-              Copiar URL
+              {t("listView.copyUrl")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -430,7 +433,7 @@ export function LinkListItemContent({
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Eliminar
+              {t("listView.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -440,7 +443,7 @@ export function LinkListItemContent({
           target="_blank"
           rel="noopener noreferrer"
           className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
-          title="Abrir enlace"
+          title={t("listView.openLink")}
         >
           <ExternalLink className="w-4 h-4 text-muted-foreground" />
         </a>

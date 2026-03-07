@@ -7,13 +7,11 @@ import {
   Shield,
   Sparkles,
   Lock,
-  Unlock,
   Plus,
   Trash2,
   Settings,
   ZoomIn,
   ZoomOut,
-  Download,
   FileJson,
   FileCode,
   RotateCcw,
@@ -21,16 +19,10 @@ import {
   EyeOff,
   Star,
   Target,
-  Flame,
-  Heart,
-  Wand2,
   TrendingUp,
-  Copy,
   CheckCircle2,
-  AlertCircle,
   Link as LinkIcon,
   Unlink,
-  ChevronRight,
   Save,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -45,7 +37,6 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -54,8 +45,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -405,7 +394,7 @@ export function SkillTreeWidget({ widget }: SkillTreeWidgetProps) {
   const [showConnectionMode, setShowConnectionMode] = useState(false);
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [_selectedNode, setSelectedNode] = useState<string | null>(null);
 
   // Form state for new/edit node
   const [formData, setFormData] = useState({
@@ -755,7 +744,7 @@ export default skillTree;
   }, [nodes, connections, availablePoints, spentPoints, totalStats]);
 
   // Copy to clipboard
-  const copyToClipboard = useCallback(
+  const _copyToClipboard = useCallback(
     (text: string) => {
       navigator.clipboard.writeText(text);
       toast.success("Copiado al portapapeles");
@@ -781,6 +770,7 @@ export default skillTree;
     }, 500);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- config/widget.config would cause infinite loop since this effect updates it; updateWidget is stable
   }, [nodes, connections, availablePoints, spentPoints, totalStats, isPreviewMode, previewSnapshot]);
 
   // Render SVG connection line
@@ -1241,7 +1231,7 @@ export default skillTree;
                 const canUnlock = canUnlockSkill(node);
                 const isLocked = node.currentLevel === 0 && !canUnlock;
                 const isMaxed = node.currentLevel === node.maxLevel;
-                const CategoryIcon = CATEGORY_CONFIG[node.category].icon;
+                const _CategoryIcon = CATEGORY_CONFIG[node.category].icon;
 
                 return (
                   <Tooltip key={node.id}>

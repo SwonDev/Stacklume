@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useTranslation } from "@/lib/i18n";
 
 export interface TooltipPosition {
   top: number;
@@ -102,6 +103,7 @@ export function OnboardingTooltip({
   isLast,
   icon: Icon,
 }: OnboardingTooltipProps) {
+  const { t } = useTranslation();
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -313,7 +315,7 @@ export function OnboardingTooltip({
               onClick={onSkip}
               className="h-6 w-6"
               style={{ color: "#8b9dc3" }}
-              aria-label="Saltar tour"
+              aria-label={t("onboarding.skipTour")}
             >
               <X className="w-3.5 h-3.5" />
             </Button>
@@ -365,7 +367,7 @@ export function OnboardingTooltip({
           style={{ borderTop: "1px solid rgba(42, 58, 92, 0.5)" }}
         >
           <span className="text-xs" style={{ color: "rgba(139, 157, 195, 0.45)" }}>
-            ← → navegar · Esc saltar
+            {t("onboarding.keyboardHint")}
           </span>
           <div className="flex items-center gap-1.5">
             {!isFirst && (
@@ -382,7 +384,7 @@ export function OnboardingTooltip({
                 }}
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                Ant.
+                {t("onboarding.previous")}
               </Button>
             )}
             <Button
@@ -396,7 +398,7 @@ export function OnboardingTooltip({
                 fontWeight: 600,
               }}
             >
-              {isLast ? "¡Empezar!" : "Siguiente"}
+              {isLast ? t("onboarding.start") : t("onboarding.next")}
               {!isLast && <ChevronRight className="w-3.5 h-3.5" />}
             </Button>
           </div>

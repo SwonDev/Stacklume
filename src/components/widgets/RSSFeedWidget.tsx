@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Rss, RefreshCw, Plus, Trash2, ExternalLink, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Widget } from "@/types/widget";
 
 interface RSSFeedWidgetProps {
@@ -28,9 +29,10 @@ interface FeedConfig {
 }
 
 export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
+  const { t } = useTranslation();
   // Note: Use getState() for updateWidget to prevent re-render loops
-  const config = (widget.config as unknown as FeedConfig) || {};
-  const feedUrls = config.feedUrls || [];
+  const config = useMemo(() => (widget.config as unknown as FeedConfig) || {}, [widget.config]);
+  const feedUrls = useMemo(() => config.feedUrls || [], [config.feedUrls]);
   const maxItems = config.maxItems || 10;
   const refreshInterval = config.refreshInterval || 30;
 
@@ -209,7 +211,7 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Rss className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">RSS Feeds</h3>
+          <h3 className="font-semibold">{t("rssFeed.title")}</h3>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -237,19 +239,19 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
         <div className="border-b p-4">
           <div className="flex gap-2">
             <Input
-              placeholder="Enter RSS feed URL..."
+              placeholder={t("rssFeed.enterUrl")}
               value={newFeedUrl}
               onChange={(e) => setNewFeedUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddFeed()}
               className="flex-1"
             />
             <Button onClick={handleAddFeed} size="sm">
-              Add
+              {t("rssFeed.add")}
             </Button>
           </div>
           {feedUrls.length > 0 && (
             <div className="mt-3 space-y-1">
-              <p className="text-xs text-muted-foreground">Current feeds:</p>
+              <p className="text-xs text-muted-foreground">{t("rssFeed.currentFeeds")}</p>
               {feedUrls.map((url) => (
                 <div key={url} className="flex items-center justify-between rounded bg-muted px-2 py-1 text-xs">
                   <span className="truncate">{url}</span>
@@ -274,17 +276,17 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <Rss className="h-12 w-12 text-muted-foreground" />
             <div>
-              <h4 className="font-medium">No RSS Feeds</h4>
+              <h4 className="font-medium">{t("rssFeed.noFeeds")}</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Add an RSS feed URL to get started
+                {t("rssFeed.addFeedDescription")}
               </p>
             </div>
             <Button onClick={() => setIsAddingFeed(true)} size="sm">
               <Plus className="mr-2 h-4 w-4" />
-              Add Feed
+              {t("rssFeed.addFeed")}
             </Button>
             <div className="mt-4 text-xs text-muted-foreground">
-              <p className="font-medium">Example feeds:</p>
+              <p className="font-medium">{t("rssFeed.exampleFeeds")}</p>
               <ul className="mt-2 space-y-1 text-left">
                 <li>• https://hnrss.org/frontpage</li>
                 <li>• https://www.theverge.com/rss/index.xml</li>
@@ -296,12 +298,12 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <AlertCircle className="h-12 w-12 text-destructive" />
             <div>
-              <h4 className="font-medium">Error Loading Feeds</h4>
+              <h4 className="font-medium">{t("rssFeed.errorLoading")}</h4>
               <p className="mt-1 text-sm text-muted-foreground">{error}</p>
             </div>
             <Button onClick={() => fetchFeeds()} size="sm" variant="outline">
               <RefreshCw className="mr-2 h-4 w-4" />
-              Retry
+              {t("rssFeed.retry")}
             </Button>
           </div>
         ) : loading && items.length === 0 ? (
@@ -312,9 +314,9 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <Rss className="h-12 w-12 text-muted-foreground" />
             <div>
-              <h4 className="font-medium">No Items Found</h4>
+              <h4 className="font-medium">{t("rssFeed.noItems")}</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                The feeds don&apos;t have any items yet
+                {t("rssFeed.noItemsDescription")}
               </p>
             </div>
           </div>
@@ -332,6 +334,7 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
                   <div className="flex gap-3">
                     {item.image && (
                       <div className="shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.image}
                           alt=""
@@ -371,7 +374,7 @@ export function RSSFeedWidget({ widget }: RSSFeedWidgetProps) {
       {/* Footer */}
       {lastFetch && items.length > 0 && (
         <div className="border-t px-4 py-2 text-center text-xs text-muted-foreground">
-          Last updated: {formatDate(lastFetch.toISOString())}
+          {t("rssFeed.lastUpdated")}: {formatDate(lastFetch.toISOString())}
         </div>
       )}
     </div>

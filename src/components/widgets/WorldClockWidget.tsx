@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Plus, X, Clock, Globe } from "lucide-react";
+import { Settings, Plus, X, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -12,19 +11,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import { useTranslation } from "@/lib/i18n";
 
 interface WorldClockWidgetProps {
   widget: Widget;
@@ -77,8 +70,8 @@ function formatTime(date: Date, timezone: string, format24Hour: boolean, showSec
   return date.toLocaleTimeString("en-US", options);
 }
 
-function formatDate(date: Date, timezone: string): string {
-  return date.toLocaleDateString("es-ES", {
+function formatDate(date: Date, timezone: string, locale: string = "es-ES"): string {
+  return date.toLocaleDateString(locale, {
     timeZone: timezone,
     weekday: "short",
     month: "short",
@@ -88,20 +81,20 @@ function formatDate(date: Date, timezone: string): string {
 
 function getTimeDifference(timezone: string): string {
   const now = new Date();
-  const localOffset = now.getTimezoneOffset();
+  const _localOffset = now.getTimezoneOffset();
   const targetDate = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
   const localDate = new Date(now.toLocaleString("en-US"));
 
   const diffMs = targetDate.getTime() - localDate.getTime();
   const diffHours = Math.round(diffMs / (1000 * 60 * 60));
 
-  if (diffHours === 0) return "Mismo horario";
+  if (diffHours === 0) return "SAME_TIME";
   if (diffHours > 0) return `+${diffHours}h`;
   return `${diffHours}h`;
 }
 
 export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t, language } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -131,7 +124,7 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
   }, []);
 
   const handleSave = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...formData,
@@ -163,13 +156,13 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mb-3">
           <Globe className="w-6 h-6 text-blue-500" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay zonas horarias</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("worldClock.noTimezones")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega zonas horarias para ver la hora mundial
+          {t("worldClock.addTimezonesToSee")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("worldClock.configure")}
         </Button>
       </div>
     );
@@ -181,7 +174,7 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
       <div className="flex items-center justify-between mb-2 px-1">
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-primary" />
-          <span className="text-xs text-muted-foreground">Hora mundial</span>
+          <span className="text-xs text-muted-foreground">{t("worldClock.title")}</span>
         </div>
         <Button
           size="icon"
@@ -208,12 +201,12 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{tz.name}</span>
                   <Badge variant="outline" className="text-[10px] h-4">
-                    {getTimeDifference(tz.timezone)}
+                    {(() => { const diff = getTimeDifference(tz.timezone); return diff === "SAME_TIME" ? t("worldClock.sameTime") : diff; })()}
                   </Badge>
                 </div>
                 {showDate && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatDate(currentTime, tz.timezone)}
+                    {formatDate(currentTime, tz.timezone, language === "en" ? "en-US" : "es-ES")}
                   </p>
                 )}
               </div>
@@ -236,12 +229,12 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-blue-500" />
-              Configurar Hora Mundial
+              {t("worldClock.configureTitle")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
-              <Label>Zonas horarias seleccionadas</Label>
+              <Label>{t("worldClock.selectedTimezones")}</Label>
               <div className="flex flex-wrap gap-1">
                 {formData.timezones?.map((tz) => (
                   <Badge key={tz.id} variant="secondary" className="gap-1">
@@ -253,14 +246,14 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
                 ))}
                 {formData.timezones?.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No hay zonas horarias seleccionadas
+                    {t("worldClock.noTimezonesSelected")}
                   </p>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Agregar zona horaria</Label>
+              <Label>{t("worldClock.addTimezone")}</Label>
               <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto">
                 {POPULAR_TIMEZONES.filter(tz => !formData.timezones?.find(t => t.id === tz.id)).map((tz) => (
                   <Button
@@ -279,9 +272,9 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Formato 24 horas</Label>
+                <Label>{t("worldClock.format24h")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Muestra la hora en formato 24h
+                  {t("worldClock.format24hDesc")}
                 </p>
               </div>
               <Switch
@@ -292,9 +285,9 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Mostrar segundos</Label>
+                <Label>{t("worldClock.showSeconds")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Incluye los segundos en la hora
+                  {t("worldClock.showSecondsDesc")}
                 </p>
               </div>
               <Switch
@@ -305,9 +298,9 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Mostrar fecha</Label>
+                <Label>{t("worldClock.showDate")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Muestra la fecha de cada zona
+                  {t("worldClock.showDateDesc")}
                 </p>
               </div>
               <Switch
@@ -318,10 +311,10 @@ export function WorldClockWidget({ widget }: WorldClockWidgetProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
+              {t("worldClock.cancel")}
             </Button>
             <Button onClick={handleSave}>
-              Guardar
+              {t("worldClock.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

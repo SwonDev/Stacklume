@@ -34,6 +34,7 @@ import { useLinksStore } from "@/stores/links-store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 export function ManageTagsModal() {
   const {
@@ -47,6 +48,7 @@ export function ManageTagsModal() {
     setLinkTags,
   } = useLinksStore();
 
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -81,14 +83,14 @@ export function ManageTagsModal() {
 
       if (response.ok) {
         updateTag(editingId, { name: editingName.trim() });
-        toast.success("Etiqueta actualizada");
+        toast.success(t("manageTags.successUpdate"));
         handleCancelEdit();
       } else {
-        toast.error("Error al actualizar la etiqueta");
+        toast.error(t("manageTags.errorUpdate"));
       }
     } catch (error) {
       console.error("Error updating tag:", error);
-      toast.error("Error al actualizar la etiqueta");
+      toast.error(t("manageTags.errorUpdate"));
     }
   };
 
@@ -106,14 +108,14 @@ export function ManageTagsModal() {
         removeTag(deleteId);
         // Also remove link-tag associations for this tag
         setLinkTags(linkTags.filter((lt) => lt.tagId !== deleteId));
-        toast.success("Etiqueta eliminada");
+        toast.success(t("manageTags.successDelete"));
         setDeleteId(null);
       } else {
-        toast.error("Error al eliminar la etiqueta");
+        toast.error(t("manageTags.errorDelete"));
       }
     } catch (error) {
       console.error("Error deleting tag:", error);
-      toast.error("Error al eliminar la etiqueta");
+      toast.error(t("manageTags.errorDelete"));
     }
   };
 
@@ -127,7 +129,7 @@ export function ManageTagsModal() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Tag className="w-5 h-5 text-primary" />
-              Gestionar Etiquetas
+              {t("manageTags.title")}
             </DialogTitle>
           </DialogHeader>
 
@@ -142,7 +144,7 @@ export function ManageTagsModal() {
               }}
             >
               <Plus className="w-4 h-4" />
-              Nueva Etiqueta
+              {t("manageTags.newTag")}
             </Button>
 
             {/* Tags list */}
@@ -150,8 +152,8 @@ export function ManageTagsModal() {
               {tags.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Tag className="w-12 h-12 mb-2 opacity-50" />
-                  <p>No hay etiquetas</p>
-                  <p className="text-sm">Crea tu primera etiqueta</p>
+                  <p>{t("manageTags.noTags")}</p>
+                  <p className="text-sm">{t("manageTags.createFirst")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -187,7 +189,7 @@ export function ManageTagsModal() {
                         )}
 
                         <Badge variant="secondary" className="flex-shrink-0">
-                          {linkCount} {linkCount === 1 ? "enlace" : "enlaces"}
+                          {linkCount} {linkCount === 1 ? t("manageCategories.linkSingular") : t("manageCategories.linkPlural")}
                         </Badge>
 
                         {isEditing ? (
@@ -248,27 +250,25 @@ export function ManageTagsModal() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
-              Eliminar Etiqueta
+              {t("manageTags.deleteTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteId && getTagLinkCount(deleteId) > 0 ? (
                 <>
-                  Esta etiqueta está asignada a{" "}
-                  <strong>{getTagLinkCount(deleteId)}</strong> enlaces.
-                  La etiqueta se eliminará de todos los enlaces.
+                  {t("manageTags.deleteWithLinks", { count: getTagLinkCount(deleteId!) })}
                 </>
               ) : (
-                "¿Estás seguro de que quieres eliminar esta etiqueta?"
+                t("manageTags.deleteConfirm")
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("btn.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

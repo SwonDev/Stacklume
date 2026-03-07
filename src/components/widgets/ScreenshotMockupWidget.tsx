@@ -12,7 +12,6 @@ import {
   Link2,
   History,
   Image as ImageIcon,
-  Check,
   X,
   Globe,
 } from "lucide-react";
@@ -35,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
-import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 
@@ -131,15 +130,16 @@ const DEVICE_FRAMES: Record<DeviceType, DeviceFrame> = {
 };
 
 const FRAME_COLORS = [
-  { id: "black", name: "Negro", value: "#1a1a1a" },
-  { id: "silver", name: "Plateado", value: "#d4d4d4" },
-  { id: "gold", name: "Dorado", value: "#c9a962" },
-  { id: "space-gray", name: "Gris Espacial", value: "#4a4a4a" },
-  { id: "blue", name: "Azul", value: "#2563eb" },
-  { id: "purple", name: "Morado", value: "#7c3aed" },
+  { id: "black", nameKey: "colors.black", value: "#1a1a1a" },
+  { id: "silver", nameKey: "colors.silver", value: "#d4d4d4" },
+  { id: "gold", nameKey: "colors.gold", value: "#c9a962" },
+  { id: "space-gray", nameKey: "colors.spaceGray", value: "#4a4a4a" },
+  { id: "blue", nameKey: "colors.blue", value: "#2563eb" },
+  { id: "purple", nameKey: "colors.purple", value: "#7c3aed" },
 ];
 
 export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const storeWidget = useWidgetStore(
     (state) => state.widgets.find((w) => w.id === widget.id)
@@ -171,6 +171,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
         lastColor: frameColor,
       },
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentWidget.config would cause infinite loop since this effect updates it
   }, [selectedDevice, frameColor]);
 
   const loadImage = useCallback(async (url: string) => {
@@ -181,12 +182,13 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
       new URL(url);
       setLoadedImage(url);
       addToRecent(url);
-      toast.success("Imagen cargada");
+      toast.success(t("screenshotMockup.imageLoaded"));
     } catch (_error) {
-      toast.error("URL invalida");
+      toast.error(t("screenshotMockup.invalidUrl"));
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addToRecent is a plain function; t is stable but ESLint can't verify
   }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -371,15 +373,15 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
       link.download = `mockup-${device.id}-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
-      toast.success("Mockup descargado");
+      toast.success(t("screenshotMockup.mockupDownloaded"));
     };
 
     img.onerror = () => {
-      toast.error("Error al cargar la imagen");
+      toast.error(t("screenshotMockup.imageLoadError"));
     };
 
     img.src = loadedImage;
-  }, [loadedImage, device, frameColor]);
+  }, [loadedImage, device, frameColor, t]);
 
   const clearImage = () => {
     setLoadedImage(null);
@@ -390,7 +392,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
     setLoadedImage(screenshot.url);
     setSelectedDevice(screenshot.device);
     setActiveTab("create");
-    toast.success("Captura cargada");
+    toast.success(t("screenshotMockup.captureLoaded"));
   };
 
   return (
@@ -424,7 +426,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
               <Input
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="URL de la imagen..."
+                placeholder={t("screenshotMockup.imageUrlPlaceholder")}
                 className="h-7 text-xs flex-1"
               />
               <Button
@@ -450,7 +452,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="w-3 h-3 mr-1" />
-                Subir imagen
+                {t("screenshotMockup.uploadImage")}
               </Button>
               <input
                 ref={fileInputRef}
@@ -520,7 +522,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
                           className="w-3 h-3 rounded-full border border-border"
                           style={{ backgroundColor: c.value }}
                         />
-                        {c.name}
+                        {t(c.nameKey)}
                       </div>
                     </SelectItem>
                   ))}
@@ -578,6 +580,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
                       )}
 
                       {/* Image */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={loadedImage}
                         alt="Screenshot preview"
@@ -600,9 +603,9 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
                   className="flex flex-col items-center justify-center text-center"
                 >
                   <ImageIcon className="w-8 h-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-xs text-muted-foreground">Sin imagen</p>
+                  <p className="text-xs text-muted-foreground">{t("screenshotMockup.noImage")}</p>
                   <p className="text-[10px] text-muted-foreground/60">
-                    Sube o pega una URL
+                    {t("screenshotMockup.uploadOrPaste")}
                   </p>
                 </motion.div>
               )}
@@ -617,7 +620,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
             disabled={!loadedImage}
           >
             <Download className="w-3.5 h-3.5 mr-1.5" />
-            Descargar Mockup
+            {t("screenshotMockup.downloadMockup")}
           </Button>
 
           {/* Hidden canvas for export */}
@@ -628,9 +631,9 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
           {recentScreenshots.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <History className="w-8 h-8 text-muted-foreground/50 mb-2" />
-              <p className="text-xs text-muted-foreground">Sin capturas recientes</p>
+              <p className="text-xs text-muted-foreground">{t("screenshotMockup.noRecentCaptures")}</p>
               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                Las imagenes usadas apareceran aqui
+                {t("screenshotMockup.usedImagesWillAppear")}
               </p>
             </div>
           ) : (
@@ -644,6 +647,7 @@ export function ScreenshotMockupWidget({ widget }: ScreenshotMockupWidgetProps) 
                       className="relative aspect-video rounded-md overflow-hidden group border border-border"
                       onClick={() => loadRecent(screenshot)}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={screenshot.url}
                         alt="Recent screenshot"

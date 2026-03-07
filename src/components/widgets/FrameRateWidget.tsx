@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, type ReactElement } from "react";
 import type { Widget } from "@/types/widget";
-import { useWidgetStore } from "@/stores/widget-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +39,6 @@ interface FrameBudget {
 }
 
 export function FrameRateWidget({ widget: _widget }: FrameRateWidgetProps) {
-  const { updateWidget: _updateWidget } = useWidgetStore();
 
   // State
   const [fps, setFps] = useState<number>(60);

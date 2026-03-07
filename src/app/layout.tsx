@@ -82,7 +82,7 @@ export default function RootLayout({
         */}
         {isDesktopMode && (
           <script
-            dangerouslySetInnerHTML={{ __html: "window.__DESKTOP_MODE__=true;" }}
+            dangerouslySetInnerHTML={{ __html: "Object.defineProperty(window,'__DESKTOP_MODE__',{value:true,writable:false,configurable:false});" }}
           />
         )}
         <Providers>

@@ -151,7 +151,6 @@ function formatRelativeDate(dateStr: string): string {
 }
 
 export function GithubSearchWidget({ widget: _widget }: GithubSearchWidgetProps) {
-  const { openAddLinkModal } = useLinksStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("stars");
@@ -249,7 +248,7 @@ export function GithubSearchWidget({ widget: _widget }: GithubSearchWidgetProps)
 
   // Quick add link to Stacklume
   const handleQuickAdd = (repo: GithubRepo) => {
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: repo.html_url,
       title: repo.full_name,
       description: repo.description || `${repo.language || "Repository"} - ${formatNumber(repo.stargazers_count)} stars`,
@@ -431,6 +430,7 @@ export function GithubSearchWidget({ widget: _widget }: GithubSearchWidgetProps)
                   >
                     {/* Repo Header */}
                     <div className="flex items-start gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={repo.owner.avatar_url}
                         alt={repo.owner.login}

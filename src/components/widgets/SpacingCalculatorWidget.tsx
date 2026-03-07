@@ -8,9 +8,7 @@ import { useWidgetStore } from "@/stores/widget-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 interface SpacingCalculatorWidgetProps {
@@ -53,7 +51,6 @@ const USE_CASES: Record<number, string> = {
 };
 
 export function SpacingCalculatorWidget({ widget }: SpacingCalculatorWidgetProps) {
-  const { updateWidget } = useWidgetStore();
 
   // Load config
   const baseUnit = widget.config?.spacingBaseUnit ?? 4;
@@ -61,7 +58,7 @@ export function SpacingCalculatorWidget({ widget }: SpacingCalculatorWidgetProps
   const customMultiplier = widget.config?.spacingCustomMultiplier ?? 1;
 
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
-  const [exportFormat, setExportFormat] = useState<"css" | "tailwind">("css");
+  const [_exportFormat, _setExportFormat] = useState<"css" | "tailwind">("css");
 
   // Calculate spacing scale
   const calculateSpacing = useCallback(
@@ -87,7 +84,7 @@ export function SpacingCalculatorWidget({ widget }: SpacingCalculatorWidgetProps
   // Toggle between 4px and 8px base
   const toggleBaseSystem = () => {
     const newBase = use8pxBase ? 4 : 8;
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         spacingUse8pxBase: !use8pxBase,
@@ -99,7 +96,7 @@ export function SpacingCalculatorWidget({ widget }: SpacingCalculatorWidgetProps
   // Update base unit manually
   const updateBaseUnit = (value: number) => {
     if (value > 0 && value <= 32) {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           spacingBaseUnit: value,
@@ -112,7 +109,7 @@ export function SpacingCalculatorWidget({ widget }: SpacingCalculatorWidgetProps
   // Update custom multiplier
   const updateCustomMultiplier = (value: number) => {
     if (value >= 0 && value <= 128) {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           spacingCustomMultiplier: value,

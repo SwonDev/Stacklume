@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import type { Link } from "@/lib/db/schema";
 import { motion, AnimatePresence } from "motion/react";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { useTranslation } from "@/lib/i18n";
 
 interface DuplicatesModalProps {
   open: boolean;
@@ -52,6 +53,7 @@ interface DuplicateGroup {
 export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
   const findDuplicates = useLinksStore((state) => state.findDuplicates);
   const removeLink = useLinksStore((state) => state.removeLink);
+  const { t } = useTranslation();
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
@@ -166,10 +168,10 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Copy className="w-5 h-5 text-primary" />
-              Duplicados
+              {t("duplicates.title")}
             </DialogTitle>
             <DialogDescription>
-              Detecta y elimina enlaces duplicados
+              {t("duplicates.description")}
             </DialogDescription>
           </DialogHeader>
 
@@ -177,9 +179,9 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
             <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
               <Check className="w-6 h-6 text-green-500" />
             </div>
-            <h4 className="font-medium">No hay duplicados</h4>
+            <h4 className="font-medium">{t("duplicates.noDuplicates")}</h4>
             <p className="text-sm text-muted-foreground mt-1">
-              Todos tus enlaces son únicos
+              {t("duplicates.allUnique")}
             </p>
           </div>
         </DialogContent>
@@ -194,10 +196,10 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Duplicados encontrados
+              {t("duplicates.found")}
             </DialogTitle>
             <DialogDescription>
-              Se encontraron {duplicates.length} URLs con enlaces duplicados
+              {t("duplicates.foundDesc", { count: duplicates.length })}
             </DialogDescription>
           </DialogHeader>
 
@@ -205,7 +207,9 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
           {totalSelected > 0 && (
             <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/10 border border-destructive/20">
               <span className="text-sm">
-                {totalSelected} enlace{totalSelected > 1 ? "s" : ""} seleccionado{totalSelected > 1 ? "s" : ""}
+                {totalSelected > 1
+                  ? t("duplicates.linksSelected", { count: totalSelected })
+                  : t("duplicates.linkSelected", { count: totalSelected })}
               </span>
               <Button
                 size="sm"
@@ -214,7 +218,7 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
                 className="gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Eliminar seleccionados
+                {t("duplicates.deleteSelected")}
               </Button>
             </div>
           )}
@@ -240,7 +244,7 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
                       {group.url}
                     </span>
                     <Badge variant="secondary" className="flex-shrink-0">
-                      {group.links.length} duplicados
+                      {t("duplicates.duplicateCount", { count: group.links.length })}
                     </Badge>
                   </button>
 
@@ -261,7 +265,7 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
                             className="h-7 text-xs"
                             onClick={() => selectAllExceptFirst(group.url)}
                           >
-                            Seleccionar todos excepto el primero
+                            {t("duplicates.selectAllExceptFirst")}
                           </Button>
                         </div>
 
@@ -292,20 +296,20 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
                                       variant="outline"
                                       className="text-[10px] h-5"
                                     >
-                                      Original
+                                      {t("duplicates.original")}
                                     </Badge>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                                   <span>
-                                    Creado:{" "}
+                                    {t("duplicates.created")}{" "}
                                     {new Date(link.createdAt).toLocaleDateString()}
                                   </span>
                                   {link.categoryId && (
-                                    <span>• Con categoría</span>
+                                    <span>• {t("duplicates.withCategory")}</span>
                                   )}
                                   {link.isFavorite && (
-                                    <span>• Favorito</span>
+                                    <span>• {t("duplicates.favorite")}</span>
                                   )}
                                 </div>
                               </div>
@@ -334,21 +338,20 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar enlaces duplicados?</AlertDialogTitle>
+            <AlertDialogTitle>{t("duplicates.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Se eliminarán {pendingDeleteIds.length} enlace
-              {pendingDeleteIds.length > 1 ? "s" : ""} duplicado
-              {pendingDeleteIds.length > 1 ? "s" : ""}. Esta acción no se puede
-              deshacer.
+              {pendingDeleteIds.length > 1
+                ? t("duplicates.deleteConfirmDescPlural", { count: pendingDeleteIds.length })
+                : t("duplicates.deleteConfirmDesc", { count: pendingDeleteIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("btn.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

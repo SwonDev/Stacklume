@@ -139,7 +139,6 @@ const QUEST_TEMPLATES = {
 };
 
 export function QuestDesignerWidget({ widget }: QuestDesignerWidgetProps) {
-  const { updateWidget } = useWidgetStore();
 
   const [quests, setQuests] = useState<Quest[]>((widget.config?.quests as Quest[] | undefined) || []);
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
@@ -176,7 +175,7 @@ export function QuestDesignerWidget({ widget }: QuestDesignerWidgetProps) {
 
   const saveQuests = (updatedQuests: Quest[]) => {
     setQuests(updatedQuests);
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         quests: updatedQuests,

@@ -193,8 +193,7 @@ const initialCategoryState: CategoryState = {
   page: 0,
 };
 
-export function SteamGamesWidget({ widget }: SteamGamesWidgetProps) {
-  const { openAddLinkModal } = useLinksStore();
+export function SteamGamesWidget({ widget: _widget }: SteamGamesWidgetProps) {
   const [categories, setCategories] = useState<Record<CategoryKey, CategoryState>>({
     specials: { ...initialCategoryState },
     new_releases: { ...initialCategoryState },
@@ -418,7 +417,7 @@ export function SteamGamesWidget({ widget }: SteamGamesWidgetProps) {
 
   // Quick add link to Stacklume
   const handleQuickAdd = (game: SteamGame) => {
-    openAddLinkModal({
+    useLinksStore.getState().openAddLinkModal({
       url: game.storeUrl,
       title: game.name,
       description: game.discounted
@@ -602,6 +601,7 @@ export function SteamGamesWidget({ widget }: SteamGamesWidgetProps) {
                     >
                       {/* Game Image */}
                       <div className="relative aspect-[460/215] bg-muted">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={game.imageUrl}
                           alt={game.name}
@@ -792,6 +792,7 @@ export function SteamGamesWidget({ widget }: SteamGamesWidgetProps) {
                             >
                               {/* Game Image */}
                               <div className="relative aspect-[460/215] bg-muted">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={game.imageUrl}
                                   alt={game.name}

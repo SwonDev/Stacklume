@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "@/lib/i18n";
 
 interface BookmarksWidgetProps {
   widget: Widget;
@@ -25,6 +26,7 @@ interface BookmarksWidgetProps {
 type ViewMode = "grid" | "list";
 
 export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
+  const { t } = useTranslation();
   const links = useLinksStore((state) => state.links);
   const categories = useLinksStore((state) => state.categories);
   const updateWidget = useWidgetStore((state) => state.updateWidget);
@@ -97,7 +99,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
           <div className="flex items-center gap-2 min-w-0">
             <Bookmark className="w-4 h-4 text-primary flex-shrink-0" />
             <h3 className="text-sm font-semibold truncate @sm:text-base">
-              Enlaces guardados
+              {t("bookmarks.savedLinks")}
             </h3>
           </div>
           <div className="flex items-center gap-1">
@@ -140,10 +142,10 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                     <Bookmark className="w-5 h-5 text-primary @sm:w-6 @sm:h-6" />
                   </div>
                   <h3 className="text-sm font-medium text-foreground mb-1 @sm:text-base">
-                    Sin enlaces guardados
+                    {t("bookmarks.noSavedLinks")}
                   </h3>
                   <p className="text-xs text-muted-foreground mb-4 max-w-[200px] @sm:text-sm @sm:max-w-[250px]">
-                    Agrega tus enlaces favoritos para acceso rápido
+                    {t("bookmarks.addFavoritesDescription")}
                   </p>
                   <Button
                     size="sm"
@@ -151,7 +153,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                     className="h-8 text-xs @sm:h-9 @sm:text-sm"
                   >
                     <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    Agregar enlaces
+                    {t("bookmarks.addLinks")}
                   </Button>
                 </motion.div>
               ) : viewMode === "grid" ? (
@@ -182,6 +184,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                         {/* Icon/Favicon */}
                         <div className="w-10 h-10 @sm:w-12 @sm:h-12 rounded-lg border bg-background flex items-center justify-center overflow-hidden mx-auto">
                           {link.faviconUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={link.faviconUrl}
                               alt=""
@@ -236,6 +239,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                         {/* Favicon */}
                         <div className="flex-shrink-0 w-8 h-8 @sm:w-10 @sm:h-10 rounded-md border bg-background flex items-center justify-center overflow-hidden">
                           {link.faviconUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               src={link.faviconUrl}
                               alt=""
@@ -289,9 +293,9 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
       <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
         <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Administrar enlaces guardados</DialogTitle>
+            <DialogTitle>{t("bookmarks.manageLinks")}</DialogTitle>
             <DialogDescription>
-              Agrega o elimina enlaces de este widget
+              {t("bookmarks.manageLinksDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -301,7 +305,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
               {bookmarkedLinks.length > 0 && (
                 <div className="mb-6">
                   <h4 className="text-sm font-medium mb-3">
-                    Enlaces actuales ({bookmarkedLinks.length})
+                    {t("bookmarks.currentLinks")} ({bookmarkedLinks.length})
                   </h4>
                   <div className="space-y-2">
                     {bookmarkedLinks.map((link) => (
@@ -310,6 +314,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                         className="flex items-center gap-3 p-3 rounded-lg border bg-card"
                       >
                         {link.faviconUrl && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={link.faviconUrl}
                             alt=""
@@ -345,7 +350,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
               {availableLinks.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-3">
-                    Enlaces disponibles ({availableLinks.length})
+                    {t("bookmarks.availableLinks")} ({availableLinks.length})
                   </h4>
                   <div className="space-y-2">
                     {availableLinks.map((link) => (
@@ -354,6 +359,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                         className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                       >
                         {link.faviconUrl && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={link.faviconUrl}
                             alt=""
@@ -378,7 +384,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
                           className="h-8 px-3 flex-shrink-0"
                         >
                           <Plus className="w-3.5 h-3.5 mr-1" />
-                          Agregar
+                          {t("bookmarks.add")}
                         </Button>
                       </div>
                     ))}
@@ -389,7 +395,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
               {availableLinks.length === 0 && bookmarkedLinks.length > 0 && (
                 <div className="text-center py-8">
                   <p className="text-sm text-muted-foreground">
-                    Todos tus enlaces están guardados en este widget
+                    {t("bookmarks.allLinksAdded")}
                   </p>
                 </div>
               )}
@@ -397,7 +403,7 @@ export function BookmarksWidget({ widget }: BookmarksWidgetProps) {
               {links.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-sm text-muted-foreground">
-                    No tienes enlaces disponibles. Crea algunos enlaces primero.
+                    {t("bookmarks.noLinksAvailable")}
                   </p>
                 </div>
               )}

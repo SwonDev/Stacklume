@@ -6,6 +6,7 @@ import type { Widget } from "@/types/widget";
 import type { CustomUserWidgetConfig } from "@/types/widgets/configs";
 import type { CustomWidgetType } from "@/lib/db/schema";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface CustomUserWidgetProps {
   widget: Widget;
@@ -24,12 +25,16 @@ interface CustomUserWidgetProps {
  * puedan actualizar sus dimensiones sin depender de ResizeObserver interno.
  */
 export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
+  const { t } = useTranslation();
   const config = widget.config as CustomUserWidgetConfig | null;
   const customTypeId = config?._customTypeId;
 
   const [definition, setDefinition] = useState<CustomWidgetType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Si no hay customTypeId, inicializar directamente con error (sin setState en effect)
+  const [isLoading, setIsLoading] = useState(() => !!customTypeId);
+  const [error, setError] = useState<string | null>(() =>
+    customTypeId ? null : t("customUser.noTypeIdConfigured")
+  );
   // Config en runtime — null hasta que definition carga
   const [runtimeConfig, setRuntimeConfig] = useState<Record<string, unknown> | null>(null);
 
@@ -41,8 +46,6 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
 
   useEffect(() => {
     if (!customTypeId) {
-      setError("ID de tipo de widget no configurado");
-      setIsLoading(false);
       return;
     }
 
@@ -69,7 +72,7 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
       })
       .catch((err) => {
         if (!cancelled && err.name !== "AbortError") {
-          setError("No se pudo cargar el widget personalizado");
+          setError(t("customUser.loadError"));
           console.error("[CustomUserWidget] Error loading definition:", err);
         }
       })
@@ -81,6 +84,7 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
       cancelled = true;
       controller.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- config is read only for initial seeding; t is stable; re-running on config changes would re-fetch definition unnecessarily
   }, [customTypeId]);
 
   // ResizeObserver externo: setea dimensiones en píxeles exactos en el iframe
@@ -116,9 +120,16 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
   useEffect(() => {
     const handle = async (ev: MessageEvent) => {
       if (!ev.data?.type) return;
+      // Validar que el mensaje proviene de NUESTRO iframe, no de otra fuente
+      if (iframeRef.current && ev.source !== iframeRef.current.contentWindow) return;
 
       if (ev.data.type === "stacklume:save") {
-        const newCfg = { ...(ev.data.config as Record<string, unknown>) };
+        const rawConfig = ev.data.config;
+        // Validate payload: must be a non-null, non-array object within 64KB
+        if (typeof rawConfig !== 'object' || rawConfig === null || Array.isArray(rawConfig)) return;
+        const configStr = JSON.stringify(rawConfig);
+        if (configStr.length > 64 * 1024) return; // Max 64KB config
+        const newCfg = { ...(rawConfig as Record<string, unknown>) };
         // Actualizar estado local inmediatamente → re-renderiza iframe con nuevos datos
         setRuntimeConfig(newCfg);
         // Persistir en DB via widget store (optimistic + PATCH /api/widgets)
@@ -163,7 +174,7 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
         <AlertCircle className="w-6 h-6 text-destructive" />
-        <p className="text-xs text-muted-foreground">{error ?? "Widget no disponible"}</p>
+        <p className="text-xs text-muted-foreground">{error ?? t("customUser.widgetNotAvailable")}</p>
         {customTypeId && (
           <p className="text-[10px] text-muted-foreground/50 font-mono">
             ID: {customTypeId.slice(0, 8)}…
@@ -181,9 +192,14 @@ export function CustomUserWidget({ widget }: CustomUserWidgetProps) {
     return cfg;
   })();
 
+  // Escapar </script> y </style> en el JSON serializado para evitar que el contenido
+  // del config rompa el contexto HTML del template (inyección de cierre de tag)
+  const safeConfigJson = JSON.stringify(displayConfig)
+    .replace(/<\//g, '<\\/');
+
   const processedHtml = definition.htmlTemplate.replace(
     /\{\{CONFIG_JSON\}\}/g,
-    JSON.stringify(displayConfig)
+    safeConfigJson
   );
 
   return (

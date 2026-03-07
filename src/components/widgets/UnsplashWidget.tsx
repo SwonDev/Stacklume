@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Camera, RefreshCw, ExternalLink, Settings, Heart, Download, User, Loader2, Bookmark } from "lucide-react";
+import { Camera, RefreshCw, ExternalLink, Settings, Heart, Loader2, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,7 @@ import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface UnsplashWidgetProps {
   widget: Widget;
@@ -66,23 +67,22 @@ interface UnsplashPhoto {
 }
 
 const TOPICS = [
-  { value: "random", label: "Aleatorio" },
-  { value: "nature", label: "Naturaleza" },
-  { value: "architecture", label: "Arquitectura" },
-  { value: "technology", label: "Tecnologia" },
-  { value: "minimal", label: "Minimalista" },
-  { value: "abstract", label: "Abstracto" },
-  { value: "space", label: "Espacio" },
-  { value: "city", label: "Ciudad" },
-  { value: "travel", label: "Viajes" },
-  { value: "food", label: "Comida" },
-  { value: "animals", label: "Animales" },
-  { value: "art", label: "Arte" },
+  { value: "random", labelKey: "unsplash.topicRandom" },
+  { value: "nature", labelKey: "unsplash.topicNature" },
+  { value: "architecture", labelKey: "unsplash.topicArchitecture" },
+  { value: "technology", labelKey: "unsplash.topicTechnology" },
+  { value: "minimal", labelKey: "unsplash.topicMinimal" },
+  { value: "abstract", labelKey: "unsplash.topicAbstract" },
+  { value: "space", labelKey: "unsplash.topicSpace" },
+  { value: "city", labelKey: "unsplash.topicCity" },
+  { value: "travel", labelKey: "unsplash.topicTravel" },
+  { value: "food", labelKey: "unsplash.topicFood" },
+  { value: "animals", labelKey: "unsplash.topicAnimals" },
+  { value: "art", labelKey: "unsplash.topicArt" },
 ];
 
 export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [photo, setPhoto] = useState<UnsplashPhoto | null>(null);
@@ -90,12 +90,12 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
 
   const handleSaveAsLink = () => {
     if (photo?.links?.html) {
-      openAddLinkModal({
+      useLinksStore.getState().openAddLinkModal({
         url: photo.links.html,
-        title: photo.alt_description || `Foto de ${photo.user.name}`,
-        description: `Fotografía de ${photo.user.name} en Unsplash`,
+        title: photo.alt_description || t("unsplash.photoBy", { name: photo.user.name }),
+        description: t("unsplash.photographyBy", { name: photo.user.name }),
       });
-      toast.success("Abriendo formulario para guardar enlace");
+      toast.success(t("unsplash.openingForm"));
     }
   };
 
@@ -165,7 +165,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
 
       const data = await response.json();
       setPhoto(data);
-    } catch (err) {
+    } catch (_err) {
       // Fallback to picsum on error
       const seed = Date.now();
       const picsumUrl = `https://picsum.photos/seed/${seed}/${orientation === "portrait" ? "400/600" : "600/400"}`;
@@ -209,7 +209,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
   }, [autoRefresh, refreshInterval, fetchPhoto]);
 
   const handleSave = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         ...formData,
@@ -237,6 +237,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
             exit={{ opacity: 0 }}
             className="relative h-full w-full"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photo.urls.regular || photo.urls.small}
               alt={photo.alt_description || "Unsplash photo"}
@@ -256,6 +257,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {photo.user.profile_image?.small && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={photo.user.profile_image.small}
                         alt={photo.user.name}
@@ -284,7 +286,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
                   variant="secondary"
                   className="h-7 w-7 bg-black/50 hover:bg-black/70"
                   onClick={handleSaveAsLink}
-                  title="Guardar como enlace"
+                  title={t("unsplash.saveAsLink")}
                 >
                   <Bookmark className="w-3.5 h-3.5 text-white" />
                 </Button>
@@ -329,7 +331,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
           <Camera className="w-8 h-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">{error}</p>
           <Button size="sm" variant="outline" className="mt-2" onClick={fetchPhoto}>
-            Reintentar
+            {t("unsplash.retry")}
           </Button>
         </div>
       )}
@@ -340,39 +342,39 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary" />
-              Configurar Unsplash
+              {t("unsplash.configureUnsplash")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Tema/Busqueda</Label>
+              <Label>{t("unsplash.topicSearch")}</Label>
               <Select
                 value={formData.query}
                 onValueChange={(value) => setFormData({ ...formData, query: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un tema" />
+                  <SelectValue placeholder={t("unsplash.selectTopic")} />
                 </SelectTrigger>
                 <SelectContent>
                   {TOPICS.map((topic) => (
                     <SelectItem key={topic.value} value={topic.value}>
-                      {topic.label}
+                      {t(topic.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                O escribe tu propia busqueda:
+                {t("unsplash.customSearch")}
               </p>
               <Input
-                placeholder="ej. montanas, atardecer..."
+                placeholder={t("unsplash.searchPlaceholder")}
                 value={formData.query}
                 onChange={(e) => setFormData({ ...formData, query: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Orientacion</Label>
+              <Label>{t("unsplash.orientation")}</Label>
               <Select
                 value={formData.orientation}
                 onValueChange={(value: "landscape" | "portrait" | "squarish") =>
@@ -380,12 +382,12 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona orientacion" />
+                  <SelectValue placeholder={t("unsplash.selectOrientation")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="landscape">Horizontal</SelectItem>
-                  <SelectItem value="portrait">Vertical</SelectItem>
-                  <SelectItem value="squarish">Cuadrada</SelectItem>
+                  <SelectItem value="landscape">{t("unsplash.landscape")}</SelectItem>
+                  <SelectItem value="portrait">{t("unsplash.portrait")}</SelectItem>
+                  <SelectItem value="squarish">{t("unsplash.square")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -394,7 +396,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
               <div className="space-y-0.5">
                 <Label>Auto-refresh</Label>
                 <p className="text-xs text-muted-foreground">
-                  Cambia la foto automaticamente
+                  {t("unsplash.autoRefreshDesc")}
                 </p>
               </div>
               <Switch
@@ -405,7 +407,7 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
 
             {formData.autoRefresh && (
               <div className="space-y-2">
-                <Label>Intervalo (minutos)</Label>
+                <Label>{t("unsplash.intervalMinutes")}</Label>
                 <Input
                   type="number"
                   min="5"
@@ -418,9 +420,9 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Mostrar informacion</Label>
+                <Label>{t("unsplash.showInfo")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Muestra el fotografo y likes
+                  {t("unsplash.showInfoDesc")}
                 </p>
               </div>
               <Switch
@@ -431,10 +433,10 @@ export function UnsplashWidget({ widget }: UnsplashWidgetProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
+              {t("unsplash.cancel")}
             </Button>
             <Button onClick={handleSave}>
-              Guardar
+              {t("unsplash.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, widgets, withRetry } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { widgetLayoutsUpdateSchema, validateRequest } from "@/lib/validations";
 
 // PATCH - Bulk update widget layouts (for drag and drop)
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { layouts } = body; // Array of { id, x, y, w, h }
 
-    if (!layouts || !Array.isArray(layouts)) {
+    // Validate input with Zod schema
+    const validation = validateRequest(widgetLayoutsUpdateSchema, body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "layouts array is required" },
+        { error: validation.errors.join(", ") },
         { status: 400 }
       );
     }
 
+    const { layouts } = validation.data;
+
     // Update each widget's layout with retry logic
-    const updatePromises = layouts.map(async (layout: { i: string; x: number; y: number; w: number; h: number }) => {
+    const updatePromises = layouts.map(async (layout) => {
       return withRetry(
         () => db.update(widgets).set({
           layoutX: layout.x,

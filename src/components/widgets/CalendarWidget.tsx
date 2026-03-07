@@ -5,6 +5,7 @@ import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "@/lib/i18n";
 
 interface CalendarDay {
   date: Date;
@@ -14,6 +15,7 @@ interface CalendarDay {
 }
 
 export function CalendarWidget() {
+  const { t, language } = useTranslation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
@@ -92,13 +94,16 @@ export function CalendarWidget() {
   }, [currentDate, selectedDate]);
 
   // Format month and year
-  const monthYear = currentDate.toLocaleDateString("es-ES", {
+  const locale = language === "en" ? "en-US" : "es-ES";
+  const monthYear = currentDate.toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
   });
 
   // Weekday names
-  const weekDays = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const weekDays = language === "en"
+    ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    : ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
   // Handle date selection
   const handleDateClick = (day: CalendarDay) => {
@@ -112,7 +117,7 @@ export function CalendarWidget() {
 
   // Format selected date info
   const formatSelectedDate = (date: Date): string => {
-    return date.toLocaleDateString("es-ES", {
+    return date.toLocaleDateString(locale, {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -170,7 +175,7 @@ export function CalendarWidget() {
               onClick={goToToday}
               className="hidden @sm:flex h-7 @md:h-8 text-xs"
             >
-              Hoy
+              {t("calendar.today")}
             </Button>
             <Button
               variant="ghost"
@@ -244,10 +249,10 @@ export function CalendarWidget() {
               </p>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="text-[10px] @lg:text-xs">
-                  Semana {getWeekNumber(selectedDate)}
+                  {t("calendar.week")} {getWeekNumber(selectedDate)}
                 </Badge>
                 <Badge variant="secondary" className="text-[10px] @lg:text-xs">
-                  Día {formatDayOfYear(selectedDate)} del año
+                  {t("calendar.dayOfYear", { day: formatDayOfYear(selectedDate) })}
                 </Badge>
               </div>
             </div>
@@ -262,7 +267,7 @@ export function CalendarWidget() {
             className="@md:hidden mt-2 text-center"
           >
             <p className="text-[10px] @xs:text-xs text-muted-foreground capitalize">
-              {selectedDate.toLocaleDateString("es-ES", {
+              {selectedDate.toLocaleDateString(locale, {
                 weekday: "short",
                 day: "numeric",
                 month: "short",

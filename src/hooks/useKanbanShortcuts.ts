@@ -23,7 +23,6 @@ export function useKanbanShortcuts(options: UseKanbanShortcutsOptions = {}) {
     columns,
   } = useKanbanStore();
 
-  const { openAddWidgetModal } = useWidgetStore();
 
   // Track if all columns are collapsed
   const allColumnsCollapsed = columns.every((c) => c.isCollapsed);
@@ -104,7 +103,7 @@ export function useKanbanShortcuts(options: UseKanbanShortcutsOptions = {}) {
               // Ctrl+Shift+N: Add new widget
               if (!isInputField) {
                 event.preventDefault();
-                openAddWidgetModal();
+                useWidgetStore.getState().openAddWidgetModal();
               }
               break;
           }
@@ -142,7 +141,7 @@ export function useKanbanShortcuts(options: UseKanbanShortcutsOptions = {}) {
           case "n":
             // n: Add new widget (quick)
             event.preventDefault();
-            openAddWidgetModal();
+            useWidgetStore.getState().openAddWidgetModal();
             break;
 
           case "c":
@@ -158,7 +157,6 @@ export function useKanbanShortcuts(options: UseKanbanShortcutsOptions = {}) {
       searchInputRef,
       openAddColumnModal,
       openManageColumnsModal,
-      openAddWidgetModal,
       clearGlobalFilter,
       setSearchTerm,
       collapseAllColumns,

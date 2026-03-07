@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Copy, ArrowUpDown, Binary, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface Base64ToolWidgetProps {
   widget: Widget;
@@ -15,6 +16,7 @@ interface Base64ToolWidgetProps {
 type Mode = "encode" | "decode";
 
 export function Base64ToolWidget({}: Base64ToolWidgetProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("encode");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
@@ -106,17 +108,17 @@ export function Base64ToolWidget({}: Base64ToolWidgetProps) {
   // Copy output to clipboard
   const copyToClipboard = useCallback(async () => {
     if (!output) {
-      toast.error("Nothing to copy");
+      toast.error(t("base64.nothingToCopy"));
       return;
     }
 
     try {
       await navigator.clipboard.writeText(output);
-      toast.success("Copied to clipboard");
+      toast.success(t("base64.copied"));
     } catch (_err) {
-      toast.error("Failed to copy to clipboard");
+      toast.error(t("base64.copyFailed"));
     }
-  }, [output]);
+  }, [output, t]);
 
   // Clear all fields
   const clearAll = useCallback(() => {
@@ -152,7 +154,7 @@ export function Base64ToolWidget({}: Base64ToolWidgetProps) {
       {/* Mode Indicator */}
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 p-2">
         <div className="flex flex-1 items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Mode:</span>
+          <span className="text-xs font-medium text-muted-foreground">{t("base64.mode")}:</span>
           <div className="flex gap-1">
             <div
               className={cn(
@@ -181,15 +183,15 @@ export function Base64ToolWidget({}: Base64ToolWidgetProps) {
       {/* Input Section */}
       <div className="flex flex-1 flex-col gap-2">
         <label className="text-xs font-medium text-muted-foreground">
-          {mode === "encode" ? "Text to encode" : "Base64 to decode"}
+          {mode === "encode" ? t("base64.textToEncode") : t("base64.base64ToDecode")}
         </label>
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={
             mode === "encode"
-              ? "Enter text to encode..."
-              : "Enter Base64 string to decode..."
+              ? t("base64.encodePlaceholder")
+              : t("base64.decodePlaceholder")
           }
           className="min-h-[80px] flex-1 resize-none font-mono text-xs @md:text-sm"
         />
@@ -199,7 +201,7 @@ export function Base64ToolWidget({}: Base64ToolWidgetProps) {
       <div className="flex flex-1 flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-medium text-muted-foreground">
-            {mode === "encode" ? "Base64 output" : "Decoded text"}
+            {mode === "encode" ? t("base64.base64Output") : t("base64.decodedText")}
           </label>
           <div className="flex items-center gap-1">
             <Button
@@ -229,7 +231,7 @@ export function Base64ToolWidget({}: Base64ToolWidgetProps) {
         <Textarea
           value={output}
           readOnly
-          placeholder={error || "Output will appear here..."}
+          placeholder={error || t("base64.outputPlaceholder")}
           className={cn(
             "min-h-[80px] flex-1 resize-none font-mono text-xs @md:text-sm",
             error && "text-red-500 placeholder:text-red-500"

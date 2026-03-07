@@ -28,6 +28,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface ParkingLotEnhancedWidgetProps {
   widget: Widget;
@@ -52,17 +53,18 @@ interface ParkingLotEnhancedConfig {
 
 const DEFAULT_CATEGORIES = ["Feature", "Bug", "Mejora", "Investigar", "Otro"];
 
-const STATUS_CONFIG = {
-  pending: { label: "Pendiente", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30" },
-  implemented: { label: "Implementado", color: "bg-green-500/10 text-green-600 border-green-500/30" },
-  rejected: { label: "Rechazado", color: "bg-red-500/10 text-red-600 border-red-500/30" },
+const STATUS_CONFIG: Record<IdeaStatus, { labelKey: string; color: string }> = {
+  pending: { labelKey: "parkingLot.statusPending", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30" },
+  implemented: { labelKey: "parkingLot.statusImplemented", color: "bg-green-500/10 text-green-600 border-green-500/30" },
+  rejected: { labelKey: "parkingLot.statusRejected", color: "bg-red-500/10 text-red-600 border-red-500/30" },
 };
 
 type SortOption = "votes" | "newest" | "oldest";
 
 export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetProps) {
+  const { t } = useTranslation();
   const config: ParkingLotEnhancedConfig = widget.config || {};
-  const items: ParkingLotItem[] = config.parkingLotItems || [];
+  const items: ParkingLotItem[] = useMemo(() => config.parkingLotItems || [], [config.parkingLotItems]);
   const categories = config.categories || DEFAULT_CATEGORIES;
 
   const [newItemTitle, setNewItemTitle] = useState("");
@@ -153,9 +155,9 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Ideas y Backlog</span>
+            <span className="text-sm font-medium">{t("parkingLot.title")}</span>
             <Badge variant="secondary" className="text-[10px] h-5">
-              {pendingCount} pendientes
+              {t("parkingLot.pendingCount", { count: pendingCount })}
             </Badge>
           </div>
           <Button
@@ -175,13 +177,13 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
                 <Tag className="w-3 h-3" />
-                {filterCategory || "Categoria"}
+                {filterCategory || t("parkingLot.category")}
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={() => setFilterCategory(null)}>
-                Todas las categorias
+                {t("parkingLot.allCategories")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {categories.map((cat) => (
@@ -197,18 +199,18 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
                 <Filter className="w-3 h-3" />
-                {filterStatus ? STATUS_CONFIG[filterStatus].label : "Estado"}
+                {filterStatus ? t(STATUS_CONFIG[filterStatus].labelKey) : t("parkingLot.status")}
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={() => setFilterStatus(null)}>
-                Todos los estados
+                {t("parkingLot.allStatuses")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {(Object.keys(STATUS_CONFIG) as IdeaStatus[]).map((status) => (
                 <DropdownMenuItem key={status} onClick={() => setFilterStatus(status)}>
-                  {STATUS_CONFIG[status].label}
+                  {t(STATUS_CONFIG[status].labelKey)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -218,19 +220,19 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1 ml-auto">
-                Ordenar
+                {t("parkingLot.sort")}
                 <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setSortBy("votes")}>
-                Mas votados
+                {t("parkingLot.sortMostVoted")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy("newest")}>
-                Mas recientes
+                {t("parkingLot.sortNewest")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy("oldest")}>
-                Mas antiguos
+                {t("parkingLot.sortOldest")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -256,7 +258,7 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
                       setNewItemTitle("");
                     }
                   }}
-                  placeholder="Describe la idea..."
+                  placeholder={t("parkingLot.ideaPlaceholder")}
                   className="h-8 text-sm"
                   autoFocus
                 />
@@ -297,8 +299,8 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
           {filteredAndSortedItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Lightbulb className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">Sin ideas aun</p>
-              <p className="text-xs">Haz clic en + para agregar una</p>
+              <p className="text-sm">{t("parkingLot.noIdeas")}</p>
+              <p className="text-xs">{t("parkingLot.noIdeasHint")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -362,7 +364,7 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
                             {item.category}
                           </Badge>
                           <Badge className={cn("text-[10px] h-5 border", STATUS_CONFIG[item.status].color)}>
-                            {STATUS_CONFIG[item.status].label}
+                            {t(STATUS_CONFIG[item.status].labelKey)}
                           </Badge>
                         </div>
                       </div>
@@ -374,14 +376,14 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
                             <button
                               onClick={() => setStatus(item.id, "implemented")}
                               className="p-1 rounded hover:bg-green-500/10 transition-colors"
-                              title="Marcar como implementado"
+                              title={t("parkingLot.markImplemented")}
                             >
                               <Check className="w-3.5 h-3.5 text-green-600" />
                             </button>
                             <button
                               onClick={() => setStatus(item.id, "rejected")}
                               className="p-1 rounded hover:bg-red-500/10 transition-colors"
-                              title="Marcar como rechazado"
+                              title={t("parkingLot.markRejected")}
                             >
                               <X className="w-3.5 h-3.5 text-red-600" />
                             </button>
@@ -390,7 +392,7 @@ export function ParkingLotEnhancedWidget({ widget }: ParkingLotEnhancedWidgetPro
                         <button
                           onClick={() => deleteItem(item.id)}
                           className="p-1 rounded hover:bg-destructive/10 transition-colors"
-                          title="Eliminar"
+                          title={t("parkingLot.delete")}
                         >
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </button>

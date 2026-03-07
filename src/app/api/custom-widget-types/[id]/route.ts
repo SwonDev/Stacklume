@@ -8,12 +8,14 @@ import { validateRequest } from "@/lib/validations";
 
 const log = createModuleLogger("api/custom-widget-types/[id]");
 
+const uuidSchema = z.string().uuid();
+
 const updateCustomWidgetTypeSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).nullable().optional(),
   category: z.string().max(50).optional(),
   icon: z.string().max(50).optional(),
-  htmlTemplate: z.string().min(1).optional(),
+  htmlTemplate: z.string().min(1).max(500_000, "HTML template must be 500KB or less").optional(),
   configSchema: z.record(z.string(), z.unknown()).nullable().optional(),
   defaultConfig: z.record(z.string(), z.unknown()).nullable().optional(),
   defaultWidth: z.number().int().min(1).max(12).optional(),
@@ -26,6 +28,13 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const [type] = await withRetry(
       () =>
         db
@@ -49,6 +58,13 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const body = await request.json();
     const validation = validateRequest(updateCustomWidgetTypeSchema, body);
     if (!validation.success) {
@@ -83,6 +99,13 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     await withRetry(
       () =>
         db

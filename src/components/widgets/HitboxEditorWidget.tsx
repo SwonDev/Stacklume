@@ -123,8 +123,8 @@ export function HitboxEditorWidget({ widget }: HitboxEditorWidgetProps) {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [zoom, setZoom] = useState<number>(widget.config?.hitboxZoom || 1);
   const [showGrid, setShowGrid] = useState(true);
-  const [gridSnap, setGridSnap] = useState(true);
-  const [gridSize, setGridSize] = useState(8);
+  const [gridSnap, _setGridSnap] = useState(true);
+  const [gridSize, _setGridSize] = useState(8);
 
   // Tool state
   const [tool, setTool] = useState<Tool>("select");

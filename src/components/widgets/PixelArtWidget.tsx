@@ -41,7 +41,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { motion } from "motion/react";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
@@ -160,6 +159,7 @@ export function PixelArtWidget({ widget }: PixelArtWidgetProps) {
       saveToConfig();
     }, 1000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixels, frames]);
 
   // Draw canvas

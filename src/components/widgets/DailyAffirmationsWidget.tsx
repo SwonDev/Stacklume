@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface DailyAffirmationsWidgetProps {
   widget: Widget;
@@ -76,6 +77,7 @@ const AFFIRMATIONS = [
 ];
 
 export function DailyAffirmationsWidget({ widget }: DailyAffirmationsWidgetProps) {
+  const { t } = useTranslation();
   const [showFavorites, setShowFavorites] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(() =>
     Math.floor(Math.random() * AFFIRMATIONS.length)
@@ -156,7 +158,7 @@ export function DailyAffirmationsWidget({ widget }: DailyAffirmationsWidgetProps
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-medium">Afirmaciones</span>
+            <span className="text-sm font-medium">{t("affirmations.title")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -190,10 +192,10 @@ export function DailyAffirmationsWidget({ widget }: DailyAffirmationsWidgetProps
                 <Heart className="w-6 h-6 text-amber-400" />
               </div>
               <p className="text-sm text-muted-foreground">
-                No tienes favoritos aun
+                {t("affirmations.noFavorites")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Guarda afirmaciones que te inspiren
+                {t("affirmations.saveFavorites")}
               </p>
               <Button
                 size="sm"
@@ -201,7 +203,7 @@ export function DailyAffirmationsWidget({ widget }: DailyAffirmationsWidgetProps
                 className="mt-3"
                 onClick={() => setShowFavorites(false)}
               >
-                Ver todas
+                {t("affirmations.viewAll")}
               </Button>
             </div>
           ) : (
@@ -243,7 +245,7 @@ export function DailyAffirmationsWidget({ widget }: DailyAffirmationsWidgetProps
                   size="icon"
                   className="h-10 w-10"
                   onClick={toggleFavorite}
-                  title={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+                  title={isFavorite ? t("affirmations.removeFromFavorites") : t("affirmations.addToFavorites")}
                 >
                   <Heart
                     className={cn(
@@ -261,7 +263,7 @@ export function DailyAffirmationsWidget({ widget }: DailyAffirmationsWidgetProps
                   className="h-10 w-10 rounded-full"
                   onClick={shuffleAffirmation}
                   disabled={displayedList.length <= 1}
-                  title="Afirmacion aleatoria"
+                  title={t("affirmations.randomAffirmation")}
                 >
                   <Shuffle className="w-4 h-4" />
                 </Button>

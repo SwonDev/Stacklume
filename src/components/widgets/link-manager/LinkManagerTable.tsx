@@ -11,7 +11,6 @@ import {
   ChevronUp,
   ChevronDown,
   Plus,
-  Tag as TagIcon,
   CheckIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,6 +39,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { useLinksStore } from "@/stores/links-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Link, Tag, Category } from "@/lib/db/schema";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
@@ -106,6 +106,7 @@ export function LinkManagerTable({
   const addLinkTag = useLinksStore((state) => state.addLinkTag);
   const removeLinkTag = useLinksStore((state) => state.removeLinkTag);
 
+  const { t } = useTranslation();
   const allSelected = links.length > 0 && selectedIds.size === links.length;
   const someSelected = selectedIds.size > 0 && selectedIds.size < links.length;
 
@@ -113,7 +114,7 @@ export function LinkManagerTable({
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <p className="text-muted-foreground text-sm">
-          No se encontraron enlaces
+          {t("linkManager.noLinksFound")}
         </p>
       </div>
     );
@@ -131,13 +132,13 @@ export function LinkManagerTable({
         </div>
         <div className="w-8 flex-shrink-0" />
         <div className="flex-1 min-w-[200px]">
-          <SortHeader column="title" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange}>Título</SortHeader>
+          <SortHeader column="title" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange}>{t("linkManager.tableTitle")}</SortHeader>
         </div>
-        <div className="w-[150px] flex-shrink-0 hidden @lg:block">URL</div>
-        <div className="w-[120px] flex-shrink-0 hidden @md:block">Categoría</div>
-        <div className="w-[150px] flex-shrink-0 hidden @lg:block">Etiquetas</div>
+        <div className="w-[150px] flex-shrink-0 hidden @lg:block">{t("linkManager.tableUrl")}</div>
+        <div className="w-[120px] flex-shrink-0 hidden @md:block">{t("linkManager.tableCategory")}</div>
+        <div className="w-[150px] flex-shrink-0 hidden @lg:block">{t("linkManager.tableTags")}</div>
         <div className="w-[100px] flex-shrink-0 hidden @xl:block">
-          <SortHeader column="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange}>Creado</SortHeader>
+          <SortHeader column="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange}>{t("linkManager.tableCreated")}</SortHeader>
         </div>
         <div className="w-8 flex-shrink-0" />
         <div className="w-8 flex-shrink-0" />
@@ -195,6 +196,7 @@ function TableRow({
   onAddLinkTag,
   onRemoveLinkTag,
 }: TableRowProps) {
+  const { t } = useTranslation();
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
 
@@ -309,6 +311,7 @@ function TableRow({
       {/* Favicon */}
       <div className="w-8 flex-shrink-0">
         {link.faviconUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.faviconUrl}
             alt=""
@@ -375,13 +378,13 @@ function TableRow({
           <PopoverContent className="w-56 p-0" align="start">
             <Command>
               <CommandInput
-                placeholder="Buscar etiqueta..."
+                placeholder={t("linkManager.searchTag")}
                 value={tagSearch}
                 onValueChange={setTagSearch}
               />
               <CommandList>
-                <CommandEmpty>No se encontraron etiquetas</CommandEmpty>
-                <CommandGroup heading="Etiquetas asignadas">
+                <CommandEmpty>{t("linkManager.noTagsFound")}</CommandEmpty>
+                <CommandGroup heading={t("linkManager.assignedTags")}>
                   {selectedTags.map((tag) => (
                     <CommandItem
                       key={tag.id}
@@ -393,7 +396,7 @@ function TableRow({
                   ))}
                 </CommandGroup>
                 {filteredTags.length > 0 && (
-                  <CommandGroup heading="Disponibles">
+                  <CommandGroup heading={t("linkManager.availableTags")}>
                     {filteredTags.map((tag) => (
                       <CommandItem
                         key={tag.id}
@@ -446,11 +449,11 @@ function TableRow({
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="w-4 h-4 mr-2" />
-              Editar
+              {t("linkManager.edit")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleCopyUrl}>
               <Copy className="w-4 h-4 mr-2" />
-              Copiar URL
+              {t("linkManager.copyUrl")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -458,7 +461,7 @@ function TableRow({
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Eliminar
+              {t("linkManager.delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

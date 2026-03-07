@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface WeatherWidgetProps {
   widget: Widget;
@@ -147,7 +148,7 @@ const getWeatherGradient = (condition: WeatherCondition): string => {
 };
 
 export function WeatherWidget({ widget }: WeatherWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -168,6 +169,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
       // Default location - Madrid
       loadWeatherForLocation("Madrid");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadWeatherForLocation/loadWeatherForCoordinates are plain functions; relevant config changes are tracked
   }, [widget.config?.location, widget.config?.lat, widget.config?.lon]);
 
   const loadWeatherForCoordinates = async (lat: number, lon: number, locationName: string) => {
@@ -190,7 +192,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
       const geoData = await geocodeCity(location);
       if (geoData) {
         // Save coordinates for future use
-        updateWidget(widget.id, {
+        useWidgetStore.getState().updateWidget(widget.id, {
           config: {
             ...widget.config,
             lat: geoData.lat,
@@ -251,9 +253,9 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
             `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=es&format=json`
           );
           const data = await response.json();
-          const locationName = data.results?.[0]?.name || "Mi ubicación";
+          const locationName = data.results?.[0]?.name || t("weather.myLocation");
 
-          updateWidget(widget.id, {
+          useWidgetStore.getState().updateWidget(widget.id, {
             config: {
               ...widget.config,
               lat: latitude,
@@ -267,16 +269,16 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
         } catch (error) {
           console.error("Reverse geocoding error:", error);
           // Fallback: use coordinates directly
-          updateWidget(widget.id, {
+          useWidgetStore.getState().updateWidget(widget.id, {
             config: {
               ...widget.config,
               lat: latitude,
               lon: longitude,
-              location: "Mi ubicación",
+              location: t("weather.myLocation"),
               useGeolocation: true,
             },
           });
-          await loadWeatherForCoordinates(latitude, longitude, "Mi ubicación");
+          await loadWeatherForCoordinates(latitude, longitude, t("weather.myLocation"));
         }
 
         setUseGeolocation(false);
@@ -295,7 +297,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
         <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
           <MapPin className="w-8 h-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground text-center">
-            Ingresa una ciudad
+            {t("weather.enterCity")}
           </p>
           <div className="w-full max-w-xs space-y-3">
             <Input
@@ -313,14 +315,14 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
                 size="sm"
                 disabled={!locationInput.trim()}
               >
-                Confirmar
+                {t("weather.confirm")}
               </Button>
               <Button
                 onClick={() => setIsEditing(false)}
                 variant="outline"
                 size="sm"
               >
-                Cancelar
+                {t("weather.cancel")}
               </Button>
             </div>
             <Button
@@ -331,7 +333,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
               disabled={useGeolocation}
             >
               <MapPin className="w-4 h-4" />
-              Usar mi ubicación
+              {t("weather.useMyLocation")}
             </Button>
           </div>
         </div>
@@ -414,12 +416,12 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
             transition={{ delay: 0.2 }}
             className="text-sm @sm:text-base @md:text-lg text-muted-foreground mt-1 @sm:mt-2 capitalize"
           >
-            {weatherData.condition === "sunny" && "Soleado"}
-            {weatherData.condition === "cloudy" && "Nublado"}
-            {weatherData.condition === "rainy" && "Lluvioso"}
-            {weatherData.condition === "drizzle" && "Llovizna"}
-            {weatherData.condition === "snow" && "Nevado"}
-            {weatherData.condition === "windy" && "Ventoso"}
+            {weatherData.condition === "sunny" && t("weather.sunny")}
+            {weatherData.condition === "cloudy" && t("weather.cloudy")}
+            {weatherData.condition === "rainy" && t("weather.rainy")}
+            {weatherData.condition === "drizzle" && t("weather.drizzle")}
+            {weatherData.condition === "snow" && t("weather.snow")}
+            {weatherData.condition === "windy" && t("weather.windy")}
           </motion.div>
 
           {/* Feels like - visible on medium+ containers */}
@@ -430,7 +432,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
             className="hidden @md:flex items-center gap-1 mt-2 text-xs @lg:text-sm text-muted-foreground"
           >
             <Thermometer className="w-3 h-3 @lg:w-4 @lg:h-4" />
-            Sensación: {weatherData.feelsLike}°
+            {t("weather.feelsLike")}: {weatherData.feelsLike}°
           </motion.div>
         </div>
 
@@ -446,7 +448,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
               <Droplets className="w-4 h-4 @md:w-5 @md:h-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Humedad</p>
+              <p className="text-xs text-muted-foreground">{t("weather.humidity")}</p>
               <p className="text-sm @md:text-base font-semibold">
                 {weatherData.humidity}%
               </p>
@@ -458,7 +460,7 @@ export function WeatherWidget({ widget }: WeatherWidgetProps) {
               <Wind className="w-4 h-4 @md:w-5 @md:h-5 text-slate-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Viento</p>
+              <p className="text-xs text-muted-foreground">{t("weather.wind")}</p>
               <p className="text-sm @md:text-base font-semibold">
                 {weatherData.windSpeed} km/h
               </p>

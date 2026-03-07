@@ -5,6 +5,7 @@ import { Copy, RefreshCw, MapPin, Server, Clock, Network } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 import { toast } from "sonner";
 
 interface IPInfoWidgetProps {
@@ -42,6 +43,7 @@ const fetchIPInfo = async (): Promise<IPData | null> => {
 };
 
 export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
+  const { t } = useTranslation();
   const [ipData, setIpData] = useState<IPData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,10 +60,10 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
         setIpData(data);
         setLastUpdated(new Date());
       } else {
-        setError("No se pudo obtener la información");
+        setError(t("ipInfo.fetchError"));
       }
     } catch (err) {
-      setError("Error al cargar datos");
+      setError(t("ipInfo.loadError"));
       console.error("Error loading IP info:", err);
     } finally {
       setIsLoading(false);
@@ -70,12 +72,13 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
 
   useEffect(() => {
     loadIPInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally run only on mount to load IP info once
   }, []);
 
   const handleCopyIP = () => {
     if (ipData?.ip) {
       navigator.clipboard.writeText(ipData.ip);
-      toast.success("IP copiada al portapapeles");
+      toast.success(t("ipInfo.ipCopied"));
     }
   };
 
@@ -112,7 +115,7 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
             <Network className="w-6 h-6 text-destructive" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-foreground mb-1">Error al cargar</p>
+            <p className="text-sm font-medium text-foreground mb-1">{t("ipInfo.loadError")}</p>
             <p className="text-xs text-muted-foreground mb-4">{error}</p>
             <Button size="sm" onClick={handleRefresh} variant="outline">
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -136,7 +139,7 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
               <Network className="w-4 h-4 @sm:w-5 @sm:h-5 text-primary" />
             </div>
             <div className="hidden @sm:block">
-              <h3 className="text-sm font-medium text-foreground">Tu IP</h3>
+              <h3 className="text-sm font-medium text-foreground">{t("ipInfo.yourIP")}</h3>
               <p className="text-xs text-muted-foreground">
                 {lastUpdated ? lastUpdated.toLocaleTimeString() : ""}
               </p>
@@ -161,7 +164,7 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
           className="flex items-center justify-between p-3 @sm:p-4 rounded-lg bg-secondary/50 border border-border/50"
         >
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground mb-1">Dirección IP</p>
+            <p className="text-xs text-muted-foreground mb-1">{t("ipInfo.ipAddress")}ón IP</p>
             <p className="text-lg @sm:text-xl @md:text-2xl font-mono font-bold text-foreground truncate">
               {ipData.ip}
             </p>
@@ -189,7 +192,7 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
               <MapPin className="w-4 h-4 text-blue-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">Ubicación</p>
+              <p className="text-xs text-muted-foreground">{t("ipInfo.location")}</p>
               <p className="text-sm @sm:text-base font-medium text-foreground truncate">
                 {ipData.city}
                 {ipData.region && `, ${ipData.region}`}
@@ -206,9 +209,9 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
               <Server className="w-4 h-4 text-purple-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">ISP/Organización</p>
+              <p className="text-xs text-muted-foreground">{t("ipInfo.isp")}ón</p>
               <p className="text-sm @sm:text-base font-medium text-foreground break-words">
-                {ipData.org || "No disponible"}
+                {ipData.org || t("ipInfo.notAvailable")}
               </p>
             </div>
           </div>
@@ -219,7 +222,7 @@ export function IPInfoWidget({ widget: _widget }: IPInfoWidgetProps) {
               <Clock className="w-4 h-4 text-green-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">Zona Horaria</p>
+              <p className="text-xs text-muted-foreground">{t("ipInfo.timezone")}</p>
               <p className="text-sm @sm:text-base font-medium text-foreground truncate">
                 {ipData.timezone || "No disponible"}
               </p>

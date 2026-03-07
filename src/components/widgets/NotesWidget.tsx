@@ -6,13 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface NotesWidgetProps {
   widget: Widget;
 }
 
 export function NotesWidget({ widget }: NotesWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t } = useTranslation();
   const [notes, setNotes] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,7 +47,7 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
     localStorage.setItem(`notes-${widget.id}`, notes);
 
     // Save to widget config
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         noteContent: notes,
@@ -84,13 +85,13 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
     const diff = now.getTime() - lastSaved.getTime();
     const minutes = Math.floor(diff / 60000);
 
-    if (minutes < 1) return "Guardado hace un momento";
-    if (minutes === 1) return "Guardado hace 1 minuto";
-    if (minutes < 60) return `Guardado hace ${minutes} minutos`;
+    if (minutes < 1) return t("notes.savedJustNow");
+    if (minutes === 1) return t("notes.savedMinuteAgo");
+    if (minutes < 60) return t("notes.savedMinutesAgo", { minutes });
 
     const hours = Math.floor(minutes / 60);
-    if (hours === 1) return "Guardado hace 1 hora";
-    if (hours < 24) return `Guardado hace ${hours} horas`;
+    if (hours === 1) return t("notes.savedHourAgo");
+    if (hours < 24) return t("notes.savedHoursAgo", { hours });
 
     return lastSaved.toLocaleDateString();
   };
@@ -106,10 +107,10 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
             </div>
             <div className="px-4">
               <p className="text-xs text-muted-foreground mb-1 @md:text-sm @lg:text-base">
-                Sin notas
+                {t("notes.noNotes")}
               </p>
               <p className="text-xs text-muted-foreground/60 @md:text-xs @lg:text-sm">
-                Haz clic para empezar a escribir
+                {t("notes.clickToStart")}
               </p>
             </div>
           </div>
@@ -120,7 +121,7 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
           <Textarea
             value={notes}
             onChange={(e) => handleNotesChange(e.target.value)}
-            placeholder="Escribe tus notas aquí..."
+            placeholder={t("notes.placeholder")}
             className="h-full w-full resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent
                        text-xs leading-relaxed p-3
                        @xs:text-xs @xs:p-3
@@ -149,12 +150,12 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
                   {isSaving ? (
                     <>
                       <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Guardando...
+                      {t("notes.saving")}
                     </>
                   ) : (
                     <>
                       <Save className="w-3 h-3 @sm:w-3.5 @sm:h-3.5" />
-                      Guardar notas
+                      {t("notes.save")}
                     </>
                   )}
                 </Button>
@@ -166,10 +167,10 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1.5">
                       <Type className="w-3 h-3" />
-                      {characterCount} caracteres
+                      {t("notes.characters", { count: characterCount })}
                     </span>
                     <span className="hidden @md:inline">
-                      {wordCount} {wordCount === 1 ? 'palabra' : 'palabras'}
+                      {wordCount} {wordCount === 1 ? t("notes.word") : t("notes.words")}
                     </span>
                   </div>
 
@@ -180,10 +181,10 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
                       size="sm"
                       onClick={handleExport}
                       className="h-6 px-2 text-xs"
-                      title="Exportar notas"
+                      title={t("notes.export")}
                     >
                       <Download className="w-3 h-3 mr-1" />
-                      Exportar
+                      {t("notes.export")}
                     </Button>
 
                     {/* Large containers: Add last saved indicator */}
@@ -204,7 +205,7 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
                   {lastSaved && (
                     <span className="flex items-center gap-1">
                       <Check className="w-3 h-3" />
-                      Guardado
+                      {t("notes.saved")}
                     </span>
                   )}
                 </div>
@@ -217,10 +218,10 @@ export function NotesWidget({ widget }: NotesWidgetProps) {
         {notes && !isDirty && (
           <div className="hidden @lg:block border-t bg-muted/20 px-5 py-2">
             <div className="flex items-center gap-4 text-xs text-muted-foreground/50">
-              <span>Sugerencias:</span>
-              <span>Usa # para títulos</span>
-              <span>- para listas</span>
-              <span>**negrita**</span>
+              <span>{t("notes.suggestions")}:</span>
+              <span>{t("notes.suggestHeadings")}</span>
+              <span>{t("notes.suggestLists")}</span>
+              <span>{t("notes.suggestBold")}</span>
             </div>
           </div>
         )}

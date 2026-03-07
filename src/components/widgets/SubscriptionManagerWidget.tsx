@@ -9,7 +9,6 @@ import {
   Calendar,
   AlertCircle,
   RotateCcw,
-  TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +34,7 @@ import {
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 interface SubscriptionManagerWidgetProps {
   widget: Widget;
@@ -51,27 +51,27 @@ interface Subscription {
 }
 
 const SUBSCRIPTION_COLORS = [
-  { name: "Rojo", value: "rgb(239, 68, 68)", class: "bg-red-500" },
-  { name: "Naranja", value: "rgb(249, 115, 22)", class: "bg-orange-500" },
-  { name: "Verde", value: "rgb(34, 197, 94)", class: "bg-green-500" },
-  { name: "Azul", value: "rgb(59, 130, 246)", class: "bg-blue-500" },
-  { name: "Morado", value: "rgb(168, 85, 247)", class: "bg-purple-500" },
-  { name: "Rosa", value: "rgb(236, 72, 153)", class: "bg-pink-500" },
-  { name: "Cian", value: "rgb(6, 182, 212)", class: "bg-cyan-500" },
-  { name: "Gris", value: "rgb(107, 114, 128)", class: "bg-gray-500" },
+  { nameKey: "colors.red", value: "rgb(239, 68, 68)", class: "bg-red-500" },
+  { nameKey: "colors.orange", value: "rgb(249, 115, 22)", class: "bg-orange-500" },
+  { nameKey: "colors.green", value: "rgb(34, 197, 94)", class: "bg-green-500" },
+  { nameKey: "colors.blue", value: "rgb(59, 130, 246)", class: "bg-blue-500" },
+  { nameKey: "colors.purple", value: "rgb(168, 85, 247)", class: "bg-purple-500" },
+  { nameKey: "colors.pink", value: "rgb(236, 72, 153)", class: "bg-pink-500" },
+  { nameKey: "colors.cyan", value: "rgb(6, 182, 212)", class: "bg-cyan-500" },
+  { nameKey: "colors.gray", value: "rgb(107, 114, 128)", class: "bg-gray-500" },
 ];
 
-const SUBSCRIPTION_CATEGORIES = [
-  "Streaming",
-  "Musica",
-  "Software",
-  "Gaming",
-  "Almacenamiento",
-  "Productividad",
-  "Fitness",
-  "Noticias",
-  "Educacion",
-  "Otro",
+const SUBSCRIPTION_CATEGORY_KEYS: { id: string; labelKey: string }[] = [
+  { id: "streaming", labelKey: "subscriptionManager.cat.streaming" },
+  { id: "music", labelKey: "subscriptionManager.cat.music" },
+  { id: "software", labelKey: "subscriptionManager.cat.software" },
+  { id: "gaming", labelKey: "subscriptionManager.cat.gaming" },
+  { id: "storage", labelKey: "subscriptionManager.cat.storage" },
+  { id: "productivity", labelKey: "subscriptionManager.cat.productivity" },
+  { id: "fitness", labelKey: "subscriptionManager.cat.fitness" },
+  { id: "news", labelKey: "subscriptionManager.cat.news" },
+  { id: "education", labelKey: "subscriptionManager.cat.education" },
+  { id: "other", labelKey: "subscriptionManager.cat.other" },
 ];
 
 const formatCurrency = (amount: number): string => {
@@ -121,6 +121,7 @@ const getRenewalStatus = (
 export function SubscriptionManagerWidget({
   widget,
 }: SubscriptionManagerWidgetProps) {
+  const { t } = useTranslation();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] =
@@ -136,7 +137,7 @@ export function SubscriptionManagerWidget({
   const [formColor, setFormColor] = useState(SUBSCRIPTION_COLORS[0].value);
   const [formCategory, setFormCategory] = useState("");
 
-  const subscriptions: Subscription[] = widget.config?.subscriptions || [];
+  const subscriptions: Subscription[] = useMemo(() => widget.config?.subscriptions || [], [widget.config?.subscriptions]);
 
   const saveSubscriptions = useCallback(
     (items: Subscription[]) => {
@@ -290,10 +291,10 @@ export function SubscriptionManagerWidget({
             </motion.div>
             <div>
               <p className="text-sm font-medium text-foreground mb-1 @md:text-base">
-                Sin suscripciones
+                {t("subscriptionManager.noSubscriptions")}
               </p>
               <p className="text-xs text-muted-foreground @md:text-sm">
-                Añade tus suscripciones para llevar un control de gastos
+                Añade tus {t("subscriptionManager.subscriptionsDescription")} para llevar un control de gastos
               </p>
             </div>
             <Button
@@ -484,7 +485,7 @@ export function SubscriptionManagerWidget({
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nueva suscripcion</DialogTitle>
+            <DialogTitle>{t("subscriptionManager.newSubscription")}</DialogTitle>
             <DialogDescription>
               Añade una suscripcion para llevar el control
             </DialogDescription>
@@ -492,7 +493,7 @@ export function SubscriptionManagerWidget({
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="sub-name">Nombre</Label>
+              <Label htmlFor="sub-name">{t("subscriptionManager.name")}</Label>
               <Input
                 id="sub-name"
                 placeholder="ej: Netflix, Spotify, Adobe CC"
@@ -503,7 +504,7 @@ export function SubscriptionManagerWidget({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="sub-cost">Precio</Label>
+                <Label htmlFor="sub-cost">{t("subscriptionManager.price")}</Label>
                 <Input
                   id="sub-cost"
                   type="number"
@@ -515,7 +516,7 @@ export function SubscriptionManagerWidget({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sub-cycle">Ciclo de pago</Label>
+                <Label htmlFor="sub-cycle">{t("subscriptionManager.paymentCycle")}</Label>
                 <Select
                   value={formBillingCycle}
                   onValueChange={(v) =>
@@ -526,15 +527,15 @@ export function SubscriptionManagerWidget({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">Mensual</SelectItem>
-                    <SelectItem value="yearly">Anual</SelectItem>
+                    <SelectItem value="monthly">{t("subscriptionManager.monthly")}</SelectItem>
+                    <SelectItem value="yearly">{t("subscriptionManager.yearly")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sub-renewal">Proxima renovacion</Label>
+              <Label htmlFor="sub-renewal">{t("subscriptionManager.nextRenewal")}</Label>
               <Input
                 id="sub-renewal"
                 type="date"
@@ -544,15 +545,15 @@ export function SubscriptionManagerWidget({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sub-category">Categoria (opcional)</Label>
+              <Label htmlFor="sub-category">{t("subscriptionManager.categoryOptional")}</Label>
               <Select value={formCategory} onValueChange={setFormCategory}>
                 <SelectTrigger id="sub-category">
-                  <SelectValue placeholder="Seleccionar categoria" />
+                  <SelectValue placeholder={t("subscriptionManager.selectCategory")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUBSCRIPTION_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {SUBSCRIPTION_CATEGORY_KEYS.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {t(cat.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -560,7 +561,7 @@ export function SubscriptionManagerWidget({
             </div>
 
             <div className="space-y-2">
-              <Label>Color</Label>
+              <Label>{t("subscriptionManager.color")}</Label>
               <div className="flex flex-wrap gap-2">
                 {SUBSCRIPTION_COLORS.map((color) => (
                   <button
@@ -574,7 +575,7 @@ export function SubscriptionManagerWidget({
                         ? "ring-2 ring-offset-2 ring-primary scale-110"
                         : "hover:scale-110"
                     )}
-                    title={color.name}
+                    title={t(color.nameKey)}
                   />
                 ))}
               </div>
@@ -583,10 +584,10 @@ export function SubscriptionManagerWidget({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Cancelar
+              {t("subscriptionManager.cancel")}
             </Button>
             <Button onClick={handleAddSubscription} disabled={!isFormValid()}>
-              Añadir suscripcion
+              {t("subscriptionManager.addSubscription")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -596,9 +597,9 @@ export function SubscriptionManagerWidget({
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar suscripcion</DialogTitle>
+            <DialogTitle>{t("subscriptionManager.editSubscription")}</DialogTitle>
             <DialogDescription>
-              Modifica los detalles de la suscripcion
+              {t("subscriptionManager.editDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -638,8 +639,8 @@ export function SubscriptionManagerWidget({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">Mensual</SelectItem>
-                    <SelectItem value="yearly">Anual</SelectItem>
+                    <SelectItem value="monthly">{t("subscriptionManager.monthly")}</SelectItem>
+                    <SelectItem value="yearly">{t("subscriptionManager.yearly")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -662,9 +663,9 @@ export function SubscriptionManagerWidget({
                   <SelectValue placeholder="Seleccionar categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUBSCRIPTION_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {SUBSCRIPTION_CATEGORY_KEYS.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {t(cat.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -686,7 +687,7 @@ export function SubscriptionManagerWidget({
                         ? "ring-2 ring-offset-2 ring-primary scale-110"
                         : "hover:scale-110"
                     )}
-                    title={color.name}
+                    title={t(color.nameKey)}
                   />
                 ))}
               </div>
@@ -702,10 +703,10 @@ export function SubscriptionManagerWidget({
                 resetForm();
               }}
             >
-              Cancelar
+              {t("subscriptionManager.cancel")}
             </Button>
             <Button onClick={handleUpdateSubscription} disabled={!isFormValid()}>
-              Guardar cambios
+              {t("subscriptionManager.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>

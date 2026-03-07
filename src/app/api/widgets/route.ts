@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, widgets, withRetry, type NewWidget, generateId } from "@/lib/db";
 import { desc, eq, and, isNull } from "drizzle-orm";
+import { z } from "zod";
 import { createWidgetSchema, updateWidgetSchema, validateRequest } from "@/lib/validations";
+
+const uuidSchema = z.string().uuid();
 
 const DEFAULT_USER_ID = "default";
 
@@ -268,6 +271,12 @@ export async function DELETE(request: NextRequest) {
         { error: "ID de widget requerido" },
         { status: 400 }
       );
+    }
+
+    // Validate UUID format
+    const idResult = uuidSchema.safeParse(id);
+    if (!idResult.success) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     // Soft delete: set deletedAt timestamp instead of actually deleting

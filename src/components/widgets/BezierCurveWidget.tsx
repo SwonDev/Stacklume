@@ -388,6 +388,7 @@ export function BezierCurveWidget({ widget }: BezierCurveWidgetProps) {
       ctx.font = "12px monospace";
       ctx.fillText(`t = ${animationT.toFixed(2)}`, x + 12, y - 12);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getPointOnCurve and getTangentAtT are plain functions that only depend on points and curveType, both already in deps
   }, [points, showGrid, showHandles, showTangents, sampleCurve, animationT, isAnimating, curveType]);
 
   // Handle canvas mouse interactions

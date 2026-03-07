@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Newspaper, RefreshCw, ExternalLink, ArrowUp, MessageCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,7 +36,7 @@ const STORY_TYPES = {
 };
 
 export function HackerNewsWidget({ widget }: HackerNewsWidgetProps) {
-  const config = (widget.config as unknown as HNConfig) || {};
+  const config = useMemo(() => (widget.config as unknown as HNConfig) || {}, [widget.config]);
   const maxItems = config.hnMaxItems || 15;
   const storyType = config.hnStoryType || "top";
 

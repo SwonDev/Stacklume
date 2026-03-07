@@ -597,6 +597,7 @@ export function PhysicsPlaygroundWidget({ widget }: PhysicsPlaygroundWidgetProps
         });
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- normalizeVector and resolveCollision are pure math functions with no state deps
     [worldSettings, constraints, canvasHeight, canvasWidth, objects]
   );
 

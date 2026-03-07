@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "motion/react";
-import { Monitor, Smartphone, Tablet, Copy, Check, Gamepad2, Eye, Maximize2 } from "lucide-react";
+import { Monitor, Smartphone, Copy, Check, Gamepad2, Eye, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

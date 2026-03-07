@@ -44,6 +44,7 @@ import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface ColorPaletteWidgetProps {
   widget: Widget;
@@ -80,13 +81,13 @@ type ColorHarmony =
   | "split-complementary"
   | "monochromatic";
 
-const HARMONY_LABELS: Record<ColorHarmony, string> = {
-  complementary: "Complementary",
-  analogous: "Analogous",
-  triadic: "Triadic",
-  tetradic: "Tetradic",
-  "split-complementary": "Split Complementary",
-  monochromatic: "Monochromatic",
+const HARMONY_LABEL_KEYS: Record<ColorHarmony, string> = {
+  complementary: "colorPalette.complementary",
+  analogous: "colorPalette.analogous",
+  triadic: "colorPalette.triadic",
+  tetradic: "colorPalette.tetradic",
+  "split-complementary": "colorPalette.splitComplementary",
+  monochromatic: "colorPalette.monochromatic",
 };
 
 // Color conversion utilities
@@ -273,6 +274,7 @@ function createColorValue(hex: string, locked = false): ColorValue {
 }
 
 export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidgetProps) {
+  const { t } = useTranslation();
   const updateWidget = useWidgetStore(state => state.updateWidget);
   const storeWidget = useWidgetStore(
     state => state.widgets.find(w => w.id === initialWidget.id)
@@ -307,6 +309,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
         baseColor,
       },
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- updateWidget is stable; widget.config would cause infinite loop since this effect updates it
   }, [colors, savedPalettes, harmony, baseColor, widget.id]);
 
   const generatePalette = (newHarmony?: ColorHarmony, preserveLocked = false) => {
@@ -322,8 +325,8 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
 
     setColors(newColors);
     if (newHarmony) setHarmony(newHarmony);
-    toast.success("Palette generated", {
-      description: `${HARMONY_LABELS[targetHarmony]} harmony`,
+    toast.success(t("colorPalette.paletteGenerated"), {
+      description: t(HARMONY_LABEL_KEYS[targetHarmony]),
     });
   };
 
@@ -342,7 +345,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
       return createColorValue(hex);
     });
     setColors(newColors);
-    toast.success("Base color randomized");
+    toast.success(t("colorPalette.baseColorRandomized"));
   };
 
   const toggleLock = (index: number) => {
@@ -354,7 +357,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
   const copyToClipboard = async (text: string, label: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedValue(text);
-    toast.success("Copied to clipboard", {
+    toast.success(t("colorPalette.copied"), {
       description: label,
       duration: 1500,
     });
@@ -374,7 +377,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
     setSavedPalettes([...savedPalettes, newPalette]);
     setPaletteName("");
     setIsSaveDialogOpen(false);
-    toast.success("Palette saved", {
+    toast.success(t("colorPalette.paletteSaved"), {
       description: newPalette.name,
     });
   };
@@ -386,14 +389,14 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
       setBaseColor(palette.colors[0].hex);
     }
     setActiveTab("generator");
-    toast.success("Palette loaded", {
+    toast.success(t("colorPalette.paletteLoaded"), {
       description: palette.name,
     });
   };
 
   const deletePalette = (id: string) => {
     setSavedPalettes(savedPalettes.filter(p => p.id !== id));
-    toast.success("Palette deleted");
+    toast.success(t("colorPalette.paletteDeleted"));
   };
 
   const toggleFavorite = (id: string) => {
@@ -436,11 +439,11 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
         <TabsList className="grid w-full grid-cols-2 mb-2">
           <TabsTrigger value="generator" className="text-xs">
             <Palette className="w-3 h-3 mr-1" />
-            Generator
+            {t("colorPalette.generator")}
           </TabsTrigger>
           <TabsTrigger value="saved" className="text-xs">
             <Save className="w-3 h-3 mr-1" />
-            Saved ({savedPalettes.length})
+            {t("colorPalette.saved")} ({savedPalettes.length})
           </TabsTrigger>
         </TabsList>
 
@@ -480,9 +483,9 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(HARMONY_LABELS).map(([value, label]) => (
+                {Object.entries(HARMONY_LABEL_KEYS).map(([value, labelKey]) => (
                   <SelectItem key={value} value={value} className="text-xs">
-                    {label}
+                    {t(labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -577,7 +580,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
               onClick={regenerateUnlocked}
             >
               <RefreshCw className="w-3 h-3 mr-1" />
-              Regenerate
+              {t("colorPalette.regenerate")}
             </Button>
             <Button
               size="sm"
@@ -586,7 +589,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
               onClick={() => setIsSaveDialogOpen(true)}
             >
               <Save className="w-3 h-3 mr-1" />
-              Save
+              {t("colorPalette.save")}
             </Button>
           </div>
 
@@ -598,7 +601,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
               onClick={copyFullPalette}
             >
               <Copy className="w-3 h-3 mr-1" />
-              Copy All
+              {t("colorPalette.copyAll")}
             </Button>
             <Button
               size="sm"
@@ -625,9 +628,9 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
           {savedPalettes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
               <Save className="w-8 h-8 text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground">No saved palettes</p>
+              <p className="text-xs text-muted-foreground">{t("colorPalette.noSavedPalettes")}</p>
               <p className="text-[10px] text-muted-foreground/60 mt-1">
-                Generate and save palettes to see them here
+                {t("colorPalette.noSavedPalettesHint")}
               </p>
             </div>
           ) : (
@@ -682,7 +685,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
 
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="text-[9px] h-4">
-                        {HARMONY_LABELS[palette.harmony]}
+                        {t(HARMONY_LABEL_KEYS[palette.harmony])}
                       </Badge>
                       <Button
                         size="sm"
@@ -690,7 +693,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
                         className="h-5 text-[10px]"
                         onClick={() => loadPalette(palette)}
                       >
-                        Load
+                        {t("colorPalette.load")}
                       </Button>
                     </div>
                   </motion.div>
@@ -707,7 +710,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Save className="w-5 h-5 text-primary" />
-              Save Palette
+              {t("colorPalette.savePalette")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -721,7 +724,7 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
               ))}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="palette-name">Palette Name</Label>
+              <Label htmlFor="palette-name">{t("colorPalette.paletteName")}</Label>
               <Input
                 id="palette-name"
                 value={paletteName}
@@ -732,9 +735,9 @@ export function ColorPaletteWidget({ widget: initialWidget }: ColorPaletteWidget
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSaveDialogOpen(false)}>
-              Cancel
+              {t("colorPalette.cancel")}
             </Button>
-            <Button onClick={savePalette}>Save Palette</Button>
+            <Button onClick={savePalette}>{t("colorPalette.savePalette")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

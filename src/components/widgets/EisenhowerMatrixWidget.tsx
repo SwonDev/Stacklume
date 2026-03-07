@@ -322,10 +322,9 @@ function QuadrantSection({
 }
 
 export function EisenhowerMatrixWidget({ widget }: EisenhowerMatrixWidgetProps) {
-  const { updateWidget } = useWidgetStore();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const tasks: Task[] = (widget.config?.matrixTasks as unknown as Task[]) || [];
+  const tasks: Task[] = useMemo(() => (widget.config?.matrixTasks as unknown as Task[]) || [], [widget.config?.matrixTasks]);
   const showCompleted = widget.config?.showCompleted !== false;
 
   const sensors = useSensors(
@@ -352,7 +351,7 @@ export function EisenhowerMatrixWidget({ widget }: EisenhowerMatrixWidgetProps) 
   }, [tasks]);
 
   const saveTasks = (newTasks: Task[]) => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         matrixTasks: newTasks,
@@ -384,7 +383,7 @@ export function EisenhowerMatrixWidget({ widget }: EisenhowerMatrixWidgetProps) 
   };
 
   const toggleShowCompleted = () => {
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         showCompleted: !showCompleted,

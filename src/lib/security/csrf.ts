@@ -46,26 +46,18 @@ export function generateCsrfToken(): string {
 }
 
 /**
- * Timing-safe string comparison to prevent timing attacks
- * Compares two strings in constant time
+ * Timing-safe string comparison to prevent timing attacks.
+ * Uses HMAC comparison to avoid length leaks — both strings are hashed
+ * to fixed-length digests before comparison, so the time is constant
+ * regardless of input lengths.
  */
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still do the comparison to maintain constant time
-    // but we know the result will be false
-    const minLen = Math.min(a.length, b.length);
-    let result = a.length === b.length ? 0 : 1;
-    for (let i = 0; i < minLen; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    return result === 0;
-  }
-
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nodeCrypto = require("crypto") as typeof import("crypto");
+  const key = nodeCrypto.randomBytes(32);
+  const hmacA = nodeCrypto.createHmac("sha256", key).update(a).digest();
+  const hmacB = nodeCrypto.createHmac("sha256", key).update(b).digest();
+  return nodeCrypto.timingSafeEqual(hmacA, hmacB);
 }
 
 /**

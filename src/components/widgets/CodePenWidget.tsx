@@ -25,6 +25,7 @@ import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useTranslation } from "@/lib/i18n";
 
 interface CodePenWidgetProps {
   widget: Widget;
@@ -90,8 +91,7 @@ function buildEmbedUrl(
 }
 
 export function CodePenWidget({ widget }: CodePenWidgetProps) {
-  const { updateWidget } = useWidgetStore();
-  const { openAddLinkModal } = useLinksStore();
+  const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -100,12 +100,12 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
     const config = widget.config as CodePenConfig | undefined;
     if (config?.penUrl) {
       const penInfo = extractPenInfo(config.penUrl);
-      openAddLinkModal({
+      useLinksStore.getState().openAddLinkModal({
         url: config.penUrl,
         title: penInfo ? `CodePen by ${penInfo.user}` : "CodePen Snippet",
-        description: "Snippet de código de CodePen",
+        description: t("codepen.snippetDescription"),
       });
-      toast.success("Abriendo formulario para guardar enlace");
+      toast.success(t("codepen.openingForm"));
     }
   };
 
@@ -125,7 +125,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
   const handleSave = () => {
     const newPenInfo = formData.penUrl ? extractPenInfo(formData.penUrl) : null;
 
-    updateWidget(widget.id, {
+    useWidgetStore.getState().updateWidget(widget.id, {
       config: {
         ...widget.config,
         penUrl: formData.penUrl,
@@ -159,13 +159,13 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
         <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mb-3">
           <Code2 className="w-6 h-6 text-muted-foreground" />
         </div>
-        <p className="text-sm text-muted-foreground mb-1">No hay CodePen configurado</p>
+        <p className="text-sm text-muted-foreground mb-1">{t("codepen.noCodepen")}</p>
         <p className="text-xs text-muted-foreground/60 mb-4">
-          Agrega una URL de CodePen para mostrar tu snippet
+          {t("codepen.addUrlHint")}
         </p>
         <Button size="sm" onClick={() => setIsSettingsOpen(true)}>
           <Settings className="w-4 h-4 mr-2" />
-          Configurar
+          {t("codepen.configure")}
         </Button>
 
         {/* Settings Dialog */}
@@ -174,12 +174,12 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-primary" />
-                Configurar CodePen
+                {t("codepen.configureCodepen")}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="pen-url">URL del Pen</Label>
+                <Label htmlFor="pen-url">{t("codepen.penUrl")}</Label>
                 <Input
                   id="pen-url"
                   placeholder="https://codepen.io/usuario/pen/abc123"
@@ -187,38 +187,38 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
                   onChange={(e) => setFormData({ ...formData, penUrl: e.target.value })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Pega la URL completa de cualquier CodePen
+                  {t("codepen.pasteUrlHint")}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Tema</Label>
+                <Label>{t("codepen.theme")}</Label>
                 <Select
                   value={formData.theme}
                   onValueChange={(value: CodePenTheme) => setFormData({ ...formData, theme: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tema" />
+                    <SelectValue placeholder={t("codepen.selectTheme")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="dark">Oscuro</SelectItem>
-                    <SelectItem value="light">Claro</SelectItem>
-                    <SelectItem value="default">Por defecto</SelectItem>
+                    <SelectItem value="dark">{t("codepen.themeDark")}</SelectItem>
+                    <SelectItem value="light">{t("codepen.themeLight")}</SelectItem>
+                    <SelectItem value="default">{t("codepen.themeDefault")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Tab por defecto</Label>
+                <Label>{t("codepen.defaultTab")}</Label>
                 <Select
                   value={formData.defaultTab}
                   onValueChange={(value: CodePenTab) => setFormData({ ...formData, defaultTab: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tab" />
+                    <SelectValue placeholder={t("codepen.selectTab")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="result">Resultado</SelectItem>
+                    <SelectItem value="result">{t("codepen.tabResult")}</SelectItem>
                     <SelectItem value="html">HTML</SelectItem>
                     <SelectItem value="css">CSS</SelectItem>
                     <SelectItem value="js">JavaScript</SelectItem>
@@ -254,10 +254,10 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-                Cancelar
+                {t("codepen.cancel")}
               </Button>
               <Button onClick={handleSave} disabled={!formData.penUrl}>
-                Guardar
+                {t("codepen.save")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -281,7 +281,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
           <AlertCircle className="w-8 h-8 text-destructive mb-2" />
-          <p className="text-sm text-muted-foreground">Error al cargar el Pen</p>
+          <p className="text-sm text-muted-foreground">{t("codepen.loadError")}</p>
           <Button
             size="sm"
             variant="outline"
@@ -291,7 +291,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
               setIsLoading(true);
             }}
           >
-            Reintentar
+            {t("codepen.retry")}
           </Button>
         </div>
       )}
@@ -318,7 +318,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
           variant="secondary"
           className="h-7 w-7"
           onClick={handleSaveAsLink}
-          title="Guardar como enlace"
+          title={t("codepen.saveAsLink")}
         >
           <Bookmark className="w-3.5 h-3.5" />
         </Button>
@@ -357,7 +357,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="pen-url-edit">URL del Pen</Label>
+              <Label htmlFor="pen-url-edit">{t("codepen.penUrl")}</Label>
               <Input
                 id="pen-url-edit"
                 placeholder="https://codepen.io/usuario/pen/abc123"
@@ -367,7 +367,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Tema</Label>
+              <Label>{t("codepen.theme")}</Label>
               <Select
                 value={formData.theme}
                 onValueChange={(value: CodePenTheme) => setFormData({ ...formData, theme: value })}
@@ -384,7 +384,7 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Tab por defecto</Label>
+              <Label>{t("codepen.defaultTab")}</Label>
               <Select
                 value={formData.defaultTab}
                 onValueChange={(value: CodePenTab) => setFormData({ ...formData, defaultTab: value })}
@@ -403,9 +403,9 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Mostrar resultado</Label>
+                <Label>{t("codepen.showResult")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Muestra el resultado junto al c&#243;digo
+                  {t("codepen.showResultDesc")}
                 </p>
               </div>
               <Switch
@@ -416,9 +416,9 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Editable</Label>
+                <Label>{t("codepen.editable")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Permite editar el c&#243;digo en el embed
+                  {t("codepen.editableDesc")}
                 </p>
               </div>
               <Switch
@@ -429,10 +429,10 @@ export function CodePenWidget({ widget }: CodePenWidgetProps) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>
-              Cancelar
+              {t("codepen.cancel")}
             </Button>
             <Button onClick={handleSave} disabled={!formData.penUrl}>
-              Guardar
+              {t("codepen.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

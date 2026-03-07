@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWidgetStore } from "@/stores/widget-store";
 import type { Widget } from "@/types/widget";
+import { useTranslation } from "@/lib/i18n";
 
 interface CountdownWidgetProps {
   widget: Widget;
@@ -20,10 +21,10 @@ interface TimeRemaining {
 }
 
 export function CountdownWidget({ widget }: CountdownWidgetProps) {
-  const { updateWidget } = useWidgetStore();
+  const { t, language } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [eventName, setEventName] = useState(
-    widget.config?.eventName || "My Event"
+    widget.config?.eventName || t("countdown.defaultEvent")
   );
   const [targetDate, setTargetDate] = useState(
     widget.config?.targetDate || ""
@@ -77,7 +78,7 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
 
   const handleSave = () => {
     if (targetDate && eventName.trim()) {
-      updateWidget(widget.id, {
+      useWidgetStore.getState().updateWidget(widget.id, {
         config: {
           ...widget.config,
           targetDate,
@@ -90,7 +91,7 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
   };
 
   const handleCancel = () => {
-    setEventName(widget.config?.eventName || "My Event");
+    setEventName(widget.config?.eventName || t("countdown.defaultEvent"));
     setTargetDate(widget.config?.targetDate || "");
     setIsEditing(false);
   };
@@ -99,7 +100,8 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
   const formattedTargetDate = useMemo(() => {
     if (!targetDate) return "";
     try {
-      return new Date(targetDate).toLocaleDateString("en-US", {
+      const locale = language === "en" ? "en-US" : "es-ES";
+      return new Date(targetDate).toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -109,7 +111,7 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
     } catch {
       return "";
     }
-  }, [targetDate]);
+  }, [targetDate, language]);
 
   // Get minimum datetime for input (now)
   const minDateTime = useMemo(() => {
@@ -124,24 +126,24 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            Configure Countdown
+            {t("countdown.configure")}
           </h3>
         </div>
 
         <div className="flex-1 flex flex-col gap-4">
           <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Event Name</label>
+            <label className="text-xs text-muted-foreground">{t("countdown.eventName")}</label>
             <Input
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
-              placeholder="Enter event name"
+              placeholder={t("countdown.eventNamePlaceholder")}
               className="bg-background/50"
               maxLength={50}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Target Date & Time</label>
+            <label className="text-xs text-muted-foreground">{t("countdown.targetDate")}</label>
             <Input
               type="datetime-local"
               value={targetDate}
@@ -160,10 +162,10 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
             size="sm"
           >
             <Check className="h-4 w-4 mr-2" />
-            Save
+            {t("countdown.save")}
           </Button>
           <Button onClick={handleCancel} variant="outline" size="sm">
-            Cancel
+            {t("countdown.cancel")}
           </Button>
         </div>
       </div>
@@ -176,15 +178,15 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
         <div className="text-center space-y-2">
           <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50" />
           <h3 className="text-sm font-medium text-muted-foreground">
-            No Countdown Set
+            {t("countdown.noCountdown")}
           </h3>
           <p className="text-xs text-muted-foreground/70">
-            Click edit to set a target date
+            {t("countdown.clickToSet")}
           </p>
         </div>
         <Button onClick={() => setIsEditing(true)} variant="outline" size="sm">
           <Edit2 className="h-4 w-4 mr-2" />
-          Set Countdown
+          {t("countdown.setCountdown")}
         </Button>
       </div>
     );
@@ -209,7 +211,7 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
               {eventName}
             </h2>
             <p className="text-lg font-medium text-foreground">
-              is here! 🎉
+              {t("countdown.isHere")}
             </p>
           </div>
 
@@ -220,7 +222,7 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
             className="mt-4"
           >
             <Edit2 className="h-4 w-4 mr-2" />
-            Set New Countdown
+            {t("countdown.setNewCountdown")}
           </Button>
         </div>
       </div>
@@ -251,7 +253,7 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <PartyPopper className="h-12 w-12 text-primary" />
           <div className="text-center space-y-1">
-            <p className="text-lg font-semibold text-primary">Event Complete!</p>
+            <p className="text-lg font-semibold text-primary">{t("countdown.eventComplete")}</p>
             <p className="text-xs text-muted-foreground">{formattedTargetDate}</p>
           </div>
         </div>
@@ -281,10 +283,10 @@ export function CountdownWidget({ widget }: CountdownWidgetProps) {
 
       <div className="flex-1 flex items-center justify-center">
         <div className="grid grid-cols-4 gap-2 w-full max-w-md">
-          <TimeUnit value={timeRemaining.days} label="Days" />
-          <TimeUnit value={timeRemaining.hours} label="Hours" />
-          <TimeUnit value={timeRemaining.minutes} label="Mins" />
-          <TimeUnit value={timeRemaining.seconds} label="Secs" animate />
+          <TimeUnit value={timeRemaining.days} label={t("countdown.days")} />
+          <TimeUnit value={timeRemaining.hours} label={t("countdown.hours")} />
+          <TimeUnit value={timeRemaining.minutes} label={t("countdown.mins")} />
+          <TimeUnit value={timeRemaining.seconds} label={t("countdown.secs")} animate />
         </div>
       </div>
 

@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import type { Widget } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 
@@ -171,7 +170,7 @@ export function StateMachineWidget({ widget }: StateMachineWidgetProps) {
 
   // UI State
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [pan, _setPan] = useState({ x: 0, y: 0 });
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [draggingState, setDraggingState] = useState<string | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
@@ -268,7 +267,7 @@ export function StateMachineWidget({ widget }: StateMachineWidgetProps) {
     [machine]
   );
 
-  const removeTransition = useCallback(
+  const _removeTransition = useCallback(
     (id: string) => {
       setMachine({
         ...machine,
@@ -278,7 +277,7 @@ export function StateMachineWidget({ widget }: StateMachineWidgetProps) {
     [machine]
   );
 
-  const updateTransition = useCallback(
+  const _updateTransition = useCallback(
     (id: string, condition: string) => {
       setMachine({
         ...machine,

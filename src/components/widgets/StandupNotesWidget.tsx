@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -112,6 +111,7 @@ export function StandupNotesWidget({ widget }: StandupNotesWidgetProps) {
         },
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- config/widget.id/updateWidget/currentStandup would cause re-initialization loops; trigger only on date/member changes
   }, [dateKey, selectedMember, config.enableTeamMode]);
 
   const updateStandup = (updates: Partial<StandupEntry>) => {
