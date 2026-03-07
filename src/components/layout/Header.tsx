@@ -35,7 +35,6 @@ import { HealthCheckModal } from "@/components/modals/HealthCheckModal";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { SettingsDropdown } from "@/components/ui/SettingsDropdown";
 import { OfflineBadge } from "@/components/ui/OfflineIndicator";
-import { SyncIndicator } from "@/components/layout/SyncIndicator";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useWidgetStore } from "@/stores/widget-store";
@@ -372,8 +371,7 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
 
-          {/* Sync & Offline indicators */}
-          <SyncIndicator />
+          {/* Offline indicator */}
           <OfflineBadge />
 
           {/* Logout button — oculto en modo desktop (Tauri), sin sesión de usuario */}

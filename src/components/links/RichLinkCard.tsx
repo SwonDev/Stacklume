@@ -3,6 +3,7 @@
 import { memo, useMemo } from "react";
 import { motion } from "motion/react";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useMultiSelect } from "@/hooks/useMultiSelect";
 import {
   Star,
   ExternalLink,
@@ -18,6 +19,7 @@ import {
   Wrench,
   Globe,
   Pencil,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
@@ -74,10 +76,12 @@ export const RichLinkCard = memo(function RichLinkCard({
   const { t } = useTranslation();
   const thumbnailSize = useSettingsStore((state) => state.thumbnailSize);
   const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
+  const isSelecting = useMultiSelect((state) => state.isSelecting);
+  const isItemSelected = useMultiSelect((state) => state.isSelected(link.id));
 
   // thumbnailSize="none" hides all images; other values scale the preview
   const effectiveShowImage = thumbnailSize !== "none" && showImage;
-  const linkTarget = isEditMode ? undefined : (linkClickBehavior === "same-tab" ? "_self" : "_blank");
+  const linkTarget = (isEditMode || isSelecting) ? undefined : (linkClickBehavior === "same-tab" ? "_self" : "_blank");
   const thumbnailHeightClass =
     thumbnailSize === "small" ? "aspect-[3/1]" :
     thumbnailSize === "large" ? "aspect-[4/3]" :
@@ -96,11 +100,30 @@ export const RichLinkCard = memo(function RichLinkCard({
   const platformColor = link.platformColor || "#6B7280";
 
   const handleClick = (e: React.MouseEvent) => {
+    if (isSelecting) {
+      e.preventDefault();
+      useMultiSelect.getState().toggleItem(link.id);
+      return;
+    }
     if (isEditMode && onEdit) {
       e.preventDefault();
       onEdit();
     }
   };
+
+  // Checkbox overlay shown when in multi-select mode
+  const SelectionCheckbox = (
+    <div
+      className={cn(
+        "absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-all z-10",
+        isItemSelected
+          ? "bg-primary border-primary"
+          : "bg-background/80 border-muted-foreground/50 backdrop-blur-sm"
+      )}
+    >
+      {isItemSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+    </div>
+  );
 
   // Determine if we should show a large image preview
   const hasRichPreview = link.imageUrl && ["video", "game", "music"].includes(contentType);
@@ -108,18 +131,21 @@ export const RichLinkCard = memo(function RichLinkCard({
   if (variant === "large" || hasRichPreview) {
     return (
       <motion.a
-        href={isEditMode ? undefined : link.url}
+        href={(isEditMode || isSelecting) ? undefined : link.url}
         target={linkTarget}
-        rel={isEditMode ? undefined : "noopener noreferrer"}
+        rel={(isEditMode || isSelecting) ? undefined : "noopener noreferrer"}
         onClick={handleClick}
         className={cn(
-          "group/link block rounded-xl overflow-hidden transition-all",
+          "group/link block rounded-xl overflow-hidden transition-all relative",
+          isSelecting && "cursor-pointer",
+          isSelecting && isItemSelected && "ring-2 ring-primary",
           isEditMode
             ? "cursor-pointer ring-2 ring-transparent hover:ring-primary/50"
-            : "hover:shadow-lg"
+            : !isSelecting && "hover:shadow-lg"
         )}
-        whileHover={{ scale: isEditMode ? 1.02 : 1.01 }}
+        whileHover={{ scale: (isEditMode || isSelecting) ? 1.02 : 1.01 }}
       >
+        {isSelecting && SelectionCheckbox}
         {/* Large Image Preview */}
         {effectiveShowImage && link.imageUrl && (
           <div className={cn("relative w-full overflow-hidden bg-secondary", thumbnailHeightClass)}>
@@ -229,19 +255,33 @@ export const RichLinkCard = memo(function RichLinkCard({
   // Default/Compact variant
   return (
     <motion.a
-      href={isEditMode ? undefined : link.url}
+      href={(isEditMode || isSelecting) ? undefined : link.url}
       target={linkTarget}
-      rel={isEditMode ? undefined : "noopener noreferrer"}
+      rel={(isEditMode || isSelecting) ? undefined : "noopener noreferrer"}
       onClick={handleClick}
       className={cn(
-        "group/link flex w-full rounded-lg transition-colors",
-        "gap-2 p-2",
+        "group/link flex w-full rounded-lg transition-colors relative",
+        isSelecting ? "gap-2 p-2 pl-6" : "gap-2 p-2",
+        isSelecting && "cursor-pointer",
+        isSelecting && isItemSelected && "bg-primary/10 ring-1 ring-primary",
         isEditMode
           ? "hover:bg-primary/10 cursor-pointer border border-transparent hover:border-primary/30"
-          : "hover:bg-secondary/50"
+          : !isSelecting && "hover:bg-secondary/50"
       )}
-      whileHover={{ x: isEditMode ? 0 : 2, scale: isEditMode ? 1.02 : 1 }}
+      whileHover={{ x: (isEditMode || isSelecting) ? 0 : 2, scale: (isEditMode || isSelecting) ? 1.02 : 1 }}
     >
+      {isSelecting && (
+        <div
+          className={cn(
+            "absolute top-1/2 -translate-y-1/2 left-1 w-4 h-4 rounded border-2 flex items-center justify-center transition-all z-10 flex-shrink-0",
+            isItemSelected
+              ? "bg-primary border-primary"
+              : "bg-background/80 border-muted-foreground/50"
+          )}
+        >
+          {isItemSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+        </div>
+      )}
       {/* Thumbnail or Favicon */}
       <div className="flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center w-10 h-10">
         {showImage && link.imageUrl ? (
