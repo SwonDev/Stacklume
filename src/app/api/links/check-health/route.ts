@@ -3,6 +3,7 @@ import { db, links, withRetry } from "@/lib/db";
 import { eq, inArray, isNull, and } from "drizzle-orm";
 import { createModuleLogger } from "@/lib/logger";
 import { validateUrlForSSRF } from "@/lib/security/ssrf-protection";
+import { z } from "zod";
 
 // Create a module-specific logger
 const log = createModuleLogger("api/links/check-health");
@@ -112,27 +113,25 @@ async function checkUrlHealth(url: string): Promise<{
   }
 }
 
+// Zod schema for check-health input validation
+const checkHealthSchema = z.object({
+  linkIds: z.array(z.string().uuid()).min(1).max(100),
+});
+
 // POST check health of multiple links
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { linkIds } = body as { linkIds: string[] };
+    const parsed = checkHealthSchema.safeParse(body);
 
-    if (!linkIds || !Array.isArray(linkIds) || linkIds.length === 0) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "linkIds array is required" },
+        { error: "linkIds must be a non-empty array of valid UUIDs (max 100)" },
         { status: 400 }
       );
     }
 
-    // Limit the number of links that can be checked at once
-    const MAX_LINKS = 50;
-    if (linkIds.length > MAX_LINKS) {
-      return NextResponse.json(
-        { error: `Maximum ${MAX_LINKS} links can be checked at once` },
-        { status: 400 }
-      );
-    }
+    const { linkIds } = parsed.data;
 
     log.info({ linkCount: linkIds.length }, "Starting link health check");
 

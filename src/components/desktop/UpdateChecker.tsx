@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { isTauriWebView } from "@/lib/desktop";
 import { Download, RefreshCw, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -43,7 +43,16 @@ async function runUpdateCheck(
     headers: { Accept: "application/vnd.github.v3+json" },
   });
 
-  if (!res.ok) throw new Error(`GitHub API: HTTP ${res.status}`);
+  if (!res.ok) {
+    // GitHub API devuelve 403 cuando se excede el rate limit (60 req/hora sin token)
+    if (res.status === 403) {
+      const remaining = res.headers.get("X-RateLimit-Remaining");
+      if (remaining === "0") {
+        throw new Error("GitHub API: límite de peticiones excedido. Inténtalo en unos minutos.");
+      }
+    }
+    throw new Error(`GitHub API: HTTP ${res.status}`);
+  }
   const release = await res.json() as { tag_name: string; body?: string };
   const latestVersion = release.tag_name.replace(/^v/, "");
 
@@ -67,11 +76,20 @@ export function UpdateChecker() {
   const { t } = useTranslation();
   const [state, setState] = useState<UpdateState>({ phase: "idle" });
   const [dismissed, setDismissed] = useState(false);
+  // Once the user dismisses, don't auto-show again until app restarts
+  const dismissedForSession = useRef(false);
 
   const checkForUpdate = useCallback((manual = false) => {
     runUpdateCheck(
       (version, notes) => {
-        setDismissed(false);
+        if (manual) {
+          // Manual check: always show
+          dismissedForSession.current = false;
+          setDismissed(false);
+        } else if (dismissedForSession.current) {
+          // Auto check but user already dismissed this session — stay quiet
+          return;
+        }
         setState({ phase: "available", version, notes });
       },
       manual
@@ -85,9 +103,11 @@ export function UpdateChecker() {
     });
   }, [t]);
 
-  // Comprobación automática 6 s tras el arranque
+  // Comprobación automática UNA sola vez, 6 s tras el arranque
+  const hasAutoChecked = useRef(false);
   useEffect(() => {
-    if (!isTauriWebView()) return;
+    if (!isTauriWebView() || hasAutoChecked.current) return;
+    hasAutoChecked.current = true;
     const timer = setTimeout(() => checkForUpdate(false), 6000);
     return () => clearTimeout(timer);
   }, [checkForUpdate]);
@@ -103,6 +123,12 @@ export function UpdateChecker() {
   const handleUpdate = useCallback(async () => {
     if (state.phase !== "available") return;
     const { version } = state;
+
+    // Validate strict semver format to prevent URL injection
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      console.error("Invalid version format:", version);
+      return;
+    }
 
     // URL directa al instalador NSIS en GitHub Releases
     const installerUrl = `https://github.com/SwonDev/Stacklume/releases/download/v${version}/Stacklume_${version}_x64-setup.exe`;
@@ -188,7 +214,7 @@ export function UpdateChecker() {
 
         {!isDownloading && !isDone && (
           <button
-            onClick={() => setDismissed(true)}
+            onClick={() => { dismissedForSession.current = true; setDismissed(true); }}
             className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
             aria-label={t("updateChecker.dismiss")}
           >
@@ -221,7 +247,7 @@ export function UpdateChecker() {
           {state.phase === "available" && (
             <>
               <button
-                onClick={() => setDismissed(true)}
+                onClick={() => { dismissedForSession.current = true; setDismissed(true); }}
                 className="flex-1 py-1.5 px-3 text-xs rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
               >
                 {t("updateChecker.later")}

@@ -148,7 +148,7 @@ function LinkGridCard({
     try {
       const newValue = !link.isFavorite;
       await fetch(`/api/links/${link.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...getCsrfHeaders(),

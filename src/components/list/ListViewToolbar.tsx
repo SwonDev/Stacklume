@@ -43,7 +43,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { TagBadge } from "@/components/ui/tag-badge";
-import { useListViewStore, type SortBy, type SortOrder } from "@/stores/list-view-store";
+import { useListViewStore, type SortBy, type SortOrder, type CategorySortBy } from "@/stores/list-view-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
 import type { Category, Tag as TagType } from "@/lib/db/schema";
@@ -59,6 +59,13 @@ const sortByLabelKeys: Record<SortBy, string> = {
   createdAt: "listView.sortByCreatedAt",
   updatedAt: "listView.sortByUpdatedAt",
   title: "listView.sortByTitle",
+};
+
+const categorySortByLabelKeys: Record<CategorySortBy, string> = {
+  manual: "listView.categorySortManual",
+  alphabetical: "listView.categorySortAlphabetical",
+  linkCount: "listView.categorySortLinkCount",
+  lastUsed: "listView.categorySortLastUsed",
 };
 
 export function ListViewToolbar({
@@ -78,8 +85,12 @@ export function ListViewToolbar({
   const sortOrder = useListViewStore((state) => state.sortOrder);
   const showEmptyCategories = useListViewStore((state) => state.showEmptyCategories);
   const showUncategorized = useListViewStore((state) => state.showUncategorized);
+  const categorySortBy = useListViewStore((state) => state.categorySortBy);
+  const categorySortOrder = useListViewStore((state) => state.categorySortOrder);
   const setSortBy = useListViewStore((state) => state.setSortBy);
   const setSortOrder = useListViewStore((state) => state.setSortOrder);
+  const setCategorySortBy = useListViewStore((state) => state.setCategorySortBy);
+  const setCategorySortOrder = useListViewStore((state) => state.setCategorySortOrder);
   const setShowEmptyCategories = useListViewStore((state) => state.setShowEmptyCategories);
   const setShowUncategorized = useListViewStore((state) => state.setShowUncategorized);
   const collapseAll = useListViewStore((state) => state.collapseAll);
@@ -261,7 +272,7 @@ export function ListViewToolbar({
           <span className="hidden sm:inline">{t("listView.favorites")}</span>
         </Button>
 
-        {/* Sort dropdown */}
+        {/* Sort links dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-9 gap-2">
@@ -275,7 +286,7 @@ export function ListViewToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{t("listView.sortBy")}</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("listView.sortLinks")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup
               value={sortBy}
@@ -306,6 +317,57 @@ export function ListViewToolbar({
                 {t("listView.ascending")}
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Sort categories dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-2">
+              <Folder className="w-4 h-4" />
+              <span className="hidden sm:inline">{t(categorySortByLabelKeys[categorySortBy])}</span>
+              <ChevronDown className="w-3.5 h-3.5 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{t("listView.sortCategories")}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup
+              value={categorySortBy}
+              onValueChange={(value) => setCategorySortBy(value as CategorySortBy)}
+            >
+              <DropdownMenuRadioItem value="manual">
+                {t("listView.categorySortManual")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="alphabetical">
+                {t("listView.categorySortAlphabetical")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="linkCount">
+                {t("listView.categorySortLinkCount")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="lastUsed">
+                {t("listView.categorySortLastUsed")}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            {categorySortBy !== "manual" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{t("listView.direction")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={categorySortOrder}
+                  onValueChange={(value) => setCategorySortOrder(value as SortOrder)}
+                >
+                  <DropdownMenuRadioItem value="asc">
+                    <SortAsc className="w-4 h-4 mr-2" />
+                    {t("listView.ascending")}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="desc">
+                    <SortDesc className="w-4 h-4 mr-2" />
+                    {t("listView.descending")}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

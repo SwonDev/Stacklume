@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { Search as SearchLucide, LayoutGrid, Sparkles, Trash2, PenLine, X, Sticker, LogOut, CheckSquare } from "lucide-react";
+import { Search as SearchLucide, LayoutGrid, Sparkles, Trash2, PenLine, X, Sticker, LogOut, CheckSquare, List } from "lucide-react";
 // Temporarily using static icons instead of animated ones due to motion/react 19 compatibility
 import { Menu, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -39,6 +39,7 @@ import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { useSettingsStore } from "@/stores/settings-store";
 import { useStickerStore } from "@/stores/sticker-store";
 import { StickerBook } from "@/components/stickers";
 import { motion, AnimatePresence } from "motion/react";
@@ -58,6 +59,7 @@ export function Header() {
   const hasWidgets = useWidgetStore((state) => state.widgets.length > 0);
   const widgetCount = useWidgetStore((state) => state.widgets.length);
   const isStickerBookOpen = useStickerStore((state) => state.isStickerBookOpen);
+  const viewMode = useSettingsStore((state) => state.viewMode);
 
   // Note: Functions are accessed via .getState() when needed to prevent re-render loops
   // toggleSidebar, setSearchQuery, toggleEditMode -> useLayoutStore.getState()
@@ -215,6 +217,28 @@ export function Header() {
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>{t("header.addLink")}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className={`h-8 w-8 ${
+                  viewMode === "list"
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+                onClick={() => useSettingsStore.getState().setViewMode(viewMode === "list" ? "bento" : "list")}
+                aria-label={t("header.listView")}
+                aria-pressed={viewMode === "list"}
+              >
+                <List size={16} aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{t(viewMode === "list" ? "header.exitListView" : "header.listView")}</p>
             </TooltipContent>
           </Tooltip>
 

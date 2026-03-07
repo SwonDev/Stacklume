@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitize newlines to prevent header injection and env file corruption
-    const sanitizedConnectionString = connectionString.replace(/[\n\r]/g, "").trim();
+    // Sanitize control characters to prevent header injection and env file corruption
+    const sanitizedConnectionString = connectionString.replace(/[\n\r\0]/g, "").trim();
 
     // Validate connection string format
     if (!sanitizedConnectionString.startsWith("postgresql://") && !sanitizedConnectionString.startsWith("postgres://")) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             );
           } else {
             // Add DATABASE_URL
-            envContent = envContent.trim() + `\n\nDATABASE_URL=${connectionString}\n`;
+            envContent = envContent.trim() + `\n\nDATABASE_URL=${sanitizedConnectionString}\n`;
           }
 
           fs.writeFileSync(envPath, envContent, "utf-8");
@@ -78,9 +78,9 @@ export async function POST(request: NextRequest) {
         console.warn("Could not save to .env.local:", fsError);
         // Not a fatal error - we can still provide instructions
         envInstructions = `
-Para que la configuracion persista, agrega esta linea a tu archivo .env.local:
+Para que la configuración persista, agrega esta línea a tu archivo .env.local:
 
-DATABASE_URL=${connectionString}
+DATABASE_URL=${sanitizedConnectionString}
 
 Luego reinicia el servidor de desarrollo.
         `.trim();

@@ -6,7 +6,7 @@ import { Link2Off, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListViewToolbar } from "./ListViewToolbar";
-import { CategorySection } from "./CategorySection";
+import { SortableCategorySection } from "./CategorySection";
 import { LinkListItemContent } from "./LinkListItem";
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
@@ -15,6 +15,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
 import type { Link, Category, LinkTag } from "@/lib/db/schema";
+import { CategorySectionContent } from "./CategorySection";
 
 // dnd-kit imports
 import {
@@ -32,6 +33,8 @@ import {
 import {
   arrayMove,
   sortableKeyboardCoordinates,
+  SortableContext,
+  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
 interface ListViewProps {
@@ -46,16 +49,21 @@ export function ListView({ className }: ListViewProps) {
   const isLoading = useLinksStore((state) => state.isLoading);
   const updateLink = useLinksStore((state) => state.updateLink);
   const reorderLinks = useLinksStore((state) => state.reorderLinks);
+  const reorderCategories = useLinksStore((state) => state.reorderCategories);
   const activeFilter = useLayoutStore((state) => state.activeFilter);
   const searchQuery = useLayoutStore((state) => state.searchQuery);
   const sortBy = useListViewStore((state) => state.sortBy);
   const sortOrder = useListViewStore((state) => state.sortOrder);
+  const categorySortBy = useListViewStore((state) => state.categorySortBy);
+  const categorySortOrder = useListViewStore((state) => state.categorySortOrder);
   const showEmptyCategories = useListViewStore((state) => state.showEmptyCategories);
   const showUncategorized = useListViewStore((state) => state.showUncategorized);
+  const uncategorizedPosition = useListViewStore((state) => state.uncategorizedPosition);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
 
   // Drag state
   const [activeLinkId, setActiveLinkId] = useState<string | null>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [overCategoryId, setOverCategoryId] = useState<string | null | undefined>(undefined);
 
   // Sensors for drag detection
@@ -74,25 +82,18 @@ export function ListView({ className }: ListViewProps) {
   const filteredLinks = useMemo(() => {
     let result = [...links];
 
-    // Apply category filter
     if (activeFilter.type === "category" && activeFilter.id) {
       result = result.filter((link: Link) => link.categoryId === activeFilter.id);
     }
-
-    // Apply tag filter
     if (activeFilter.type === "tag" && activeFilter.id) {
       const tagLinkIds = linkTags
         .filter((lt: LinkTag) => lt.tagId === activeFilter.id)
         .map((lt: LinkTag) => lt.linkId);
       result = result.filter((link: Link) => tagLinkIds.includes(link.id));
     }
-
-    // Apply favorites filter
     if (activeFilter.type === "favorites") {
       result = result.filter((link: Link) => link.isFavorite);
     }
-
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -103,19 +104,18 @@ export function ListView({ className }: ListViewProps) {
       );
     }
 
-    // Sort
     result.sort((a: Link, b: Link) => {
       let comparison = 0;
       if (sortBy === "title") {
         comparison = a.title.localeCompare(b.title);
       } else if (sortBy === "createdAt") {
-        comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       } else if (sortBy === "updatedAt") {
         comparison =
-          new Date(b.updatedAt || b.createdAt).getTime() -
-          new Date(a.updatedAt || a.createdAt).getTime();
+          new Date(a.updatedAt || a.createdAt).getTime() -
+          new Date(b.updatedAt || b.createdAt).getTime();
       }
-      return sortOrder === "asc" ? -comparison : comparison;
+      return sortOrder === "asc" ? comparison : -comparison;
     });
 
     return result;
@@ -124,27 +124,56 @@ export function ListView({ className }: ListViewProps) {
   // Group links by category
   const linksByCategory = useMemo(() => {
     const grouped = new Map<string | null, Link[]>();
-
-    // Initialize with all categories
     categories.forEach((cat: Category) => {
       grouped.set(cat.id, []);
     });
-    grouped.set(null, []); // Uncategorized
-
-    // Group filtered links
+    grouped.set(null, []);
     filteredLinks.forEach((link: Link) => {
       const categoryId = link.categoryId;
       const existing = grouped.get(categoryId) || [];
       grouped.set(categoryId, [...existing, link]);
     });
-
     return grouped;
   }, [filteredLinks, categories]);
 
-  // Get sorted categories
+  // Get sorted real categories based on categorySortBy
   const sortedCategories = useMemo(() => {
-    return [...categories].sort((a: Category, b: Category) => (a.order || 0) - (b.order || 0));
-  }, [categories]);
+    const cats = [...categories];
+
+    if (categorySortBy === "manual") {
+      cats.sort((a: Category, b: Category) => (a.order || 0) - (b.order || 0));
+    } else if (categorySortBy === "alphabetical") {
+      cats.sort((a: Category, b: Category) => a.name.localeCompare(b.name));
+    } else if (categorySortBy === "linkCount") {
+      cats.sort((a: Category, b: Category) => {
+        const aCount = (linksByCategory.get(a.id) || []).length;
+        const bCount = (linksByCategory.get(b.id) || []).length;
+        return aCount - bCount;
+      });
+    } else if (categorySortBy === "lastUsed") {
+      cats.sort((a: Category, b: Category) => {
+        const aTime = new Date(a.updatedAt || a.createdAt).getTime();
+        const bTime = new Date(b.updatedAt || b.createdAt).getTime();
+        return aTime - bTime;
+      });
+    }
+
+    if (categorySortOrder === "desc") {
+      cats.reverse();
+    }
+
+    return cats;
+  }, [categories, categorySortBy, categorySortOrder, linksByCategory]);
+
+  // Build combined sortable IDs: real categories + uncategorized at stored position
+  const sortableCategoryIds = useMemo(() => {
+    const ids = sortedCategories.map((c: Category) => `category-${c.id}`);
+    if (showUncategorized) {
+      const pos = Math.min(uncategorizedPosition, ids.length);
+      ids.splice(pos >= 0 ? pos : ids.length, 0, "category-uncategorized");
+    }
+    return ids;
+  }, [sortedCategories, showUncategorized, uncategorizedPosition]);
 
   // Get category IDs for collapse/expand
   const categoryIds = useMemo(() => {
@@ -178,50 +207,111 @@ export function ListView({ className }: ListViewProps) {
 
   // Resolve which categoryId the "over" element belongs to
   const resolveTargetCategory = useCallback((overId: string): string | null | undefined => {
-    // Check if it's a droppable container
     if (overId.startsWith("droppable-")) {
       const catId = overId.replace("droppable-", "");
       return catId === "uncategorized" ? null : catId;
     }
-    // It's a link - look up its category
     return linkCategoryMap.get(overId);
   }, [linkCategoryMap]);
 
   // Drag handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveLinkId(event.active.id as string);
+    const activeId = event.active.id as string;
+
+    if (activeId.startsWith("category-")) {
+      setActiveCategoryId(activeId.replace("category-", ""));
+      setActiveLinkId(null);
+    } else {
+      setActiveLinkId(activeId);
+      setActiveCategoryId(null);
+    }
   }, []);
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { over } = event;
-    if (!over) {
-      setOverCategoryId(undefined);
+    if (!over || activeCategoryId) {
+      if (!activeCategoryId) setOverCategoryId(undefined);
       return;
     }
     const targetCat = resolveTargetCategory(over.id as string);
     setOverCategoryId(targetCat);
-  }, [resolveTargetCategory]);
+  }, [resolveTargetCategory, activeCategoryId]);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
+    const wasDraggingCategory = activeCategoryId !== null;
+
     setActiveLinkId(null);
+    setActiveCategoryId(null);
     setOverCategoryId(undefined);
 
     if (!over) return;
 
+    // Category reorder
+    if (wasDraggingCategory) {
+      const activeId = active.id as string;
+      const rawOverId = over.id as string;
+
+      // Resolve over ID to a category sortable ID
+      let resolvedOverId: string | null = null;
+      if (rawOverId.startsWith("category-")) {
+        resolvedOverId = rawOverId;
+      } else if (rawOverId.startsWith("droppable-")) {
+        const catId = rawOverId.replace("droppable-", "");
+        resolvedOverId = `category-${catId}`;
+      } else {
+        const linkCat = linkCategoryMap.get(rawOverId);
+        if (linkCat !== undefined) {
+          resolvedOverId = linkCat ? `category-${linkCat}` : "category-uncategorized";
+        }
+      }
+
+      if (!resolvedOverId || activeId === resolvedOverId) return;
+
+      const oldIndex = sortableCategoryIds.indexOf(activeId);
+      const newIndex = sortableCategoryIds.indexOf(resolvedOverId);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const newOrderIds = arrayMove([...sortableCategoryIds], oldIndex, newIndex);
+
+        // Separate real category IDs from uncategorized, track position
+        const realCategoryIds: string[] = [];
+        let newUncatPos = newOrderIds.length;
+        newOrderIds.forEach((id, idx) => {
+          if (id === "category-uncategorized") {
+            newUncatPos = idx;
+          } else {
+            realCategoryIds.push(id.replace("category-", ""));
+          }
+        });
+
+        // Persist real category order via API
+        reorderCategories(realCategoryIds);
+        // Persist uncategorized position in localStorage
+        useListViewStore.getState().setUncategorizedPosition(newUncatPos);
+
+        if (categorySortBy !== "manual") {
+          useListViewStore.getState().setCategorySortBy("manual");
+        }
+      }
+      return;
+    }
+
+    // Link drag (existing logic)
     const draggedLinkId = active.id as string;
     const sourceCategoryId = linkCategoryMap.get(draggedLinkId);
-    if (sourceCategoryId === undefined) return; // link not found
+    if (sourceCategoryId === undefined) return;
 
     const overId = over.id as string;
+    if (overId.startsWith("category-")) return;
+
     const targetCategoryId = resolveTargetCategory(overId);
     if (targetCategoryId === undefined) return;
 
     const isDroppableContainer = overId.startsWith("droppable-");
 
     if (sourceCategoryId === targetCategoryId) {
-      // Same category → reorder within
-      if (isDroppableContainer) return; // dropped on own category header, nothing to do
+      if (isDroppableContainer) return;
       const categoryLinks = linksByCategory.get(targetCategoryId) || [];
       const sorted = [...categoryLinks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const oldIndex = sorted.findIndex((l) => l.id === draggedLinkId);
@@ -231,11 +321,8 @@ export function ListView({ className }: ListViewProps) {
         reorderLinks(newOrder.map((l) => l.id), targetCategoryId);
       }
     } else {
-      // Cross-category move
-      // 1. Update category in local state immediately
       updateLink(draggedLinkId, { categoryId: targetCategoryId });
 
-      // 2. Persist category change via API
       try {
         await fetch(`/api/links/${draggedLinkId}`, {
           method: "PATCH",
@@ -248,18 +335,15 @@ export function ListView({ className }: ListViewProps) {
         });
       } catch (error) {
         console.error("Error moving link to category:", error);
-        // Revert on error
         updateLink(draggedLinkId, { categoryId: sourceCategoryId });
         return;
       }
 
-      // 3. Build new order for target category
       const targetLinks = linksByCategory.get(targetCategoryId) || [];
       const sorted = [...targetLinks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const existingIds = sorted.map((l) => l.id);
 
       if (!isDroppableContainer) {
-        // Dropped on a specific link → insert at that position
         const insertIndex = existingIds.indexOf(overId);
         if (insertIndex !== -1) {
           existingIds.splice(insertIndex, 0, draggedLinkId);
@@ -267,16 +351,16 @@ export function ListView({ className }: ListViewProps) {
           existingIds.push(draggedLinkId);
         }
       } else {
-        // Dropped on category container → append at end
         existingIds.push(draggedLinkId);
       }
 
       reorderLinks(existingIds, targetCategoryId);
     }
-  }, [linkCategoryMap, linksByCategory, resolveTargetCategory, updateLink, reorderLinks]);
+  }, [activeCategoryId, linkCategoryMap, linksByCategory, resolveTargetCategory, updateLink, reorderLinks, reorderCategories, sortableCategoryIds, categorySortBy]);
 
   const handleDragCancel = useCallback(() => {
     setActiveLinkId(null);
+    setActiveCategoryId(null);
     setOverCategoryId(undefined);
   }, []);
 
@@ -284,6 +368,16 @@ export function ListView({ className }: ListViewProps) {
   const activeLink = activeLinkId
     ? filteredLinks.find((l) => l.id === activeLinkId)
     : null;
+
+  // Get the active category for overlay (supports real categories + uncategorized)
+  const activeDragCategory = useMemo(() => {
+    if (!activeCategoryId) return null;
+    if (activeCategoryId === "uncategorized") return null; // null = uncategorized marker
+    return categories.find((c) => c.id === activeCategoryId) ?? null;
+  }, [activeCategoryId, categories]);
+
+  // Is uncategorized being dragged?
+  const isDraggingUncategorized = activeCategoryId === "uncategorized";
 
   // Loading state
   if (isLoading) {
@@ -353,9 +447,11 @@ export function ListView({ className }: ListViewProps) {
     );
   }
 
+  // Build a lookup for categories by ID (for rendering from sortableCategoryIds)
+  const categoryMap = new Map(sortedCategories.map(c => [c.id, c]));
+
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Toolbar */}
       <ListViewToolbar
         categoryIds={categoryIds}
         totalLinks={links.length}
@@ -363,7 +459,6 @@ export function ListView({ className }: ListViewProps) {
         className="flex-shrink-0 mb-3"
       />
 
-      {/* Scrollable content with unified DndContext */}
       <ScrollArea className="flex-1">
         <DndContext
           sensors={sensors}
@@ -374,38 +469,49 @@ export function ListView({ className }: ListViewProps) {
           onDragCancel={handleDragCancel}
         >
           <div className="space-y-3 pb-4">
-            {/* Render categories in order */}
-            {sortedCategories.map((category: Category) => {
-              const categoryLinks = linksByCategory.get(category.id) || [];
+            <SortableContext
+              items={sortableCategoryIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {sortableCategoryIds.map((sortableId) => {
+                if (sortableId === "category-uncategorized") {
+                  // Uncategorized section
+                  return (
+                    <SortableCategorySection
+                      key="uncategorized"
+                      category={null}
+                      links={linksByCategory.get(null) || []}
+                      linkTags={filteredLinkTags}
+                      isDragActiveOverThis={activeLinkId !== null && overCategoryId === null && linkCategoryMap.get(activeLinkId) !== null}
+                      isCategoryDragActive={activeCategoryId !== null}
+                    />
+                  );
+                }
 
-              // Skip empty categories if not showing them (unless drag is active over this category)
-              if (categoryLinks.length === 0 && !showEmptyCategories && overCategoryId !== category.id) {
-                return null;
-              }
+                const catId = sortableId.replace("category-", "");
+                const category = categoryMap.get(catId);
+                if (!category) return null;
 
-              return (
-                <CategorySection
-                  key={category.id}
-                  category={category}
-                  links={categoryLinks}
-                  linkTags={filteredLinkTags}
-                  isDragActiveOverThis={activeLinkId !== null && overCategoryId === category.id && linkCategoryMap.get(activeLinkId) !== category.id}
-                />
-              );
-            })}
+                const categoryLinks = linksByCategory.get(category.id) || [];
+                if (categoryLinks.length === 0 && !showEmptyCategories && overCategoryId !== category.id) {
+                  return null;
+                }
 
-            {/* Uncategorized section */}
-            {showUncategorized && (
-              <CategorySection
-                category={null}
-                links={linksByCategory.get(null) || []}
-                linkTags={filteredLinkTags}
-                isDragActiveOverThis={activeLinkId !== null && overCategoryId === null && linkCategoryMap.get(activeLinkId) !== null}
-              />
-            )}
+                return (
+                  <SortableCategorySection
+                    key={category.id}
+                    category={category}
+                    links={categoryLinks}
+                    linkTags={filteredLinkTags}
+                    isDragActiveOverThis={activeLinkId !== null && overCategoryId === category.id && linkCategoryMap.get(activeLinkId) !== category.id}
+                    isCategoryDragActive={activeCategoryId !== null}
+                  />
+                );
+              })}
+            </SortableContext>
           </div>
 
-          {/* Single DragOverlay for the entire list */}
+          {/* Drag overlays */}
           <DragOverlay dropAnimation={{
             duration: 200,
             easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
@@ -414,6 +520,16 @@ export function ListView({ className }: ListViewProps) {
               <LinkListItemContent
                 link={activeLink}
                 linkTagIds={getLinkTagIds(activeLink.id)}
+                isOverlay
+              />
+            ) : (activeDragCategory || isDraggingUncategorized) ? (
+              <CategorySectionContent
+                category={activeDragCategory}
+                links={activeDragCategory
+                  ? (linksByCategory.get(activeDragCategory.id) || [])
+                  : (linksByCategory.get(null) || [])
+                }
+                linkTags={[]}
                 isOverlay
               />
             ) : null}
