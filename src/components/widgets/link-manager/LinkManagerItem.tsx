@@ -86,6 +86,8 @@ export function LinkManagerItem({
   const addLinkTag = useLinksStore((state) => state.addLinkTag);
   const removeLinkTag = useLinksStore((state) => state.removeLinkTag);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+  const confirmBeforeDelete = useSettingsStore((state) => state.confirmBeforeDelete);
+  const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
 
   const {
     attributes,
@@ -175,7 +177,7 @@ export function LinkManagerItem({
 
   // Handle delete
   const handleDelete = useCallback(async () => {
-    if (!confirm(t("linkManager.confirmDeleteLink"))) return;
+    if (confirmBeforeDelete && !confirm(t("linkManager.confirmDeleteLink"))) return;
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
@@ -186,7 +188,7 @@ export function LinkManagerItem({
     } catch (error) {
       console.error("Error deleting link:", error);
     }
-  }, [link.id, removeLink, t]);
+  }, [link.id, removeLink, t, confirmBeforeDelete]);
 
   // Copy URL
   const handleCopyUrl = useCallback(() => {
@@ -252,7 +254,7 @@ export function LinkManagerItem({
             <div className="flex items-center gap-2">
               <a
                 href={link.url}
-                target="_blank"
+                target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
                 rel="noopener noreferrer"
                 className="text-sm font-medium truncate hover:text-primary transition-colors"
               >
@@ -417,7 +419,7 @@ export function LinkManagerItem({
 
           <a
             href={link.url}
-            target="_blank"
+            target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
             rel="noopener noreferrer"
             className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
             title={t("linkManager.openLink")}

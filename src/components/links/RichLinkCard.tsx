@@ -284,7 +284,7 @@ export const RichLinkCard = memo(function RichLinkCard({
       )}
       {/* Thumbnail or Favicon */}
       <div className="flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center w-10 h-10">
-        {showImage && link.imageUrl ? (
+        {effectiveShowImage && link.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.imageUrl}
@@ -297,7 +297,7 @@ export const RichLinkCard = memo(function RichLinkCard({
             }}
           />
         ) : null}
-        {link.faviconUrl && !(showImage && link.imageUrl) ? (
+        {link.faviconUrl && !(effectiveShowImage && link.imageUrl) ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.faviconUrl}
@@ -312,7 +312,7 @@ export const RichLinkCard = memo(function RichLinkCard({
         ) : null}
         <ContentIcon className={cn(
           "w-4 h-4 text-muted-foreground",
-          (link.imageUrl || link.faviconUrl) && "hidden"
+          ((effectiveShowImage && link.imageUrl) || link.faviconUrl) && "hidden"
         )} />
       </div>
 
@@ -370,19 +370,6 @@ export const RichLinkCard = memo(function RichLinkCard({
       )}
     </motion.a>
   );
-}, (prev, next) => {
-  return prev.link.id === next.link.id
-    && prev.link.title === next.link.title
-    && prev.link.url === next.link.url
-    && prev.link.isFavorite === next.link.isFavorite
-    && prev.link.imageUrl === next.link.imageUrl
-    && prev.link.faviconUrl === next.link.faviconUrl
-    && prev.link.categoryId === next.link.categoryId
-    && prev.link.description === next.link.description
-    && prev.link.platform === next.link.platform
-    && prev.isEditMode === next.isEditMode
-    && prev.variant === next.variant
-    && prev.showImage === next.showImage;
 });
 
 // Grid variant for displaying multiple rich links

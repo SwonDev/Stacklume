@@ -66,6 +66,9 @@ export function LinkManagerGrid({
   const updateLink = useLinksStore((state) => state.updateLink);
   const removeLink = useLinksStore((state) => state.removeLink);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+  const thumbnailSize = useSettingsStore((state) => state.thumbnailSize);
+  const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
+  const confirmBeforeDelete = useSettingsStore((state) => state.confirmBeforeDelete);
 
   if (links.length === 0) {
     return (
@@ -93,6 +96,9 @@ export function LinkManagerGrid({
               onUpdateLink={updateLink}
               onRemoveLink={removeLink}
               reduceMotion={reduceMotion}
+              thumbnailSize={thumbnailSize}
+              linkClickBehavior={linkClickBehavior}
+              confirmBeforeDelete={confirmBeforeDelete}
               index={index}
             />
           ))}
@@ -112,6 +118,9 @@ interface LinkGridCardProps {
   onUpdateLink: (id: string, updates: Partial<Link>) => void;
   onRemoveLink: (id: string) => void;
   reduceMotion: boolean;
+  thumbnailSize: string;
+  linkClickBehavior: string;
+  confirmBeforeDelete: boolean;
   index: number;
 }
 
@@ -125,9 +134,17 @@ function LinkGridCard({
   onUpdateLink,
   onRemoveLink,
   reduceMotion,
+  thumbnailSize,
+  linkClickBehavior,
+  confirmBeforeDelete,
   index,
 }: LinkGridCardProps) {
   const { t } = useTranslation();
+  const effectiveShowImage = thumbnailSize !== "none";
+  const thumbnailHeightClass =
+    thumbnailSize === "small" ? "aspect-[3/1]" :
+    thumbnailSize === "large" ? "aspect-[4/3]" :
+    "aspect-video";
 
   const hostname = useMemo(() => {
     try {
@@ -167,6 +184,7 @@ function LinkGridCard({
   };
 
   const handleDelete = async () => {
+    if (confirmBeforeDelete && !confirm(t("linkManager.confirmDeleteLink"))) return;
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
@@ -218,8 +236,8 @@ function LinkGridCard({
       </Button>
 
       {/* Image */}
-      <div className="relative aspect-video bg-muted">
-        {link.imageUrl ? (
+      <div className={cn("relative bg-muted", effectiveShowImage ? thumbnailHeightClass : "aspect-[4/1]")}>
+        {effectiveShowImage && link.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={link.imageUrl}
@@ -274,7 +292,7 @@ function LinkGridCard({
       <div className="p-3">
         <a
           href={link.url}
-          target="_blank"
+          target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
           rel="noopener noreferrer"
           className="block group/link"
         >

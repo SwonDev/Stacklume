@@ -98,7 +98,7 @@ export default function Home() {
           {isLoading ? "Cargando contenido..." : "Contenido cargado"}
         </div>
         <div
-          className="flex-1 overflow-auto scrollbar-thin p-2 relative"
+          className="flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin p-2 relative"
           aria-busy={isLoading}
           data-sticker-container
         >

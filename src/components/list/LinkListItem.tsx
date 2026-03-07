@@ -94,6 +94,9 @@ export function LinkListItemContent({
   const openEditLinkModal = useLinksStore((state) => state.openEditLinkModal);
   const viewDensity = useSettingsStore((state) => state.viewDensity);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+  const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
+  const confirmBeforeDelete = useSettingsStore((state) => state.confirmBeforeDelete);
+  const thumbnailSize = useSettingsStore((state) => state.thumbnailSize);
 
   const hostname = useMemo(() => {
     try {
@@ -169,7 +172,7 @@ export function LinkListItemContent({
 
   // Handle delete
   const handleDelete = useCallback(async () => {
-    if (!confirm(t("listView.confirmDelete"))) return;
+    if (confirmBeforeDelete && !confirm(t("listView.confirmDelete"))) return;
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
@@ -180,7 +183,7 @@ export function LinkListItemContent({
     } catch (error) {
       console.error("Error deleting link:", error);
     }
-  }, [link.id, removeLink, t]);
+  }, [link.id, removeLink, t, confirmBeforeDelete]);
 
   // Handle edit
   const handleEdit = useCallback(() => {
@@ -200,11 +203,14 @@ export function LinkListItemContent({
     comfortable: "py-3.5 px-4",
   };
 
-  const faviconSizes = {
-    compact: "w-4 h-4",
-    normal: "w-5 h-5",
-    comfortable: "w-6 h-6",
+  // Favicon sizes controlled by thumbnailSize setting
+  const faviconSizeMap: Record<string, Record<string, string>> = {
+    none: { compact: "hidden", normal: "hidden", comfortable: "hidden" },
+    small: { compact: "w-3.5 h-3.5", normal: "w-4 h-4", comfortable: "w-5 h-5" },
+    medium: { compact: "w-4 h-4", normal: "w-5 h-5", comfortable: "w-6 h-6" },
+    large: { compact: "w-6 h-6", normal: "w-8 h-8", comfortable: "w-10 h-10" },
   };
+  const faviconSizes = faviconSizeMap[thumbnailSize] || faviconSizeMap.medium;
 
   const titleSizes = {
     compact: "text-xs",
@@ -267,32 +273,33 @@ export function LinkListItemContent({
         </div>
       )}
 
-      {/* Favicon */}
-      <div className="flex-shrink-0">
-        {link.faviconUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={link.faviconUrl}
-            alt=""
-            className={cn("rounded-sm", faviconSizes[viewDensity])}
-            loading="lazy"
-            onError={(e) => {
-              // Hide broken image and show fallback
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-        ) : null}
-        <div
-          className={cn(
-            "rounded-sm bg-secondary flex items-center justify-center",
-            faviconSizes[viewDensity],
-            link.faviconUrl && "hidden"
-          )}
-        >
-          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+      {/* Favicon — hidden when thumbnailSize is "none" */}
+      {thumbnailSize !== "none" && (
+        <div className="flex-shrink-0">
+          {link.faviconUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={link.faviconUrl}
+              alt=""
+              className={cn("rounded-sm object-contain", faviconSizes[viewDensity])}
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <div
+            className={cn(
+              "rounded-sm bg-secondary flex items-center justify-center",
+              faviconSizes[viewDensity],
+              link.faviconUrl && "hidden"
+            )}
+          >
+            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex items-center gap-3">
@@ -301,7 +308,7 @@ export function LinkListItemContent({
           <div className="flex items-center gap-2">
             <a
               href={isSelecting ? undefined : link.url}
-              target={isSelecting ? undefined : "_blank"}
+              target={isSelecting ? undefined : (linkClickBehavior === "same-tab" ? "_self" : "_blank")}
               rel={isSelecting ? undefined : "noopener noreferrer"}
               onClick={isSelecting ? (e) => e.preventDefault() : undefined}
               className={cn(
@@ -470,7 +477,7 @@ export function LinkListItemContent({
 
         <a
           href={link.url}
-          target="_blank"
+          target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
           rel="noopener noreferrer"
           className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
           title={t("listView.openLink")}

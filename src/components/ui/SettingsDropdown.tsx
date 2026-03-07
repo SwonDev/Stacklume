@@ -7,9 +7,10 @@ import {
   Image as ImageIcon, ExternalLink, Trash2, MessageSquare, Zap, Volume2, VolumeX,
   ArrowUpDown, Eye, EyeOff, Copy, RefreshCw, BookOpen, CheckCircle2,
   AlertCircle, Loader2, Cloud, HardDrive, Plug, ArrowUpCircle, HelpCircle,
-  Activity, Download, List, Keyboard,
+  Activity, Download, Upload, List, Keyboard,
 } from "lucide-react";
 import { isTauriWebView } from "@/lib/desktop";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { ONBOARDING_STORAGE_KEY } from "@/components/onboarding/OnboardingTour";
 import { McpDocsDialog } from "@/components/ui/McpDocsDialog";
 import { useTheme } from "next-themes";
@@ -211,6 +212,9 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
   const [isRegeneratingKey, setIsRegenerating] = useState(false);
   const [showMcpDocs, setShowMcpDocs]         = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const isDesktop = isTauriWebView();
 
   const mcpUrl = typeof window !== "undefined" ? `${window.location.origin}/api/mcp` : "/api/mcp";
@@ -256,6 +260,102 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
 
   const navigateTo = (panel: PanelId) => { setDirection(1); setActivePanel(panel); };
   const goBack     = () => { setDirection(-1); setActivePanel("main"); };
+
+  const handleCreateBackup = async () => {
+    setIsCreatingBackup(true);
+    try {
+      const res = await fetch("/api/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+        credentials: "include",
+        body: JSON.stringify({ backupType: "manual" }),
+      });
+      if (res.ok) {
+        toast.success(t("settings.backupCreated"));
+      } else {
+        toast.error(t("settings.backupCreateError"));
+      }
+    } catch {
+      toast.error(t("settings.backupCreateError"));
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    setIsDownloadingBackup(true);
+    try {
+      const res = await fetch("/api/export", { credentials: "include" });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `stacklume-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(t("settings.backupDownloaded"));
+    } catch {
+      toast.error(t("settings.backupDownloadError"));
+    } finally {
+      setIsDownloadingBackup(false);
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setIsRestoringBackup(true);
+      try {
+        const text = await file.text();
+        const importData = JSON.parse(text);
+
+        // 1. Import the backup into DB
+        const importRes = await fetch("/api/backup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+          credentials: "include",
+          body: JSON.stringify({ importData }),
+        });
+        if (!importRes.ok) {
+          toast.error(t("settings.backupRestoreInvalidFormat"));
+          return;
+        }
+        const { id: backupId } = await importRes.json();
+
+        // 2. Restore the backup
+        const restoreRes = await fetch(`/api/backup/${backupId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+          credentials: "include",
+          body: JSON.stringify({ action: "restore", mergeMode: "merge" }),
+        });
+        if (!restoreRes.ok) throw new Error();
+        const result = await restoreRes.json();
+
+        if (result.success) {
+          toast.success(t("settings.backupRestored", {
+            links: result.restored.links,
+            categories: result.restored.categories,
+          }));
+          // Refresh data in stores
+          const { useLinksStore } = await import("@/stores/links-store");
+          useLinksStore.getState().refreshAllData();
+        } else {
+          toast.warning(t("settings.backupRestoredWithErrors", { count: result.errors.length }));
+        }
+      } catch {
+        toast.error(t("settings.backupRestoreError"));
+      } finally {
+        setIsRestoringBackup(false);
+      }
+    };
+    input.click();
+  };
 
   const activeCategory = CATEGORIES.find((c) => c.id === activePanel);
   const headerTitle = activePanel === "main" ? t("settings.title") : (activeCategory ? t(activeCategory.labelKey) : t("settings.title"));
@@ -718,6 +818,64 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
                   {autoBackupInterval === value && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
                 </button>
               ))}
+            </div>
+
+            {/* Acciones manuales */}
+            <div className="border-t border-border/40 pt-4 space-y-2">
+              <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wider mb-2 px-1">
+                {t("settings.manualBackupActions")}
+              </p>
+              <button
+                onClick={handleCreateBackup}
+                disabled={isCreatingBackup}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:bg-muted/50 hover:border-border/50 transition-all text-left disabled:opacity-50"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                  {isCreatingBackup ? (
+                    <Loader2 className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Cloud className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{t("settings.createManualBackup")}</p>
+                  <p className="text-[10px] text-muted-foreground">{t("settings.createManualBackupDesc")}</p>
+                </div>
+              </button>
+              <button
+                onClick={handleDownloadBackup}
+                disabled={isDownloadingBackup}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:bg-muted/50 hover:border-border/50 transition-all text-left disabled:opacity-50"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                  {isDownloadingBackup ? (
+                    <Loader2 className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{t("settings.downloadBackup")}</p>
+                  <p className="text-[10px] text-muted-foreground">{t("settings.downloadBackupDesc")}</p>
+                </div>
+              </button>
+              <button
+                onClick={handleRestoreBackup}
+                disabled={isRestoringBackup}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:bg-muted/50 hover:border-border/50 transition-all text-left disabled:opacity-50"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                  {isRestoringBackup ? (
+                    <Loader2 className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{t("settings.restoreBackup")}</p>
+                  <p className="text-[10px] text-muted-foreground">{t("settings.restoreBackupDesc")}</p>
+                </div>
+              </button>
             </div>
           </div>
         );

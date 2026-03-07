@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState, useEffect, useDeferredValue, memo, useRef } from "react";
-import { Responsive, WidthProvider, Layout } from "react-grid-layout";
+import { useCallback, useMemo, useState, useEffect, useLayoutEffect, useDeferredValue, memo, useRef } from "react";
+import { Responsive, Layout } from "react-grid-layout";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useProjectsStore, useProjectsHasHydrated } from "@/stores/projects-store";
@@ -10,7 +10,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { BentoCard } from "./BentoCard";
 import { EmptyState, SearchEmptyState, WidgetEmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
-import { generateResponsiveLayouts, COLS, BREAKPOINTS } from "@/lib/responsive-layout";
+import { generateResponsiveLayouts, COLS } from "@/lib/responsive-layout";
 import { useDragAnnouncements, getPositionInfo } from "@/hooks/useDragAnnouncements";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { KeyboardDragHelper } from "@/components/ui/KeyboardDragHelper";
@@ -20,8 +20,6 @@ import { useTranslation } from "@/lib/i18n";
 
 // Memoized wrapper for BentoCard to prevent unnecessary re-renders
 const MemoizedBentoCard = memo(BentoCard);
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type Breakpoint = "lg" | "md" | "sm";
 
@@ -37,13 +35,13 @@ export function BentoGrid({ className }: BentoGridProps) {
   const widgets = useWidgetStore((state) => state.widgets);
   // reorderWidgets accessed via getState() in handlers — no need for a subscription
   const currentProjectId = useWidgetStore((state) => state.currentProjectId);
+  const autoOrganizeVersion = useWidgetStore((state) => state.autoOrganizeVersion);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const projectsHydrated = useProjectsHasHydrated();
   const links = useLinksStore((state) => state.links);
   const linkTags = useLinksStore((state) => state.linkTags);
   const viewDensity = useSettingsStore((state) => state.viewDensity);
   const gridColumns = useSettingsStore((state) => state.gridColumns);
-  const sidebarAlwaysVisible = useSettingsStore((state) => state.sidebarAlwaysVisible);
   const [mounted, setMounted] = useState(false);
   const [currentBreakpoint, setCurrentBreakpoint] = useState<Breakpoint>("lg");
 
@@ -74,6 +72,38 @@ export function BentoGrid({ className }: BentoGridProps) {
   // Track the last saved layout to avoid duplicate saves
   const lastSavedLayoutRef = useRef<string>("");
 
+  // Ancho del contenedor del grid. Se mide con useLayoutEffect (síncrono antes del paint)
+  // para garantizar que Responsive nunca renderice con un ancho incorrecto.
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerDivRef = useRef<HTMLDivElement>(null);
+
+  // Medir el ancho real antes de que el navegador pinte, y cada vez que cambie.
+  // [mounted, projectsHydrated] como deps garantiza que se re-ejecuta cuando el div
+  // del grid por fin aparece en el DOM (antes estaba oculto por la pantalla de carga).
+  useLayoutEffect(() => {
+    if (!mounted || !projectsHydrated) return;
+    const el = containerDivRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setContainerWidth(w);
+    };
+
+    measure(); // Medición inmediata y síncrona — se aplica antes del paint
+
+    // ResizeObserver: actualiza el ancho salvo durante drag/resize activo.
+    // Si el usuario está redimensionando un widget, el alto del contenedor cambia,
+    // el scrollbar puede aparecer/desaparecer (±15px de ancho) y sin esta guarda
+    // setContainerWidth relanzaría Responsive, moviendo todos los widgets a la vez.
+    const ro = new ResizeObserver(() => {
+      if (isUserInteracting.current) return;
+      measure();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mounted, projectsHydrated]);
+
   // Defer search query updates to reduce re-renders during typing
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -83,16 +113,6 @@ export function BentoGrid({ className }: BentoGridProps) {
     });
     return () => cancelAnimationFrame(frame);
   }, []);
-
-  // Cuando la sidebar fija se activa/desactiva, el contenedor del grid cambia de ancho
-  // por el pl-72 aplicado en AppShell. WidthProvider solo escucha window.resize,
-  // no cambios de padding CSS, así que forzamos un resize event tras el reflow del DOM.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      window.dispatchEvent(new Event("resize"));
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [sidebarAlwaysVisible]);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
@@ -457,6 +477,14 @@ export function BentoGrid({ className }: BentoGridProps) {
   // Override lg column count from user setting
   const effectiveCols = useMemo(() => ({ ...COLS, lg: gridColumns }), [gridColumns]);
 
+  // Umbrales de breakpoint reducidos: el umbral lg pasa de 1200 a 900px.
+  // Con la sidebar fija (288px), el contenedor queda ~1136px. Sin bajar el umbral,
+  // 1136 < 1200 → breakpoint md (10 cols) y las posiciones guardadas desde handleResizeStop/
+  // handleDragStop se almacenan en espacio de 10 columnas pero generateResponsiveLayouts
+  // las interpreta como espacio de 12 → todo queda mal posicionado al persistir.
+  // Con umbral 900, cualquier desktop/laptop con sidebar sigue en lg (12 cols) siempre.
+  const effectiveBreakpoints = useMemo(() => ({ lg: 900, md: 680, sm: 380 }), []);
+
   // Get grid bounds for keyboard drag (must be before any early returns)
   const gridBounds = useMemo(() => ({
     minX: 0,
@@ -542,38 +570,41 @@ export function BentoGrid({ className }: BentoGridProps) {
         />
       )}
 
-      <div role="grid" aria-label={t("bentoGrid.widgetGrid")}>
-        <ResponsiveGridLayout
-          key={`grid-${isEditMode ? 'edit' : 'view'}-${viewDensity}-${currentProjectId || 'home'}`}
-          className={cn(
-            "w-full",
-            className,
-            isEditMode && "edit-mode",
-            // Add drop zone classes for visual feedback during drag
-            isEditMode && "drop-zone-container"
-          )}
-          layouts={layouts}
-          breakpoints={BREAKPOINTS}
-          cols={effectiveCols}
-          rowHeight={densityConfig.rowHeight}
-          margin={densityConfig.margin as [number, number]}
-          containerPadding={densityConfig.containerPadding as [number, number]}
-          onLayoutChange={handleLayoutChange}
-          onBreakpointChange={handleBreakpointChange}
-          onDragStart={handleDragStart}
-          onDragStop={handleDragStop}
-          onResizeStart={handleResizeStart}
-          onResizeStop={handleResizeStop}
-          isDraggable={isEditMode}
-          isResizable={isEditMode}
-          useCSSTransforms={!prefersReducedMotion}
-          compactType="vertical"
-          preventCollision={false}
-          resizeHandles={["se", "sw", "ne", "nw", "e", "w", "n", "s"]}
-          draggableHandle=".drag-handle"
-        >
-          {children}
-        </ResponsiveGridLayout>
+      <div ref={containerDivRef} role="grid" aria-label={t("bentoGrid.widgetGrid")}>
+        {containerWidth > 0 && (
+          <Responsive
+            width={containerWidth}
+            key={`grid-${isEditMode ? 'edit' : 'view'}-${viewDensity}-${currentProjectId || 'home'}-${autoOrganizeVersion}`}
+            className={cn(
+              "w-full",
+              className,
+              isEditMode && "edit-mode",
+              // Add drop zone classes for visual feedback during drag
+              isEditMode && "drop-zone-container"
+            )}
+            layouts={layouts}
+            breakpoints={effectiveBreakpoints}
+            cols={effectiveCols}
+            rowHeight={densityConfig.rowHeight}
+            margin={densityConfig.margin as [number, number]}
+            containerPadding={densityConfig.containerPadding as [number, number]}
+            onLayoutChange={handleLayoutChange}
+            onBreakpointChange={handleBreakpointChange}
+            onDragStart={handleDragStart}
+            onDragStop={handleDragStop}
+            onResizeStart={handleResizeStart}
+            onResizeStop={handleResizeStop}
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            useCSSTransforms={!prefersReducedMotion}
+            compactType="vertical"
+            preventCollision={false}
+            resizeHandles={["se", "sw", "ne", "nw", "e", "w", "n", "s"]}
+            draggableHandle=".drag-handle"
+          >
+            {children}
+          </Responsive>
+        )}
       </div>
     </>
   );
