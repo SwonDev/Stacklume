@@ -242,7 +242,7 @@ export function EditLinkModal() {
 
   return (
     <Dialog open={isEditLinkModalOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg glass">
+      <DialogContent className="sm:max-w-lg glass max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LinkIcon className="w-5 h-5 text-primary" />
@@ -254,7 +254,7 @@ export function EditLinkModal() {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
             {/* URL Field */}
             <FormField
               control={form.control}
