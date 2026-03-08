@@ -33,7 +33,7 @@ const DEMO_DEFAULTS = {
 // GET user settings
 export async function GET() {
   // DEMO_MODE: sin BD, retornar configuración por defecto
-  if (process.env.DEMO_MODE === "true") {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
     return NextResponse.json(DEMO_DEFAULTS);
   }
 
@@ -83,7 +83,7 @@ export async function GET() {
 // PUT update settings
 export async function PUT(request: NextRequest) {
   // DEMO_MODE: sin BD, simular guardado exitoso para que el store no crashee
-  if (process.env.DEMO_MODE === "true") {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
     const body = await request.json().catch(() => ({}));
     return NextResponse.json({ ...DEMO_DEFAULTS, ...body, updatedAt: new Date().toISOString() });
   }

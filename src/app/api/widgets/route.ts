@@ -28,7 +28,7 @@ function normalizeTags(tags: unknown): string[] | null {
 // GET all widgets
 export async function GET() {
   // DEMO_MODE: datos gestionados por el interceptor en el cliente
-  if (process.env.DEMO_MODE === "true") {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
     return NextResponse.json([]);
   }
 

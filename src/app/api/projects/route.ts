@@ -6,7 +6,7 @@ import { createProjectSchema, validateRequest } from "@/lib/validations";
 // GET all projects - sorted by order
 export async function GET() {
   // DEMO_MODE: datos gestionados por el interceptor en el cliente
-  if (process.env.DEMO_MODE === "true") {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
     return NextResponse.json([]);
   }
 
