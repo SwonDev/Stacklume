@@ -38,9 +38,9 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
 
-  // En demo mode, reemplazamos ThreeCoinLogo con un stub vacío para que
-  // webpack no genere ningún chunk de Three.js/@react-three y elimine
-  // el bucle de WebGL context loss causado por el HDR de Environment.
+  // En demo mode, reemplazamos ThreeCoinLogo con un stub vacío (sin Three.js).
+  // Usamos TANTO webpack alias (para dev/builds locales) como turbopack.resolveAlias
+  // (para Vercel, que usa Turbopack en producción y no respeta webpack.config.resolve.alias).
   webpack: (config) => {
     if (isDemoMode) {
       const realPath = path.resolve("./src/components/layout/ThreeCoinLogo.tsx");
@@ -52,6 +52,20 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+
+  // Turbopack alias (Vercel production builds usan Turbopack):
+  // Redirige @/components/layout/ThreeCoinLogo → stub sin Three.js en demo mode.
+  // Esto evita que el chunk de Three.js/@react-three/fiber se incluya en la build demo.
+  ...(isDemoMode
+    ? {
+        turbopack: {
+          resolveAlias: {
+            "@/components/layout/ThreeCoinLogo":
+              "./src/components/layout/ThreeCoinLogoStub",
+          },
+        },
+      }
+    : {}),
 
   // Standalone output solo para desktop (Tauri/Electron).
   // Vercel gestiona su propio formato de salida; usar "standalone" en Vercel
