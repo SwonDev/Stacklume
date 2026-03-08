@@ -12,7 +12,7 @@ Stacklume Desktop (Tauri v2 + WebView2)
 │   ├── TitleBar React personalizado (estilo macOS)
 │   └── WebView apunta a http://127.0.0.1:{PORT}
 ├── Al arrancar (lib.rs):
-│   ├── Busca puerto libre (3001–3005)
+│   ├── Busca puerto libre (intenta 7879 primero)
 │   ├── Spawna node.exe + .next/standalone/server.js
 │   │   ├── DESKTOP_MODE=true  → sin auth, sin CSRF
 │   │   ├── DATABASE_PATH=%APPDATA%\com.stacklume.app\stacklume.db
