@@ -98,6 +98,10 @@ lint_*.txt
 docs/
 src/lib/API_CLIENT_GUIDE.md
 
+# Artefactos de desarrollo interno (scripts auxiliares)
+scripts/i18n-keys-*.json
+scripts/take-screenshots.mjs
+
 .vercel
 .env*.local
 
