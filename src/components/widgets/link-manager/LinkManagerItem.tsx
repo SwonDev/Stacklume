@@ -43,6 +43,7 @@ import { useLinksStore } from "@/stores/links-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTranslation } from "@/lib/i18n";
+import { showConfirm } from "@/components/ui/ConfirmDialog";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -177,7 +178,16 @@ export function LinkManagerItem({
 
   // Handle delete
   const handleDelete = useCallback(async () => {
-    if (confirmBeforeDelete && !confirm(t("linkManager.confirmDeleteLink"))) return;
+    if (confirmBeforeDelete) {
+      const ok = await showConfirm({
+        title: t("listView.confirmDeleteTitle"),
+        description: t("linkManager.confirmDeleteLink"),
+        confirmLabel: t("btn.delete"),
+        cancelLabel: t("btn.cancel"),
+        variant: "destructive",
+      });
+      if (!ok) return;
+    }
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
