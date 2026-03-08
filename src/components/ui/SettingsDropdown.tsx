@@ -9,7 +9,7 @@ import {
   AlertCircle, Loader2, Cloud, HardDrive, Plug, ArrowUpCircle, HelpCircle,
   Activity, Download, Upload, List, Keyboard,
 } from "lucide-react";
-import { isTauriWebView } from "@/lib/desktop";
+import { isTauriWebView, getServerPort } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { McpDocsDialog } from "@/components/ui/McpDocsDialog";
 import { useTheme } from "next-themes";
@@ -216,14 +216,31 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const isDesktop = isTauriWebView();
 
-  // En desktop (Tauri) usamos el puerto estable 7879 para que la URL del MCP
-  // no cambie entre reinicios y las configuraciones de Claude Desktop / Cursor
-  // sigan funcionando. En web usamos el origen real de la ventana.
+  // Puerto preferido estable para MCP en desktop (debe coincidir con PREFERRED_PORT en lib.rs)
+  const MCP_PREFERRED_PORT = 7879;
+
+  // Puerto real detectado en tiempo de ejecución (via comando Tauri get_server_port).
+  // Se usa para construir la URL de MCP y avisar si el servidor arrancó en un puerto
+  // diferente al preferido (p.ej. si 7879 estaba ocupado por otro proceso).
+  const [actualServerPort, setActualServerPort] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    getServerPort().then((port) => {
+      if (port !== null) setActualServerPort(port);
+    }).catch(() => {/* silencioso si falla */});
+  }, [isDesktop]);
+
+  // URL de MCP: en desktop usa el puerto real detectado (o el preferido mientras carga).
+  // En web usa el origen de la ventana.
   const mcpUrl = typeof window !== "undefined"
     ? isDesktop
-      ? "http://127.0.0.1:7879/api/mcp"
+      ? `http://127.0.0.1:${actualServerPort ?? MCP_PREFERRED_PORT}/api/mcp`
       : `${window.location.origin}/api/mcp`
     : "/api/mcp";
+
+  // true si el servidor arrancó en un puerto diferente al preferido (MCP inestable)
+  const mcpPortUnstable = isDesktop && actualServerPort !== null && actualServerPort !== MCP_PREFERRED_PORT;
 
   // Sincronizar next-themes con el tema del store
   useEffect(() => {
@@ -1108,6 +1125,12 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
                         </button>
                       </div>
                       <p className="text-[9px] text-muted-foreground/50 font-mono truncate" title={mcpUrl}>{mcpUrl}</p>
+                      {mcpPortUnstable && (
+                        <p className="text-[9px] text-amber-500 flex items-center gap-1">
+                          <AlertCircle className="h-2.5 w-2.5 flex-shrink-0" />
+                          {t("settings.mcpPortUnstable", { port: actualServerPort })}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>
