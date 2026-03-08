@@ -8,6 +8,7 @@ import { DesktopContextMenu } from "@/components/desktop/DesktopContextMenu";
 import { UpdateChecker } from "@/components/desktop/UpdateChecker";
 import { DemoProvider } from "@/components/demo/DemoProvider";
 import { DemoBanner } from "@/components/demo/DemoBanner";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -126,6 +127,7 @@ export default function RootLayout({
             />
           </Providers>
         )}
+        {!isDesktopMode && <Analytics />}
       </body>
     </html>
   );
