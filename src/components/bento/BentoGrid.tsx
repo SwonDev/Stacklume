@@ -36,6 +36,7 @@ export function BentoGrid({ className }: BentoGridProps) {
   // reorderWidgets accessed via getState() in handlers — no need for a subscription
   const currentProjectId = useWidgetStore((state) => state.currentProjectId);
   const autoOrganizeVersion = useWidgetStore((state) => state.autoOrganizeVersion);
+  const widgetsInitialized = useWidgetStore((state) => state.isInitialized);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const projectsHydrated = useProjectsHasHydrated();
   const links = useLinksStore((state) => state.links);
@@ -78,10 +79,11 @@ export function BentoGrid({ className }: BentoGridProps) {
   const containerDivRef = useRef<HTMLDivElement>(null);
 
   // Medir el ancho real antes de que el navegador pinte, y cada vez que cambie.
-  // [mounted, projectsHydrated] como deps garantiza que se re-ejecuta cuando el div
-  // del grid por fin aparece en el DOM (antes estaba oculto por la pantalla de carga).
+  // Depende de [mounted, widgetsInitialized] porque el div con containerDivRef solo
+  // existe en el return final (cuando hay widgets). Si los widgets llegan después del
+  // primer render, widgetsInitialized pasa de false→true y esto re-ejecuta la medición.
   useLayoutEffect(() => {
-    if (!mounted || !projectsHydrated) return;
+    if (!mounted) return;
     const el = containerDivRef.current;
     if (!el) return;
 
@@ -102,7 +104,7 @@ export function BentoGrid({ className }: BentoGridProps) {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [mounted, projectsHydrated]);
+  }, [mounted, widgetsInitialized]);
 
   // Defer search query updates to reduce re-renders during typing
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -511,9 +513,10 @@ export function BentoGrid({ className }: BentoGridProps) {
     cols: effectiveCols[currentBreakpoint],
   }), [currentBreakpoint, effectiveCols]);
 
-  // Wait for both mount AND hydration to complete before rendering widgets
-  // This ensures activeProjectId is correctly loaded from localStorage
-  if (!mounted || !projectsHydrated) {
+  // Block render until hydration — solo esperamos el mount del cliente.
+  // projectsHydrated ya NO bloquea aquí: el project ID sync se gestiona
+  // en su propio useEffect (más abajo), que sí espera a projectsHydrated.
+  if (!mounted) {
     return (
       <div
         className="flex items-center justify-center h-full"
@@ -545,6 +548,16 @@ export function BentoGrid({ className }: BentoGridProps) {
     }
 
     if (hasNoWidgetsAtAll) {
+      // No mostrar el estado vacío hasta que los widgets hayan cargado de la DB.
+      // Sin esta guarda, en la primera carga se flashea el empty state antes de
+      // que initWidgets/refreshWidgets terminen de traer los datos.
+      if (!widgetsInitialized) {
+        return (
+          <div className="flex items-center justify-center h-full" role="status">
+            <div className="animate-pulse text-muted-foreground">{t("bentoGrid.loading")}</div>
+          </div>
+        );
+      }
       // Show empty state for no widgets with action to add
       return (
         <WidgetEmptyState
