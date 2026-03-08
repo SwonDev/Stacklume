@@ -200,8 +200,12 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   // =========================================================================
   // Demo Mode — bypass auth and CSRF; client handles all CRUD via localStorage
+  // Comprobamos NEXT_PUBLIC_DEMO_MODE (garantizado en Edge bundle) y DEMO_MODE
   // =========================================================================
-  if (process.env.DEMO_MODE === 'true') {
+  if (
+    process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
+    process.env.DEMO_MODE === 'true'
+  ) {
     // Demo mode: datos en localStorage del navegador. El servidor solo sirve
     // rutas externas (scrape, github-trending, etc.) que no necesitan auth.
     const res = NextResponse.next();
