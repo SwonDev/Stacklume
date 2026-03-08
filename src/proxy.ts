@@ -199,15 +199,68 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // =========================================================================
-  // Demo Mode — bypass auth and CSRF; client handles all CRUD via localStorage
-  // Comprobamos NEXT_PUBLIC_DEMO_MODE (garantizado en Edge bundle) y DEMO_MODE
+  // Demo Mode — intercepta rutas de datos en el middleware para evitar
+  // cualquier acceso a la BD. El cliente gestiona todo via localStorage.
+  // NEXT_PUBLIC_DEMO_MODE se inlinea en build time → garantizado en Edge.
   // =========================================================================
-  if (
-    process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
-    process.env.DEMO_MODE === 'true'
-  ) {
-    // Demo mode: datos en localStorage del navegador. El servidor solo sirve
-    // rutas externas (scrape, github-trending, etc.) que no necesitan auth.
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    // Rutas que SÍ pasan al servidor (no acceden a datos del usuario):
+    const DEMO_PASSTHROUGH = [
+      '/api/scrape',
+      '/api/github-',
+      '/api/steam-',
+      '/api/nintendo-',
+      '/api/health',
+      '/api/mcp',
+      '/api/stickers',    // archivos estáticos del servidor, OK
+    ];
+
+    const isPassthrough = DEMO_PASSTHROUGH.some((p) => pathname.startsWith(p));
+
+    if (!isPassthrough && pathname.startsWith('/api/')) {
+      // Respuestas vacías por ruta — nunca tocan la BD
+      const DEMO_SETTINGS = JSON.stringify({
+        id: 'demo', userId: 'default', theme: 'dark', viewDensity: 'normal',
+        viewMode: 'bento', showTooltips: true, reduceMotion: false, language: 'es',
+        gridColumns: 12, sidebarAlwaysVisible: false, defaultSortField: 'createdAt',
+        defaultSortOrder: 'desc', thumbnailSize: 'medium', sidebarDensity: 'normal',
+        autoBackupInterval: 0, confirmBeforeDelete: true, linkClickBehavior: 'new-tab',
+        onboardingCompleted: false, mcpEnabled: false, mcpApiKey: null,
+      });
+
+      let body = '[]';
+      let status = 200;
+
+      if (method === 'GET') {
+        if (pathname === '/api/settings') body = DEMO_SETTINGS;
+        else if (pathname === '/api/trash') body = '{"links":[],"categories":[],"tags":[]}';
+        else if (pathname === '/api/auth/session') body = '{"authenticated":true,"username":"demo"}';
+        else if (pathname === '/api/auth/login') body = '{"success":true}';
+        else if (pathname === '/api/auth/logout') body = '{"success":true}';
+        // default: '[]' — links, categories, tags, widgets, projects, etc.
+      } else if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+        // Simular éxito para mutaciones que puedan escurrirse al servidor
+        if (pathname === '/api/settings') body = DEMO_SETTINGS;
+        else body = '{"success":true}';
+        // Para POST de creación, devolver 201 con un id fake
+        if (method === 'POST' && pathname !== '/api/settings') status = 201;
+      } else if (method === 'DELETE') {
+        body = '{"success":true}';
+      } else if (method === 'OPTIONS') {
+        const res = new NextResponse(null, { status: 204 });
+        res.headers.set('Access-Control-Allow-Origin', origin || '*');
+        res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.headers.set('Access-Control-Allow-Headers', '*');
+        return res;
+      }
+
+      return new NextResponse(body, {
+        status,
+        headers: { 'Content-Type': 'application/json', 'X-Demo-Mode': 'true' },
+      });
+    }
+
+    // Páginas y pass-through: continuar normalmente
     const res = NextResponse.next();
     res.headers.set('X-Demo-Mode', 'true');
     return res;
