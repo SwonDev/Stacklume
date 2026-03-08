@@ -88,9 +88,15 @@ dist-placeholder/*.html
 tmp/
 null
 *.db
+*.db-shm
+*.db-wal
 
 # Lint output files (dev only)
 lint_*.txt
+
+# Notas internas de implementación (no relevantes para usuarios externos)
+docs/PAGINATION_IMPLEMENTATION.md
+docs/PAGINATION_SUMMARY.md
 
 .vercel
 .env*.local
@@ -116,3 +122,5 @@ playwright.stickers.config.ts
 /playwright-report/
 /playwright-results/
 /test-results/
+
+.env*.local
