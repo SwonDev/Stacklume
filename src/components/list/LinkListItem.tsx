@@ -21,6 +21,11 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -44,6 +49,7 @@ import { TagBadge } from "@/components/ui/tag-badge";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { showConfirm } from "@/components/ui/ConfirmDialog";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -172,7 +178,16 @@ export function LinkListItemContent({
 
   // Handle delete
   const handleDelete = useCallback(async () => {
-    if (confirmBeforeDelete && !confirm(t("listView.confirmDelete"))) return;
+    if (confirmBeforeDelete) {
+      const ok = await showConfirm({
+        title: t("listView.confirmDeleteTitle"),
+        description: t("listView.confirmDelete"),
+        confirmLabel: t("btn.delete"),
+        cancelLabel: t("btn.cancel"),
+        variant: "destructive",
+      });
+      if (!ok) return;
+    }
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
@@ -357,17 +372,20 @@ export function LinkListItemContent({
           )}
 
           {/* Add tag button */}
-          <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                title={t("listView.addTag")}
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </Button>
-            </PopoverTrigger>
+          <Tooltip>
+            <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={t("listView.addTag")}
+                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
             <PopoverContent className="w-56 p-0" align="end">
               <Command shouldFilter={false}>
                 <CommandInput
@@ -421,40 +439,54 @@ export function LinkListItemContent({
                 </CommandList>
               </Command>
             </PopoverContent>
-          </Popover>
+            </Popover>
+            <TooltipContent>{t("listView.addTag")}</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={handleFavoriteToggle}
-          title={link.isFavorite ? t("listView.removeFromFavorites") : t("listView.addToFavorites")}
-        >
-          <Star
-            className={cn(
-              "w-4 h-4",
-              link.isFavorite
-                ? "text-yellow-500 fill-yellow-500"
-                : "text-muted-foreground"
-            )}
-          />
-        </Button>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
-              title={t("listView.moreOptions")}
+              onClick={handleFavoriteToggle}
+              aria-label={link.isFavorite ? t("listView.removeFromFavorites") : t("listView.addToFavorites")}
             >
-              <MoreHorizontal className="w-4 h-4" />
+              <Star
+                className={cn(
+                  "w-4 h-4",
+                  link.isFavorite
+                    ? "text-yellow-500 fill-yellow-500"
+                    : "text-muted-foreground"
+                )}
+              />
             </Button>
-          </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            {link.isFavorite ? t("listView.removeFromFavorites") : t("listView.addToFavorites")}
+          </TooltipContent>
+        </Tooltip>
+
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  aria-label={t("listView.moreOptions")}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{t("listView.moreOptions")}</TooltipContent>
+          </Tooltip>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleEdit}>
               <Pencil className="w-4 h-4 mr-2" />
@@ -475,15 +507,20 @@ export function LinkListItemContent({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <a
-          href={link.url}
-          target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
-          rel="noopener noreferrer"
-          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
-          title={t("listView.openLink")}
-        >
-          <ExternalLink className="w-4 h-4 text-muted-foreground" />
-        </a>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={link.url}
+              target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
+              rel="noopener noreferrer"
+              aria-label={t("listView.openLink")}
+              className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
+            >
+              <ExternalLink className="w-4 h-4 text-muted-foreground" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>{t("listView.openLink")}</TooltipContent>
+        </Tooltip>
       </div>
     </motion.div>
   );

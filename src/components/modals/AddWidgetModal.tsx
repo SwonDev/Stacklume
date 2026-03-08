@@ -210,6 +210,7 @@ import type { WidgetType, WidgetSize } from "@/types/widget";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
+import { showConfirm } from "@/components/ui/ConfirmDialog";
 
 const formSchema = z.object({
   type: z.enum([
@@ -1133,7 +1134,14 @@ export function AddWidgetModal() {
 
   const handleDeleteCustomType = useCallback(async (customType: CustomWidgetTypeEntry, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(t("addWidget.confirmDelete", { name: customType.name }))) return;
+    const ok = await showConfirm({
+      title: t("addWidget.confirmDeleteTitle"),
+      description: t("addWidget.confirmDelete", { name: customType.name }),
+      confirmLabel: t("btn.delete"),
+      cancelLabel: t("btn.cancel"),
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/custom-widget-types/${customType.id}`, {
         method: "DELETE",

@@ -23,6 +23,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Link } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -178,29 +183,36 @@ export const RichLinkCard = memo(function RichLinkCard({
               </div>
             )}
             {/* Interactive Favorite star */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onToggleFavorite?.();
-              }}
-              className={cn(
-                "absolute top-2 right-2 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-white",
-                link.isFavorite
-                  ? "bg-black/20 backdrop-blur-sm"
-                  : "bg-black/30 backdrop-blur-sm opacity-0 group-hover/link:opacity-100"
-              )}
-              title={link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
-            >
-              <Star className={cn(
-                "w-5 h-5 drop-shadow-lg transition-colors",
-                link.isFavorite
-                  ? "text-yellow-400 fill-yellow-400"
-                  : "text-white/80 hover:text-yellow-400"
-              )} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleFavorite?.();
+                  }}
+                  aria-label={link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
+                  className={cn(
+                    "absolute top-2 right-2 p-1.5 rounded-full transition-all hover:scale-110 active:scale-95",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                    link.isFavorite
+                      ? "bg-black/20 backdrop-blur-sm"
+                      : "bg-black/30 backdrop-blur-sm opacity-0 group-hover/link:opacity-100"
+                  )}
+                >
+                  <Star className={cn(
+                    "w-5 h-5 drop-shadow-lg transition-colors",
+                    link.isFavorite
+                      ? "text-yellow-400 fill-yellow-400"
+                      : "text-white/80 hover:text-yellow-400"
+                  )} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
+              </TooltipContent>
+            </Tooltip>
             {/* Edit indicator */}
             {isEditMode && (
               <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-primary/90 text-primary-foreground text-xs flex items-center gap-1 opacity-0 group-hover/link:opacity-100 transition-opacity">
@@ -323,6 +335,8 @@ export const RichLinkCard = memo(function RichLinkCard({
             {link.title}
           </h4>
           {/* Interactive favorite star */}
+          <Tooltip>
+          <TooltipTrigger asChild>
           <button
             type="button"
             onClick={(e) => {
@@ -330,12 +344,12 @@ export const RichLinkCard = memo(function RichLinkCard({
               e.stopPropagation();
               onToggleFavorite?.();
             }}
+            aria-label={link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
             className={cn(
               "flex-shrink-0 p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95",
               "focus:outline-none focus-visible:ring-1 focus-visible:ring-primary",
               !link.isFavorite && "opacity-0 group-hover/link:opacity-60 hover:!opacity-100"
             )}
-            title={link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
           >
             <Star className={cn(
               "w-3 h-3 transition-colors",
@@ -344,6 +358,11 @@ export const RichLinkCard = memo(function RichLinkCard({
                 : "text-muted-foreground hover:text-yellow-500"
             )} />
           </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
+          </TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           {/* Platform badge */}

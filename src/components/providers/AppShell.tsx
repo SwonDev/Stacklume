@@ -13,6 +13,7 @@ import { isTauriWebView, openExternalUrl } from "@/lib/desktop";
 import { TrayIconUpdater } from "./TrayIconUpdater";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTranslation } from "@/lib/i18n";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 // Lazy-load modals — they're heavy and only needed when opened
 const AddLinkModal = lazy(() => import("@/components/modals/AddLinkModal").then((m) => ({ default: m.AddLinkModal })));
@@ -138,6 +139,9 @@ export function AppShell({ children }: AppShellProps) {
       {/* UX Components - render after mount */}
       {mounted && (
         <>
+          {/* Diálogo de confirmación global (sustituye a window.confirm) */}
+          <ConfirmDialog />
+
           {/* Undo toast notification */}
           <UndoToast />
 
