@@ -104,6 +104,7 @@ interface SettingsState {
   autoBackupInterval: number; // 0=off, 1=daily, 7=weekly, 30=monthly
   confirmBeforeDelete: boolean;
   linkClickBehavior: LinkClickBehavior;
+  onboardingCompleted: boolean;
 
   // Actions
   setTheme: (theme: Theme) => void;
@@ -123,6 +124,7 @@ interface SettingsState {
   setAutoBackupInterval: (days: number) => void;
   setConfirmBeforeDelete: (v: boolean) => void;
   setLinkClickBehavior: (b: LinkClickBehavior) => void;
+  setOnboardingCompleted: (v: boolean) => Promise<void>;
 
   // MCP actions
   setMcpEnabled: (enabled: boolean) => Promise<void>;
@@ -158,6 +160,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   autoBackupInterval: 0,
   confirmBeforeDelete: true,
   linkClickBehavior: "new-tab",
+  onboardingCompleted: false,
 
   // Extended settings — persisted to DB
   setLanguage: async (language) => {
@@ -286,6 +289,18 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       console.error("Error saving link click behavior:", error);
     }
   },
+  setOnboardingCompleted: async (onboardingCompleted) => {
+    set({ onboardingCompleted });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onboardingCompleted }),
+      });
+    } catch (error) {
+      console.error("Error saving onboarding completed:", error);
+    }
+  },
 
   // Initialize settings from database
   initSettings: async () => {
@@ -314,6 +329,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           autoBackupInterval: settings.autoBackupInterval ?? 0,
           confirmBeforeDelete: settings.confirmBeforeDelete ?? true,
           linkClickBehavior: (settings.linkClickBehavior as LinkClickBehavior) ?? "new-tab",
+          onboardingCompleted: settings.onboardingCompleted ?? false,
           isInitialized: true,
         });
       }

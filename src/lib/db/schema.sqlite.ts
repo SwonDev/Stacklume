@@ -282,6 +282,7 @@ export const userSettings = sqliteTable(
     autoBackupInterval: integer("auto_backup_interval").default(0).notNull(),
     confirmBeforeDelete: integer("confirm_before_delete", { mode: "boolean" }).default(true).notNull(),
     linkClickBehavior: text("link_click_behavior").default("new-tab").notNull(),
+    onboardingCompleted: integer("onboarding_completed", { mode: "boolean" }).default(false).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
