@@ -97,6 +97,19 @@ lint_*.txt
 # Notas internas de implementación (no relevantes para usuarios externos)
 docs/PAGINATION_IMPLEMENTATION.md
 docs/PAGINATION_SUMMARY.md
+docs/widgets/BEZIER_WIDGET_INTEGRATION.md
+docs/widgets/CSS_FILTER_WIDGET_COMPLETE.md
+docs/widgets/CSS_FILTER_WIDGET_UPDATES.md
+docs/widgets/DAMAGE_CALCULATOR_INTEGRATION.md
+docs/widgets/FRAME_RATE_WIDGET_CHANGES.md
+docs/widgets/GLASSMORPHISM_WIDGET_ADDITIONS.md
+docs/widgets/MANUAL_ADDITIONS_FOR_CSS_TRANSFORM.md
+docs/widgets/NOISE_GENERATOR_INTEGRATION.md
+docs/widgets/PARTICLE_SYSTEM_INTEGRATION_GUIDE.md
+docs/widgets/SKILL_TREE_INTEGRATION.md
+docs/widgets/TYPOGRAPHY_WIDGET_SETUP.md
+docs/widgets/WIDGET_MIGRATION_GUIDE.md
+src/lib/API_CLIENT_GUIDE.md
 
 .vercel
 .env*.local
