@@ -1305,7 +1305,7 @@ export function AddWidgetModal() {
 
         <div className="flex-1 overflow-y-auto -mx-6 px-6 pb-2 scrollbar-thin">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form id="add-widget-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Widget Type Selection - Multi-select */}
             <FormItem>
               <FormLabel>{t("addWidget.widgetType")}</FormLabel>
@@ -1776,22 +1776,23 @@ export function AddWidgetModal() {
               )}
             </AnimatePresence>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="ghost" onClick={handleClose}>
-                {t("addWidget.cancel")}
-              </Button>
-              <Button type="submit" disabled={isLoading || selectedTypes.length === 0}>
-                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {selectedTypes.length === 0
-                  ? t("addWidget.selectWidgets")
-                  : selectedTypes.length === 1
-                  ? t("addWidget.createWidget")
-                  : t("addWidget.createWidgets", { count: selectedTypes.length })}
-              </Button>
-            </div>
             </form>
           </Form>
+        </div>
+
+        {/* Footer sticky fuera del área scrollable */}
+        <div className="flex justify-end gap-2 pt-4 border-t border-border/50 flex-shrink-0">
+          <Button type="button" variant="ghost" onClick={handleClose}>
+            {t("addWidget.cancel")}
+          </Button>
+          <Button type="submit" form="add-widget-form" disabled={isLoading || selectedTypes.length === 0}>
+            {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {selectedTypes.length === 0
+              ? t("addWidget.selectWidgets")
+              : selectedTypes.length === 1
+              ? t("addWidget.createWidget")
+              : t("addWidget.createWidgets", { count: selectedTypes.length })}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

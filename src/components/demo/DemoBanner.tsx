@@ -24,22 +24,38 @@ export function DemoBanner() {
 
         <p className="flex-1 leading-relaxed">
           <span className="font-semibold text-amber-300">Modo demo</span>
-          {" — "}
-          Tus datos se guardan{" "}
-          <span className="font-medium">solo en este navegador</span>{" "}
-          <Database className="inline h-3 w-3 mx-0.5 text-amber-400" />
-          y son completamente privados. Para la experiencia completa descarga la
-          app de escritorio.
-          {" "}
-          <a
-            href="https://github.com/SwonDev/Stacklume/releases/latest"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 underline underline-offset-2 text-amber-300 hover:text-amber-100 transition-colors font-medium"
-          >
-            <MonitorDown className="h-3 w-3" />
-            Descargar Stacklume
-          </a>
+          {/* Texto corto en mobile */}
+          <span className="sm:hidden">
+            {" — "}Datos solo en este navegador.{" "}
+            <a
+              href="https://github.com/SwonDev/Stacklume/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 underline underline-offset-2 text-amber-300 hover:text-amber-100 transition-colors font-medium"
+            >
+              <MonitorDown className="h-3 w-3" />
+              Descargar
+            </a>
+          </span>
+          {/* Texto completo en sm+ */}
+          <span className="hidden sm:inline">
+            {" — "}
+            Tus datos se guardan{" "}
+            <span className="font-medium">solo en este navegador</span>{" "}
+            <Database className="inline h-3 w-3 mx-0.5 text-amber-400" />
+            y son completamente privados. Para la experiencia completa descarga la
+            app de escritorio.
+            {" "}
+            <a
+              href="https://github.com/SwonDev/Stacklume/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 underline underline-offset-2 text-amber-300 hover:text-amber-100 transition-colors font-medium"
+            >
+              <MonitorDown className="h-3 w-3" />
+              Descargar Stacklume
+            </a>
+          </span>
         </p>
 
         <button
