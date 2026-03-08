@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://stacklume.vercel.app">
+<a href="https://demo.stacklume.app">
   <img src="assets/logo-badge.svg" alt="Stacklume Logo" width="140" height="140" />
 </a>
 
@@ -25,8 +25,8 @@
   <img src="https://img.shields.io/badge/Descargar_para_Windows-d4a853?style=for-the-badge&logo=windows&logoColor=0a1628" height="42" />
 </a>
 &nbsp;&nbsp;
-<a href="https://stacklume.vercel.app">
-  <img src="https://img.shields.io/badge/Usar_en_el_Navegador-0a1628?style=for-the-badge&logo=vercel&logoColor=d4a853" height="42" />
+<a href="https://demo.stacklume.app">
+  <img src="https://img.shields.io/badge/Probar_Demo_Online-0a1628?style=for-the-badge&logo=vercel&logoColor=d4a853" height="42" />
 </a>
 
 <br />
@@ -134,6 +134,24 @@ La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, 
 </table>
 
 > **Requisitos:** Windows 10/11 (64-bit). WebView2 Runtime (incluido en Windows 11; se instala automáticamente en Windows 10).
+
+<br />
+
+---
+
+### <img src="assets/icons/eye.svg" width="22" height="22" align="center" /> Demo pública — Sin registro
+
+Prueba Stacklume directamente en el navegador sin crear una cuenta. Los datos se guardan **solo en tu navegador** (localStorage) y son completamente privados.
+
+<div align="center">
+
+<a href="https://demo.stacklume.app">
+  <img src="https://img.shields.io/badge/Abrir_Demo-d4a853?style=for-the-badge&labelColor=0a1628" height="44" />
+</a>
+
+</div>
+
+> Sin servidor, sin base de datos, sin login. Ideal para explorar la aplicación antes de instalarla.
 
 <br />
 
