@@ -12,8 +12,10 @@ export function DemoBanner() {
   return (
     <div
       className={cn(
-        "relative z-50 w-full shrink-0",
-        "bg-amber-950/80 border-b border-amber-800/60 backdrop-blur-sm",
+        // Fixed en la parte superior, encima del header (z-50 → usamos z-[60])
+        // El header es h-12 (48px), ponemos top-12 para quedar justo debajo
+        "fixed top-12 left-0 right-0 z-[60]",
+        "bg-amber-950/95 border-b border-amber-800/60 backdrop-blur-sm shadow-md",
         "text-amber-100 text-xs"
       )}
     >
