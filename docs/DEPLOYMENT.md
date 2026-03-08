@@ -18,6 +18,41 @@ Los datos se guardan en `%APPDATA%\com.stacklume.app\stacklume.db` (SQLite).
 
 ---
 
+## Opción C — Modo demo (sin base de datos)
+
+El modo demo es la forma más sencilla de probar Stacklume en la web. Todos los datos se almacenan en el `localStorage` del navegador: no se necesita base de datos, autenticación ni ninguna infraestructura adicional.
+
+- **URL oficial:** [demo.stacklume.app](https://demo.stacklume.app)
+- **Ideal para:** evaluar Stacklume antes de configurar la versión completa
+
+### Cómo activar el modo demo en tu propio deploy de Vercel
+
+1. Importa el repositorio en [vercel.com](https://vercel.com) (sin configurar base de datos)
+2. Añade **únicamente** estas variables de entorno en los ajustes del proyecto:
+
+```env
+NEXT_PUBLIC_DEMO_MODE=true
+DEMO_MODE=true
+```
+
+3. Haz deploy — no se necesita `DATABASE_URL`, `AUTH_USERNAME`, `AUTH_SECRET` ni ninguna otra variable
+
+### Características del modo demo
+
+- Los datos (links, categorías, widgets, etc.) se guardan solo en el navegador local
+- 100% privado — ningún dato sale del dispositivo del usuario
+- Sin límite de uso — no hay cuotas de base de datos
+- Los widgets que consumen APIs externas (GitHub Trending, Steam, Nintendo) siguen funcionando normalmente a través del servidor
+
+### Limitaciones
+
+- Los datos no se sincronizan entre dispositivos ni navegadores
+- No hay backups automáticos al servidor
+- Si el usuario borra el `localStorage`, los datos se pierden
+- No apto para uso en producción con datos críticos
+
+---
+
 ## Opción B — Web app self-hosted (Vercel recomendado)
 
 ### Prerrequisitos
@@ -108,16 +143,18 @@ pnpm start
 
 | Variable | Obligatoria | Descripción |
 |----------|------------|-------------|
-| `DATABASE_URL` | ✅ | Connection string Neon PostgreSQL |
-| `AUTH_USERNAME` | ✅ prod | Nombre de usuario para el login |
-| `AUTH_PASSWORD_HASH` | ✅ prod | Hash bcrypt de la contraseña |
-| `AUTH_SECRET` | ✅ prod | Clave para firmar JWT (mín. 32 chars) |
+| `DATABASE_URL` | ✅ (modo B) | Connection string Neon PostgreSQL |
+| `AUTH_USERNAME` | ✅ prod (B) | Nombre de usuario para el login |
+| `AUTH_PASSWORD_HASH` | ✅ prod (B) | Hash bcrypt de la contraseña |
+| `AUTH_SECRET` | ✅ prod (B) | Clave para firmar JWT (mín. 32 chars) |
+| `NEXT_PUBLIC_DEMO_MODE` | ✅ (modo C) | `"true"` activa el modo demo en el cliente |
+| `DEMO_MODE` | ✅ (modo C) | `"true"` omite auth/CSRF en el servidor |
 | `UPSTASH_REDIS_REST_URL` | ⬜ | URL REST de Upstash Redis (rate limiting) |
 | `UPSTASH_REDIS_REST_TOKEN` | ⬜ | Token Upstash Redis |
 | `SENTRY_DSN` | ⬜ | DSN de Sentry para error monitoring |
 | `SENTRY_AUTH_TOKEN` | ⬜ | Token Sentry para source maps |
 | `GITHUB_TOKEN` | ⬜ | Token GitHub (aumenta rate limit en widgets de GitHub) |
-| `NEXT_PUBLIC_APP_VERSION` | ⬜ | Versión mostrada en la app (ej. `0.3.21`) |
+| `NEXT_PUBLIC_APP_VERSION` | ⬜ | Versión mostrada en la app (ej. `0.3.22`) |
 
 ### Modo desktop (gestionadas automáticamente por Rust/scripts)
 
