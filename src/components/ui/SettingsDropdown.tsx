@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { isTauriWebView } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
-import { ONBOARDING_STORAGE_KEY } from "@/components/onboarding/OnboardingTour";
 import { McpDocsDialog } from "@/components/ui/McpDocsDialog";
 import { useTheme } from "next-themes";
 import { useEffect, useId, useState } from "react";
@@ -886,7 +885,7 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
             labelKey: "settings.onboarding",
             descKey: "settings.onboardingDescShort",
             Icon: HelpCircle,
-            onClick: () => { setOpen(false); localStorage.removeItem(ONBOARDING_STORAGE_KEY); window.location.reload(); },
+            onClick: async () => { setOpen(false); await useSettingsStore.getState().setOnboardingCompleted(false); window.location.reload(); },
           },
           {
             labelKey: "settings.importExport",

@@ -68,6 +68,7 @@ export async function PUT(request: NextRequest) {
       theme, viewDensity, viewMode, showTooltips, reduceMotion, mcpEnabled, mcpApiKey,
       language, gridColumns, sidebarAlwaysVisible, defaultSortField, defaultSortOrder,
       thumbnailSize, sidebarDensity, autoBackupInterval, confirmBeforeDelete, linkClickBehavior,
+      onboardingCompleted,
     } = validation.data;
 
     // Check if settings exist
@@ -97,6 +98,7 @@ export async function PUT(request: NextRequest) {
           autoBackupInterval: autoBackupInterval ?? 0,
           confirmBeforeDelete: confirmBeforeDelete ?? true,
           linkClickBehavior: linkClickBehavior ?? "new-tab",
+          onboardingCompleted: onboardingCompleted ?? false,
           createdAt: new Date(),
           updatedAt: new Date(),
         }).returning(),
@@ -128,6 +130,7 @@ export async function PUT(request: NextRequest) {
     if (autoBackupInterval !== undefined) updateData.autoBackupInterval = autoBackupInterval;
     if (confirmBeforeDelete !== undefined) updateData.confirmBeforeDelete = confirmBeforeDelete;
     if (linkClickBehavior !== undefined) updateData.linkClickBehavior = linkClickBehavior;
+    if (onboardingCompleted !== undefined) updateData.onboardingCompleted = onboardingCompleted;
 
     const [updated] = await withRetry(
       () => db.update(userSettings).set(updateData).where(eq(userSettings.userId, DEFAULT_USER_ID)).returning(),
