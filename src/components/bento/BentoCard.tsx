@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,32 +227,37 @@ const LinkItem = memo(function LinkItem({
             {title}
           </h4>
           {/* Interactive favorite star */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleFavorite?.();
-            }}
-            className={cn(
-              "flex-shrink-0 p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95",
-              "focus:outline-none focus-visible:ring-1 focus-visible:ring-primary",
-              !isFavorite && "opacity-0 group-hover/link:opacity-60 hover:!opacity-100"
-            )}
-            title={isFavorite ? t("bentoCard.removeFromFavorites") : t("bentoCard.addToFavorites")}
-          >
-            <Star className={cn(
-              "flex-shrink-0 transition-colors",
-              "w-2.5 h-2.5 @[160px]:w-3 @[160px]:h-3",
-              isFavorite
-                ? isThemed
-                  ? "text-[var(--widget-accent)] fill-[var(--widget-accent)]"
-                  : "text-yellow-500 fill-yellow-500"
-                : isThemed
-                  ? "text-[var(--widget-muted)] hover:text-[var(--widget-accent)]"
-                  : "text-muted-foreground hover:text-yellow-500"
-            )} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggleFavorite?.();
+                }}
+                aria-label={isFavorite ? t("bentoCard.removeFromFavorites") : t("bentoCard.addToFavorites")}
+                className={cn(
+                  "flex-shrink-0 p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95",
+                  "focus:outline-none focus-visible:ring-1 focus-visible:ring-primary",
+                  !isFavorite && "opacity-0 group-hover/link:opacity-60 hover:!opacity-100"
+                )}
+              >
+                <Star className={cn(
+                  "flex-shrink-0 transition-colors",
+                  "w-2.5 h-2.5 @[160px]:w-3 @[160px]:h-3",
+                  isFavorite
+                    ? isThemed
+                      ? "text-[var(--widget-accent)] fill-[var(--widget-accent)]"
+                      : "text-yellow-500 fill-yellow-500"
+                    : isThemed
+                      ? "text-[var(--widget-muted)] hover:text-[var(--widget-accent)]"
+                      : "text-muted-foreground hover:text-yellow-500"
+                )} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p>{isFavorite ? t("bentoCard.removeFromFavorites") : t("bentoCard.addToFavorites")}</p></TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Description - Hidden on very small containers */}

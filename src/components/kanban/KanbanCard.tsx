@@ -5,6 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -352,24 +353,34 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
               isEditMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             )}
           >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setHeight(MIN_KANBAN_HEIGHT)}
-              title={t("kanbanCard.sizeSmall")}
-            >
-              <Minimize2 className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setHeight(MAX_KANBAN_HEIGHT)}
-              title={t("kanbanCard.sizeLarge")}
-            >
-              <Maximize2 className="w-3 h-3" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setHeight(MIN_KANBAN_HEIGHT)}
+                  aria-label={t("kanbanCard.sizeSmall")}
+                >
+                  <Minimize2 className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top"><p>{t("kanbanCard.sizeSmall")}</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setHeight(MAX_KANBAN_HEIGHT)}
+                  aria-label={t("kanbanCard.sizeLarge")}
+                >
+                  <Maximize2 className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top"><p>{t("kanbanCard.sizeLarge")}</p></TooltipContent>
+            </Tooltip>
           </div>
 
           <DropdownMenu>

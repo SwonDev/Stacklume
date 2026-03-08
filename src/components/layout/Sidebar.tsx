@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useProjectsStore } from "@/stores/projects-store";
@@ -242,13 +243,18 @@ function SortableCategoryItem({ category, linkCount, isActive, onClick, onShare 
         onClick={onClick}
         isDragging={isDragging}
       />
-      <button
-        onClick={(e) => { e.stopPropagation(); onShare(category); }}
-        className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-        title={t("sidebar.shareCategory")}
-      >
-        <Share2 className="h-3.5 w-3.5" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={(e) => { e.stopPropagation(); onShare(category); }}
+            aria-label={t("sidebar.shareCategory")}
+            className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top"><p>{t("sidebar.shareCategory")}</p></TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -296,13 +302,18 @@ function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass, onShar
         colorIndicator={colorClass}
         isDragging={isDragging}
       />
-      <button
-        onClick={(e) => { e.stopPropagation(); onShare(tag); }}
-        className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-        title={t("sidebar.shareTag")}
-      >
-        <Share2 className="h-3.5 w-3.5" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={(e) => { e.stopPropagation(); onShare(tag); }}
+            aria-label={t("sidebar.shareTag")}
+            className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top"><p>{t("sidebar.shareTag")}</p></TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -568,30 +579,40 @@ export function Sidebar() {
               count={categories.length}
               actions={
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
-                    onClick={() => {
-                      useLinksStore.getState().setManageCategoriesModalOpen(true);
-                      useLayoutStore.getState().setSidebarOpen(false);
-                    }}
-                    title={t("sidebar.manageCategories")}
-                  >
-                    <Settings className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
-                    onClick={() => {
-                      useLinksStore.getState().setAddCategoryModalOpen(true);
-                      useLayoutStore.getState().setSidebarOpen(false);
-                    }}
-                    title={t("sidebar.newCategory")}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+                        aria-label={t("sidebar.manageCategories")}
+                        onClick={() => {
+                          useLinksStore.getState().setManageCategoriesModalOpen(true);
+                          useLayoutStore.getState().setSidebarOpen(false);
+                        }}
+                      >
+                        <Settings className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>{t("sidebar.manageCategories")}</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+                        aria-label={t("sidebar.newCategory")}
+                        onClick={() => {
+                          useLinksStore.getState().setAddCategoryModalOpen(true);
+                          useLayoutStore.getState().setSidebarOpen(false);
+                        }}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>{t("sidebar.newCategory")}</p></TooltipContent>
+                  </Tooltip>
                 </>
               }
             >
@@ -654,30 +675,40 @@ export function Sidebar() {
               count={tags.length}
               actions={
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
-                    onClick={() => {
-                      useLinksStore.getState().setManageTagsModalOpen(true);
-                      useLayoutStore.getState().setSidebarOpen(false);
-                    }}
-                    title={t("sidebar.manageTags")}
-                  >
-                    <Settings className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
-                    onClick={() => {
-                      useLinksStore.getState().setAddTagModalOpen(true);
-                      useLayoutStore.getState().setSidebarOpen(false);
-                    }}
-                    title={t("sidebar.newTag")}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+                        aria-label={t("sidebar.manageTags")}
+                        onClick={() => {
+                          useLinksStore.getState().setManageTagsModalOpen(true);
+                          useLayoutStore.getState().setSidebarOpen(false);
+                        }}
+                      >
+                        <Settings className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>{t("sidebar.manageTags")}</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+                        aria-label={t("sidebar.newTag")}
+                        onClick={() => {
+                          useLinksStore.getState().setAddTagModalOpen(true);
+                          useLayoutStore.getState().setSidebarOpen(false);
+                        }}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>{t("sidebar.newTag")}</p></TooltipContent>
+                  </Tooltip>
                 </>
               }
             >

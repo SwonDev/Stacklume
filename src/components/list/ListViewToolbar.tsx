@@ -19,6 +19,7 @@ import { useTranslation } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -376,26 +377,36 @@ export function ListViewToolbar({
       <div className="flex items-center justify-between gap-2 text-sm">
         <div className="flex items-center gap-2">
           {/* Collapse/Expand all */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 gap-1.5"
-            onClick={() => collapseAll(categoryIds)}
-            title={t("listView.collapseAll")}
-          >
-            <ChevronsDownUp className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-xs">{t("listView.collapse")}</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 gap-1.5"
-            onClick={() => expandAll()}
-            title={t("listView.expandAll")}
-          >
-            <ChevronsUpDown className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-xs">{t("listView.expand")}</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 gap-1.5"
+                aria-label={t("listView.collapseAll")}
+                onClick={() => collapseAll(categoryIds)}
+              >
+                <ChevronsDownUp className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs">{t("listView.collapse")}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p>{t("listView.collapseAll")}</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 gap-1.5"
+                aria-label={t("listView.expandAll")}
+                onClick={() => expandAll()}
+              >
+                <ChevronsUpDown className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs">{t("listView.expand")}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p>{t("listView.expandAll")}</p></TooltipContent>
+          </Tooltip>
 
           <div className="h-4 w-px bg-border" />
 
