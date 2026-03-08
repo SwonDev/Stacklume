@@ -290,45 +290,6 @@ Integración nativa con Claude Desktop y Cursor.
 
 <br />
 
-## <img src="assets/icons/sparkles.svg" width="28" height="28" align="center" /> Estado del proyecto
-
-<br />
-
-<div align="center">
-
-| | |
-|:---:|:---|
-| <img src="assets/icons/pin.svg" width="18" height="18" /> | **Versión actual** — `v0.3.22` · en desarrollo activo |
-| <img src="assets/icons/eye.svg" width="18" height="18" /> | **Demo** — [demo.stacklume.app](https://demo.stacklume.app) · Desplegada en Vercel · Analytics activo |
-| <img src="assets/icons/box.svg" width="18" height="18" /> | **App Windows** — Instalador firmado · Auto-actualización · SQLite local |
-| <img src="assets/icons/terminal.svg" width="18" height="18" /> | **Repositorio** — Limpiado de datos internos · `.mailmap` unificado · Únicamente `demo.stacklume.app` activo |
-
-</div>
-
-<br />
-
-<details>
-<summary><img src="assets/icons/chart.svg" width="16" height="16" align="center" /> &nbsp;<strong>Últimos cambios (changelog)</strong></summary>
-
-<br />
-
-| Versión | Cambio |
-|:--------|:-------|
-| `v0.3.22` | <img src="assets/icons/gear.svg" width="14" height="14" /> Botón "Cerrar sesión" oculto en la demo (sin auth en demo mode) |
-| `v0.3.21` | <img src="assets/icons/sparkles.svg" width="14" height="14" /> Favicon regenerado con fondo dorado correcto en todos los tamaños (16 → 512 px) |
-| `v0.3.20` | <img src="assets/icons/chart.svg" width="14" height="14" /> Vercel Analytics activado en la demo · Integración Ko-fi en demo banner y README |
-| `v0.3.19` | <img src="assets/icons/pin.svg" width="14" height="14" /> Dominios Vercel auto-generados redirigidos permanentemente a `demo.stacklume.app` |
-| `v0.3.18` | <img src="assets/icons/grid.svg" width="14" height="14" /> Fix overflow horizontal en BentoGrid · Resize estable · Mejoras UX generales |
-| `v0.3.17` | <img src="assets/icons/tag.svg" width="14" height="14" /> Selección múltiple de links · Sugerencias de etiquetas · Barra de acciones flotante |
-
-</details>
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
 ## <img src="assets/icons/handshake.svg" width="28" height="28" align="center" /> Contribuir
 
 Las contribuciones son bienvenidas:
@@ -659,45 +620,6 @@ Native integration with Claude Desktop and Cursor.
 | `Escape` | Exit multi-select · Exit edit mode · Close modal |
 
 </div>
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-### <img src="assets/icons/sparkles.svg" width="24" height="24" align="center" /> Project status
-
-<br />
-
-<div align="center">
-
-| | |
-|:---:|:---|
-| <img src="assets/icons/pin.svg" width="18" height="18" /> | **Current version** — `v0.3.22` · actively developed |
-| <img src="assets/icons/eye.svg" width="18" height="18" /> | **Demo** — [demo.stacklume.app](https://demo.stacklume.app) · Deployed on Vercel · Analytics active |
-| <img src="assets/icons/box.svg" width="18" height="18" /> | **Windows app** — Signed installer · Auto-update · Local SQLite |
-| <img src="assets/icons/terminal.svg" width="18" height="18" /> | **Repository** — Cleaned of internal data · `.mailmap` unified · Only `demo.stacklume.app` active |
-
-</div>
-
-<br />
-
-<details>
-<summary><img src="assets/icons/chart.svg" width="16" height="16" align="center" /> &nbsp;<strong>Latest changes (changelog)</strong></summary>
-
-<br />
-
-| Version | Change |
-|:--------|:-------|
-| `v0.3.22` | <img src="assets/icons/gear.svg" width="14" height="14" /> "Sign out" button hidden on demo (no auth in demo mode) |
-| `v0.3.21` | <img src="assets/icons/sparkles.svg" width="14" height="14" /> Favicon regenerated with correct gold background at all sizes (16 → 512 px) |
-| `v0.3.20` | <img src="assets/icons/chart.svg" width="14" height="14" /> Vercel Analytics enabled on demo · Ko-fi integration in demo banner and README |
-| `v0.3.19` | <img src="assets/icons/pin.svg" width="14" height="14" /> Auto-generated Vercel domains permanently redirected to `demo.stacklume.app` |
-| `v0.3.18` | <img src="assets/icons/grid.svg" width="14" height="14" /> BentoGrid horizontal overflow fix · Stable resize · General UX improvements |
-| `v0.3.17` | <img src="assets/icons/tag.svg" width="14" height="14" /> Multi-select links · Tag suggestions · Floating bulk actions bar |
-
-</details>
 
 <br />
 
