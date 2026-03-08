@@ -1,1 +1,37 @@
-{}
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "stacklume.vercel.app"
+        }
+      ],
+      "destination": "https://demo.stacklume.app/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "stacklume-swon-projects-projects.vercel.app"
+        }
+      ],
+      "destination": "https://demo.stacklume.app/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "stacklume-git-main-swon-projects-projects.vercel.app"
+        }
+      ],
+      "destination": "https://demo.stacklume.app/$1",
+      "permanent": true
+    }
+  ]
+}
