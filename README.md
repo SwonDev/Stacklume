@@ -170,7 +170,7 @@ pnpm db:push
 pnpm dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000). Consulta [`.env.example`](.env.example) para ver todas las variables disponibles y [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) para desplegar en producción.
+Abre [http://localhost:3000](http://localhost:3000). Consulta [`.env.example`](.env.example) para ver todas las variables disponibles.
 
 <br />
 
