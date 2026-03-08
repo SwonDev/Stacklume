@@ -323,7 +323,7 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 ---
 
 <details id="english-version">
-<summary><div align="center"><br /><sub>🇬🇧 Read in English</sub><br /><br /></div></summary>
+<summary><div align="center"><br /><h3>🇬🇧 Read in English</h3><br /></div></summary>
 
 <div align="center">
 
