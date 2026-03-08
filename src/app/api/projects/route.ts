@@ -5,6 +5,11 @@ import { createProjectSchema, validateRequest } from "@/lib/validations";
 
 // GET all projects - sorted by order
 export async function GET() {
+  // DEMO_MODE: datos gestionados por el interceptor en el cliente
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json([]);
+  }
+
   try {
     // Filter out soft-deleted records
     const allProjects = await withRetry(

@@ -20,7 +20,8 @@ const ContentSecurityPolicy = `
   style-src 'self' 'unsafe-inline' http://localhost:*;
   img-src 'self' data: blob: https: http: http://localhost:*;
   font-src 'self' data: http://localhost:*;
-  connect-src 'self' http://localhost:* ws://localhost:* https://*.sentry.io https://ipapi.co https://api.coingecko.com https://api.github.com https://hacker-news.firebaseio.com https://dev.to;
+  connect-src 'self' blob: http://localhost:* ws://localhost:* https://*.sentry.io https://ipapi.co https://api.coingecko.com https://api.github.com https://hacker-news.firebaseio.com https://dev.to https://raw.githack.com;
+  worker-src 'self' blob:;
   media-src 'self' https://www.youtube.com https://*.spotify.com http://localhost:*;
   frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://codepen.io http://localhost:*;
   frame-ancestors 'self';
