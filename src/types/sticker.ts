@@ -34,6 +34,9 @@ export interface PlacedSticker {
   // Offset from the widget's top-left corner (in pixels, before scale)
   widgetOffsetX?: number;
   widgetOffsetY?: number;
+  // Widget dimensions at attachment time — used for proportional scaling on resize
+  widgetWidth?: number;
+  widgetHeight?: number;
 }
 
 export interface StickerTransform {
@@ -53,6 +56,8 @@ export interface StickerTransform {
   attachedToWidgetId?: string;
   widgetOffsetX?: number;
   widgetOffsetY?: number;
+  widgetWidth?: number;
+  widgetHeight?: number;
 }
 
 export interface DraggedSticker {
@@ -89,7 +94,7 @@ export const STICKER_SIZE_PRESETS = {
 export type StickerSizePreset = keyof typeof STICKER_SIZE_PRESETS;
 
 // Default sticker configuration (excludes context fields that are set at placement time)
-export const DEFAULT_STICKER_CONFIG: Omit<PlacedSticker, "id" | "stickerId" | "filename" | "x" | "y" | "createdAt" | "updatedAt" | "viewMode" | "projectId" | "attachedToWidgetId" | "widgetOffsetX" | "widgetOffsetY"> = {
+export const DEFAULT_STICKER_CONFIG: Omit<PlacedSticker, "id" | "stickerId" | "filename" | "x" | "y" | "createdAt" | "updatedAt" | "viewMode" | "projectId" | "attachedToWidgetId" | "widgetOffsetX" | "widgetOffsetY" | "widgetWidth" | "widgetHeight"> = {
   width: 72,
   height: 72,
   rotation: 0,
