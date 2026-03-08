@@ -71,12 +71,21 @@ Stacklume es un dashboard de gestión de bookmarks con layout tipo bento grid. E
 
 ## Arquitectura — Versión desktop (Tauri)
 
+Hay dos modos de ejecución con puertos distintos:
+
+| Modo | Puerto | Cómo arranca |
+|------|--------|-------------|
+| **Desarrollo** (`pnpm tauri:dev`) | **7878** | `dev-tauri.mjs` inicia Next.js dev en 7878; Tauri conecta a `localhost:7878` |
+| **Producción** (app instalada) | **7879** preferido | Rust busca puerto libre desde 7879; si está ocupado prueba el siguiente libre |
+
+### Flujo de producción (app instalada)
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │            stacklume.exe  (Tauri v2 + Rust)             │
 │                                                         │
 │  1. Muestra loading screen (data: URI, sin parpadeo)    │
-│  2. Busca puerto libre (preferencia: 7879)              │
+│  2. Busca puerto libre (intenta 7879 primero)           │
 │  3. Spawna node.exe server.js con CREATE_NO_WINDOW      │
 │     ├── DESKTOP_MODE=true (sin auth, sin CSRF)          │
 │     ├── DATABASE_PATH=%APPDATA%\...\stacklume.db        │
@@ -93,7 +102,7 @@ Stacklume es un dashboard de gestión de bookmarks con layout tipo bento grid. E
                              ▼
 ┌─────────────────────────────────────────────────────────┐
 │   Node.js 25 + Next.js standalone (embebidos en .exe)   │
-│              http://127.0.0.1:{puerto}                  │
+│       http://127.0.0.1:7879  (u otro puerto libre)      │
 └─────────────────────────────────────────────────────────┘
                              │ SQLite
                              ▼
