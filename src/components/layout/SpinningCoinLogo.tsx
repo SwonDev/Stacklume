@@ -2,7 +2,7 @@
 
 import { Suspense, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, Environment } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 
@@ -115,9 +115,6 @@ export function SpinningCoinLogo({
               intensity={0.3}
               color="#ffffff"
             />
-            {/* Environment para reflections metálicos */}
-            <Environment preset="city" />
-
             <CoinModel rotationSpeed={rotationSpeed} />
           </Canvas>
         </Suspense>
