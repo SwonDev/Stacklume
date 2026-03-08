@@ -82,6 +82,12 @@ Un **dashboard personal** que transforma la forma en que guardas y accedes a tus
 
 <br />
 
+<div align="center">
+  <img src="assets/screenshots/dashboard.png" alt="Stacklume Dashboard" width="100%" style="border-radius:12px" />
+</div>
+
+<br />
+
 <img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
 
 <br />
@@ -393,6 +399,12 @@ A **personal dashboard** that transforms the way you save and access your bookma
 </td>
 </tr>
 </table>
+
+<br />
+
+<div align="center">
+  <img src="assets/screenshots/dashboard.png" alt="Stacklume Dashboard" width="100%" style="border-radius:12px" />
+</div>
 
 <br />
 
