@@ -155,6 +155,14 @@ async function handleDemoRequest(
       const qid = url.searchParams.get("id");
       if (qid) { demoTags.delete(qid); return jsonResponse({ success: true }); }
     }
+    if (method === "PUT" || method === "PATCH") {
+      // PUT /api/tags con body { id, ...fields }
+      const bid = (body as Record<string, unknown>)?.id as string | undefined;
+      if (bid) {
+        const updated = demoTags.update(bid, body as Record<string, unknown>);
+        return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+      }
+    }
   }
   if (resource === "tags" && resourceId) {
     if (method === "PUT" || method === "PATCH") {
@@ -203,6 +211,14 @@ async function handleDemoRequest(
       // DELETE /api/widgets?id=xxx (query param pattern)
       const qid = url.searchParams.get("id");
       if (qid) { demoWidgets.delete(qid); return jsonResponse({ success: true }); }
+    }
+    if (method === "PUT" || method === "PATCH") {
+      // PATCH /api/widgets con body { id, ...fields }
+      const bid = (body as Record<string, unknown>)?.id as string | undefined;
+      if (bid) {
+        const updated = demoWidgets.update(bid, body as Record<string, unknown>);
+        return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+      }
     }
   }
   if (resource === "widgets" && resourceId) {
