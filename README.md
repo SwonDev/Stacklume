@@ -196,8 +196,8 @@ Organiza tus links con carpetas y etiquetas. Filtrado inteligente incluido.
 ### <img src="assets/icons/search.svg" width="22" height="22" align="center" /> Detección de Plataforma
 Identifica automáticamente YouTube, GitHub, Steam, Spotify, Twitter y más.
 
-### <img src="assets/icons/moon.svg" width="22" height="22" align="center" /> Tema Dual
-Modo oscuro (Navy & Gold) y modo claro (Beige & Gold) elegantes.
+### <img src="assets/icons/moon.svg" width="22" height="22" align="center" /> 23 Temas
+Dark, Nordic, Catppuccin, Tokyo Night, Rosé Pine, Aurora y más. Claros y oscuros.
 
 </td>
 </tr>
@@ -320,7 +320,7 @@ GITHUB_TOKEN=""
 |:-----:|:-------|
 | `Ctrl + K` | Abrir búsqueda |
 | `Ctrl + N` | Nuevo link |
-| `Escape` | Cerrar modal / Limpiar búsqueda |
+| `Escape` | Salir modo selección múltiple · Salir modo edición · Cerrar modal |
 
 <br />
 
