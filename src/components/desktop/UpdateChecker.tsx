@@ -142,9 +142,9 @@ export function UpdateChecker() {
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("download_and_run_update", { url: installerUrl });
       setState({ phase: "ready" });
-    } catch {
-      // Fallback para versiones antiguas que no tienen download_and_run_update:
-      // abrir la página de releases en el navegador para descarga manual.
+    } catch (downloadErr) {
+      // Fallback: abrir la página de releases en el navegador para descarga manual.
+      const errMsg = downloadErr instanceof Error ? downloadErr.message : String(downloadErr);
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("open_url", {
@@ -154,8 +154,8 @@ export function UpdateChecker() {
           phase: "error",
           message: t("updateChecker.downloadOpenedInBrowser"),
         });
-      } catch (e2) {
-        setState({ phase: "error", message: String(e2) });
+      } catch {
+        setState({ phase: "error", message: errMsg });
       }
     }
   }, [state, t]);

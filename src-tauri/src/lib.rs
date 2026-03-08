@@ -189,61 +189,36 @@ async fn download_and_run_update(url: String) -> Result<(), String> {
 
     // Límite de descarga: 500 MB (más que suficiente para el instalador NSIS)
     const MAX_DOWNLOAD_SIZE: u64 = 500 * 1024 * 1024;
+    // Tamaño mínimo esperado: un instalador NSIS válido siempre supera 1 MB.
+    // Sirve para detectar si se descargó una página HTML de redirect en lugar del .exe.
+    const MIN_INSTALLER_SIZE: u64 = 1024 * 1024;
 
     // ureq es sincrónico — ejecutar en hilo blocking para no bloquear el runtime async
     tokio::task::spawn_blocking(move || {
-        // Deshabilitar redirects automáticos para evitar open redirect attacks.
-        // GitHub usa redirects a sus CDN (objects.githubusercontent.com), que son legítimos,
-        // así que seguimos hasta 5 redirects pero solo a dominios de confianza.
+        // Dejar que ureq siga los redirects automáticamente (GitHub → CDN es estándar).
+        // La URL inicial ya fue validada contra nuestro repo; los redirects de GitHub
+        // siempre van a objects.githubusercontent.com, que es su CDN oficial.
         let agent = ureq::AgentBuilder::new()
-            .redirects(0) // No seguir redirects automáticamente
+            .redirects(5)
             .build();
 
-        let mut current_url = url.clone();
-        let mut redirects = 0u8;
-        let max_redirects = 5u8;
+        let response = agent.get(&url).call()
+            .map_err(|e| format!("Error de descarga: {}", e))?;
 
-        let response = loop {
-            let result = agent.get(&current_url).call();
-
-            match result {
-                Ok(resp) => break resp,
-                Err(ureq::Error::Status(status, resp)) => {
-                    // ureq con redirects(0) devuelve 3xx como Error::Status
-                    if status == 301 || status == 302 || status == 303 || status == 307 || status == 308 {
-                        redirects += 1;
-                        if redirects > max_redirects {
-                            return Err("Demasiados redirects".to_string());
-                        }
-                        let location = resp.header("Location")
-                            .ok_or("Redirect sin Location header")?
-                            .to_string();
-                        // Solo permitir redirects a dominios de confianza
-                        if let Ok(redir_url) = url::Url::parse(&location) {
-                            let host = redir_url.host_str().unwrap_or("");
-                            if host != "github.com"
-                                && !host.ends_with(".githubusercontent.com")
-                                && !host.ends_with(".github.com")
-                            {
-                                return Err(format!("Redirect a dominio no confiable: {}", host));
-                            }
-                            current_url = location;
-                        } else {
-                            return Err("URL de redirect inválida".to_string());
-                        }
-                        continue;
-                    }
-                    return Err(format!("Error HTTP {}", status));
-                }
-                Err(e) => return Err(format!("Error de descarga: {}", e)),
-            }
-        };
+        // Verificar que la respuesta final es 200 OK (no 3xx, 4xx, 5xx)
+        let status = response.status();
+        if status != 200 {
+            return Err(format!("Error HTTP {} al descargar el instalador", status));
+        }
 
         // Verificar Content-Length si está disponible
         if let Some(len_str) = response.header("Content-Length") {
             if let Ok(len) = len_str.parse::<u64>() {
                 if len > MAX_DOWNLOAD_SIZE {
                     return Err(format!("Archivo demasiado grande: {} bytes (máx {} MB)", len, MAX_DOWNLOAD_SIZE / 1024 / 1024));
+                }
+                if len < MIN_INSTALLER_SIZE {
+                    return Err(format!("Archivo demasiado pequeño: {} bytes — posible error de descarga", len));
                 }
             }
         }
@@ -258,9 +233,19 @@ async fn download_and_run_update(url: String) -> Result<(), String> {
             .map_err(|e| format!("Error guardando instalador: {}", e))?;
 
         if bytes_written >= MAX_DOWNLOAD_SIZE {
-            // Se alcanzó el límite — puede ser un archivo malicioso
             let _ = std::fs::remove_file(&installer_path_clone);
             return Err("Descarga excede el tamaño máximo permitido".to_string());
+        }
+
+        // Verificar tamaño mínimo del archivo descargado
+        if bytes_written < MIN_INSTALLER_SIZE {
+            let _ = std::fs::remove_file(&installer_path_clone);
+            return Err(format!(
+                "Instalador inválido: solo {} bytes descargados (mínimo esperado: {} MB). \
+                 Puede ser una página de error en lugar del archivo.",
+                bytes_written,
+                MIN_INSTALLER_SIZE / 1024 / 1024
+            ));
         }
 
         drop(file);
