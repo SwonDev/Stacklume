@@ -182,23 +182,34 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const response = await fetch("/api/widgets", { credentials: "include" });
+      const response = await fetch("/api/widgets", { credentials: "include", cache: "no-store" });
       if (response.ok) {
         const widgets = await response.json();
         // Load whatever is in the database (even if empty)
         set({ widgets, isInitialized: true });
 
-        // Registrar listener de visibilidad para refrescar cuando el usuario
-        // vuelve a la pestaña/ventana tras haber usado el MCP desde otra app.
+        // Registrar listeners para refrescar cuando el usuario vuelve a la ventana.
+        // visibilitychange cubre el caso pestaña/app minimizada.
+        // window.focus cubre el caso Tauri/MCP: ventana visible pero sin foco (ej. IA crea widget).
         if (!visibilityListenerRegistered && typeof document !== "undefined") {
           visibilityListenerRegistered = true;
+
+          const doRefresh = () => {
+            fetch("/api/widgets", { credentials: "include", cache: "no-store" })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => { if (data) set({ widgets: data }); })
+              .catch(() => {});
+          };
+
           document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible") {
-              fetch("/api/widgets", { credentials: "include", cache: "no-store" })
-                .then((r) => (r.ok ? r.json() : null))
-                .then((data) => { if (data) set({ widgets: data }); })
-                .catch(() => {});
-            }
+            if (document.visibilityState === "visible") doRefresh();
+          });
+
+          // Debounce para evitar múltiples fetches rápidos al cambiar foco
+          let focusTimer: ReturnType<typeof setTimeout> | null = null;
+          window.addEventListener("focus", () => {
+            if (focusTimer) clearTimeout(focusTimer);
+            focusTimer = setTimeout(doRefresh, 500);
           });
         }
       }
