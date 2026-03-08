@@ -197,6 +197,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useProjectsStore } from "@/stores/projects-store";
@@ -1488,37 +1489,52 @@ export function AddWidgetModal() {
                             </button>
                             {/* Botones de acción */}
                             <div className="absolute bottom-1.5 left-0 right-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleCustomFavorite(customType.id, e)}
-                                title={isFav ? t("addWidget.removeFavorite") : t("addWidget.addFavorite")}
-                                className={cn(
-                                  "p-1 rounded hover:bg-accent transition-colors",
-                                  isFav ? "text-yellow-400" : "text-muted-foreground"
-                                )}
-                              >
-                                {isFav ? (
-                                  <Star className="w-3.5 h-3.5 fill-current" />
-                                ) : (
-                                  <StarOff className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleExportCustomType(customType, e)}
-                                title={t("addWidget.exportAsJson")}
-                                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteCustomType(customType, e)}
-                                title={t("addWidget.deleteType")}
-                                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleToggleCustomFavorite(customType.id, e)}
+                                    aria-label={isFav ? t("addWidget.removeFavorite") : t("addWidget.addFavorite")}
+                                    className={cn(
+                                      "p-1 rounded hover:bg-accent transition-colors",
+                                      isFav ? "text-yellow-400" : "text-muted-foreground"
+                                    )}
+                                  >
+                                    {isFav ? (
+                                      <Star className="w-3.5 h-3.5 fill-current" />
+                                    ) : (
+                                      <StarOff className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>{isFav ? t("addWidget.removeFavorite") : t("addWidget.addFavorite")}</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleExportCustomType(customType, e)}
+                                    aria-label={t("addWidget.exportAsJson")}
+                                    className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>{t("addWidget.exportAsJson")}</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteCustomType(customType, e)}
+                                    aria-label={t("addWidget.deleteType")}
+                                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top"><p>{t("addWidget.deleteType")}</p></TooltipContent>
+                              </Tooltip>
                             </div>
                           </motion.div>
                         );

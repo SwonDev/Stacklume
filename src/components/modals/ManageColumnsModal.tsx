@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   useKanbanStore,
   useSortedColumns,
@@ -122,53 +123,73 @@ function SortableColumnItem({
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {/* Move Left */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => onMoveLeft(column.id)}
-          disabled={isFirst}
-          title={t("manageColumns.moveLeft")}
-        >
-          <ChevronLeft className="w-3.5 h-3.5" />
-        </Button>
-
-        {/* Move Right */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => onMoveRight(column.id)}
-          disabled={isLast}
-          title={t("manageColumns.moveRight")}
-        >
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Button>
-
-        {/* Edit */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => onEdit(column)}
-          title={t("manageColumns.editColumn")}
-        >
-          <Pencil className="w-3.5 h-3.5" />
-        </Button>
-
-        {/* Delete */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive"
-              disabled={!canDelete}
-              title={canDelete ? t("manageColumns.deleteColumn") : t("manageColumns.cannotDeleteLast")}
+              className="h-7 w-7"
+              onClick={() => onMoveLeft(column.id)}
+              disabled={isFirst}
+              aria-label={t("manageColumns.moveLeft")}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
-          </AlertDialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top"><p>{t("manageColumns.moveLeft")}</p></TooltipContent>
+        </Tooltip>
+
+        {/* Move Right */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onMoveRight(column.id)}
+              disabled={isLast}
+              aria-label={t("manageColumns.moveRight")}
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top"><p>{t("manageColumns.moveRight")}</p></TooltipContent>
+        </Tooltip>
+
+        {/* Edit */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onEdit(column)}
+              aria-label={t("manageColumns.editColumn")}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top"><p>{t("manageColumns.editColumn")}</p></TooltipContent>
+        </Tooltip>
+
+        {/* Delete */}
+        <AlertDialog>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive"
+                  disabled={!canDelete}
+                  aria-label={canDelete ? t("manageColumns.deleteColumn") : t("manageColumns.cannotDeleteLast")}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p>{canDelete ? t("manageColumns.deleteColumn") : t("manageColumns.cannotDeleteLast")}</p></TooltipContent>
+          </Tooltip>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{t("manageColumns.deleteColumnTitle", { title: column.title })}</AlertDialogTitle>

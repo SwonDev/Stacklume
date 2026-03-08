@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { useLinksStore } from "@/stores/links-store";
 import { cn } from "@/lib/utils";
@@ -315,18 +316,23 @@ export function HealthCheckModal({ open, onOpenChange }: HealthCheckModalProps) 
                         >
                           <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                         </a>
-                        <button
-                          onClick={() => handleDeleteLink(result.id)}
-                          disabled={deletingId === result.id}
-                          title={t("btn.delete")}
-                          className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                        >
-                          {deletingId === result.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => handleDeleteLink(result.id)}
+                              disabled={deletingId === result.id}
+                              aria-label={t("btn.delete")}
+                              className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                            >
+                              {deletingId === result.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top"><p>{t("btn.delete")}</p></TooltipContent>
+                        </Tooltip>
                       </div>
                     );
                   })
