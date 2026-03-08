@@ -113,8 +113,16 @@ src/
 │   ├── ui/                # shadcn/ui components
 │   └── widgets/           # 120+ widget implementations
 ├── hooks/
-│   ├── useKeyboardShortcuts.ts  # Global keyboard shortcuts
-│   └── useKanbanShortcuts.ts    # Kanban-specific shortcuts
+│   ├── useKeyboardShortcuts.ts  # Global keyboard shortcuts (Ctrl+K, Ctrl+N, Escape)
+│   ├── useKanbanShortcuts.ts    # Kanban-specific shortcuts
+│   ├── useMultiSelect.ts        # Zustand store (lives in hooks/) — global multi-select state; use via useMultiSelect.getState()
+│   ├── useUndoRedo.ts           # Undo/redo (Ctrl+Z/Y) backed by history-store
+│   ├── useElectron.ts           # Tauri/desktop detection wrapper (isTauriWebView)
+│   ├── useOfflineStatus.ts      # Online/offline status + pending sync count
+│   ├── useCsrf.ts               # CSRF token fetch and caching
+│   ├── useFormDraft.ts          # Auto-save draft persistence for React Hook Form
+│   ├── useReducedMotion.ts      # Reduced motion preference (settings + OS prefers-reduced-motion)
+│   └── useStickerSounds.ts      # Sound effects for sticker interactions
 ├── lib/
 │   ├── utils.ts           # cn() utility for className merging
 │   ├── url-utils.ts       # URL normalization for duplicate detection
@@ -137,7 +145,8 @@ src/
 │   ├── settings-store.ts  # User preferences (theme, viewMode, etc.)
 │   ├── projects-store.ts  # Project/workspace management
 │   ├── sticker-store.ts   # Sticker overlays (persisted to localStorage)
-│   └── list-view-store.ts # List view settings and sorting
+│   ├── list-view-store.ts # List view settings and sorting
+│   └── history-store.ts   # Undo/redo history (DELETE/MOVE/UPDATE actions for links, widgets, categories, tags)
 ├── test/
 │   └── setup.ts           # Vitest test setup
 └── types/
@@ -164,11 +173,11 @@ The app ships as a native Windows installer that bundles Next.js standalone + No
 
 **External links** in Tauri: `<a target="_blank">` doesn't work in WebView2. The `AppShell.tsx` intercepts all `http(s)://` clicks and routes them through `openExternalUrl()` → Rust `open_url` command → `cmd /c start "" <url>` with `CREATE_NO_WINDOW`.
 
-**Tauri commands** exposed to frontend: `open_url`, `get_server_port`, `get_app_data_dir`, `minimize_window`, `toggle_maximize_window`, `close_window`, `update_tray_icon`
+**Tauri commands** exposed to frontend: `open_url`, `get_server_port`, `get_app_data_dir`, `minimize_window`, `toggle_maximize_window`, `close_window`, `update_tray_icon`, `download_and_run_update`
 
 **System tray**: Animated icon updated at 30fps via `TrayIconUpdater.tsx` (offscreen Three.js canvas → `update_tray_icon`). Closing the window hides to tray instead of quitting; tray menu has "Abrir Stacklume" / "Cerrar".
 
-**Auto-updater**: `tauri-plugin-updater` + `tauri-plugin-process`. `UpdateChecker.tsx` (in `layout.tsx`) checks for updates 6s after startup. If a new version exists on GitHub releases, shows a toast with download progress and silent install via `downloadAndInstall()` + `relaunch()`. Update manifest: `https://github.com/SwonDev/Stacklume/releases/latest/download/update-manifest.json`. Signing key: `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in `.env.local`.
+**Auto-updater**: Custom Rust command `download_and_run_update` — does **NOT** use `tauri-plugin-updater` (avoided to bypass ACL requirements). `UpdateChecker.tsx` (in `layout.tsx`) checks for updates 6s after startup via GitHub API. If a new version exists, shows a toast; on confirm, frontend calls `invoke("download_and_run_update", { url: installerUrl })` → Rust downloads `.exe` to `%TEMP%\StacklumeUpdate.exe` via ureq (with `redirects(5)`) → validates size ≥ 1 MB → spawns installer (NSIS hook closes the running app automatically). Update manifest: `https://github.com/SwonDev/Stacklume/releases/latest/download/update-manifest.json`. Signing key: `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in `.env.local`.
 
 **Release pipeline** (`pnpm tauri:build` → `scripts/build-release.mjs`):
 1. Loads signing keys from `.env.local`
@@ -195,19 +204,19 @@ The database has these core entities (see `src/lib/db/schema.ts`):
 
 **Application Data:**
 
-- **links**: URL bookmarks with metadata (title, description, favicon, image, category, platform detection fields, health status). Has `uniqueIndex` on `url` — duplicates return HTTP 409.
+- **links**: URL bookmarks with metadata (title, description, favicon, image, category, platform detection fields, health status, `isRead`, `notes`, `reminderAt`). Has `uniqueIndex` on `url` — duplicates return HTTP 409.
 - **categories**: Organizational folders for links (with soft delete)
 - **tags**: Flexible labeling system for links; unique per `(userId, name)` pair (with soft delete)
 - **linkTags**: Many-to-many junction table
 - **projects**: Workspaces for organizing widgets (null projectId = Home view) (with soft delete)
 - **userLayouts**: Stores bento grid configurations (JSON)
 - **widgets**: Widget configurations (type, title, config JSON, layoutX/Y/W/H, projectId) (with soft delete)
-- **userSettings**: User preferences (theme, viewDensity, viewMode, reduceMotion)
+- **userSettings**: User preferences — theme, viewDensity, viewMode, reduceMotion, language (`es`/`en`), gridColumns (lg col count), sidebarAlwaysVisible, defaultSortField, defaultSortOrder, thumbnailSize (`none`/`small`/`medium`/`large`), sidebarDensity, autoBackupInterval (days), confirmBeforeDelete, linkClickBehavior (`new-tab`/`same-tab`)
 - **userBackups**: JSON backups of user data (manual/auto/export types)
 
 ### State Management Pattern
 
-Eight Zustand stores handle different concerns:
+Nine Zustand stores + one store-as-hook handle different concerns:
 1. **useLinksStore**: Links, categories, tags data + modal states (fetches from DB on load). **No persist middleware** — data lives in memory only. Includes `refreshAllData()` which re-fetches all 4 endpoints with `cache: "no-store"` and applies a single atomic `set()` — use this after any operation that modifies the server DB to avoid WebView2 HTTP cache stale reads.
 2. **useLayoutStore**: react-grid-layout positions (persisted to localStorage)
 3. **useWidgetStore**: Widget instances and configurations (persisted to localStorage as `stacklume-widgets`)
@@ -216,6 +225,9 @@ Eight Zustand stores handle different concerns:
 6. **useProjectsStore**: Project/workspace management (fetches from DB on load)
 7. **useStickerStore**: Sticker overlays on the dashboard (persisted to localStorage)
 8. **useListViewStore**: List view settings and sorting preferences
+9. **useHistoryStore** (`src/stores/history-store.ts`): Undo/redo stack for delete/move/update actions on links, widgets, categories and tags. Backed by `useUndoRedo.ts` hook (Ctrl+Z / Ctrl+Y).
+
+**useMultiSelect** (`src/hooks/useMultiSelect.ts`) is also a Zustand store despite living in `hooks/`. Access it outside React via `useMultiSelect.getState()`. Manages `isSelecting`, `selectedIds (Set<string>)`, `toggleSelecting()`, `selectAll()`, `toggleItem()`, `exitSelecting()`.
 
 ### Widget System
 
@@ -390,7 +402,8 @@ The app supports importing links via:
 | `src/lib/backup/backup-service.ts` | Data export/import and backup management |
 | `src/lib/export-utils.ts` | Link export utilities (JSON, CSV, HTML) |
 | `src/lib/analytics.ts` | Link analytics tracking |
-| `src/lib/responsive-layout.ts` | Responsive bento grid breakpoint helpers; xs layout uses cumulative Y (not array index) |
+| `src/lib/responsive-layout.ts` | Responsive bento grid helpers. `BREAKPOINTS={lg:1200,md:996,sm:768,xs:480}`, `COLS={lg:12,md:10,sm:6,xs:1}`. Note: BentoGrid uses different `effectiveBreakpoints={lg:900,md:680,sm:480,xs:0}` and `effectiveCols={...COLS, lg:gridColumns}`. xs layout uses **cumulative Y** (not array index) to avoid overlap. |
+| `src/lib/i18n.ts` | Internacionalización — diccionarios `es`/`en`, función `t()`, hook `useTranslations()` |
 | `src/lib/offline/` | PWA offline support and service worker registration |
 | `src/lib/demo/interceptor.ts` | Intercepta fetch() API calls en modo demo, redirige a localStorage |
 | `src/lib/demo/storage.ts` | CRUD completo en localStorage para modo demo (links, categories, tags, widgets, projects, settings) |
