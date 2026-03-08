@@ -4,6 +4,7 @@ import { Suspense, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Environment } from "@react-three/drei";
 import * as THREE from "three";
+import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 
 interface CoinModelProps {
   rotationSpeed?: number;
@@ -66,59 +67,61 @@ export function SpinningCoinLogo({
   rotationSpeed = 3.5,
   className,
 }: SpinningCoinLogoProps) {
+  const staticFallback = (
+    <div
+      style={{ width, height }}
+      className="rounded-md bg-primary flex items-center justify-center overflow-hidden"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.svg" alt="" style={{ width: width * 0.8, height: height * 0.8 }} className="object-contain" />
+    </div>
+  );
+
   return (
     <div
       style={{ width, height }}
       className={className}
     >
-      <Suspense
-        fallback={
-          <div
+      <ErrorBoundary fallback={staticFallback}>
+        <Suspense fallback={staticFallback}>
+          <Canvas
             style={{ width, height }}
-            className="rounded-md bg-primary flex items-center justify-center overflow-hidden"
+            camera={{ position: [0, 0, 3], fov: 50 }}
+            gl={{
+              alpha: true,
+              antialias: false,
+              powerPreference: "low-power",
+            }}
+            dpr={1}
+            frameloop="always"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="" style={{ width: width * 0.8, height: height * 0.8 }} className="object-contain" />
-          </div>
-        }
-      >
-        <Canvas
-          style={{ width, height }}
-          camera={{ position: [0, 0, 3], fov: 50 }}
-          gl={{
-            alpha: true,
-            antialias: false,
-            powerPreference: "low-power",
-          }}
-          dpr={1}
-          frameloop="always"
-        >
-          {/* Iluminación con paleta navy + gold */}
-          <ambientLight intensity={0.5} />
-          {/* Luz principal dorada desde arriba-derecha */}
-          <directionalLight
-            position={[2, 2, 3]}
-            intensity={1.8}
-            color="#d4a520"
-          />
-          {/* Backlight azul navy para profundidad */}
-          <directionalLight
-            position={[-2, -1, -2]}
-            intensity={0.4}
-            color="#1a3a6e"
-          />
-          {/* Relleno suave desde abajo */}
-          <directionalLight
-            position={[0, -2, 1]}
-            intensity={0.3}
-            color="#ffffff"
-          />
-          {/* Environment para reflections metálicos */}
-          <Environment preset="city" />
+            {/* Iluminación con paleta navy + gold */}
+            <ambientLight intensity={0.5} />
+            {/* Luz principal dorada desde arriba-derecha */}
+            <directionalLight
+              position={[2, 2, 3]}
+              intensity={1.8}
+              color="#d4a520"
+            />
+            {/* Backlight azul navy para profundidad */}
+            <directionalLight
+              position={[-2, -1, -2]}
+              intensity={0.4}
+              color="#1a3a6e"
+            />
+            {/* Relleno suave desde abajo */}
+            <directionalLight
+              position={[0, -2, 1]}
+              intensity={0.3}
+              color="#ffffff"
+            />
+            {/* Environment para reflections metálicos */}
+            <Environment preset="city" />
 
-          <CoinModel rotationSpeed={rotationSpeed} />
-        </Canvas>
-      </Suspense>
+            <CoinModel rotationSpeed={rotationSpeed} />
+          </Canvas>
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }
