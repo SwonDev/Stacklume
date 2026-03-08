@@ -61,7 +61,7 @@ interface StickerState {
   isDropOutsideBook: (x: number, y: number) => boolean;
 
   // Actions - Placed Stickers
-  placeSticker: (stickerId: string, filename: string, x: number, y: number, viewMode: 'bento' | 'kanban' | 'list', projectId: string | null, attachedToWidgetId?: string, widgetOffsetX?: number, widgetOffsetY?: number) => void;
+  placeSticker: (stickerId: string, filename: string, x: number, y: number, viewMode: 'bento' | 'kanban' | 'list', projectId: string | null, attachedToWidgetId?: string, widgetOffsetX?: number, widgetOffsetY?: number, widgetWidth?: number, widgetHeight?: number) => void;
   removeSticker: (id: string) => void;
   updateSticker: (id: string, transform: StickerTransform) => void;
   selectSticker: (id: string | null) => void;
@@ -71,7 +71,7 @@ interface StickerState {
   clearAllStickers: () => void;
 
   // Actions - Widget Attachment
-  attachToWidget: (stickerId: string, widgetId: string, offsetX: number, offsetY: number) => void;
+  attachToWidget: (stickerId: string, widgetId: string, offsetX: number, offsetY: number, widgetWidth?: number, widgetHeight?: number) => void;
   detachFromWidget: (stickerId: string) => void;
   getStickersForWidget: (widgetId: string) => PlacedSticker[];
 
@@ -184,7 +184,7 @@ export const useStickerStore = create<StickerState>()(
       },
 
       // Placed Stickers
-      placeSticker: (stickerId, filename, x, y, viewMode, projectId, attachedToWidgetId, widgetOffsetX, widgetOffsetY) => {
+      placeSticker: (stickerId, filename, x, y, viewMode, projectId, attachedToWidgetId, widgetOffsetX, widgetOffsetY, widgetWidth, widgetHeight) => {
         const { maxZIndex, placedStickers } = get();
         const newZIndex = maxZIndex + 1;
 
@@ -200,7 +200,11 @@ export const useStickerStore = create<StickerState>()(
           projectId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          ...(attachedToWidgetId !== undefined ? { attachedToWidgetId, widgetOffsetX, widgetOffsetY } : {}),
+          ...(attachedToWidgetId !== undefined ? {
+            attachedToWidgetId, widgetOffsetX, widgetOffsetY,
+            ...(widgetWidth !== undefined ? { widgetWidth } : {}),
+            ...(widgetHeight !== undefined ? { widgetHeight } : {}),
+          } : {}),
         };
 
         set({
@@ -298,7 +302,7 @@ export const useStickerStore = create<StickerState>()(
       clearAllStickers: () => set({ placedStickers: [], selectedStickerId: null }),
 
       // Widget Attachment
-      attachToWidget: (stickerId, widgetId, offsetX, offsetY) => {
+      attachToWidget: (stickerId, widgetId, offsetX, offsetY, widgetWidth, widgetHeight) => {
         set((state) => ({
           placedStickers: state.placedStickers.map((sticker) =>
             sticker.id === stickerId
@@ -307,6 +311,8 @@ export const useStickerStore = create<StickerState>()(
                   attachedToWidgetId: widgetId,
                   widgetOffsetX: offsetX,
                   widgetOffsetY: offsetY,
+                  ...(widgetWidth !== undefined ? { widgetWidth } : {}),
+                  ...(widgetHeight !== undefined ? { widgetHeight } : {}),
                   updatedAt: new Date().toISOString(),
                 }
               : sticker
@@ -323,6 +329,8 @@ export const useStickerStore = create<StickerState>()(
                   attachedToWidgetId: undefined,
                   widgetOffsetX: undefined,
                   widgetOffsetY: undefined,
+                  widgetWidth: undefined,
+                  widgetHeight: undefined,
                   updatedAt: new Date().toISOString(),
                 }
               : sticker
