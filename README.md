@@ -14,7 +14,6 @@
 <br />
 
 [![Next.js](https://img.shields.io/badge/Next.js_16-0a1628?style=for-the-badge&logo=nextdotjs&logoColor=d4a853)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React_19-0a1628?style=for-the-badge&logo=react&logoColor=d4a853)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-0a1628?style=for-the-badge&logo=typescript&logoColor=d4a853)](https://www.typescriptlang.org/)
 [![Tailwind](https://img.shields.io/badge/Tailwind_v4-0a1628?style=for-the-badge&logo=tailwindcss&logoColor=d4a853)](https://tailwindcss.com/)
 [![Tauri](https://img.shields.io/badge/Tauri_v2-0a1628?style=for-the-badge&logo=tauri&logoColor=d4a853)](https://tauri.app/)
@@ -44,32 +43,28 @@
 
 <br />
 
-## <img src="assets/icons/target.svg" width="28" height="28" align="center" /> ¿Qué problema resuelve?
-
-¿Cuántas pestañas tienes abiertas ahora mismo? ¿Cuántos bookmarks tienes guardados que nunca vuelves a ver?
-
-**Stacklume** es un **dashboard personal** que transforma la forma en que guardas, organizas y accedes a tus bookmarks. Olvídate de las listas aburridas de favoritos — visualiza tu contenido en un **bento grid interactivo** con más de 120 widgets personalizables.
+Stacklume es un **dashboard personal** para gestionar bookmarks y links. Olvídate de las listas aburridas de favoritos — visualiza tu contenido en un **bento grid interactivo** con más de 120 widgets personalizables.
 
 <table>
 <tr>
-<td width="40"><img src="assets/icons/pin.svg" width="24" height="24" /></td>
-<td><strong>Centralizar</strong> todos tus links importantes en un solo lugar</td>
-</tr>
-<tr>
-<td><img src="assets/icons/tag.svg" width="24" height="24" /></td>
-<td><strong>Organizar</strong> con categorías y tags inteligentes</td>
-</tr>
-<tr>
-<td><img src="assets/icons/search.svg" width="24" height="24" /></td>
-<td><strong>Encontrar</strong> rápidamente lo que necesitas con búsqueda instantánea</td>
-</tr>
-<tr>
-<td><img src="assets/icons/chart.svg" width="24" height="24" /></td>
-<td><strong>Visualizar</strong> tu contenido con widgets personalizables</td>
-</tr>
-<tr>
-<td><img src="assets/icons/link.svg" width="24" height="24" /></td>
-<td><strong>Detectar</strong> automáticamente el tipo de contenido (YouTube, GitHub, Steam...)</td>
+<td width="33%" align="center" valign="top">
+
+### Organiza
+Categorías, tags y búsqueda instantánea. Todo accesible al instante.
+
+</td>
+<td width="33%" align="center" valign="top">
+
+### Personaliza
+Bento grid, Kanban o Lista. 23 temas, 120+ widgets, tu dashboard.
+
+</td>
+<td width="33%" align="center" valign="top">
+
+### Controla
+App de escritorio nativa o self-hosted. Tus datos, tu privacidad.
+
+</td>
 </tr>
 </table>
 
@@ -79,15 +74,11 @@
 
 <br />
 
-## <img src="assets/icons/rocket.svg" width="28" height="28" align="center" /> Instalación
+## Instalación
 
-Stacklume está disponible como **app de escritorio nativa para Windows** o como **web app** en el navegador.
+### App de escritorio — Windows
 
-<br />
-
-### <img src="assets/icons/box.svg" width="22" height="22" align="center" /> App de escritorio — Windows
-
-La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, sin configuración, tus datos en local.
+La forma más sencilla. Sin login, sin configuración, datos en local.
 
 <div align="center">
 
@@ -97,51 +88,17 @@ La versión desktop es una aplicación nativa con instalador `.exe`. Sin login, 
 
 </div>
 
-<br />
+1. Descarga `Stacklume_x.x.x_x64-setup.exe` desde [Releases](https://github.com/SwonDev/Stacklume/releases/latest)
+2. Ejecuta el instalador *(no requiere Node.js ni Visual C++ Redistributable)*
+3. Abre Stacklume — acceso directo, sin pantalla de login
 
-**Pasos:**
-1. Descarga `Stacklume_x.x.x_x64-setup.exe` desde la sección [Releases](https://github.com/SwonDev/Stacklume/releases/latest)
-2. Ejecuta el instalador *(no requiere Visual C++ Redistributable ni Node.js)*
-3. Abre Stacklume — el dashboard aparece directamente, sin pantalla de login
-
-**Características exclusivas del desktop:**
-
-<table>
-<tr>
-<td><img src="assets/icons/folder.svg" width="20" height="20" /></td>
-<td><strong>SQLite local</strong> — Datos guardados en <code>%APPDATA%\com.stacklume.app\stacklume.db</code></td>
-</tr>
-<tr>
-<td><img src="assets/icons/gear.svg" width="20" height="20" /></td>
-<td><strong>Sin login</strong> — Uso personal, acceso directo sin autenticación</td>
-</tr>
-<tr>
-<td><img src="assets/icons/box.svg" width="20" height="20" /></td>
-<td><strong>Autocontenido</strong> — Incluye Node.js, cero dependencias externas</td>
-</tr>
-<tr>
-<td><img src="assets/icons/grid.svg" width="20" height="20" /></td>
-<td><strong>Ventana nativa</strong> — Barra de título personalizada, sin decoraciones del SO</td>
-</tr>
-<tr>
-<td><img src="assets/icons/eye.svg" width="20" height="20" /></td>
-<td><strong>Privacidad total</strong> — Todos tus datos permanecen en tu equipo</td>
-</tr>
-<tr>
-<td><img src="assets/icons/sparkles.svg" width="20" height="20" /></td>
-<td><strong>Auto-actualización</strong> — Notificación y actualización silenciosa integrada</td>
-</tr>
-</table>
-
-> **Requisitos:** Windows 10/11 (64-bit). WebView2 Runtime (incluido en Windows 11; se instala automáticamente en Windows 10).
+> **Requisitos:** Windows 10/11 (64-bit). WebView2 Runtime (incluido en Windows 11, se instala automáticamente en Windows 10).
 
 <br />
 
----
+### Demo online — Sin registro
 
-### <img src="assets/icons/eye.svg" width="22" height="22" align="center" /> Demo pública — Sin registro
-
-Prueba Stacklume directamente en el navegador sin crear una cuenta. Los datos se guardan **solo en tu navegador** (localStorage) y son completamente privados.
+Prueba Stacklume en el navegador. Los datos se guardan solo en tu navegador.
 
 <div align="center">
 
@@ -151,36 +108,32 @@ Prueba Stacklume directamente en el navegador sin crear una cuenta. Los datos se
 
 </div>
 
-> Sin servidor, sin base de datos, sin login. Ideal para explorar la aplicación antes de instalarla.
-
 <br />
 
----
+### Self-hosted — Versión web
 
-### <img src="assets/icons/terminal.svg" width="22" height="22" align="center" /> Versión web — Self-hosted
+Si prefieres alojar tu propia instancia:
 
-Si prefieres alojar tu propia instancia con Neon PostgreSQL:
+**Requisitos previos:** [pnpm](https://pnpm.io/installation), [Neon PostgreSQL](https://neon.tech) (gratuito)
 
 ```bash
-# 1. Clonar el repositorio
+# 1. Clonar e instalar
 git clone https://github.com/SwonDev/Stacklume.git
 cd Stacklume
-
-# 2. Instalar dependencias
 pnpm install
 
-# 3. Configurar variables de entorno
+# 2. Configurar entorno
 cp .env.example .env.local
-# Editar .env.local con tu DATABASE_URL (Neon PostgreSQL)
+# Edita .env.local con tu DATABASE_URL y credenciales de auth
 
-# 4. Crear tablas en la base de datos
+# 3. Inicializar base de datos
 pnpm db:push
 
-# 5. Iniciar servidor de desarrollo
+# 4. Arrancar
 pnpm dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+Abre [http://localhost:3000](http://localhost:3000). Consulta `.env.example` para ver todas las variables disponibles.
 
 <br />
 
@@ -188,70 +141,36 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 <br />
 
-## <img src="assets/icons/sparkles.svg" width="28" height="28" align="center" /> Características principales
+## Características
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### <img src="assets/icons/grid.svg" width="22" height="22" align="center" /> Bento Grid Layout
-Arrastra, redimensiona y organiza widgets como quieras. Tu dashboard, tus reglas.
+**Bento Grid Layout** — Arrastra y redimensiona widgets libremente
 
-### <img src="assets/icons/box.svg" width="22" height="22" align="center" /> 120+ Widgets
-Desde notas y tareas hasta el tiempo, crypto y repositorios trending de GitHub.
+**120+ Widgets** — Notas, tareas, clima, crypto, GitHub Trending y mucho más
 
-### <img src="assets/icons/eye.svg" width="22" height="22" align="center" /> 3 Modos de Vista
-- **Bento** — Grid visual e interactivo
-- **Kanban** — Organización por columnas
-- **Lista** — Vista clásica y compacta
+**3 Modos de Vista** — Bento, Kanban y Lista
+
+**23 Temas** — Dark, Nordic, Catppuccin, Tokyo Night, Rosé Pine, Aurora...
 
 </td>
 <td width="50%" valign="top">
 
-### <img src="assets/icons/folder.svg" width="22" height="22" align="center" /> Categorías & Tags
-Organiza tus links con carpetas y etiquetas. Filtrado inteligente incluido.
+**Categorías & Tags** — Organiza y filtra con carpetas y etiquetas
 
-### <img src="assets/icons/search.svg" width="22" height="22" align="center" /> Detección de Plataforma
-Identifica automáticamente YouTube, GitHub, Steam, Spotify, Twitter y más.
+**Detección de plataforma** — YouTube, GitHub, Steam, Spotify y más
 
-### <img src="assets/icons/moon.svg" width="22" height="22" align="center" /> 23 Temas
-Dark, Nordic, Catppuccin, Tokyo Night, Rosé Pine, Aurora y más. Claros y oscuros.
+**Importación** — Importa bookmarks desde el navegador (HTML)
+
+**MCP Server** — Integración con Claude Desktop / Cursor
 
 </td>
 </tr>
 </table>
 
 <br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-## <img src="assets/icons/wrench.svg" width="28" height="28" align="center" /> Stack Tecnológico
-
-<div align="center">
-
-| | Capa | Tecnología |
-|:---:|:----:|:-----------|
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=nextdotjs&logoColor=d4a853" height="24" /> | **Framework** | Next.js 16 (App Router) + React 19 |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=postgresql&logoColor=d4a853" height="24" /> | **Database** | Neon PostgreSQL + SQLite (desktop) + Drizzle ORM |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=tauri&logoColor=d4a853" height="24" /> | **Desktop** | Tauri v2 + Rust + WebView2 |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=radixui&logoColor=d4a853" height="24" /> | **UI** | shadcn/ui + Radix UI + Tailwind v4 |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=redux&logoColor=d4a853" height="24" /> | **Estado** | Zustand con persistencia |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=framer&logoColor=d4a853" height="24" /> | **Animaciones** | Motion (Framer Motion) |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=css3&logoColor=d4a853" height="24" /> | **Grid** | react-grid-layout |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=react&logoColor=d4a853" height="24" /> | **Drag & Drop** | @dnd-kit |
-| <img src="https://img.shields.io/badge/-0a1628?style=flat-square&logo=zod&logoColor=d4a853" height="24" /> | **Forms** | React Hook Form + Zod |
-
-</div>
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-## <img src="assets/icons/puzzle.svg" width="28" height="28" align="center" /> Widgets disponibles
 
 <details>
 <summary><strong>Ver todos los widgets (120+)</strong></summary>
@@ -280,95 +199,9 @@ Dark, Nordic, Catppuccin, Tokyo Night, Rosé Pine, Aurora y más. Claros y oscur
 
 <br />
 
-## <img src="assets/icons/gear.svg" width="28" height="28" align="center" /> Variables de entorno (versión web)
+## Licencia
 
-Crea un archivo `.env.local` basándote en `.env.example`:
-
-```env
-# Requerido — Neon PostgreSQL
-DATABASE_URL="postgresql://usuario:password@host/database?sslmode=require"
-
-# Requerido para producción — Autenticación
-AUTH_USERNAME="tu-usuario"
-AUTH_PASSWORD_HASH="hash-bcrypt"   # node -e "require('bcryptjs').hash('tu-pass', 10).then(console.log)"
-AUTH_SECRET="clave-aleatoria"      # openssl rand -base64 32
-
-# Opcional — Rate limiting (Upstash Redis)
-UPSTASH_REDIS_REST_URL=""
-UPSTASH_REDIS_REST_TOKEN=""
-
-# Opcional — GitHub Token (aumenta rate limit para widgets de GitHub)
-GITHUB_TOKEN=""
-```
-
-> La versión desktop no requiere ninguna variable de entorno. Todo se configura automáticamente.
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-## <img src="assets/icons/terminal.svg" width="28" height="28" align="center" /> Scripts disponibles
-
-| Comando | Descripción |
-|---------|-------------|
-| `pnpm dev` | Servidor de desarrollo |
-| `pnpm build` | Build de producción (web) |
-| `pnpm build:desktop` | Build standalone para desktop |
-| `pnpm tauri:build` | Build completo: compilar + firmar + subir a GitHub release |
-| `pnpm tauri:dev` | Modo desarrollo con ventana Tauri |
-| `pnpm lint` | Ejecutar ESLint |
-| `pnpm test` | Tests unitarios (Vitest) |
-| `pnpm test:e2e` | Tests E2E (Playwright) |
-| `pnpm db:push` | Sincronizar schema con DB |
-| `pnpm db:studio` | Abrir Drizzle Studio |
-
-> Para compilar el instalador de Windows desde cero, consulta [DESKTOP_BUILD.md](DESKTOP_BUILD.md).
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-## <img src="assets/icons/keyboard.svg" width="28" height="28" align="center" /> Atajos de teclado
-
-| Atajo | Acción |
-|:-----:|:-------|
-| `Ctrl + K` | Abrir búsqueda |
-| `Ctrl + N` | Nuevo link |
-| `Escape` | Salir modo selección múltiple · Salir modo edición · Cerrar modal |
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-## <img src="assets/icons/handshake.svg" width="28" height="28" align="center" /> Contribuir
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Haz fork del proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-feature`)
-3. Haz commit de tus cambios (`git commit -m 'feat: añadir nueva feature'`)
-4. Push a la rama (`git push origin feature/nueva-feature`)
-5. Abre un Pull Request
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
-
-<br />
-
-## <img src="assets/icons/scroll.svg" width="28" height="28" align="center" /> Licencia
-
-Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
-
-<br />
-
-<img src="https://img.shields.io/badge/━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━-d4a853?style=flat-square" width="100%" height="4" />
+MIT — Ver [LICENSE](LICENSE) para más detalles.
 
 <br />
 
@@ -379,11 +212,7 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 <br />
 <br />
 
-**Hecho con** <img src="assets/icons/heart.svg" width="20" height="20" align="center" /> **por [SwonDev](https://github.com/SwonDev)**
-
-<br />
-
-`Navy Blue & Gold` · *Tu universo de links, bellamente organizado*
+**Hecho con** ♥ **por [SwonDev](https://github.com/SwonDev)**
 
 <br />
 
