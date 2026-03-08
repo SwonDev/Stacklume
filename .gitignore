@@ -103,7 +103,6 @@ lint_*.txt
 
 # Tests — no se publican en el repo público
 e2e/
-docs/
 src/test/
 src/**/__tests__/
 src/**/*.test.ts
