@@ -204,15 +204,22 @@ export function generateResponsiveLayouts(widgets: Widget[]): Layouts {
   // xs: una sola columna para teléfonos estrechos (< 480px).
   // Todos los widgets ocupan el ancho completo, apilados verticalmente
   // en el mismo orden que el layout lg (Y ascendente, luego X).
+  // IMPORTANTE: usar Y acumulativo basado en h real — NO array index,
+  // ya que el index ignora las alturas y genera widgets solapados.
+  let xsCumulativeY = 0;
   const xsLayout = [...lgLayout]
     .sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x)
-    .map((item, idx) => ({
-      ...item,
-      x: 0,
-      y: idx,
-      w: 1,
-      static: lockedWidgets.get(item.i) ?? false,
-    }));
+    .map((item) => {
+      const entry = {
+        ...item,
+        x: 0,
+        y: xsCumulativeY,
+        w: 1,
+        static: lockedWidgets.get(item.i) ?? false,
+      };
+      xsCumulativeY += item.h;
+      return entry;
+    });
 
   return {
     lg: lgLayout,
