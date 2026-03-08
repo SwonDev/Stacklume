@@ -2112,6 +2112,7 @@
   "settings.mcpEnabledDescShort": "Activar integración con IA",
   "settings.mcpFullGuide": "Guía completa",
   "settings.mcpGenerateKeyFirst": "Genera una API key primero",
+  "settings.mcpPortUnstable": "Puerto {{port}} (≠7879). Actualiza tu config MCP.",
   "settings.mcpHideKey": "Ocultar key",
   "settings.mcpKeyCopied": "API key copiada",
   "settings.mcpKeyRegenerated": "API key regenerada",
