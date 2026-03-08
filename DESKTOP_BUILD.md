@@ -83,7 +83,7 @@ pnpm build:desktop
 pnpm tauri:dev
 ```
 
-Arranca Next.js dev server + abre ventana Tauri apuntando a `localhost:3000`.
+Arranca Next.js dev server en el **puerto 7878** con `DESKTOP_MODE=true` (SQLite, sin auth) + abre ventana Tauri apuntando a `localhost:7878`. La primera compilación Rust tarda ~2 minutos; las siguientes ~10 segundos.
 
 ---
 
@@ -481,57 +481,45 @@ Si la app no arranca o da error, revisar:
 
 ---
 
-## Auto-updater (Tauri Plugin Updater)
+## Auto-updater
 
-La app incluye un sistema de actualizaciones automáticas basado en `tauri-plugin-updater`. Al arrancar, comprueba si hay una versión nueva y muestra un toast con opción de instalar.
+La app comprueba actualizaciones al arrancar y permite instalarlas sin cerrar la app manualmente.
 
 ### Cómo funciona
 
-1. `UpdateChecker.tsx` se monta en el layout (solo cuando `isTauriWebView()` es true)
-2. A los 6 segundos llama a `check()` de `@tauri-apps/plugin-updater`
-3. Tauri descarga `update-manifest.json` desde GitHub Releases y verifica la firma criptográfica con la clave pública embebida en `tauri.conf.json`
+1. `UpdateChecker.tsx` se monta en el layout solo cuando `isTauriWebView()` es `true`
+2. A los 6 segundos llama a **GitHub API** (`/repos/SwonDev/Stacklume/releases/latest`) via `fetch` desde el WebView
+3. Compara la versión del release con `NEXT_PUBLIC_APP_VERSION` (incrustada en build time)
 4. Si hay versión nueva → toast con botón "Actualizar"
-5. Al confirmar: descarga el nuevo `.exe` con barra de progreso → instala silenciosamente → relanza la app
-6. Los datos en `%APPDATA%\com.stacklume.app\stacklume.db` nunca se tocan
+5. Al confirmar: invoca el comando Rust **`download_and_run_update`** con la URL del instalador
+6. Rust descarga el `.exe` a `%TEMP%\StacklumeUpdate.exe` via **ureq** (con `redirects(5)`)
+7. Valida que el archivo sea ≥ 1 MB (descarta páginas de error escritas como .exe)
+8. Ejecuta el instalador; el hook NSIS mata Stacklume y reemplaza los archivos
+
+Los datos en `%APPDATA%\com.stacklume.app\stacklume.db` nunca se modifican durante la actualización.
+
+> **Nota:** Este sistema usa un comando Rust propio (`download_and_run_update`), **no** `tauri-plugin-updater`. El plugin de updater y el plugin de process no están en el proyecto.
 
 ### Archivos involucrados
 
 | Archivo | Rol |
 |---------|-----|
-| `src/components/desktop/UpdateChecker.tsx` | Toast UI + lógica de descarga |
-| `src-tauri/tauri.conf.json` → `plugins.updater` | Clave pública + endpoint |
-| `src-tauri/capabilities/default.json` | Permisos `updater:default` + `process:allow-restart` |
-| `src-tauri/src/lib.rs` | Registro de plugins updater + process |
+| `src/components/desktop/UpdateChecker.tsx` | Toast UI + comprobación via GitHub API + botón Actualizar |
+| `src-tauri/src/lib.rs` → `download_and_run_update` | Descarga via ureq + validación + spawn del instalador |
 | `scripts/build-release.mjs` | Firma el `.exe` y genera `update-manifest.json` |
 
-### ⚠️ Gotcha: `installMode` del updater ≠ `installMode` de NSIS
+### Claves de firma (para el instalador, no para el updater)
 
-En `tauri.conf.json` hay **dos** secciones con `installMode` y sus valores válidos son distintos:
+El instalador `.exe` está firmado con **minisign** para que el manifiesto sea verificable.
 
-| Sección | Valores válidos |
-|---------|----------------|
-| `bundle.windows.nsis.installMode` | `currentUser` · `perMachine` |
-| `plugins.updater.windows.installMode` | `basicUi` · `quiet` · **`passive`** |
-
-Usar `currentUser` en la sección `plugins.updater` provoca un panic al arrancar la app:
-```
-Error deserializing 'plugins.updater': unknown variant `currentUser`, expected one of `basicUi`, `quiet`, `passive`
-```
-
-El valor correcto para actualizaciones silenciosas es **`passive`**.
-
-### Gestión de claves de firma
-
-Las actualizaciones usan firmas **minisign** para garantizar autenticidad.
-
-- **Clave pública** → embebida en `tauri.conf.json` (`plugins.updater.pubkey`). Es segura para commitear.
-- **Clave privada** → en `.env.local` como `TAURI_SIGNING_PRIVATE_KEY` (valor base64 del fichero `.key`). **Nunca commitear.**
+- **Clave pública** → embebida en `tauri.conf.json` (`bundle.windows.nsis`). Segura para commitear.
+- **Clave privada** → en `.env.local` como `TAURI_SIGNING_PRIVATE_KEY` (base64). **Nunca commitear.**
 - **Contraseña** → en `.env.local` como `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. **Nunca commitear.**
 
 Para regenerar el par de claves (solo si se pierde la privada):
 ```bash
-pnpm tauri signer generate -w my-signing-key.key
-# Actualizar tauri.conf.json → plugins.updater.pubkey con la nueva clave pública
+pnpm exec tauri signer generate -w my-signing-key.key
+# Copiar la clave pública generada donde corresponda
 # Actualizar .env.local con la nueva clave privada y contraseña
 ```
 
@@ -543,17 +531,23 @@ pnpm tauri signer generate -w my-signing-key.key
 #    src-tauri/tauri.conf.json → "version": "X.Y.Z"
 #    src-tauri/Cargo.toml → version = "X.Y.Z"
 
-# 2. Crear el tag en git
-git tag vX.Y.Z && git push origin vX.Y.Z
+# 2. Commit + push
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git commit -m "feat(vX.Y.Z): descripción de los cambios"
+git push origin main
 
-# 3. Crear la GitHub release vacía (para que el script pueda subir los assets)
-gh release create vX.Y.Z --title "Stacklume vX.Y.Z" --notes "..."
-
-# 4. Ejecutar el build completo (firma + upload automáticos)
+# 3. Build completo (compila + firma + genera update-manifest.json)
 pnpm tauri:build
+
+# 4. El script mostrará el comando gh release create si la release no existe:
+gh release create vX.Y.Z \
+  "src-tauri/target/release/bundle/nsis/Stacklume_X.Y.Z_x64-setup.exe#Stacklume_X.Y.Z_x64-setup.exe" \
+  "src-tauri/target/release/bundle/nsis/Stacklume_X.Y.Z_x64-setup.exe.sig#Stacklume_X.Y.Z_x64-setup.exe.sig" \
+  "src-tauri/target/release/bundle/nsis/update-manifest.json#update-manifest.json" \
+  --title "Stacklume vX.Y.Z" --notes "Descripción..."
 ```
 
-El script `build-release.mjs` detecta la release existente y sube automáticamente:
+Los 3 assets subidos a cada release son:
 - `Stacklume_X.Y.Z_x64-setup.exe` — instalador firmado
 - `Stacklume_X.Y.Z_x64-setup.exe.sig` — firma minisign
 - `update-manifest.json` — manifiesto de actualización
@@ -562,12 +556,12 @@ El script `build-release.mjs` detecta la release existente y sube automáticamen
 
 ```json
 {
-  "version": "0.3.1",
-  "notes": "Stacklume v0.3.1",
-  "pub_date": "2026-03-04T12:00:00.000Z",
+  "version": "0.3.21",
+  "notes": "Stacklume v0.3.21",
+  "pub_date": "2026-03-08T12:00:00.000Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/SwonDev/Stacklume/releases/download/v0.3.1/Stacklume_0.3.1_x64-setup.exe",
+      "url": "https://github.com/SwonDev/Stacklume/releases/download/v0.3.21/Stacklume_0.3.21_x64-setup.exe",
       "signature": "<firma minisign base64>"
     }
   }
@@ -580,13 +574,14 @@ El script `build-release.mjs` detecta la release existente y sube automáticamen
 
 **Preparación:**
 - [ ] Versión actualizada en `package.json`, `tauri.conf.json` y `Cargo.toml`
-- [ ] `pnpm tsc --noEmit` sin errores
-- [ ] Tag git creado y subido (`git tag vX.Y.Z && git push origin vX.Y.Z`)
-- [ ] GitHub release creada con `gh release create vX.Y.Z ...`
+- [ ] `pnpm tsc --noEmit` → 0 errores (ignorar `.next/types/` si no está buildeado)
+- [ ] `pnpm lint` → 0 errores
+- [ ] Commit y push a `main`
+- [ ] Cuenta GitHub correcta: `gh auth switch --user SwonDev`
 
 **Build:**
 - [ ] `pnpm tauri:build` completa sin errores
-- [ ] Log muestra "✓ Instalador firmado" o "✓ update-manifest.json generado"
+- [ ] Log muestra "✓ update-manifest.json generado"
 - [ ] Los 3 assets subidos a GitHub release: `.exe`, `.exe.sig`, `update-manifest.json`
 
 **Verificación funcional:**
@@ -594,12 +589,13 @@ El script `build-release.mjs` detecta la release existente y sube automáticamen
 - [ ] Ventana abre directamente al dashboard (sin pantalla de login)
 - [ ] TitleBar visible: botones close/minimize/maximize funcionan
 - [ ] Sin botón de "cerrar sesión" en el header
+- [ ] Los widgets del Bento se cargan correctamente al arrancar (sin tener que cambiar de vista)
 - [ ] Añadir link, crear categoría, añadir widget → datos persisten al reiniciar
 - [ ] Desinstalar y volver a instalar → datos permanecen en `%APPDATA%`
-- [ ] **Con la app abierta**, ejecutar el instalador de nuevo → debe instalarse sin error de "archivo en uso"
+- [ ] **Con la app abierta**, ejecutar el instalador de nuevo → se instala sin error de "archivo en uso"
 
 **Verificación del auto-updater:**
 - [ ] Instalar la versión anterior (`vX.Y.(Z-1)`)
 - [ ] Abrir la app → en ~6 segundos aparece toast "Nueva versión disponible"
-- [ ] Pulsar "Actualizar" → barra de progreso → app se relanza en la nueva versión
+- [ ] Pulsar "Actualizar" → descarga en segundo plano → instalador se ejecuta → app se cierra y relanza
 - [ ] Datos intactos tras la actualización automática
