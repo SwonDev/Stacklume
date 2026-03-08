@@ -39,7 +39,6 @@ const PASSTHROUGH_PREFIXES = [
   "/api/scrape",
   "/api/github-",
   "/api/steam-",
-  "/api/nintendo-",
   "/api/health",
   "/api/mcp",
 ];
@@ -224,9 +223,13 @@ async function handleDemoRequest(
   if (resource === "widgets" && resourceId) {
     // /api/widgets/layouts (especial)
     if (resourceId === "layouts") {
-      if (method === "POST" || method === "PUT") {
-        const { layouts } = body as { layouts?: Array<{ id: string; x: number; y: number; w: number; h: number }> };
-        if (layouts) demoWidgets.updateLayouts(layouts);
+      if (method === "POST" || method === "PUT" || method === "PATCH") {
+        const { layouts } = body as { layouts?: Array<{ i?: string; id?: string; x: number; y: number; w: number; h: number }> };
+        if (layouts) {
+          // react-grid-layout usa 'i' como ID del widget, pero updateLayouts espera 'id'
+          const normalized = layouts.map(l => ({ ...l, id: l.id ?? l.i ?? "" }));
+          demoWidgets.updateLayouts(normalized);
+        }
         return jsonResponse({ success: true });
       }
     }
@@ -320,6 +323,16 @@ async function handleDemoRequest(
       return jsonResponse(stickers);
     }
     return jsonResponse({ success: true });
+  }
+
+  // ── /api/nintendo-deals ── (no disponible en demo — evita 503 de la API externa)
+  if (resource === "nintendo-deals") {
+    return jsonResponse({
+      games: [],
+      totalCount: 0,
+      hasMore: false,
+      error: "Nintendo eShop no disponible en modo demo",
+    });
   }
 
   // ── /api/backups ── (no disponible en demo)

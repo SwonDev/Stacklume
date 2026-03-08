@@ -2,8 +2,8 @@ import type { Layout, Layouts } from "react-grid-layout";
 import type { Widget } from "@/types/widget";
 
 // Breakpoint configuration
-export const BREAKPOINTS = { lg: 1200, md: 996, sm: 768 };
-export const COLS = { lg: 12, md: 10, sm: 6 };
+export const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480 };
+export const COLS = { lg: 12, md: 10, sm: 6, xs: 1 };
 
 type Breakpoint = keyof typeof COLS;
 
@@ -201,10 +201,24 @@ export function generateResponsiveLayouts(widgets: Widget[]): Layouts {
     static: lockedWidgets.get(item.i) ?? false,
   }));
 
+  // xs: una sola columna para teléfonos estrechos (< 480px).
+  // Todos los widgets ocupan el ancho completo, apilados verticalmente
+  // en el mismo orden que el layout lg (Y ascendente, luego X).
+  const xsLayout = [...lgLayout]
+    .sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x)
+    .map((item, idx) => ({
+      ...item,
+      x: 0,
+      y: idx,
+      w: 1,
+      static: lockedWidgets.get(item.i) ?? false,
+    }));
+
   return {
     lg: lgLayout,
     md: mdLayout,
     sm: smLayout,
+    xs: xsLayout,
   };
 }
 
