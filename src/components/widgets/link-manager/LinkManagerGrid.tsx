@@ -29,6 +29,7 @@ import { useTranslation } from "@/lib/i18n";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { showConfirm } from "@/components/ui/ConfirmDialog";
 
 interface LinkManagerGridProps {
   links: Link[];
@@ -184,7 +185,16 @@ function LinkGridCard({
   };
 
   const handleDelete = async () => {
-    if (confirmBeforeDelete && !confirm(t("linkManager.confirmDeleteLink"))) return;
+    if (confirmBeforeDelete) {
+      const ok = await showConfirm({
+        title: t("listView.confirmDeleteTitle"),
+        description: t("linkManager.confirmDeleteLink"),
+        confirmLabel: t("btn.delete"),
+        cancelLabel: t("btn.cancel"),
+        variant: "destructive",
+      });
+      if (!ok) return;
+    }
     try {
       await fetch(`/api/links/${link.id}`, {
         method: "DELETE",
