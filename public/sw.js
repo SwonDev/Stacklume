@@ -7,9 +7,9 @@
  * - Background sync for pending mutations
  */
 
-const _CACHE_NAME = 'stacklume-v4'; // Reserved for future cache versioning
-const STATIC_CACHE_NAME = 'stacklume-static-v4';
-const API_CACHE_NAME = 'stacklume-api-v4';
+const _CACHE_NAME = 'stacklume-v5'; // Reserved for future cache versioning
+const STATIC_CACHE_NAME = 'stacklume-static-v5';
+const API_CACHE_NAME = 'stacklume-api-v5';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
@@ -147,7 +147,14 @@ async function handleStaticRequest(request) {
   }
 
   try {
-    const networkResponse = await fetch(request);
+    // For JS/CSS chunks, bypass browser HTTP cache to avoid serving stale
+    // immutable files after a new deployment (Cache-Control: immutable causes
+    // browser to serve old content even when the SW cache was cleared)
+    const url = new URL(request.url);
+    const isChunk = url.pathname.startsWith('/_next/static/chunks/') ||
+                    url.pathname.startsWith('/_next/static/css/');
+    const fetchOptions = isChunk ? { cache: 'no-store' } : {};
+    const networkResponse = await fetch(request, fetchOptions);
 
     // Only cache complete responses (status 200)
     // Do NOT cache partial responses (206) as Chrome doesn't support caching them
