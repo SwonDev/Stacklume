@@ -5,6 +5,11 @@ import { paginationSchema, createTagSchema, updateTagSchema, validateRequest } f
 
 // GET all tags with optional pagination
 export async function GET(request: NextRequest) {
+  // DEMO_MODE: datos gestionados por el interceptor en el cliente
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json([]);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
 
