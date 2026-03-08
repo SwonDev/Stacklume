@@ -21,7 +21,7 @@ import { useTranslation } from "@/lib/i18n";
 // Memoized wrapper for BentoCard to prevent unnecessary re-renders
 const MemoizedBentoCard = memo(BentoCard);
 
-type Breakpoint = "lg" | "md" | "sm";
+type Breakpoint = "lg" | "md" | "sm" | "xs";
 
 interface BentoGridProps {
   className?: string;
@@ -133,14 +133,16 @@ export function BentoGrid({ className }: BentoGridProps) {
 
   // Polling cada 5s para detectar widgets creados externamente (MCP) cuando la ventana ya tiene foco.
   // Sin esto, los widgets nuevos solo aparecen tras perder y recuperar el foco o navegar a otra vista.
+  // En modo edición se omite el sondeo para evitar que un refresh sobreescriba posiciones en vuelo
+  // (drag/resize debounce de 500ms puede quedar atrás del intervalo de 5s).
   useEffect(() => {
     const interval = setInterval(() => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !isEditMode) {
         useWidgetStore.getState().refreshWidgets();
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isEditMode]);
 
   // Sync project ID from projects store to widget store
   // Only sync AFTER hydration is complete to avoid SSR mismatch issues
@@ -261,6 +263,18 @@ export function BentoGrid({ className }: BentoGridProps) {
   const layouts = useMemo(() => {
     return generateResponsiveLayouts(filteredWidgets);
   }, [filteredWidgets]);
+
+  // Cuando el primer widget aparece (transición 0 → 1), el div contenedor del grid
+  // recién se monta. El useLayoutEffect principal no se re-ejecuta porque sus deps
+  // [mounted, widgetsInitialized] no cambiaron, por lo que containerWidth queda en 0.
+  // Este efecto fuerza una medición al detectar la transición sin-widgets → con-widgets.
+  useLayoutEffect(() => {
+    if (!mounted || filteredWidgets.length === 0) return;
+    const el = containerDivRef.current;
+    if (!el) return;
+    const w = el.getBoundingClientRect().width;
+    if (w > 0) setContainerWidth(w);
+  }, [mounted, filteredWidgets.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle layout changes from user interaction (drag only — resize saves in handleResizeStop)
   const handleLayoutChange = useCallback(
@@ -493,8 +507,8 @@ export function BentoGrid({ className }: BentoGridProps) {
     return configs[viewDensity];
   }, [viewDensity]);
 
-  // Override lg column count from user setting
-  const effectiveCols = useMemo(() => ({ ...COLS, lg: gridColumns }), [gridColumns]);
+  // Override lg column count from user setting; xs siempre 1 columna (teléfonos)
+  const effectiveCols = useMemo(() => ({ ...COLS, lg: gridColumns, xs: 1 }), [gridColumns]);
 
   // Umbrales de breakpoint reducidos: el umbral lg pasa de 1200 a 900px.
   // Con la sidebar fija (288px), el contenedor queda ~1136px. Sin bajar el umbral,
@@ -502,7 +516,8 @@ export function BentoGrid({ className }: BentoGridProps) {
   // handleDragStop se almacenan en espacio de 10 columnas pero generateResponsiveLayouts
   // las interpreta como espacio de 12 → todo queda mal posicionado al persistir.
   // Con umbral 900, cualquier desktop/laptop con sidebar sigue en lg (12 cols) siempre.
-  const effectiveBreakpoints = useMemo(() => ({ lg: 900, md: 680, sm: 380 }), []);
+  // xs: teléfonos < 480px → 1 columna, widgets apilados a ancho completo.
+  const effectiveBreakpoints = useMemo(() => ({ lg: 900, md: 680, sm: 480, xs: 0 }), []);
 
   // Get grid bounds for keyboard drag (must be before any early returns)
   const gridBounds = useMemo(() => ({
