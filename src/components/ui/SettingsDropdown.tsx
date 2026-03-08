@@ -216,7 +216,14 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const isDesktop = isTauriWebView();
 
-  const mcpUrl = typeof window !== "undefined" ? `${window.location.origin}/api/mcp` : "/api/mcp";
+  // En desktop (Tauri) usamos el puerto estable 7879 para que la URL del MCP
+  // no cambie entre reinicios y las configuraciones de Claude Desktop / Cursor
+  // sigan funcionando. En web usamos el origen real de la ventana.
+  const mcpUrl = typeof window !== "undefined"
+    ? isDesktop
+      ? "http://127.0.0.1:7879/api/mcp"
+      : `${window.location.origin}/api/mcp`
+    : "/api/mcp";
 
   // Sincronizar next-themes con el tema del store
   useEffect(() => {

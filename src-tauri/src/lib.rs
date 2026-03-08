@@ -74,13 +74,28 @@ fn create_job_for_child(child_pid: u32) -> isize {
 #[cfg(not(dev))]
 use std::net::TcpListener;
 
-/// Busca un puerto TCP libre usando asignación del OS (port 0) para evitar
-/// puertos predecibles. Intenta múltiples veces antes de usar fallback.
+/// Puerto preferido estable para producción.
+/// Se usa siempre que esté disponible, garantizando URLs de MCP estables
+/// entre reinicios (p. ej. http://127.0.0.1:7879/api/mcp).
+/// El puerto de dev es 7878, así que usamos 7879 para producción.
+#[cfg(not(dev))]
+const PREFERRED_PORT: u16 = 7879;
+
+/// Busca un puerto TCP libre intentando primero PREFERRED_PORT (estable entre
+/// reinicios para que las configuraciones MCP en Claude Desktop / Cursor no se
+/// rompan) y recurriendo a asignación aleatoria del OS solo si está ocupado.
 #[cfg(not(dev))]
 fn find_free_port() -> u16 {
-    // Intentar 50 veces que el OS asigne un puerto libre aleatorio (bind a port 0).
-    // Cada intento puede devolver un puerto distinto; esto es mucho más fiable
-    // y menos predecible que iterar un rango fijo.
+    // 1. Intentar el puerto preferido estable.
+    if TcpListener::bind(("127.0.0.1", PREFERRED_PORT)).is_ok() {
+        return PREFERRED_PORT;
+    }
+    eprintln!(
+        "[Stacklume] INFO: Puerto preferido {} ocupado, buscando puerto libre alternativo...",
+        PREFERRED_PORT
+    );
+
+    // 2. Si está ocupado, pedir al OS un puerto libre aleatorio (hasta 50 intentos).
     for _ in 0..50 {
         if let Ok(listener) = TcpListener::bind("127.0.0.1:0") {
             if let Ok(addr) = listener.local_addr() {
@@ -88,8 +103,9 @@ fn find_free_port() -> u16 {
             }
         }
     }
-    // Último recurso (extremadamente improbable): devolver un puerto del rango efímero.
-    eprintln!("[Stacklume] WARN: No se pudo obtener puerto libre del OS tras 50 intentos, usando fallback 49152");
+
+    // 3. Último recurso (extremadamente improbable).
+    eprintln!("[Stacklume] WARN: No se pudo obtener puerto libre tras 50 intentos, usando fallback 49152");
     49152
 }
 
