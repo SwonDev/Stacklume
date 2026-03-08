@@ -100,6 +100,7 @@ src/
 │   └── page.tsx           # Main dashboard page
 ├── components/
 │   ├── bento/             # BentoGrid and BentoCard components
+│   ├── demo/              # DemoBanner, componentes específicos del modo demo
 │   ├── icons/             # Custom icon components
 │   ├── kanban/            # KanbanColumn and KanbanLinkListWidget
 │   ├── layout/            # Header, Sidebar, FilterBar
@@ -119,6 +120,9 @@ src/
 │   ├── url-utils.ts       # URL normalization for duplicate detection
 │   ├── desktop.ts         # Tauri detection (isTauriWebView), openExternalUrl, updateTrayIcon
 │   ├── platform-detection.ts  # Platform/URL type detection (YouTube, Steam, GitHub, etc.)
+│   ├── demo/
+│   │   ├── interceptor.ts # Intercepta window.fetch para /api/* CRUD → localStorage (modo demo)
+│   │   └── storage.ts     # CRUD completo en localStorage para modo demo
 │   ├── security/
 │   │   └── ssrf-protection.ts  # SSRF protection for scrape API
 │   └── db/
@@ -386,8 +390,52 @@ The app supports importing links via:
 | `src/lib/backup/backup-service.ts` | Data export/import and backup management |
 | `src/lib/export-utils.ts` | Link export utilities (JSON, CSV, HTML) |
 | `src/lib/analytics.ts` | Link analytics tracking |
-| `src/lib/responsive-layout.ts` | Responsive bento grid breakpoint helpers |
+| `src/lib/responsive-layout.ts` | Responsive bento grid breakpoint helpers; xs layout uses cumulative Y (not array index) |
 | `src/lib/offline/` | PWA offline support and service worker registration |
+| `src/lib/demo/interceptor.ts` | Intercepta fetch() API calls en modo demo, redirige a localStorage |
+| `src/lib/demo/storage.ts` | CRUD completo en localStorage para modo demo (links, categories, tags, widgets, projects, settings) |
+
+## Demo Mode
+
+The demo mode (`NEXT_PUBLIC_DEMO_MODE=true` + `DEMO_MODE=true`) runs Stacklume entirely in the browser with no database required. Data is stored in `localStorage`.
+
+**How it works:**
+1. `DemoProvider.tsx` installs the fetch interceptor synchronously on first render
+2. `src/lib/demo/interceptor.ts` replaces `window.fetch` — CRUD calls to `/api/*` are redirected to localStorage; external API calls (`/api/scrape`, `/api/github-*`, etc.) pass through to the server
+3. `src/lib/demo/storage.ts` implements full CRUD in localStorage with `readArrayKey<T>()` guard (`Array.isArray` check) to avoid `TypeError` if data is in Zustand persist format
+
+**Active at:** [demo.stacklume.app](https://demo.stacklume.app) — `NEXT_PUBLIC_DEMO_MODE=true` + `DEMO_MODE=true` set in Vercel project settings.
+
+**Key constraint:** Data lives only in the current browser. No sync, no server backups.
+
+## Safari/WebKit — APIs no estándar
+
+**NEVER** use optional chaining (`?.`) to call APIs that may not be declared as global variables. In JavaScriptCore (Safari/WebKit), if the variable doesn't exist, `?.` does **not** prevent `ReferenceError` — the engine throws before evaluating the operator.
+
+```javascript
+// ❌ WRONG — crashes in Safari with ReferenceError
+requestIdleCallback?.(() => doWork());
+
+// ✅ CORRECT — typeof guard first
+if (typeof requestIdleCallback === "function") {
+  requestIdleCallback(() => doWork());
+}
+```
+
+This rule applies to any non-standard or partially-supported browser API (e.g., `requestIdleCallback`, `scheduler.postTask`).
+
+## Service Worker — Cache Versioning
+
+`public/sw.js` uses cache-first for `/_next/static/*`. After a deploy with JS changes, old cached chunks will be served unless the cache name is bumped.
+
+**Rule:** Increment `STATIC_CACHE_NAME` and `API_CACHE_NAME` in `public/sw.js` in every release that includes JavaScript changes.
+
+```javascript
+const STATIC_CACHE_NAME = "stacklume-static-v6";  // ← bump on each JS-changing release
+const API_CACHE_NAME    = "stacklume-api-v6";      // ← bump on each JS-changing release
+```
+
+Current version: `v6`.
 
 ## Security
 

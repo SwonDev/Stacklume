@@ -1,6 +1,6 @@
 # Stacklume — Arquitectura técnica
 
-Este documento describe la arquitectura y diseño técnico de Stacklume v0.3.x.
+Este documento describe la arquitectura y diseño técnico de Stacklume v0.3.22.
 
 ---
 
@@ -12,6 +12,7 @@ Stacklume es un dashboard de gestión de bookmarks con layout tipo bento grid. E
 |------|--------------|---------------|-----|
 | **Web (self-hosted)** | Neon PostgreSQL | JWT/bcrypt propio | stacklume.vercel.app |
 | **Desktop (Windows)** | SQLite local | Sin auth — uso personal | Aplicación Tauri |
+| **Demo** | localStorage (navegador) | Sin auth — datos públicos demo | demo.stacklume.app |
 
 ---
 
@@ -173,6 +174,80 @@ En **modo desktop** la autenticación se omite completamente (`src/proxy.ts` ret
 
 ---
 
+## Modo demo (demo.stacklume.app)
+
+El modo demo permite probar Stacklume en el navegador sin necesidad de base de datos ni cuenta. Todos los datos se almacenan exclusivamente en el `localStorage` del navegador del usuario.
+
+### Activación
+
+```env
+NEXT_PUBLIC_DEMO_MODE=true   # Variable cliente (Next.js)
+DEMO_MODE=true               # Variable servidor (omite auth/CSRF en proxy.ts)
+```
+
+En Vercel, basta con añadir estas dos variables al proyecto. No se necesita `DATABASE_URL`, `AUTH_USERNAME` ni `AUTH_SECRET`.
+
+### Arquitectura del modo demo
+
+```
+┌────────────────────────────────────────────────────────┐
+│                    Navegador                           │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  DemoProvider.tsx  (monta interceptor en render) │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  src/lib/demo/interceptor.ts                     │  │
+│  │  Reemplaza window.fetch para /api/* CRUD         │  │
+│  │  → Redirige a localStorage en lugar de al server │  │
+│  │  Rutas que SÍ van al servidor: /api/scrape,      │  │
+│  │  /api/github-*, /api/steam-*, /api/nintendo-*,   │  │
+│  │  /api/health, /api/mcp                           │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  src/lib/demo/storage.ts                         │  │
+│  │  CRUD completo en localStorage:                  │  │
+│  │  links, categories, tags, link-tags, widgets,    │  │
+│  │  projects, settings, stickers                    │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  DemoBanner.tsx — banner informativo fijo        │  │
+│  │  (debajo del header, texto corto en mobile)      │  │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+              ↑ Nada sale del navegador
+```
+
+### Componentes clave
+
+| Archivo | Función |
+|---------|---------|
+| `src/lib/demo/interceptor.ts` | Intercepta `window.fetch` y redirige llamadas CRUD a localStorage |
+| `src/lib/demo/storage.ts` | Implementa CRUD completo en localStorage (links, categories, tags, widgets, projects, settings) |
+| `src/components/demo/DemoProvider.tsx` | Instala el interceptor de forma síncrona en el primer render |
+| `src/components/demo/DemoBanner.tsx` | Banner amarillo con enlace a la descarga del instalador desktop |
+
+### `readArrayKey<T>()` — protección contra corrupción
+
+El helper `readArrayKey<T>()` en `storage.ts` incluye un guard `Array.isArray` para evitar `TypeError` si localStorage contiene datos en formato Zustand persist (el valor puede ser un objeto `{state:{...}, version:...}` en lugar de un array):
+
+```typescript
+function readArrayKey<T>(key: string): T[] {
+  const raw = localStorage.getItem(key);
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed) ? parsed : [];
+}
+```
+
+### Limitaciones del modo demo
+
+- Los datos solo existen en el navegador actual — no hay sincronización entre dispositivos
+- No hay backups automáticos al servidor
+- El modo demo no es apto para uso en producción con datos reales
+- Widgets que necesitan APIs externas (GitHub, Steam, Nintendo) siguen usando el servidor
+
+---
+
 ## Gestión de estado (Zustand stores)
 
 | Store | Persistencia | Responsabilidad |
@@ -260,6 +335,7 @@ src/
 │   └── page.tsx              # Dashboard principal
 ├── components/
 │   ├── bento/                # BentoGrid + BentoCard
+│   ├── demo/                 # DemoBanner, componentes específicos del modo demo
 │   ├── desktop/              # TitleBar, UpdateChecker, TrayIconUpdater
 │   ├── kanban/               # KanbanColumn + KanbanLinkListWidget
 │   ├── layout/               # Header, Sidebar, FilterBar, BulkActionsBar
@@ -278,10 +354,14 @@ src/
 │   │   ├── schema.ts         # Schema PostgreSQL (boolCol, withTimezone: true)
 │   │   ├── schema.sqlite.ts  # Schema SQLite equivalente
 │   │   └── sqlite-driver.ts  # Driver con fix de backslashes Windows
+│   ├── demo/
+│   │   ├── interceptor.ts    # Intercepta window.fetch para /api/* CRUD → localStorage
+│   │   └── storage.ts        # CRUD completo en localStorage para modo demo
 │   ├── auth.ts               # JWT/bcrypt personalizado (jose + bcryptjs)
 │   ├── desktop.ts            # isTauriWebView(), openExternalUrl(), tauriInvoke()
 │   ├── i18n.ts               # Internacionalización (es/en)
 │   ├── platform-detection.ts # YouTube, Steam, GitHub, Spotify...
+│   ├── responsive-layout.ts  # Breakpoints y columnas del bento grid (xs Y acumulativo)
 │   ├── security/
 │   │   └── ssrf-protection.ts
 │   └── validations/
@@ -310,6 +390,80 @@ custom_widget_types → Tipos de widgets personalizados generados por IA
 ```
 
 Todas las entidades con soft delete usan `deletedAt timestamp`. Filtrar siempre con `.where(isNull(table.deletedAt))`.
+
+---
+
+## Compatibilidad con navegadores / Safari (WebKit)
+
+### Regla crítica: APIs no estándar del navegador
+
+**NUNCA** usar optional chaining (`?.`) para invocar APIs que pueden no estar declaradas como variables globales en algunos motores JavaScript. En JavaScriptCore (Safari/WebKit), si la variable no existe globalmente, el operador `?.` **no previene el `ReferenceError`** — el motor lanza el error antes de evaluar el operador.
+
+**Ejemplo del bug que causó crash en Safari:**
+
+```javascript
+// ❌ INCORRECTO — falla en Safari/WebKit con ReferenceError
+requestIdleCallback?.(() => { /* ... */ });
+
+// ✅ CORRECTO — guard typeof antes de llamar
+if (typeof requestIdleCallback === "function") {
+  requestIdleCallback(() => { /* ... */ });
+}
+```
+
+Esta regla aplica a **cualquier API no estándar** o con soporte parcial:
+- `requestIdleCallback` — no disponible en Safari
+- `scheduler.postTask` — soporte limitado
+- Cualquier API experimental o de Chrome/Firefox solo
+
+**Archivo afectado:** `src/components/layout/Sidebar.tsx` (fix aplicado en v0.3.18)
+
+---
+
+## Service Worker — versionado de caché
+
+El archivo `public/sw.js` implementa una estrategia cache-first para los assets estáticos de Next.js (`/_next/static/*`). Esta caché puede servir código JavaScript obsoleto tras un despliegue si no se fuerza su purga.
+
+**Regla:** Bumpar `STATIC_CACHE_NAME` y `API_CACHE_NAME` en `public/sw.js` en **cada release** que incluya cambios de código JavaScript.
+
+```javascript
+// public/sw.js — actualizar en cada release con cambios JS
+const STATIC_CACHE_NAME = "stacklume-static-v6";  // ← incrementar
+const API_CACHE_NAME = "stacklume-api-v6";         // ← incrementar
+```
+
+- Al cambiar el nombre de la caché, el Service Worker instalado detecta el cambio, activa el nuevo SW y purga las cachés antiguas automáticamente.
+- **Versión actual:** `stacklume-static-v6` / `stacklume-api-v6`
+
+---
+
+## Layout responsive — breakpoints y grid
+
+El módulo `src/lib/responsive-layout.ts` define los breakpoints y columnas del bento grid:
+
+```typescript
+const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480 };
+const COLS       = { lg: 12,   md: 10,  sm: 6,   xs: 1   };
+```
+
+### Regla crítica — layout xs (móvil < 480px)
+
+El layout para el breakpoint `xs` se calcula con **Y acumulativo**, no con el índice del array. Usar el índice (`y: idx`) produce solapamiento de widgets porque ignora las alturas reales, lo que provoca que `react-grid-layout` recalcule infinitamente → error "Maximum update depth exceeded".
+
+```typescript
+// ✅ CORRECTO — Y acumulativo
+let xsCumulativeY = 0;
+const xsLayout = widgets.map((item) => {
+  const entry = { i: item.id, x: 0, y: xsCumulativeY, w: 1, h: item.h };
+  xsCumulativeY += item.h;
+  return entry;
+});
+
+// ❌ INCORRECTO — Y por índice (causa infinite loop)
+const xsLayout = widgets.map((item, idx) => ({ i: item.id, x: 0, y: idx, w: 1, h: item.h }));
+```
+
+**Archivo:** `src/lib/responsive-layout.ts` (fix aplicado en v0.3.19)
 
 ---
 
