@@ -6,6 +6,8 @@ import { AppShell } from "@/components/providers/AppShell";
 import { DesktopTitleBar } from "@/components/desktop/TitleBar";
 import { DesktopContextMenu } from "@/components/desktop/DesktopContextMenu";
 import { UpdateChecker } from "@/components/desktop/UpdateChecker";
+import { DemoProvider } from "@/components/demo/DemoProvider";
+import { DemoBanner } from "@/components/demo/DemoBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,6 +70,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const isDesktopMode = process.env.DESKTOP_MODE === "true";
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
   return (
     <html lang="es" suppressHydrationWarning>
@@ -85,19 +88,44 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: "Object.defineProperty(window,'__DESKTOP_MODE__',{value:true,writable:false,configurable:false});" }}
           />
         )}
-        <Providers>
-          <DesktopTitleBar />
-          <DesktopContextMenu />
-          <UpdateChecker />
-          <AppShell>{children}</AppShell>
-          <Toaster
-            theme="dark"
-            position="bottom-right"
-            toastOptions={{
-              className: "bg-card border border-border text-foreground",
-            }}
+        {/*
+          En DEMO_MODE inyectamos el flag antes de la hidratación para que
+          el interceptor de fetch sepa que debe activarse inmediatamente.
+        */}
+        {isDemoMode && (
+          <script
+            dangerouslySetInnerHTML={{ __html: "Object.defineProperty(window,'__DEMO_MODE__',{value:true,writable:false,configurable:false});" }}
           />
-        </Providers>
+        )}
+        {isDemoMode ? (
+          <DemoProvider>
+            <Providers>
+              <DemoBanner />
+              <AppShell>{children}</AppShell>
+              <Toaster
+                theme="dark"
+                position="bottom-right"
+                toastOptions={{
+                  className: "bg-card border border-border text-foreground",
+                }}
+              />
+            </Providers>
+          </DemoProvider>
+        ) : (
+          <Providers>
+            <DesktopTitleBar />
+            <DesktopContextMenu />
+            <UpdateChecker />
+            <AppShell>{children}</AppShell>
+            <Toaster
+              theme="dark"
+              position="bottom-right"
+              toastOptions={{
+                className: "bg-card border border-border text-foreground",
+              }}
+            />
+          </Providers>
+        )}
       </body>
     </html>
   );
