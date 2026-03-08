@@ -34,6 +34,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/SwonDev/Stacklume?style=flat-square&color=d4a853&labelColor=0a1628&logo=github&logoColor=d4a853&label=%C3%9Altima%20versi%C3%B3n)](https://github.com/SwonDev/Stacklume/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/SwonDev/Stacklume?style=flat-square&color=d4a853&labelColor=0a1628&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume)
 [![License MIT](https://img.shields.io/badge/Licencia-MIT-d4a853?style=flat-square&labelColor=0a1628)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Apoyar_en_Ko--fi-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/swonproject)
 
 </div>
 
@@ -219,5 +220,9 @@ MIT — Ver [LICENSE](LICENSE) para más detalles.
 [![GitHub](https://img.shields.io/badge/GitHub-0a1628?style=for-the-badge&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume)
 [![Releases](https://img.shields.io/badge/Releases-0a1628?style=for-the-badge&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume/releases)
 [![Star](https://img.shields.io/github/stars/SwonDev/Stacklume?style=for-the-badge&color=d4a853&labelColor=0a1628&logo=github&logoColor=d4a853)](https://github.com/SwonDev/Stacklume)
+
+<br />
+
+[![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/swonproject)
 
 </div>

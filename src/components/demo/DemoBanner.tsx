@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, MonitorDown, Database, Info } from "lucide-react";
+import { X, MonitorDown, Database, Info, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function DemoBanner() {
@@ -57,6 +57,17 @@ export function DemoBanner() {
             </a>
           </span>
         </p>
+
+        <a
+          href="https://ko-fi.com/swonproject"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-[#FF5E5B]/20 hover:bg-[#FF5E5B]/30 text-[#FF5E5B] hover:text-red-300 border border-[#FF5E5B]/30 transition-colors"
+          aria-label="Apoyar en Ko-fi"
+        >
+          <Heart className="h-3 w-3" />
+          Apoyar
+        </a>
 
         <button
           onClick={() => setDismissed(true)}
