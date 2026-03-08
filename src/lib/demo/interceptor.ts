@@ -88,6 +88,19 @@ async function handleDemoRequest(
       const link = demoLinks.create(body as Record<string, unknown>);
       return jsonResponse(link, 201);
     }
+    if (method === "DELETE") {
+      // DELETE /api/links?id=xxx (query param pattern)
+      const qid = url.searchParams.get("id");
+      if (qid) { demoLinks.delete(qid); return jsonResponse({ success: true }); }
+    }
+    if (method === "PUT" || method === "PATCH") {
+      // PATCH /api/links con body { id, ...fields }
+      const bid = (body as Record<string, unknown>)?.id as string | undefined;
+      if (bid) {
+        const updated = demoLinks.update(bid, body as Record<string, unknown>);
+        return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+      }
+    }
   }
   if (resource === "links" && resourceId) {
     if (method === "GET") {
@@ -108,6 +121,19 @@ async function handleDemoRequest(
   if (resource === "categories" && !resourceId) {
     if (method === "GET") return jsonResponse(demoCategories.list());
     if (method === "POST") return jsonResponse(demoCategories.create(body as Record<string, unknown>), 201);
+    if (method === "DELETE") {
+      // DELETE /api/categories?id=xxx (query param pattern)
+      const qid = url.searchParams.get("id");
+      if (qid) { demoCategories.delete(qid); return jsonResponse({ success: true }); }
+    }
+    if (method === "PUT" || method === "PATCH") {
+      // PATCH /api/categories con body { id, ...fields }
+      const bid = (body as Record<string, unknown>)?.id as string | undefined;
+      if (bid) {
+        const updated = demoCategories.update(bid, body as Record<string, unknown>);
+        return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+      }
+    }
   }
   if (resource === "categories" && resourceId) {
     if (method === "PUT" || method === "PATCH") {
@@ -124,6 +150,11 @@ async function handleDemoRequest(
   if (resource === "tags" && !resourceId) {
     if (method === "GET") return jsonResponse(demoTags.list());
     if (method === "POST") return jsonResponse(demoTags.create(body as Record<string, unknown>), 201);
+    if (method === "DELETE") {
+      // DELETE /api/tags?id=xxx (query param pattern)
+      const qid = url.searchParams.get("id");
+      if (qid) { demoTags.delete(qid); return jsonResponse({ success: true }); }
+    }
   }
   if (resource === "tags" && resourceId) {
     if (method === "PUT" || method === "PATCH") {
@@ -168,6 +199,11 @@ async function handleDemoRequest(
   if (resource === "widgets" && !resourceId) {
     if (method === "GET") return jsonResponse(demoWidgets.list());
     if (method === "POST") return jsonResponse(demoWidgets.create(body as Record<string, unknown>), 201);
+    if (method === "DELETE") {
+      // DELETE /api/widgets?id=xxx (query param pattern)
+      const qid = url.searchParams.get("id");
+      if (qid) { demoWidgets.delete(qid); return jsonResponse({ success: true }); }
+    }
   }
   if (resource === "widgets" && resourceId) {
     // /api/widgets/layouts (especial)
@@ -197,6 +233,11 @@ async function handleDemoRequest(
   if (resource === "projects" && !resourceId) {
     if (method === "GET") return jsonResponse(demoProjects.list());
     if (method === "POST") return jsonResponse(demoProjects.create(body as Record<string, unknown>), 201);
+    if (method === "DELETE") {
+      // DELETE /api/projects?id=xxx (query param pattern)
+      const qid = url.searchParams.get("id");
+      if (qid) { demoProjects.delete(qid); return jsonResponse({ success: true }); }
+    }
   }
   if (resource === "projects" && resourceId) {
     if (method === "PUT" || method === "PATCH") {

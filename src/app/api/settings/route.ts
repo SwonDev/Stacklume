@@ -5,8 +5,38 @@ import { updateSettingsSchema, validateRequest } from "@/lib/validations";
 
 const DEFAULT_USER_ID = "default";
 
+const DEMO_DEFAULTS = {
+  id: "demo",
+  userId: DEFAULT_USER_ID,
+  theme: "dark",
+  viewDensity: "normal",
+  viewMode: "bento",
+  showTooltips: true,
+  reduceMotion: false,
+  language: "es",
+  gridColumns: 12,
+  sidebarAlwaysVisible: false,
+  defaultSortField: "createdAt",
+  defaultSortOrder: "desc",
+  thumbnailSize: "medium",
+  sidebarDensity: "normal",
+  autoBackupInterval: 0,
+  confirmBeforeDelete: true,
+  linkClickBehavior: "new-tab",
+  onboardingCompleted: false,
+  mcpEnabled: false,
+  mcpApiKey: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 // GET user settings
 export async function GET() {
+  // DEMO_MODE: sin BD, retornar configuración por defecto
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(DEMO_DEFAULTS);
+  }
+
   try {
     const [settings] = await withRetry(
       () => db.select().from(userSettings).where(eq(userSettings.userId, DEFAULT_USER_ID)),
@@ -52,6 +82,12 @@ export async function GET() {
 
 // PUT update settings
 export async function PUT(request: NextRequest) {
+  // DEMO_MODE: sin BD, simular guardado exitoso para que el store no crashee
+  if (process.env.DEMO_MODE === "true") {
+    const body = await request.json().catch(() => ({}));
+    return NextResponse.json({ ...DEMO_DEFAULTS, ...body, updatedAt: new Date().toISOString() });
+  }
+
   try {
     const body = await request.json();
 
