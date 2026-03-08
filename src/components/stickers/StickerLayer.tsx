@@ -92,11 +92,11 @@ function findWidgetAtPosition(
   return null;
 }
 
-// Get widget position in container coordinates
+// Get widget position and dimensions in container coordinates
 function getWidgetPosition(
   widgetId: string,
   scrollContainer: HTMLElement | null
-): { x: number; y: number } | null {
+): { x: number; y: number; width: number; height: number } | null {
   if (!scrollContainer) return null;
 
   const widget = scrollContainer.querySelector(`[data-widget-id="${widgetId}"]`);
@@ -110,6 +110,8 @@ function getWidgetPosition(
   return {
     x: rect.left - containerRect.left + scrollX,
     y: rect.top - containerRect.top + scrollY,
+    width: rect.width,
+    height: rect.height,
   };
 }
 
@@ -368,15 +370,30 @@ export function StickerLayer() {
     setIsMounted(true);
   }, []);
 
-  // Observe widget position changes (when react-grid-layout moves them)
+  // Observe widget position changes (when react-grid-layout moves/resizes them)
+  // Uses a sustained RAF loop so sticker positions track CSS transitions in real-time
   useEffect(() => {
     if (!scrollContainer) return;
 
+    const TRANSITION_DURATION = 350; // ms — slightly longer than RGL's 200ms transition
+    let rafId: number | null = null;
+    let loopEndTime = 0;
+
+    const runLoop = () => {
+      setWidgetPositionsVersion((v) => v + 1);
+      if (performance.now() < loopEndTime) {
+        rafId = requestAnimationFrame(runLoop);
+      } else {
+        rafId = null;
+      }
+    };
+
     const observer = new MutationObserver(() => {
-      // Use requestAnimationFrame to batch updates and avoid setState during render
-      requestAnimationFrame(() => {
-        setWidgetPositionsVersion((v) => v + 1);
-      });
+      // Extend/start the sustained loop on any DOM change in the container
+      loopEndTime = performance.now() + TRANSITION_DURATION;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(runLoop);
+      }
     });
 
     observer.observe(scrollContainer, {
@@ -386,10 +403,13 @@ export function StickerLayer() {
       attributeFilter: ['style', 'class'],
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [scrollContainer]);
 
-  // Calculate sticker position based on attached widget
+  // Calculate sticker position based on attached widget, with proportional scaling on resize
   const getCalculatedPosition = useCallback(
     (sticker: PlacedSticker): { x: number; y: number } | undefined => {
       if (!sticker.attachedToWidgetId || sticker.widgetOffsetX === undefined || sticker.widgetOffsetY === undefined) {
@@ -398,16 +418,19 @@ export function StickerLayer() {
 
       const widgetPos = getWidgetPosition(sticker.attachedToWidgetId, scrollContainerRef.current);
       if (!widgetPos) {
-        // Widget not found, return stored position
         return undefined;
       }
 
+      // Scale offsets proportionally if the widget has been resized since attachment
+      const scaleX = sticker.widgetWidth && sticker.widgetWidth > 0 ? widgetPos.width / sticker.widgetWidth : 1;
+      const scaleY = sticker.widgetHeight && sticker.widgetHeight > 0 ? widgetPos.height / sticker.widgetHeight : 1;
+
       return {
-        x: widgetPos.x + sticker.widgetOffsetX,
-        y: widgetPos.y + sticker.widgetOffsetY,
+        x: widgetPos.x + sticker.widgetOffsetX * scaleX,
+        y: widgetPos.y + sticker.widgetOffsetY * scaleY,
       };
     },
-    // widgetPositionsVersion is used to trigger recalculation when widgets move
+    // widgetPositionsVersion is used to trigger recalculation when widgets move/resize
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [widgetPositionsVersion]
   );
@@ -627,9 +650,9 @@ export function StickerLayer() {
             if (widgetInfo) {
               const widgetPos = getWidgetPosition(widgetInfo.widgetId, container);
               if (widgetPos) {
-                // Sync absolute position and attach to the widget underneath
+                // Sync absolute position and attach to the widget underneath (store dimensions for proportional scaling)
                 updateSticker(dragState.stickerId, { x: absX, y: absY });
-                attachToWidget(dragState.stickerId, widgetInfo.widgetId, absX - widgetPos.x, absY - widgetPos.y);
+                attachToWidget(dragState.stickerId, widgetInfo.widgetId, absX - widgetPos.x, absY - widgetPos.y, widgetPos.width, widgetPos.height);
               }
             } else {
               // Dropped in empty space — place free-floating and detach if was attached
@@ -720,6 +743,8 @@ export function StickerLayer() {
           let attachWidgetId: string | undefined;
           let attachOffsetX: number | undefined;
           let attachOffsetY: number | undefined;
+          let attachWidgetWidth: number | undefined;
+          let attachWidgetHeight: number | undefined;
 
           const stickerCenterX = containerX + 36; // 72px default width / 2
           const stickerCenterY = containerY + 36;
@@ -730,6 +755,8 @@ export function StickerLayer() {
               attachWidgetId = widgetInfo.widgetId;
               attachOffsetX = containerX - widgetPos.x;
               attachOffsetY = containerY - widgetPos.y;
+              attachWidgetWidth = widgetPos.width;
+              attachWidgetHeight = widgetPos.height;
             }
           }
 
@@ -743,6 +770,8 @@ export function StickerLayer() {
             attachWidgetId,
             attachOffsetX,
             attachOffsetY,
+            attachWidgetWidth,
+            attachWidgetHeight,
           );
 
           // Play drop sound when placing a sticker from the book
@@ -798,6 +827,8 @@ export function StickerLayer() {
           let attachWidgetId: string | undefined;
           let attachOffsetX: number | undefined;
           let attachOffsetY: number | undefined;
+          let attachWidgetWidth: number | undefined;
+          let attachWidgetHeight: number | undefined;
 
           const widgetInfo = findWidgetAtPosition(containerX + 36, containerY + 36, scrollContainerRef.current);
           if (widgetInfo) {
@@ -806,6 +837,8 @@ export function StickerLayer() {
               attachWidgetId = widgetInfo.widgetId;
               attachOffsetX = containerX - widgetPos.x;
               attachOffsetY = containerY - widgetPos.y;
+              attachWidgetWidth = widgetPos.width;
+              attachWidgetHeight = widgetPos.height;
             }
           }
 
@@ -819,6 +852,8 @@ export function StickerLayer() {
             attachWidgetId,
             attachOffsetX,
             attachOffsetY,
+            attachWidgetWidth,
+            attachWidgetHeight,
           );
 
           // Play drop sound when placing a sticker from the book (touch)
