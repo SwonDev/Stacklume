@@ -266,9 +266,59 @@ async function handleDemoRequest(
     }
   }
 
-  // ── /api/stickers ── (no crítico, ignorar silenciosamente)
+  // ── /api/stickers ── devolver pegatinas reales del directorio /public/stickers
   if (resource === "stickers") {
-    if (method === "GET") return jsonResponse([]);
+    if (method === "GET") {
+      const DEMO_STICKER_FILES = [
+        "Sprite-0001.png","Sprite-0002.png","Sprite-0003.png","Sprite-0004.png",
+        "Sprite-00202.png","Sprite-00205.png","Sprite-00307.png","Sprite-01001.png",
+        "Sprite-02006.png","Sprite-03008.png","Sprite-04009.png","Sprite-3004.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_01.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_02.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_03.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_04.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_05.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_06.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_07.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_08.png",
+        "generated_1765206385932_upscayl_2x_digital-art-4x_sprite_09.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_01.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_02.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_03.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_04.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_05.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_06.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_07.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_08.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_09.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_10.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_11.png",
+        "generated_1765206421947_upscayl_2x_digital-art-4x_sprite_12.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_01.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_02.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_03.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_04.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_05.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_06.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_07.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_08.png",
+        "generated_1765206621272_upscayl_2x_digital-art-4x_sprite_09.png",
+        "generated_1765206866928_upscayl_2x_digital-art-4x_sprite_01.png",
+        "generated_1765206866928_upscayl_2x_digital-art-4x_sprite_02.png",
+        "generated_1765206866928_upscayl_2x_digital-art-4x_sprite_03.png",
+        "generated_1765206866928_upscayl_2x_digital-art-4x_sprite_04.png",
+        "generated_1765206866928_upscayl_2x_digital-art-4x_sprite_05.png",
+        "generated_1765206866928_upscayl_2x_digital-art-4x_sprite_06.png",
+      ];
+      const stickers = DEMO_STICKER_FILES.map((filename, index) => ({
+        id: `sticker-${index}-${filename}`,
+        filename,
+        path: `/stickers/${filename}`,
+        name: filename.replace(/\.png$/i, "").replace(/_/g, " "),
+        category: "other",
+      }));
+      return jsonResponse(stickers);
+    }
     return jsonResponse({ success: true });
   }
 
