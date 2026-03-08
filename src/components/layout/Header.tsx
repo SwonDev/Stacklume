@@ -225,7 +225,7 @@ export function Header() {
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 ${
+                className={`hidden sm:inline-flex h-8 w-8 ${
                   viewMode === "list"
                     ? "text-primary bg-primary/10"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -247,7 +247,7 @@ export function Header() {
               <Button
                 variant={isStickerBookOpen ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 ${
+                className={`hidden sm:inline-flex h-8 w-8 ${
                   isStickerBookOpen
                     ? "text-amber-600 bg-amber-100 dark:bg-amber-900/30"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -263,13 +263,13 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
 
-          {/* Add Widget - Always visible as primary action */}
+          {/* Add Widget - oculto en mobile, visible en sm+ */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                className="hidden sm:inline-flex h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
                 onClick={() => useWidgetStore.getState().openAddWidgetModal()}
                 aria-label={t("header.addNewWidget")}
                 data-tour="add-widget-button"
@@ -355,7 +355,7 @@ export function Header() {
               <Button
                 variant={isSelecting ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 ${
+                className={`hidden sm:inline-flex h-8 w-8 ${
                   isSelecting
                     ? "text-primary bg-primary/10"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
