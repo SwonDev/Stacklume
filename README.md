@@ -83,7 +83,24 @@ Un **dashboard personal** que transforma la forma en que guardas y accedes a tus
 <br />
 
 <div align="center">
-  <img src="assets/screenshots/dashboard.png" alt="Stacklume Dashboard" width="100%" style="border-radius:12px" />
+  <img src="assets/screenshots/dashboard.png" alt="Stacklume Dashboard" width="100%" />
+</div>
+
+<br />
+
+<table>
+<tr>
+<td width="50%">
+  <img src="assets/screenshots/add-widget-modal.png" alt="Catálogo de widgets" width="100%" />
+</td>
+<td width="50%">
+  <img src="assets/screenshots/settings-panel.png" alt="Panel de configuración" width="100%" />
+</td>
+</tr>
+</table>
+
+<div align="center">
+  <img src="assets/screenshots/stickers.png" alt="Sticker Book" width="42%" />
 </div>
 
 <br />
@@ -403,7 +420,24 @@ A **personal dashboard** that transforms the way you save and access your bookma
 <br />
 
 <div align="center">
-  <img src="assets/screenshots/dashboard.png" alt="Stacklume Dashboard" width="100%" style="border-radius:12px" />
+  <img src="assets/screenshots/dashboard.png" alt="Stacklume Dashboard" width="100%" />
+</div>
+
+<br />
+
+<table>
+<tr>
+<td width="50%">
+  <img src="assets/screenshots/add-widget-modal.png" alt="Widget catalog" width="100%" />
+</td>
+<td width="50%">
+  <img src="assets/screenshots/settings-panel.png" alt="Settings panel" width="100%" />
+</td>
+</tr>
+</table>
+
+<div align="center">
+  <img src="assets/screenshots/stickers.png" alt="Sticker Book" width="42%" />
 </div>
 
 <br />

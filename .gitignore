@@ -101,6 +101,7 @@ src/lib/API_CLIENT_GUIDE.md
 # Artefactos de desarrollo interno (scripts auxiliares)
 scripts/i18n-keys-*.json
 scripts/take-screenshots.mjs
+scripts/screenshot-demo.mjs
 
 .vercel
 .env*.local
