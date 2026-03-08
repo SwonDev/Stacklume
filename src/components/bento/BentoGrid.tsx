@@ -120,8 +120,14 @@ export function BentoGrid({ className }: BentoGridProps) {
       // Zustand store functions are stable, safe to call directly
       useWidgetStore.getState().cleanup();
     };
-     
+
   }, []); // Run once on unmount - cleanup function is stable
+
+  // Refrescar widgets al montar BentoGrid para garantizar datos frescos.
+  // Cubre: primera carga con caché de WebView2, regreso desde otra vista, y widgets creados por MCP.
+  useEffect(() => {
+    useWidgetStore.getState().refreshWidgets();
+  }, []); // Solo al montar
 
   // Sync project ID from projects store to widget store
   // Only sync AFTER hydration is complete to avoid SSR mismatch issues
