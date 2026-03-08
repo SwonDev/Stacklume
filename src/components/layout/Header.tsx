@@ -51,6 +51,7 @@ export function Header() {
   const router = useRouter();
   const { isDesktop } = useElectron();
   const { t } = useTranslation();
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
   // Use selectors ONLY for state values, not functions (prevents re-render loops)
   const searchQuery = useLayoutStore((state) => state.searchQuery);
@@ -398,8 +399,8 @@ export function Header() {
           {/* Offline indicator */}
           <OfflineBadge />
 
-          {/* Logout button — oculto en modo desktop (Tauri), sin sesión de usuario */}
-          {!isDesktop && (
+          {/* Logout button — oculto en modo desktop (Tauri) y en demo (sin auth) */}
+          {!isDesktop && !isDemoMode && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
