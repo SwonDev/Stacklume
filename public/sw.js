@@ -7,9 +7,9 @@
  * - Background sync for pending mutations
  */
 
-const _CACHE_NAME = 'stacklume-v5'; // Reserved for future cache versioning
-const STATIC_CACHE_NAME = 'stacklume-static-v5';
-const API_CACHE_NAME = 'stacklume-api-v5';
+const _CACHE_NAME = 'stacklume-v6'; // Reserved for future cache versioning
+const STATIC_CACHE_NAME = 'stacklume-static-v6';
+const API_CACHE_NAME = 'stacklume-api-v6';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
