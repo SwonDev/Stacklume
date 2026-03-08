@@ -6,7 +6,7 @@ import { paginationSchema, createCategorySchema, updateCategorySchema, validateR
 // GET all categories with optional pagination
 export async function GET(request: NextRequest) {
   // DEMO_MODE: datos gestionados por el interceptor en el cliente
-  if (process.env.DEMO_MODE === "true") {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
     return NextResponse.json([]);
   }
 
