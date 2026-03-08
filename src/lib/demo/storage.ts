@@ -31,6 +31,20 @@ function readKey<T>(key: string, fallback: T): T {
   }
 }
 
+// Variante segura para claves que siempre deben ser arrays.
+// Si el valor almacenado no es un array (p. ej. un objeto de Zustand persist
+// o cualquier dato corrupto), devuelve [] en vez de lanzar TypeError.
+function readArrayKey<T>(key: string): T[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function writeKey<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -213,7 +227,7 @@ export const demoLinks = {
     sortBy?: string;
     sortOrder?: string;
   }): DemoLink[] {
-    let links = readKey<DemoLink[]>(KEYS.links, []).filter(
+    let links = readArrayKey<DemoLink>(KEYS.links).filter(
       (l) => l.deletedAt === null
     );
 
@@ -248,7 +262,7 @@ export const demoLinks = {
 
   get(id: string): DemoLink | null {
     return (
-      readKey<DemoLink[]>(KEYS.links, []).find(
+      readArrayKey<DemoLink>(KEYS.links).find(
         (l) => l.id === id && l.deletedAt === null
       ) ?? null
     );
@@ -277,14 +291,14 @@ export const demoLinks = {
       updatedAt: now(),
       deletedAt: null,
     };
-    const links = readKey<DemoLink[]>(KEYS.links, []);
+    const links = readArrayKey<DemoLink>(KEYS.links);
     links.push(link);
     writeKey(KEYS.links, links);
     return link;
   },
 
   update(linkId: string, patch: Partial<DemoLink>): DemoLink | null {
-    const links = readKey<DemoLink[]>(KEYS.links, []);
+    const links = readArrayKey<DemoLink>(KEYS.links);
     const idx = links.findIndex((l) => l.id === linkId);
     if (idx === -1) return null;
     links[idx] = { ...links[idx], ...patch, updatedAt: now() };
@@ -293,13 +307,13 @@ export const demoLinks = {
   },
 
   delete(linkId: string): boolean {
-    const links = readKey<DemoLink[]>(KEYS.links, []);
+    const links = readArrayKey<DemoLink>(KEYS.links);
     const idx = links.findIndex((l) => l.id === linkId);
     if (idx === -1) return false;
     links[idx].deletedAt = now();
     writeKey(KEYS.links, links);
     // Limpiar link-tags asociados
-    const lt = readKey<DemoLinkTag[]>(KEYS.linkTags, []).filter(
+    const lt = readArrayKey<DemoLinkTag>(KEYS.linkTags).filter(
       (lt) => lt.linkId !== linkId
     );
     writeKey(KEYS.linkTags, lt);
@@ -311,7 +325,7 @@ export const demoLinks = {
 
 export const demoCategories = {
   list(): DemoCategory[] {
-    return readKey<DemoCategory[]>(KEYS.categories, []).filter(
+    return readArrayKey<DemoCategory>(KEYS.categories).filter(
       (c) => c.deletedAt === null
     );
   },
@@ -327,14 +341,14 @@ export const demoCategories = {
       updatedAt: now(),
       deletedAt: null,
     };
-    const cats = readKey<DemoCategory[]>(KEYS.categories, []);
+    const cats = readArrayKey<DemoCategory>(KEYS.categories);
     cats.push(cat);
     writeKey(KEYS.categories, cats);
     return cat;
   },
 
   update(catId: string, patch: Partial<DemoCategory>): DemoCategory | null {
-    const cats = readKey<DemoCategory[]>(KEYS.categories, []);
+    const cats = readArrayKey<DemoCategory>(KEYS.categories);
     const idx = cats.findIndex((c) => c.id === catId);
     if (idx === -1) return null;
     cats[idx] = { ...cats[idx], ...patch, updatedAt: now() };
@@ -343,7 +357,7 @@ export const demoCategories = {
   },
 
   delete(catId: string): boolean {
-    const cats = readKey<DemoCategory[]>(KEYS.categories, []);
+    const cats = readArrayKey<DemoCategory>(KEYS.categories);
     const idx = cats.findIndex((c) => c.id === catId);
     if (idx === -1) return false;
     cats[idx].deletedAt = now();
@@ -356,7 +370,7 @@ export const demoCategories = {
 
 export const demoTags = {
   list(): DemoTag[] {
-    return readKey<DemoTag[]>(KEYS.tags, [])
+    return readArrayKey<DemoTag>(KEYS.tags)
       .filter((t) => t.deletedAt === null)
       .sort((a, b) => a.name.localeCompare(b.name));
   },
@@ -369,14 +383,14 @@ export const demoTags = {
       createdAt: now(),
       deletedAt: null,
     };
-    const tags = readKey<DemoTag[]>(KEYS.tags, []);
+    const tags = readArrayKey<DemoTag>(KEYS.tags);
     tags.push(tag);
     writeKey(KEYS.tags, tags);
     return tag;
   },
 
   update(tagId: string, patch: Partial<DemoTag>): DemoTag | null {
-    const tags = readKey<DemoTag[]>(KEYS.tags, []);
+    const tags = readArrayKey<DemoTag>(KEYS.tags);
     const idx = tags.findIndex((t) => t.id === tagId);
     if (idx === -1) return null;
     tags[idx] = { ...tags[idx], ...patch };
@@ -385,12 +399,12 @@ export const demoTags = {
   },
 
   delete(tagId: string): boolean {
-    const tags = readKey<DemoTag[]>(KEYS.tags, []);
+    const tags = readArrayKey<DemoTag>(KEYS.tags);
     const idx = tags.findIndex((t) => t.id === tagId);
     if (idx === -1) return false;
     tags[idx].deletedAt = now();
     writeKey(KEYS.tags, tags);
-    const lt = readKey<DemoLinkTag[]>(KEYS.linkTags, []).filter(
+    const lt = readArrayKey<DemoLinkTag>(KEYS.linkTags).filter(
       (lt) => lt.tagId !== tagId
     );
     writeKey(KEYS.linkTags, lt);
@@ -402,17 +416,17 @@ export const demoTags = {
 
 export const demoLinkTags = {
   list(): DemoLinkTag[] {
-    return readKey<DemoLinkTag[]>(KEYS.linkTags, []);
+    return readArrayKey<DemoLinkTag>(KEYS.linkTags);
   },
 
   forLink(linkId: string): DemoLinkTag[] {
-    return readKey<DemoLinkTag[]>(KEYS.linkTags, []).filter(
+    return readArrayKey<DemoLinkTag>(KEYS.linkTags).filter(
       (lt) => lt.linkId === linkId
     );
   },
 
   add(linkId: string, tagId: string): boolean {
-    const lt = readKey<DemoLinkTag[]>(KEYS.linkTags, []);
+    const lt = readArrayKey<DemoLinkTag>(KEYS.linkTags);
     const exists = lt.some((l) => l.linkId === linkId && l.tagId === tagId);
     if (exists) return false;
     lt.push({ linkId, tagId });
@@ -421,7 +435,7 @@ export const demoLinkTags = {
   },
 
   remove(linkId: string, tagId: string): boolean {
-    const lt = readKey<DemoLinkTag[]>(KEYS.linkTags, []).filter(
+    const lt = readArrayKey<DemoLinkTag>(KEYS.linkTags).filter(
       (l) => !(l.linkId === linkId && l.tagId === tagId)
     );
     writeKey(KEYS.linkTags, lt);
@@ -429,7 +443,7 @@ export const demoLinkTags = {
   },
 
   setForLink(linkId: string, tagIds: string[]): void {
-    const lt = readKey<DemoLinkTag[]>(KEYS.linkTags, []).filter(
+    const lt = readArrayKey<DemoLinkTag>(KEYS.linkTags).filter(
       (l) => l.linkId !== linkId
     );
     tagIds.forEach((tagId) => lt.push({ linkId, tagId }));
@@ -441,7 +455,7 @@ export const demoLinkTags = {
 
 export const demoWidgets = {
   list(projectId?: string | null): DemoWidget[] {
-    let widgets = readKey<DemoWidget[]>(KEYS.widgets, []).filter(
+    let widgets = readArrayKey<DemoWidget>(KEYS.widgets).filter(
       (w) => w.deletedAt === null
     );
     if (projectId !== undefined) {
@@ -484,14 +498,14 @@ export const demoWidgets = {
       updatedAt: now(),
       deletedAt: null,
     };
-    const widgets = readKey<DemoWidget[]>(KEYS.widgets, []);
+    const widgets = readArrayKey<DemoWidget>(KEYS.widgets);
     widgets.push(widget);
     writeKey(KEYS.widgets, widgets);
     return widget;
   },
 
   update(widgetId: string, patch: Partial<DemoWidget>): DemoWidget | null {
-    const widgets = readKey<DemoWidget[]>(KEYS.widgets, []);
+    const widgets = readArrayKey<DemoWidget>(KEYS.widgets);
     const idx = widgets.findIndex((w) => w.id === widgetId);
     if (idx === -1) return null;
     const updated = { ...widgets[idx], ...patch, updatedAt: now() };
@@ -517,7 +531,7 @@ export const demoWidgets = {
   },
 
   delete(widgetId: string): boolean {
-    const widgets = readKey<DemoWidget[]>(KEYS.widgets, []);
+    const widgets = readArrayKey<DemoWidget>(KEYS.widgets);
     const idx = widgets.findIndex((w) => w.id === widgetId);
     if (idx === -1) return false;
     widgets[idx].deletedAt = now();
@@ -526,7 +540,7 @@ export const demoWidgets = {
   },
 
   updateLayouts(layouts: Array<{ id: string; x: number; y: number; w: number; h: number }>): void {
-    const widgets = readKey<DemoWidget[]>(KEYS.widgets, []);
+    const widgets = readArrayKey<DemoWidget>(KEYS.widgets);
     layouts.forEach(({ id: wId, x, y, w, h }) => {
       const idx = widgets.findIndex((ww) => ww.id === wId);
       if (idx !== -1) {
@@ -546,7 +560,7 @@ export const demoWidgets = {
 
 export const demoProjects = {
   list(): DemoProject[] {
-    return readKey<DemoProject[]>(KEYS.projects, [])
+    return readArrayKey<DemoProject>(KEYS.projects)
       .filter((p) => p.deletedAt === null)
       .sort((a, b) => a.order - b.order);
   },
@@ -566,14 +580,14 @@ export const demoProjects = {
       updatedAt: now(),
       deletedAt: null,
     };
-    const projects = readKey<DemoProject[]>(KEYS.projects, []);
+    const projects = readArrayKey<DemoProject>(KEYS.projects);
     projects.push(project);
     writeKey(KEYS.projects, projects);
     return project;
   },
 
   update(projectId: string, patch: Partial<DemoProject>): DemoProject | null {
-    const projects = readKey<DemoProject[]>(KEYS.projects, []);
+    const projects = readArrayKey<DemoProject>(KEYS.projects);
     const idx = projects.findIndex((p) => p.id === projectId);
     if (idx === -1) return null;
     projects[idx] = { ...projects[idx], ...patch, updatedAt: now() };
@@ -582,7 +596,7 @@ export const demoProjects = {
   },
 
   delete(projectId: string): boolean {
-    const projects = readKey<DemoProject[]>(KEYS.projects, []);
+    const projects = readArrayKey<DemoProject>(KEYS.projects);
     const idx = projects.findIndex((p) => p.id === projectId);
     if (idx === -1) return false;
     projects[idx].deletedAt = now();
