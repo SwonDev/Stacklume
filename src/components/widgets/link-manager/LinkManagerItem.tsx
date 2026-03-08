@@ -44,6 +44,7 @@ import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTranslation } from "@/lib/i18n";
 import { showConfirm } from "@/components/ui/ConfirmDialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -310,16 +311,21 @@ export function LinkManagerItem({
 
             {/* Add tag button */}
             <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title={t("linkManager.addTag")}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={t("linkManager.addTag")}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top"><p>{t("linkManager.addTag")}</p></TooltipContent>
+              </Tooltip>
               <PopoverContent className="w-56 p-0" align="end">
                 <Command shouldFilter={false}>
                   <CommandInput
@@ -379,34 +385,44 @@ export function LinkManagerItem({
 
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={handleFavoriteToggle}
-            title={link.isFavorite ? t("linkManager.removeFromFavorites") : t("linkManager.addToFavorites")}
-          >
-            <Star
-              className={cn(
-                "w-4 h-4",
-                link.isFavorite
-                  ? "text-yellow-500 fill-yellow-500"
-                  : "text-muted-foreground"
-              )}
-            />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 w-7 p-0"
-                title={t("linkManager.moreOptions")}
+                onClick={handleFavoriteToggle}
+                aria-label={link.isFavorite ? t("linkManager.removeFromFavorites") : t("linkManager.addToFavorites")}
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <Star
+                  className={cn(
+                    "w-4 h-4",
+                    link.isFavorite
+                      ? "text-yellow-500 fill-yellow-500"
+                      : "text-muted-foreground"
+                  )}
+                />
               </Button>
-            </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p>{link.isFavorite ? t("linkManager.removeFromFavorites") : t("linkManager.addToFavorites")}</p></TooltipContent>
+          </Tooltip>
+
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    aria-label={t("linkManager.moreOptions")}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top"><p>{t("linkManager.moreOptions")}</p></TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className="w-4 h-4 mr-2" />
@@ -427,15 +443,20 @@ export function LinkManagerItem({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <a
-            href={link.url}
-            target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
-            rel="noopener noreferrer"
-            className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
-            title={t("linkManager.openLink")}
-          >
-            <ExternalLink className="w-4 h-4 text-muted-foreground" />
-          </a>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={link.url}
+                target={linkClickBehavior === "same-tab" ? "_self" : "_blank"}
+                rel="noopener noreferrer"
+                className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors"
+                aria-label={t("linkManager.openLink")}
+              >
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p>{t("linkManager.openLink")}</p></TooltipContent>
+          </Tooltip>
         </div>
       </motion.div>
     </div>
