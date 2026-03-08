@@ -199,6 +199,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // =========================================================================
+  // Demo Mode — bypass auth and CSRF; client handles all CRUD via localStorage
+  // =========================================================================
+  if (process.env.DEMO_MODE === 'true') {
+    // Demo mode: datos en localStorage del navegador. El servidor solo sirve
+    // rutas externas (scrape, github-trending, etc.) que no necesitan auth.
+    const res = NextResponse.next();
+    res.headers.set('X-Demo-Mode', 'true');
+    return res;
+  }
+
+  // =========================================================================
   // Authentication Check (runs in both dev and production)
   // =========================================================================
 
