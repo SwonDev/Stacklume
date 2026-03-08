@@ -7,14 +7,17 @@ import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 // En modo demo no cargamos Three.js: evita WebGL context loss por CSP
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-// next/dynamic carga el chunk Three.js de forma lazy, solo fuera de demo
-// En la build demo, process.env.NEXT_PUBLIC_DEMO_MODE se inlinea como "true"
-// y webpack/Turbopack elimina este import del bundle (dead code elimination)
+// next/dynamic carga el chunk Three.js de forma lazy, solo fuera de demo.
+// Usamos el alias @/ para que Turbopack pueda interceptarlo con resolveAlias
+// (en demo builds, @/components/layout/ThreeCoinLogo → ThreeCoinLogoStub).
+// El alias webpack en next.config.ts también cubre los builds locales.
 const DynamicCoin = IS_DEMO
   ? null
   : dynamic(
       () =>
-        import("./ThreeCoinLogo").then((m) => ({ default: m.ThreeCoinLogo })),
+        import("@/components/layout/ThreeCoinLogo").then((m) => ({
+          default: m.ThreeCoinLogo,
+        })),
       { ssr: false, loading: () => null }
     );
 
