@@ -129,6 +129,17 @@ export function BentoGrid({ className }: BentoGridProps) {
     useWidgetStore.getState().refreshWidgets();
   }, []); // Solo al montar
 
+  // Polling cada 5s para detectar widgets creados externamente (MCP) cuando la ventana ya tiene foco.
+  // Sin esto, los widgets nuevos solo aparecen tras perder y recuperar el foco o navegar a otra vista.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        useWidgetStore.getState().refreshWidgets();
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Sync project ID from projects store to widget store
   // Only sync AFTER hydration is complete to avoid SSR mismatch issues
   useEffect(() => {
