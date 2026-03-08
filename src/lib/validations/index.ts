@@ -475,6 +475,7 @@ export const updateSettingsSchema = z.object({
   autoBackupInterval: z.number().int().min(0).optional(),
   confirmBeforeDelete: z.boolean().optional(),
   linkClickBehavior: linkClickBehaviorSchema.optional(),
+  onboardingCompleted: z.boolean().optional(),
 });
 
 // ============================================================================

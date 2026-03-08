@@ -317,6 +317,7 @@ export const userSettings = pgTable(
     autoBackupInterval: integer("auto_backup_interval").default(0).notNull(),
     confirmBeforeDelete: boolCol("confirm_before_delete").default(true).notNull(),
     linkClickBehavior: varchar("link_click_behavior", { length: 20 }).default("new-tab").notNull(),
+    onboardingCompleted: boolCol("onboarding_completed").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
   },

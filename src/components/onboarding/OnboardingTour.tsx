@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { OnboardingTooltip } from "./OnboardingTooltip";
 import { useTranslation } from "@/lib/i18n";
+import { useSettingsStore } from "@/stores/settings-store";
 
 const STORAGE_KEY = "stacklume-onboarding-completed";
 
@@ -107,6 +108,8 @@ export function OnboardingTour({
   forceShow = false,
 }: OnboardingTourProps) {
   const { t } = useTranslation();
+  const onboardingCompleted = useSettingsStore((s) => s.onboardingCompleted);
+  const settingsInitialized = useSettingsStore((s) => s.isInitialized);
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [mounted, setMounted] = useState(false);
@@ -114,22 +117,27 @@ export function OnboardingTour({
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setMounted(true);
-
-      if (forceShow) {
-        setIsActive(true);
-        return;
-      }
-
-      const completed = localStorage.getItem(STORAGE_KEY);
-      if (!completed) {
-        setTimeout(() => {
-          setIsActive(true);
-        }, 1000);
-      }
     });
-
     return () => cancelAnimationFrame(frame);
-  }, [forceShow]);
+  }, []);
+
+  // Activar tour solo tras confirmar que los settings están cargados desde la DB
+  useEffect(() => {
+    if (!mounted) return;
+
+    if (forceShow) {
+      setIsActive(true);
+      return;
+    }
+
+    // Esperar a que settings esté inicializado para leer el valor real de la DB
+    if (!settingsInitialized) return;
+
+    if (!onboardingCompleted) {
+      const timer = setTimeout(() => setIsActive(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [mounted, forceShow, settingsInitialized, onboardingCompleted]);
 
   const handleNext = useCallback(() => {
     if (currentStep < steps.length - 1) {
@@ -144,14 +152,14 @@ export function OnboardingTour({
   }, [currentStep]);
 
   const handleComplete = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, "true");
+    useSettingsStore.getState().setOnboardingCompleted(true);
     setIsActive(false);
     setCurrentStep(0);
     onComplete?.();
   }, [onComplete]);
 
   const handleSkip = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, "true");
+    useSettingsStore.getState().setOnboardingCompleted(true);
     setIsActive(false);
     setCurrentStep(0);
     onSkip?.();
@@ -229,12 +237,11 @@ export function useOnboardingTour() {
   }, []);
 
   const resetTour = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    useSettingsStore.getState().setOnboardingCompleted(false);
   }, []);
 
   const isTourCompleted = useCallback(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(STORAGE_KEY) === "true";
+    return useSettingsStore.getState().onboardingCompleted;
   }, []);
 
   return {

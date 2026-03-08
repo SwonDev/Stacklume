@@ -235,6 +235,7 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       auto_backup_interval INTEGER NOT NULL DEFAULT 0,
       confirm_before_delete INTEGER NOT NULL DEFAULT 1,
       link_click_behavior TEXT NOT NULL DEFAULT 'new-tab',
+      onboarding_completed INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`,
@@ -355,6 +356,10 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `ALTER TABLE user_settings ADD COLUMN link_click_behavior TEXT NOT NULL DEFAULT 'new-tab'`,
       description: "user_settings.link_click_behavior",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0`,
+      description: "user_settings.onboarding_completed",
     },
     // v0.3.17 — Campos personales de enlace
     {
