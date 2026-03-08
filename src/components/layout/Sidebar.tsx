@@ -23,9 +23,14 @@ const spinningCoinImport = () => import("./SpinningCoinLogo").then((m) => ({ def
 const SpinningCoinLogo = dynamic(spinningCoinImport, { ssr: false });
 
 // Precargar el módulo Three.js + GLB al cargar este módulo (no al abrir la sidebar)
+// NOTA: Safari/WebKit lanza ReferenceError en variables no declaradas aunque se use ?. (optional chaining)
+// Por eso usamos typeof guard en lugar de requestIdleCallback?.()
 if (typeof window !== "undefined") {
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  requestIdleCallback?.(() => spinningCoinImport()) ?? setTimeout(() => spinningCoinImport(), 1000);
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(() => spinningCoinImport());
+  } else {
+    setTimeout(() => spinningCoinImport(), 1000);
+  }
 }
 import { motion } from "motion/react";
 
