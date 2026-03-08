@@ -182,7 +182,10 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const response = await fetch("/api/widgets", { credentials: "include", cache: "no-store" });
+      // Añadir timestamp para evitar que WebView2 sirva respuestas cacheadas de sesiones anteriores.
+      // WebView2 (Edge) puede ignorar `cache: "no-store"` en ciertos escenarios (primera carga,
+      // nueva versión instalada). Una URL diferente garantiza siempre un cache miss real.
+      const response = await fetch(`/api/widgets?_t=${Date.now()}`, { credentials: "include", cache: "no-store" });
       if (response.ok) {
         const widgets = await response.json();
         // Load whatever is in the database (even if empty)
@@ -190,12 +193,12 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
 
         // Registrar listeners para refrescar cuando el usuario vuelve a la ventana.
         // visibilitychange cubre el caso pestaña/app minimizada.
-        // window.focus cubre el caso Tauri/MCP: ventana visible pero sin foco (ej. IA crea widget).
+        // window.focus cubre el caso Tauri/MCP: ventana con otro programa en primer plano.
         if (!visibilityListenerRegistered && typeof document !== "undefined") {
           visibilityListenerRegistered = true;
 
           const doRefresh = () => {
-            fetch("/api/widgets", { credentials: "include", cache: "no-store" })
+            fetch(`/api/widgets?_t=${Date.now()}`, { credentials: "include", cache: "no-store" })
               .then((r) => (r.ok ? r.json() : null))
               .then((data) => { if (data) set({ widgets: data }); })
               .catch(() => {});
@@ -225,7 +228,8 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
   /** Recarga widgets desde la DB sin tocar isInitialized (para uso externo/MCP). */
   refreshWidgets: async () => {
     try {
-      const response = await fetch("/api/widgets", { credentials: "include", cache: "no-store" });
+      // Timestamp para cache-busting de WebView2 (misma razón que initWidgets)
+      const response = await fetch(`/api/widgets?_t=${Date.now()}`, { credentials: "include", cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         set({ widgets: data });
