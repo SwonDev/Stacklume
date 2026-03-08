@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import { readFileSync } from "fs";
+import path from "path";
 
 // Check if building for Electron or Tauri (standalone mode)
 const isDesktopMode = process.env.DESKTOP_MODE === "true";
@@ -30,9 +31,26 @@ const ContentSecurityPolicy = `
   object-src 'none';
 `.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
+
+  // En demo mode, reemplazamos ThreeCoinLogo con un stub vacío para que
+  // webpack no genere ningún chunk de Three.js/@react-three y elimine
+  // el bucle de WebGL context loss causado por el HDR de Environment.
+  webpack: (config) => {
+    if (isDemoMode) {
+      const realPath = path.resolve("./src/components/layout/ThreeCoinLogo.tsx");
+      const stubPath = path.resolve("./src/components/layout/ThreeCoinLogoStub.tsx");
+      config.resolve.alias = {
+        ...(config.resolve.alias as Record<string, string>),
+        [realPath]: stubPath,
+      };
+    }
+    return config;
   },
 
   // Standalone output solo para desktop (Tauri/Electron).
