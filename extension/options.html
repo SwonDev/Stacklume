@@ -30,7 +30,7 @@
           Instancia de Stacklume
         </h2>
         <p class="section-desc">
-          URL de tu Stacklume. Usa la demo oficial, tu instancia self-hosted, o la app de escritorio.
+          URL donde corre la app de escritorio Stacklume (Tauri). En producción usa el puerto 7879; en desarrollo, el 7878.
         </p>
 
         <div class="field">
@@ -40,7 +40,7 @@
               type="url"
               id="input-url"
               class="input"
-              placeholder="https://demo.stacklume.app"
+              placeholder="http://127.0.0.1:7879"
               autocomplete="off"
               spellcheck="false"
             />
@@ -58,14 +58,11 @@
         <div class="presets">
           <p class="presets-label">Presets:</p>
           <div class="presets-buttons">
-            <button type="button" class="btn-preset" data-url="https://demo.stacklume.app">
-              Demo oficial
-            </button>
-            <button type="button" class="btn-preset" data-url="http://localhost:3000">
-              localhost:3000
-            </button>
             <button type="button" class="btn-preset" data-url="http://127.0.0.1:7879">
               Desktop (7879)
+            </button>
+            <button type="button" class="btn-preset" data-url="http://localhost:7878">
+              Dev (7878)
             </button>
           </div>
         </div>
@@ -81,7 +78,7 @@
         </h2>
         <p class="section-desc">
           Necesario para guardar enlaces directamente sin abrir Stacklume.
-          Encuéntralo en <strong>Ajustes → MCP</strong> dentro de Stacklume.
+          Encuéntralo en <strong>Ajustes → MCP</strong> dentro de la app de escritorio.
         </p>
 
         <div class="field">
