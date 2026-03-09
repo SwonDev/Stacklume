@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Stacklume — Guarda enlaces",
   "version": "1.0.0",
-  "description": "Guarda el enlace actual en Stacklume con un solo clic. Compatible con la app de escritorio y la versión web.",
+  "description": "Guarda el enlace actual en Stacklume con un solo clic. Compatible con la app de escritorio y cualquier instancia propia.",
+  "homepage_url": "https://github.com/SwonDev/Stacklume",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -22,21 +23,15 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "permissions": [
     "activeTab",
     "storage",
     "contextMenus",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "*://*/*"
   ],
   "options_ui": {
     "page": "options.html",
@@ -49,6 +44,12 @@
         "mac": "Alt+S"
       },
       "description": "Abrir Stacklume para guardar el enlace actual"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "stacklume@swondev.com",
+      "strict_min_version": "109.0"
     }
   }
 }

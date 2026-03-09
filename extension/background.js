@@ -32,7 +32,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const settings = await getSettings();
-  const stacklumeUrl = settings.stacklumeUrl || "https://demo.stacklume.app";
+  const stacklumeUrl = settings.stacklumeUrl || "http://127.0.0.1:7879";
 
   let targetUrl = "";
   let targetTitle = "";
@@ -54,10 +54,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Guardar directamente via MCP
     const result = await saveViaApi(settings, { url: targetUrl, title: targetTitle });
     if (result.success) {
-      // Notificación visual en la pestaña activa
-      chrome.tabs.sendMessage(tab.id, {
-        type: "SHOW_TOAST",
-        message: "✓ Guardado en Stacklume",
+      // Notificación visual inyectada directamente en la pestaña activa
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (msg) => {
+          const el = document.createElement('div');
+          el.style.cssText = 'position:fixed;top:20px;right:20px;z-index:2147483647;background:#0a1628;color:#d4a853;padding:12px 20px;border-radius:8px;font-family:system-ui,sans-serif;font-size:14px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.4);pointer-events:none;opacity:0;transition:opacity .2s ease';
+          el.textContent = msg;
+          document.body.appendChild(el);
+          requestAnimationFrame(() => { el.style.opacity = '1'; });
+          setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }, 2500);
+        },
+        args: ['✓ Guardado en Stacklume'],
       }).catch(() => {});
     } else {
       // Si falla, abrir en Stacklume
@@ -75,7 +83,7 @@ async function getSettings() {
   return new Promise((resolve) => {
     chrome.storage.sync.get(
       {
-        stacklumeUrl: "https://demo.stacklume.app",
+        stacklumeUrl: "http://127.0.0.1:7879",
         apiToken: "",
         openMode: "new-tab", // "new-tab" | "existing-tab"
         defaultCategory: "",
@@ -161,7 +169,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "OPEN_IN_STACKLUME") {
     getSettings().then((settings) => {
       openInStacklume(
-        settings.stacklumeUrl || "https://demo.stacklume.app",
+        settings.stacklumeUrl || "http://127.0.0.1:7879",
         message.data,
         settings
       );

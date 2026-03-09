@@ -106,7 +106,7 @@ function loadSettings() {
   return new Promise((resolve) => {
     chrome.storage.sync.get(
       {
-        stacklumeUrl: "https://demo.stacklume.app",
+        stacklumeUrl: "http://127.0.0.1:7879",
         apiToken: "",
         openMode: "new-tab",
         defaultCategory: "",
@@ -127,10 +127,30 @@ function getActiveTab() {
 async function extractMetadata(tab) {
   if (!tab?.id) return null;
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, { type: "GET_METADATA" });
-    return response?.success ? response.data : null;
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const getMeta = (name) =>
+          document.querySelector(`meta[property="${name}"]`)?.content ||
+          document.querySelector(`meta[name="${name}"]`)?.content || '';
+        const canonical = document.querySelector('link[rel="canonical"]');
+        const favicon =
+          document.querySelector('link[rel="apple-touch-icon"]')?.href ||
+          document.querySelector('link[rel="icon"]')?.href ||
+          document.querySelector('link[rel="shortcut icon"]')?.href || '';
+        return {
+          url: canonical?.href || window.location.href,
+          title: getMeta('og:title') || document.title || '',
+          description: getMeta('og:description') || getMeta('description') || '',
+          faviconUrl: favicon || `${window.location.origin}/favicon.ico`,
+          siteName: getMeta('og:site_name') || '',
+          author: getMeta('author') || getMeta('article:author') || '',
+        };
+      },
+    });
+    return results[0]?.result || null;
   } catch {
-    // Content script no disponible en esta página (chrome://, about:, etc.)
+    // scripting no disponible (chrome://, about:, páginas de extensión, etc.)
     return null;
   }
 }

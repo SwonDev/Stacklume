@@ -34,6 +34,7 @@
     "tauri:dev": "tauri dev --no-watch",
     "tauri:build": "node scripts/build-release.mjs",
     "build:desktop": "node scripts/build-desktop.mjs",
+    "build:extension": "node scripts/build-extension.mjs",
     "db:sqlite:generate": "drizzle-kit generate --config drizzle.sqlite.config.ts",
     "db:sqlite:migrate": "drizzle-kit migrate --config drizzle.sqlite.config.ts"
   },
