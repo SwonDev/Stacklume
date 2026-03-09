@@ -1,0 +1,391 @@
+/* Stacklume Extension — Popup Styles */
+
+:root {
+  --navy: #0a1628;
+  --navy-light: #111e35;
+  --navy-border: #1e3054;
+  --gold: #d4a853;
+  --gold-dim: #b8902f;
+  --gold-muted: rgba(212, 168, 83, 0.15);
+  --text: #e8eaf0;
+  --text-muted: #8492a6;
+  --text-dim: #4a5568;
+  --success: #34c97e;
+  --success-bg: rgba(52, 201, 126, 0.12);
+  --error: #f56565;
+  --error-bg: rgba(245, 101, 101, 0.12);
+  --radius: 8px;
+  --radius-sm: 5px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 360px;
+  min-height: 200px;
+  background: var(--navy);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--navy-light);
+  border-bottom: 1px solid var(--navy-border);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.header-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+
+.header-settings {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.header-settings:hover {
+  color: var(--gold);
+  background: var(--gold-muted);
+}
+
+/* ── Status: ya guardado ─────────────────────────────────────────────────── */
+
+.status-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--success-bg);
+  border-bottom: 1px solid rgba(52, 201, 126, 0.2);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ── Page Preview ─────────────────────────────────────────────────────────── */
+
+.page-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--navy-border);
+}
+
+.page-favicon-wrap {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-favicon {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+.page-favicon-fallback {
+  color: var(--text-dim);
+}
+
+.page-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.page-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-url {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Form ─────────────────────────────────────────────────────────────────── */
+
+.form {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group--grow {
+  flex: 1;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.form-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.required {
+  color: var(--gold);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  background: var(--navy-light);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 9px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-muted);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 48px;
+}
+
+.form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238492a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+.form-select option {
+  background: var(--navy-light);
+  color: var(--text);
+}
+
+/* ── Favorite button ─────────────────────────────────────────────────────── */
+
+.btn-favorite {
+  background: var(--navy-light);
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  height: 31px;
+}
+
+.btn-favorite:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.btn-favorite.active {
+  background: var(--gold-muted);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.btn-favorite.active #star-icon {
+  fill: var(--gold);
+}
+
+/* ── Action buttons ──────────────────────────────────────────────────────── */
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn--outline {
+  background: transparent;
+  border-color: var(--navy-border);
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.btn--outline:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-muted);
+}
+
+.btn--primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  flex: 1;
+}
+
+.btn--primary:hover {
+  background: var(--gold-dim);
+  border-color: var(--gold-dim);
+}
+
+.btn--primary:disabled,
+.btn--outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--sm {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+/* ── Overlay states ──────────────────────────────────────────────────────── */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(10, 22, 40, 0.95);
+  z-index: 10;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.overlay--success {
+  color: var(--success);
+}
+
+.overlay--error {
+  color: var(--error);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--navy-border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── No token hint ───────────────────────────────────────────────────────── */
+
+.no-token-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--navy-border);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-btn:hover {
+  color: var(--gold-dim);
+}
+
+/* ── Utilities ───────────────────────────────────────────────────────────── */
+
+.hidden {
+  display: none !important;
+}

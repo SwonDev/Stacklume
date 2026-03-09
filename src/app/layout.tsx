@@ -8,6 +8,7 @@ import { DesktopContextMenu } from "@/components/desktop/DesktopContextMenu";
 import { UpdateChecker } from "@/components/desktop/UpdateChecker";
 import { DemoProvider } from "@/components/demo/DemoProvider";
 import { DemoBanner } from "@/components/demo/DemoBanner";
+import { ExtensionLinkHandler } from "@/components/layout/ExtensionLinkHandler";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -103,6 +104,7 @@ export default function RootLayout({
           <DemoProvider>
             <Providers>
               <DemoBanner />
+              <ExtensionLinkHandler />
               <AppShell>{children}</AppShell>
               <Toaster
                 theme="dark"
@@ -118,6 +120,7 @@ export default function RootLayout({
             <DesktopTitleBar />
             <DesktopContextMenu />
             <UpdateChecker />
+            <ExtensionLinkHandler />
             <AppShell>{children}</AppShell>
             <Toaster
               theme="dark"
