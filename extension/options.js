@@ -61,7 +61,7 @@ async function loadSettings() {
   const settings = await new Promise((resolve) => {
     chrome.storage.sync.get(
       {
-        stacklumeUrl: "https://demo.stacklume.app",
+        stacklumeUrl: "http://127.0.0.1:7879",
         apiToken: "",
         openMode: "new-tab",
         defaultCategory: "",
