@@ -16,6 +16,7 @@ import { ProjectList } from "@/components/projects/ProjectList";
 import { AddProjectModal, EditProjectModal } from "@/components/projects/ProjectDialog";
 import { ShareCollectionDialog } from "@/components/modals/ShareCollectionDialog";
 import { useTranslation } from "@/lib/i18n";
+import { useElectron } from "@/hooks/useElectron";
 import type { Link, Category, Tag } from "@/lib/db/schema";
 import dynamic from "next/dynamic";
 
@@ -214,9 +215,10 @@ interface SortableCategoryProps {
   isActive: boolean;
   onClick: () => void;
   onShare: (category: Category) => void;
+  isDesktop: boolean;
 }
 
-function SortableCategoryItem({ category, linkCount, isActive, onClick, onShare }: SortableCategoryProps) {
+function SortableCategoryItem({ category, linkCount, isActive, onClick, onShare, isDesktop }: SortableCategoryProps) {
   const { t } = useTranslation();
   const {
     attributes,
@@ -248,18 +250,20 @@ function SortableCategoryItem({ category, linkCount, isActive, onClick, onShare 
         onClick={onClick}
         isDragging={isDragging}
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={(e) => { e.stopPropagation(); onShare(category); }}
-            aria-label={t("sidebar.shareCategory")}
-            className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top"><p>{t("sidebar.shareCategory")}</p></TooltipContent>
-      </Tooltip>
+      {!isDesktop && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={(e) => { e.stopPropagation(); onShare(category); }}
+              aria-label={t("sidebar.shareCategory")}
+              className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top"><p>{t("sidebar.shareCategory")}</p></TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -272,9 +276,10 @@ interface SortableTagProps {
   onClick: () => void;
   colorClass: string;
   onShare: (tag: Tag) => void;
+  isDesktop: boolean;
 }
 
-function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass, onShare }: SortableTagProps) {
+function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass, onShare, isDesktop }: SortableTagProps) {
   const { t } = useTranslation();
   const {
     attributes,
@@ -307,18 +312,20 @@ function SortableTagItem({ tag, linkCount, isActive, onClick, colorClass, onShar
         colorIndicator={colorClass}
         isDragging={isDragging}
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={(e) => { e.stopPropagation(); onShare(tag); }}
-            aria-label={t("sidebar.shareTag")}
-            className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top"><p>{t("sidebar.shareTag")}</p></TooltipContent>
-      </Tooltip>
+      {!isDesktop && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={(e) => { e.stopPropagation(); onShare(tag); }}
+              aria-label={t("sidebar.shareTag")}
+              className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/share:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top"><p>{t("sidebar.shareTag")}</p></TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -343,6 +350,7 @@ export function Sidebar() {
   const linkTags = useLinksStore((state) => state.linkTags);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const { t } = useTranslation();
+  const { isDesktop } = useElectron();
 
   // Share dialog state
   const [shareDialogState, setShareDialogState] = useState<{
@@ -641,6 +649,7 @@ export function Sidebar() {
                         isActive={activeFilter.type === "category" && activeFilter.id === category.id}
                         onClick={() => handleCategoryClick(category)}
                         onShare={handleCategoryShare}
+                        isDesktop={isDesktop}
                       />
                     );
                   })}
@@ -741,6 +750,7 @@ export function Sidebar() {
                         onClick={() => handleTagClick(tag)}
                         colorClass={colorClass}
                         onShare={handleTagShare}
+                        isDesktop={isDesktop}
                       />
                     );
                   })}

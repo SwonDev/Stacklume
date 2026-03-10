@@ -2067,6 +2067,7 @@ export interface WidgetConfig
     Partial<DiffViewerWidgetConfig>,
     Partial<PasswordManagerConfig>,
   Partial<CustomUserWidgetConfig> {
+  customIcon?: string; // Icono personalizado: nombre Lucide (ej. "Star") o data: URL (imagen)
   // Allow additional properties for extensibility
   [key: string]: unknown;
 }
