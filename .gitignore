@@ -124,9 +124,19 @@ src/**/*.spec.tsx
 vitest.config.ts
 playwright.config.ts
 playwright.stickers.config.ts
+playwright.extension.config.ts
 /coverage/
 /playwright-report/
+/playwright-report-extension/
 /playwright-results/
+/playwright-results-extension/
+/playwright-extension-profile*/
 /test-results/
+
+# AI tools config — instrucciones internas para asistentes de código
+AGENTS.md
+
+# Proyectos independientes que viven en este directorio
+/stacklume-web/
 
 .env*.local
