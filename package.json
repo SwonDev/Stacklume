@@ -1,6 +1,6 @@
 {
   "name": "stacklume",
-  "version": "0.3.22",
+  "version": "0.3.23",
   "private": true,
   "author": "Stacklume",
   "description": "Link management dashboard with bento grid layout",

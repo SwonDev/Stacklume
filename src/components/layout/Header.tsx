@@ -400,7 +400,10 @@ export function Header() {
           <OfflineBadge />
 
           {/* Logout button — oculto en modo desktop (Tauri) y en demo (sin auth) */}
-          {!isDesktop && !isDemoMode && (
+          {/* isMounted garantiza que SSR y el render de hidratación emiten el mismo árbol      */}
+          {/* sin el Tooltip, evitando que el contador de IDs de Radix se desplace y cause    */}
+          {/* un mismatch en el SettingsDropdown que aparece justo después.                   */}
+          {isMounted && !isDesktop && !isDemoMode && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
