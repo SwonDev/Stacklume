@@ -123,11 +123,11 @@ src/**/*.spec.ts
 src/**/*.spec.tsx
 vitest.config.ts
 playwright.config.ts
-playwright.stickers.config.ts
 playwright.extension.config.ts
 /coverage/
 /playwright-report/
 /playwright-report-extension/
+/playwright-report-stickers/
 /playwright-results/
 /playwright-results-extension/
 /playwright-extension-profile*/
