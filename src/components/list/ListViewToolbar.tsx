@@ -13,6 +13,7 @@ import {
   Folder,
   Star,
   X,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
@@ -48,6 +49,32 @@ import { useListViewStore, type SortBy, type SortOrder, type CategorySortBy } fr
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
 import type { Category, Tag as TagType } from "@/lib/db/schema";
+
+// Mapa de colores para las categorías (hex estático — Tailwind no incluye clases dinámicas)
+const CATEGORY_COLOR_MAP: Record<string, string> = {
+  red: "#ef4444",
+  orange: "#f97316",
+  amber: "#f59e0b",
+  yellow: "#eab308",
+  lime: "#84cc16",
+  green: "#22c55e",
+  emerald: "#10b981",
+  teal: "#14b8a6",
+  cyan: "#06b6d4",
+  sky: "#0ea5e9",
+  blue: "#3b82f6",
+  indigo: "#6366f1",
+  violet: "#8b5cf6",
+  purple: "#a855f7",
+  fuchsia: "#d946ef",
+  pink: "#ec4899",
+  rose: "#f43f5e",
+  slate: "#64748b",
+  gray: "#6b7280",
+  zinc: "#71717a",
+  neutral: "#737373",
+  stone: "#78716c",
+};
 
 interface ListViewToolbarProps {
   className?: string;
@@ -97,23 +124,45 @@ export function ListViewToolbar({
   const collapseAll = useListViewStore((state) => state.collapseAll);
   const expandAll = useListViewStore((state) => state.expandAll);
 
-  // Get current filter info
-  const activeCategory = useMemo(() => {
-    if (activeFilter.type === "category" && activeFilter.id) {
-      return categories.find((c: Category) => c.id === activeFilter.id);
-    }
-    return null;
-  }, [activeFilter, categories]);
+  // IDs activos para multi-selección
+  const activeCategoryIds = useMemo((): string[] => {
+    if (activeFilter.type !== "category") return [];
+    if (activeFilter.ids && activeFilter.ids.length > 0) return activeFilter.ids;
+    if (activeFilter.id) return [activeFilter.id];
+    return [];
+  }, [activeFilter]);
 
-  const activeTag = useMemo(() => {
-    if (activeFilter.type === "tag" && activeFilter.id) {
-      return tags.find((t: TagType) => t.id === activeFilter.id);
+  const activeTagIds = useMemo((): string[] => {
+    if (activeFilter.type !== "tag") return [];
+    if (activeFilter.ids && activeFilter.ids.length > 0) return activeFilter.ids;
+    if (activeFilter.id) return [activeFilter.id];
+    return [];
+  }, [activeFilter]);
+
+  const toggleCategoryId = (catId: string) => {
+    const newIds = activeCategoryIds.includes(catId)
+      ? activeCategoryIds.filter((id) => id !== catId)
+      : [...activeCategoryIds, catId];
+    if (newIds.length === 0) {
+      setActiveFilter({ type: "all", id: undefined, ids: undefined });
+    } else {
+      setActiveFilter({ type: "category", ids: newIds, id: undefined });
     }
-    return null;
-  }, [activeFilter, tags]);
+  };
+
+  const toggleTagId = (tagId: string) => {
+    const newIds = activeTagIds.includes(tagId)
+      ? activeTagIds.filter((id) => id !== tagId)
+      : [...activeTagIds, tagId];
+    if (newIds.length === 0) {
+      setActiveFilter({ type: "all", id: undefined, ids: undefined });
+    } else {
+      setActiveFilter({ type: "tag", ids: newIds, id: undefined });
+    }
+  };
 
   const handleClearFilters = () => {
-    setActiveFilter({ type: "all", id: undefined });
+    setActiveFilter({ type: "all", id: undefined, ids: undefined });
     setSearchQuery("");
   };
 
@@ -145,15 +194,24 @@ export function ListViewToolbar({
           )}
         </div>
 
-        {/* Category filter */}
+        {/* Category filter — multi-selección */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-2">
+            <Button
+              variant={activeCategoryIds.length > 0 ? "secondary" : "outline"}
+              size="sm"
+              className="h-9 gap-2"
+            >
               <Folder className="w-4 h-4" />
               <span className="hidden sm:inline">{t("listView.category")}</span>
-              {activeCategory && (
+              {activeCategoryIds.length === 1 && (
+                <Badge variant="secondary" className="ml-1 max-w-[80px] truncate">
+                  {categories.find((c: Category) => c.id === activeCategoryIds[0])?.name}
+                </Badge>
+              )}
+              {activeCategoryIds.length > 1 && (
                 <Badge variant="secondary" className="ml-1">
-                  {activeCategory.name}
+                  {activeCategoryIds.length}
                 </Badge>
               )}
               <ChevronDown className="w-3.5 h-3.5 ml-1" />
@@ -166,33 +224,34 @@ export function ListViewToolbar({
                 <CommandEmpty>{t("listView.noCategories")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
-                    onSelect={() => setActiveFilter({ type: "all", id: undefined })}
+                    onSelect={() => setActiveFilter({ type: "all", id: undefined, ids: undefined })}
                     className="cursor-pointer"
                   >
-                    <span className={cn(!activeCategory && "font-semibold")}>
+                    <span className={cn(activeCategoryIds.length === 0 && "font-semibold")}>
                       {t("listView.allCategories")}
                     </span>
+                    {activeCategoryIds.length === 0 && (
+                      <Check className="ml-auto w-4 h-4 text-primary" />
+                    )}
                   </CommandItem>
                   {categories.map((cat: Category) => (
                     <CommandItem
                       key={cat.id}
-                      onSelect={() => setActiveFilter({ type: "category", id: cat.id })}
+                      onSelect={() => toggleCategoryId(cat.id)}
                       className="cursor-pointer"
                     >
                       <div
-                        className={cn(
-                          "w-2 h-2 rounded-full mr-2",
-                          `bg-${cat.color || "gray"}-500`
-                        )}
+                        className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
                         style={{
-                          backgroundColor: cat.color
-                            ? undefined
-                            : "#6B7280",
+                          backgroundColor: CATEGORY_COLOR_MAP[cat.color ?? ""] ?? cat.color ?? "#6b7280",
                         }}
                       />
-                      <span className={cn(activeCategory?.id === cat.id && "font-semibold")}>
+                      <span className={cn(activeCategoryIds.includes(cat.id) && "font-semibold")}>
                         {cat.name}
                       </span>
+                      {activeCategoryIds.includes(cat.id) && (
+                        <Check className="ml-auto w-4 h-4 text-primary" />
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -201,19 +260,28 @@ export function ListViewToolbar({
           </PopoverContent>
         </Popover>
 
-        {/* Tag filter */}
+        {/* Tag filter — multi-selección */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-2">
+            <Button
+              variant={activeTagIds.length > 0 ? "secondary" : "outline"}
+              size="sm"
+              className="h-9 gap-2"
+            >
               <Tag className="w-4 h-4" />
               <span className="hidden sm:inline">{t("listView.tag")}</span>
-              {activeTag && (
+              {activeTagIds.length === 1 && (
                 <TagBadge
-                  name={activeTag.name}
-                  color={activeTag.color || "blue"}
+                  name={tags.find((t: TagType) => t.id === activeTagIds[0])?.name ?? ""}
+                  color={tags.find((t: TagType) => t.id === activeTagIds[0])?.color ?? "blue"}
                   size="sm"
                   className="ml-1"
                 />
+              )}
+              {activeTagIds.length > 1 && (
+                <Badge variant="secondary" className="ml-1">
+                  {activeTagIds.length}
+                </Badge>
               )}
               <ChevronDown className="w-3.5 h-3.5 ml-1" />
             </Button>
@@ -225,24 +293,30 @@ export function ListViewToolbar({
                 <CommandEmpty>{t("listView.noTags")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
-                    onSelect={() => setActiveFilter({ type: "all", id: undefined })}
+                    onSelect={() => setActiveFilter({ type: "all", id: undefined, ids: undefined })}
                     className="cursor-pointer"
                   >
-                    <span className={cn(!activeTag && "font-semibold")}>
+                    <span className={cn(activeTagIds.length === 0 && "font-semibold")}>
                       {t("listView.allTags")}
                     </span>
+                    {activeTagIds.length === 0 && (
+                      <Check className="ml-auto w-4 h-4 text-primary" />
+                    )}
                   </CommandItem>
                   {tags.map((tag: TagType) => (
                     <CommandItem
                       key={tag.id}
-                      onSelect={() => setActiveFilter({ type: "tag", id: tag.id })}
+                      onSelect={() => toggleTagId(tag.id)}
                       className="cursor-pointer"
                     >
                       <TagBadge
                         name={tag.name}
-                        color={tag.color || "blue"}
+                        color={tag.color ?? "blue"}
                         size="sm"
                       />
+                      {activeTagIds.includes(tag.id) && (
+                        <Check className="ml-auto w-4 h-4 text-primary" />
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>

@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   Star,
-  Clock,
   FolderOpen,
   ExternalLink,
   GripVertical,
@@ -13,7 +12,6 @@ import {
   Trash2,
   Move,
   Settings,
-  Tag as TagIcon,
   ExternalLinkIcon,
   Copy,
   Minimize2,
@@ -62,6 +60,9 @@ import { WidgetSkeleton } from "@/components/widgets/WidgetSkeleton";
 import { LazyWidgetRenderer, specialWidgetTypes } from "@/components/widgets/LazyWidgets";
 import { WidgetErrorBoundary } from "@/components/providers/ErrorBoundary";
 import { WidgetContextMenu } from "@/components/widgets/WidgetContextMenu";
+import { DynamicWidgetIcon } from "@/components/widgets/DynamicWidgetIcon";
+import { WidgetIconPicker } from "@/components/widgets/WidgetIconPicker";
+import { WIDGET_TYPE_METADATA } from "@/types/widget";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -315,6 +316,10 @@ export function BentoCard({ widget }: BentoCardProps) {
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [newTitle, setNewTitle] = useState(widget.title);
 
+  // Icon picker state
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPickerPos, setIconPickerPos] = useState({ x: 0, y: 0 });
+
   // Fullscreen and inline editing states
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -436,39 +441,19 @@ export function BentoCard({ widget }: BentoCardProps) {
         : isPrimary ? "text-primary" : "text-muted-foreground"
     );
 
-    if (widget.type === "favorites") {
-      return {
-        icon: <Star className={iconClass(true)} />,
-        title: widget.title,
-        items: links.filter((l: Link) => l.isFavorite).slice(0, 10),
-      };
-    }
-
-    if (widget.type === "recent") {
-      return {
-        icon: <Clock className={iconClass(false)} />,
-        title: widget.title,
-        items: [...links]
-          .sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )
-          .slice(0, 10),
-      };
-    }
+    // Resolve default icon from widget metadata
+    const meta = WIDGET_TYPE_METADATA[widget.type];
+    const iconName = meta?.icon ?? "FolderOpen";
+    const defaultIcon = <DynamicWidgetIcon iconValue={iconName} className={iconClass(true)} />;
 
     if (widget.type === "categories") {
-      return {
-        icon: <FolderOpen className={iconClass(false)} />,
-        title: widget.title,
-        items: [], // Special handling for categories widget
-      };
+      return { icon: defaultIcon, title: widget.title, items: [] };
     }
 
     if (widget.type === "category" && widget.categoryId) {
       const category = categories.find((c: Category) => c.id === widget.categoryId);
       return {
-        icon: <FolderOpen className={iconClass(true)} />,
+        icon: defaultIcon,
         title: category?.name || widget.title,
         items: links.filter((l: Link) => l.categoryId === widget.categoryId).slice(0, 10),
       };
@@ -478,28 +463,51 @@ export function BentoCard({ widget }: BentoCardProps) {
       const tag = tags.find((t: Tag) => t.id === widget.tagId);
       const tagLinks = useLinksStore.getState().getLinksForTag(widget.tagId);
       return {
-        icon: <TagIcon className={iconClass(true)} />,
+        icon: defaultIcon,
         title: tag?.name || widget.title,
         items: tagLinks.slice(0, 10),
       };
     }
 
-    // For special widget types that will be rendered differently
-    if (specialWidgetTypes.includes(widget.type)) {
+    if (widget.type === "favorites") {
       return {
-        icon: <FolderOpen className={iconClass(false)} />,
+        icon: defaultIcon,
         title: widget.title,
-        items: [],
+        items: links.filter((l: Link) => l.isFavorite).slice(0, 10),
       };
     }
 
+    if (widget.type === "recent") {
+      return {
+        icon: defaultIcon,
+        title: widget.title,
+        items: [...links]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 10),
+      };
+    }
+
+    // For special widget types that will be rendered differently
+    if (specialWidgetTypes.includes(widget.type)) {
+      return { icon: defaultIcon, title: widget.title, items: [] };
+    }
+
     // Default fallback - show all links
-    return {
-      icon: <FolderOpen className={iconClass(false)} />,
-      title: widget.title,
-      items: links.slice(0, 10),
-    };
+    return { icon: defaultIcon, title: widget.title, items: links.slice(0, 10) };
   }, [widget, links, categories, tags]); // Note: getLinksForTag accessed via .getState()
+
+  // Apply customIcon override if set in widget config
+  const displayIcon = useMemo(() => {
+    const customIcon = widget.config?.customIcon as string | undefined;
+    if (customIcon) {
+      const iconClass = cn(
+        "w-4 h-4",
+        widget.config?.widgetTheme ? "text-[var(--widget-accent)]" : "text-primary"
+      );
+      return <DynamicWidgetIcon iconValue={customIcon} className={iconClass} />;
+    }
+    return icon;
+  }, [widget.config?.customIcon, widget.config?.widgetTheme, icon]);
 
   // Handle Escape key to exit fullscreen or cancel title editing
   useEffect(() => {
@@ -742,6 +750,7 @@ export function BentoCard({ widget }: BentoCardProps) {
   };
 
   return (
+    <>
     <WidgetContextMenu
       widget={widget}
       onRename={() => {
@@ -816,7 +825,19 @@ export function BentoCard({ widget }: BentoCardProps) {
               <Lock className="w-3.5 h-3.5 text-amber-500" />
             </div>
           )}
-          <div className="flex-shrink-0">{icon}</div>
+          <div
+            className="flex-shrink-0 cursor-context-menu select-none"
+            data-no-fullscreen
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIconPickerPos({ x: e.clientX, y: e.clientY });
+              setIconPickerOpen(true);
+            }}
+            title="Clic derecho para cambiar icono"
+          >
+            {displayIcon}
+          </div>
           {isEditingTitle ? (
             <input
               ref={titleInputRef}
@@ -990,7 +1011,7 @@ export function BentoCard({ widget }: BentoCardProps) {
           isOpen={isFullscreen}
           onClose={() => setIsFullscreen(false)}
           cardRect={cardRect}
-          icon={icon}
+          icon={displayIcon}
           title={title}
           widgetType={widget.type}
         >
@@ -999,7 +1020,17 @@ export function BentoCard({ widget }: BentoCardProps) {
         document.body
       )}
     </Card>
+
     </WidgetContextMenu>
+    {iconPickerOpen && (
+      <WidgetIconPicker
+        widget={widget}
+        open={iconPickerOpen}
+        onClose={() => setIconPickerOpen(false)}
+        position={iconPickerPos}
+      />
+    )}
+    </>
   );
 }
 
