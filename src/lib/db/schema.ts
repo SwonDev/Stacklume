@@ -306,6 +306,10 @@ export const userSettings = pgTable(
     // MCP Server settings
     mcpEnabled: boolCol("mcp_enabled").default(false).notNull(),
     mcpApiKey: varchar("mcp_api_key", { length: 64 }),
+    // Ollama AI local settings (solo desktop)
+    ollamaEnabled: boolCol("ollama_enabled").default(false).notNull(),
+    ollamaUrl: varchar("ollama_url", { length: 255 }).default("http://localhost:11434"),
+    ollamaModel: varchar("ollama_model", { length: 100 }),
     // Extended settings
     language: varchar("language", { length: 5 }).default("es").notNull(),
     gridColumns: integer("grid_columns").default(12).notNull(),

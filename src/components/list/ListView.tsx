@@ -82,14 +82,26 @@ export function ListView({ className }: ListViewProps) {
   const filteredLinks = useMemo(() => {
     let result = [...links];
 
-    if (activeFilter.type === "category" && activeFilter.id) {
-      result = result.filter((link: Link) => link.categoryId === activeFilter.id);
+    if (activeFilter.type === "category") {
+      const ids = activeFilter.ids && activeFilter.ids.length > 0
+        ? activeFilter.ids
+        : activeFilter.id ? [activeFilter.id] : [];
+      if (ids.length > 0) {
+        result = result.filter((link: Link) => ids.includes(link.categoryId!));
+      }
     }
-    if (activeFilter.type === "tag" && activeFilter.id) {
-      const tagLinkIds = linkTags
-        .filter((lt: LinkTag) => lt.tagId === activeFilter.id)
-        .map((lt: LinkTag) => lt.linkId);
-      result = result.filter((link: Link) => tagLinkIds.includes(link.id));
+    if (activeFilter.type === "tag") {
+      const ids = activeFilter.ids && activeFilter.ids.length > 0
+        ? activeFilter.ids
+        : activeFilter.id ? [activeFilter.id] : [];
+      if (ids.length > 0) {
+        const tagLinkIds = new Set(
+          linkTags
+            .filter((lt: LinkTag) => ids.includes(lt.tagId))
+            .map((lt: LinkTag) => lt.linkId)
+        );
+        result = result.filter((link: Link) => tagLinkIds.has(link.id));
+      }
     }
     if (activeFilter.type === "favorites") {
       result = result.filter((link: Link) => link.isFavorite);

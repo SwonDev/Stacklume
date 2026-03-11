@@ -409,6 +409,7 @@ const formSchema = z.object({
     "cron-builder",
     "diff-viewer",
     "password-manager",
+    "ollama-chat",
     "custom-user",
   ]),
   title: z.string().min(1),
@@ -627,6 +628,7 @@ const widgetTypeOptions: Array<{
   { type: "cron-builder", labelKey: "widget.cron-builder.label", descKey: "widget.cron-builder.desc", icon: Clock },
   { type: "diff-viewer", labelKey: "widget.diff-viewer.label", descKey: "widget.diff-viewer.desc", icon: GitCompare },
   { type: "password-manager", labelKey: "widget.password-manager.label", descKey: "widget.password-manager.desc", icon: KeyRound },
+  { type: "ollama-chat", labelKey: "widget.ollama-chat.label", descKey: "widget.ollama-chat.desc", icon: Bot },
 ];
 
 // Size options - labels resolved via i18n
@@ -662,7 +664,7 @@ const WIDGET_CATEGORIES: WidgetCategory[] = [
   { id: "wellness", labelKey: "addWidget.catWellness", icon: Heart, color: "rose", widgets: ["mood-tracker", "water-intake", "sleep-log", "breathing-exercise", "gratitude-journal", "daily-affirmations"] },
   { id: "finance", labelKey: "addWidget.catFinance", icon: Coins, color: "emerald", widgets: ["expense-tracker", "budget-progress", "savings-goal", "subscription-manager"] },
   { id: "entertainment", labelKey: "addWidget.catEntertainment", icon: Film, color: "indigo", widgets: ["movie-tracker", "book-tracker", "anime-list", "game-backlog", "wishlist"] },
-  { id: "ai", labelKey: "addWidget.catAi", icon: Bot, color: "fuchsia", widgets: ["ai-chat", "ai-daily-summary", "smart-suggestions", "prompt", "prompt-builder", "mcp-explorer", "voice-notes"] },
+  { id: "ai", labelKey: "addWidget.catAi", icon: Bot, color: "fuchsia", widgets: ["ollama-chat", "ai-chat", "ai-daily-summary", "smart-suggestions", "prompt", "prompt-builder", "mcp-explorer", "voice-notes"] },
   { id: "creativity", labelKey: "addWidget.catCreativity", icon: Palette, color: "lime", widgets: ["color-of-day", "font-pairing", "design-inspiration", "icon-picker", "screenshot-mockup"] },
   { id: "productivity-ext", labelKey: "addWidget.catProductivityExt", icon: Rocket, color: "sky", widgets: ["focus-score", "time-blocking", "daily-review", "energy-tracker", "parking-lot-enhanced", "deployment-status"] },
   { id: "utility-ext", labelKey: "addWidget.catUtilityExt", icon: Terminal, color: "zinc", widgets: ["clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer", "password-manager"] },

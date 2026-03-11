@@ -2755,6 +2755,8 @@
   "widget.password-generator.desc": "Genera contraseñas seguras",
   "widget.password-generator.label": "Contraseñas",
   "widget.password-manager.desc": "Almacena logins, usuarios y contraseñas con acceso a las webs",
+  "widget.ollama-chat.label": "Asistente IA (Ollama)",
+  "widget.ollama-chat.desc": "Chat con IA local sobre tu biblioteca de recursos",
   "widget.password-manager.label": "Gestor de Contraseñas",
   "widget.pathfinding.desc": "Visualizador de algoritmos de pathfinding",
   "widget.pathfinding.label": "Pathfinding",
@@ -2986,5 +2988,18 @@
   "youtube.startTime": "Tiempo de inicio (segundos)",
   "youtube.supportedUrls": "Soporta URLs de YouTube, Shorts y enlaces cortos",
   "youtube.videoTitle": "Video de YouTube",
-  "youtube.videoUrl": "URL del video"
+  "youtube.videoUrl": "URL del video",
+  "settings.ollamaLocal": "IA Local",
+  "settings.ollamaLocalDesc": "Ollama, modelos locales",
+  "settings.ollamaEnabled": "Ollama IA Local",
+  "settings.ollamaEnabledDesc": "Conectar con Ollama para usar IA sin conexión",
+  "settings.ollamaUrl": "URL de Ollama",
+  "settings.ollamaUrlPlaceholder": "http://localhost:11434",
+  "settings.ollamaModel": "Modelo activo",
+  "settings.ollamaModelPlaceholder": "llama3.2",
+  "settings.ollamaTest": "Probar",
+  "settings.ollamaTestOk": "Conectado — {{count}} modelos instalados",
+  "settings.ollamaTestError": "Sin conexión: {{error}}",
+  "settings.ollamaNoModels": "Sin modelos instalados. Ejecuta: ollama pull llama3.2",
+  "settings.ollamaHint": "Instala Ollama desde ollama.com y descarga un modelo con ollama pull <modelo>"
 }

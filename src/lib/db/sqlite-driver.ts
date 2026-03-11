@@ -147,7 +147,7 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       reminder_at INTEGER
     )`,
     `CREATE INDEX IF NOT EXISTS idx_links_user_id ON links(user_id)`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url) WHERE deleted_at IS NULL`,
     `CREATE INDEX IF NOT EXISTS idx_links_category_id ON links(category_id)`,
     `CREATE INDEX IF NOT EXISTS idx_links_is_favorite ON links(is_favorite)`,
     `CREATE INDEX IF NOT EXISTS idx_links_created_at ON links(created_at)`,
@@ -225,6 +225,9 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       reduce_motion INTEGER NOT NULL DEFAULT 0,
       mcp_enabled INTEGER NOT NULL DEFAULT 0,
       mcp_api_key TEXT,
+      ollama_enabled INTEGER NOT NULL DEFAULT 0,
+      ollama_url TEXT DEFAULT 'http://localhost:11434',
+      ollama_model TEXT,
       language TEXT NOT NULL DEFAULT 'es',
       grid_columns INTEGER NOT NULL DEFAULT 12,
       sidebar_always_visible INTEGER NOT NULL DEFAULT 0,
@@ -361,6 +364,19 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
       sql: `ALTER TABLE user_settings ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0`,
       description: "user_settings.onboarding_completed",
     },
+    // v0.3.24 — Ollama IA local
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN ollama_enabled INTEGER NOT NULL DEFAULT 0`,
+      description: "user_settings.ollama_enabled",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN ollama_url TEXT DEFAULT 'http://localhost:11434'`,
+      description: "user_settings.ollama_url",
+    },
+    {
+      sql: `ALTER TABLE user_settings ADD COLUMN ollama_model TEXT`,
+      description: "user_settings.ollama_model",
+    },
     // v0.3.17 — Campos personales de enlace
     {
       sql: `ALTER TABLE links ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0`,
@@ -373,6 +389,16 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `ALTER TABLE links ADD COLUMN reminder_at INTEGER`,
       description: "links.reminder_at",
+    },
+    // v0.3.24 — Índice UNIQUE parcial en links.url (solo registros no eliminados)
+    // Permite re-añadir una URL que fue eliminada (soft-delete)
+    {
+      sql: `DROP INDEX IF EXISTS idx_links_url`,
+      description: "idx_links_url drop (reemplazar por parcial)",
+    },
+    {
+      sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url) WHERE deleted_at IS NULL`,
+      description: "idx_links_url parcial (deleted_at IS NULL)",
     },
   ];
 

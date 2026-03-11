@@ -271,6 +271,10 @@ export const userSettings = sqliteTable(
     // MCP Server settings
     mcpEnabled: integer("mcp_enabled", { mode: "boolean" }).default(false).notNull(),
     mcpApiKey: text("mcp_api_key"),
+    // Ollama AI local settings (solo desktop)
+    ollamaEnabled: integer("ollama_enabled", { mode: "boolean" }).default(false).notNull(),
+    ollamaUrl: text("ollama_url").default("http://localhost:11434"),
+    ollamaModel: text("ollama_model"),
     // Extended settings
     language: text("language").default("es").notNull(),
     gridColumns: integer("grid_columns").default(12).notNull(),

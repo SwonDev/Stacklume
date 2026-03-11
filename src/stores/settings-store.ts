@@ -85,6 +85,11 @@ interface SettingsState {
   mcpEnabled: boolean;
   mcpApiKey: string | null;
 
+  // Ollama AI local
+  ollamaEnabled: boolean;
+  ollamaUrl: string;
+  ollamaModel: string | null;
+
   // Database info
   databaseInfo: DatabaseInfo | null;
   isDatabaseLoading: boolean;
@@ -130,6 +135,11 @@ interface SettingsState {
   setMcpEnabled: (enabled: boolean) => Promise<void>;
   regenerateMcpApiKey: () => Promise<void>;
 
+  // Ollama actions
+  setOllamaEnabled: (v: boolean) => Promise<void>;
+  setOllamaUrl: (url: string) => Promise<void>;
+  setOllamaModel: (model: string | null) => Promise<void>;
+
   // DB operations
   initSettings: () => Promise<void>;
 }
@@ -144,6 +154,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   stickerSoundVolume: 50, // 0-100 (default 50%)
   mcpEnabled: false,
   mcpApiKey: null,
+  ollamaEnabled: false,
+  ollamaUrl: "http://localhost:11434",
+  ollamaModel: null,
   databaseInfo: null,
   isDatabaseLoading: false,
   isLoading: false,
@@ -319,6 +332,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           reduceMotion: settings.reduceMotion,
           mcpEnabled: settings.mcpEnabled ?? false,
           mcpApiKey: settings.mcpApiKey ?? null,
+          ollamaEnabled: settings.ollamaEnabled ?? false,
+          ollamaUrl: settings.ollamaUrl ?? "http://localhost:11434",
+          ollamaModel: settings.ollamaModel ?? null,
           language: (settings.language as Language) ?? "es",
           gridColumns: settings.gridColumns ?? 12,
           sidebarAlwaysVisible: settings.sidebarAlwaysVisible ?? false,
@@ -438,6 +454,43 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       });
     } catch (error) {
       console.error("Error saving MCP API key:", error);
+    }
+  },
+
+  setOllamaEnabled: async (ollamaEnabled) => {
+    set({ ollamaEnabled });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ollamaEnabled }),
+      });
+    } catch (error) {
+      console.error("Error saving ollamaEnabled:", error);
+    }
+  },
+  setOllamaUrl: async (ollamaUrl) => {
+    set({ ollamaUrl });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ollamaUrl }),
+      });
+    } catch (error) {
+      console.error("Error saving ollamaUrl:", error);
+    }
+  },
+  setOllamaModel: async (ollamaModel) => {
+    set({ ollamaModel });
+    try {
+      await fetchWithCsrfRetry("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ollamaModel }),
+      });
+    } catch (error) {
+      console.error("Error saving ollamaModel:", error);
     }
   },
 
