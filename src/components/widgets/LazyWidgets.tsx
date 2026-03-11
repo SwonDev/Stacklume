@@ -193,6 +193,7 @@ const CronBuilderWidget = lazy(() => import("./CronBuilderWidget").then(m => ({ 
 const DiffViewerWidget = lazy(() => import("./DiffViewerWidget").then(m => ({ default: m.DiffViewerWidget })));
 const PasswordManagerWidget = lazy(() => import("./PasswordManagerWidget").then(m => ({ default: m.PasswordManagerWidget })));
 const CustomUserWidget = lazy(() => import("./custom-user/CustomUserWidget").then(m => ({ default: m.CustomUserWidget })));
+const OllamaChatWidget = lazy(() => import("./OllamaChatWidget").then(m => ({ default: m.OllamaChatWidget })));
 
 // Map of widget types to their lazy components
 const widgetMap: Record<string, LazyWidgetComponent> = {
@@ -382,6 +383,7 @@ const widgetMap: Record<string, LazyWidgetComponent> = {
   "cron-builder": CronBuilderWidget,
   "diff-viewer": DiffViewerWidget,
   "password-manager": PasswordManagerWidget,
+  "ollama-chat": OllamaChatWidget,
   "custom-user": CustomUserWidget,
 };
 
@@ -412,6 +414,7 @@ function getSkeletonVariant(widgetType: string): "list" | "stats" | "clock" | "n
     case "bookmark-growth":
       return "stats";
     case "notes":
+    case "ollama-chat":
     case "todo":
     case "custom":
     case "prompt":
@@ -773,6 +776,7 @@ export {
   CronBuilderWidget,
   DiffViewerWidget,
   PasswordManagerWidget,
+  OllamaChatWidget,
   CustomUserWidget,
 };
 
@@ -825,6 +829,8 @@ export const specialWidgetTypes = [
   // Utility Extended widgets
   "clipboard-history", "sticky-notes", "link-previewer", "site-status", "api-tester", "cron-builder", "diff-viewer",
   "password-manager",
+  // AI local widgets
+  "ollama-chat",
   // Custom user widgets (HTML/CSS/JS via iframe)
   "custom-user",
 ];

@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validation.data;
 
-    // Check for duplicate URL before inserting
+    // Check for duplicate URL before inserting (solo links activos; los soft-deleted no bloquean)
     const existingLink = await withRetry(
       () =>
         db
@@ -303,10 +303,25 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    log.error({ error: errorMessage, stack: errorStack, operation: "POST" }, "Error creating link");
+    // DrizzleQueryError envuelve el error real de @libsql/client en error.cause
+    const causeMessage = error instanceof Error && error.cause instanceof Error
+      ? error.cause.message
+      : typeof (error as { cause?: unknown } | null)?.cause === "string"
+        ? (error as { cause: string }).cause
+        : "";
+    const fullErrorText = `${errorMessage} ${causeMessage}`.toLowerCase();
 
-    // Check for unique constraint violation (PostgreSQL error code 23505)
-    if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint') || errorMessage.includes('23505')) {
+    log.error({ error: errorMessage, cause: causeMessage, stack: errorStack, operation: "POST" }, "Error creating link");
+
+    // Detectar UNIQUE constraint (PostgreSQL y SQLite)
+    const isUniqueConstraint =
+      fullErrorText.includes("duplicate key") ||
+      fullErrorText.includes("unique constraint") ||
+      fullErrorText.includes("23505") ||
+      fullErrorText.includes("sqlite_constraint_unique") ||
+      fullErrorText.includes("unique constraint failed");
+
+    if (isUniqueConstraint) {
       return NextResponse.json({
         error: "URL duplicada",
         details: "Este enlace ya existe en tu colección"
@@ -315,8 +330,8 @@ export async function POST(request: NextRequest) {
 
     // Sanitize error for other cases
     const sanitizedError = errorMessage
-      .replace(/postgresql:\/\/[^@]+@/gi, 'postgresql://***@') // Hide DB credentials
-      .replace(/password[=:]["']?[^"'\s]+/gi, 'password=***'); // Hide passwords
+      .replace(/postgresql:\/\/[^@]+@/gi, "postgresql://***@")
+      .replace(/password[=:]["']?[^"'\s]+/gi, "password=***");
     return NextResponse.json({
       error: "Error al crear enlace",
       details: sanitizedError

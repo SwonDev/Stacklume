@@ -26,6 +26,9 @@ const DEMO_DEFAULTS = {
   onboardingCompleted: false,
   mcpEnabled: false,
   mcpApiKey: null,
+  ollamaEnabled: false,
+  ollamaUrl: "http://localhost:11434",
+  ollamaModel: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -102,6 +105,7 @@ export async function PUT(request: NextRequest) {
 
     const {
       theme, viewDensity, viewMode, showTooltips, reduceMotion, mcpEnabled, mcpApiKey,
+      ollamaEnabled, ollamaUrl, ollamaModel,
       language, gridColumns, sidebarAlwaysVisible, defaultSortField, defaultSortOrder,
       thumbnailSize, sidebarDensity, autoBackupInterval, confirmBeforeDelete, linkClickBehavior,
       onboardingCompleted,
@@ -156,6 +160,9 @@ export async function PUT(request: NextRequest) {
     if (reduceMotion !== undefined) updateData.reduceMotion = reduceMotion;
     if (mcpEnabled !== undefined) updateData.mcpEnabled = mcpEnabled;
     if (mcpApiKey !== undefined) updateData.mcpApiKey = mcpApiKey;
+    if (ollamaEnabled !== undefined) updateData.ollamaEnabled = ollamaEnabled;
+    if (ollamaUrl !== undefined) updateData.ollamaUrl = ollamaUrl;
+    if (ollamaModel !== undefined) updateData.ollamaModel = ollamaModel;
     if (language !== undefined) updateData.language = language;
     if (gridColumns !== undefined) updateData.gridColumns = gridColumns;
     if (sidebarAlwaysVisible !== undefined) updateData.sidebarAlwaysVisible = sidebarAlwaysVisible;

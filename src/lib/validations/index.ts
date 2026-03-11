@@ -376,6 +376,8 @@ const widgetTypeSchema = z.enum([
   'password-manager',
   // Additional game development
   'tilemap',
+  // AI local widgets
+  'ollama-chat',
   // Custom user widgets (created via MCP or UI with HTML/CSS/JS)
   'custom-user',
 ] as const);
@@ -464,6 +466,10 @@ export const updateSettingsSchema = z.object({
   // MCP server settings
   mcpEnabled: z.boolean().optional(),
   mcpApiKey: z.string().max(64).nullable().optional(),
+  // Ollama
+  ollamaEnabled: z.boolean().optional(),
+  ollamaUrl: z.string().max(255).optional(),
+  ollamaModel: z.string().max(100).nullable().optional(),
   // Extended settings
   language: languageSchema.optional(),
   gridColumns: z.number().int().min(1).max(24).optional(),

@@ -46,7 +46,9 @@ export function FilterBar() {
               >
                 <FilterIcon className="w-3 h-3" />
                 <span className="truncate max-w-[120px] sm:max-w-none">
-                  {activeFilter.label || activeFilter.type}
+                  {activeFilter.ids && activeFilter.ids.length > 1
+                    ? `${activeFilter.ids.length} ${activeFilter.type === "category" ? "categorías" : "etiquetas"}`
+                    : activeFilter.label || activeFilter.type}
                 </span>
               </Badge>
             )}
