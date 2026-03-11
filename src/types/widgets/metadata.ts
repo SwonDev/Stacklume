@@ -1683,6 +1683,15 @@ export const WIDGET_TYPE_METADATA: Record<WidgetType, WidgetTypeMetadata> = {
     defaultTitle: 'Contraseñas',
     configurable: false,
   },
+  'ollama-chat': {
+    type: 'ollama-chat',
+    label: 'Asistente IA (Ollama)',
+    description: 'Chat con IA local sobre tu biblioteca de recursos',
+    icon: 'Bot',
+    defaultSize: 'medium',
+    defaultTitle: 'Asistente IA',
+    configurable: false,
+  },
   'custom-user': {
     type: 'custom-user',
     label: 'Widget personalizado',
@@ -2803,6 +2812,9 @@ export function getDefaultWidgetConfig(type: WidgetType): WidgetConfigOptions {
 
     case 'password-manager':
       return { entries: [] };
+
+    case 'ollama-chat':
+      return { messages: [] };
 
     case 'custom-user':
       return {};

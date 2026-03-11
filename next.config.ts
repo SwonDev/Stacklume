@@ -65,7 +65,7 @@ const nextConfig: NextConfig = {
           },
         },
       }
-    : {}),
+    : { turbopack: {} }),
 
   // Standalone output solo para desktop (Tauri/Electron).
   // Vercel gestiona su propio formato de salida; usar "standalone" en Vercel

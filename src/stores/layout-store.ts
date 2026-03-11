@@ -7,7 +7,8 @@ export type FilterType = "all" | "favorites" | "recent" | "category" | "tag";
 
 export interface ActiveFilter {
   type: FilterType;
-  id?: string; // For category or tag ID
+  id?: string; // For category or tag ID (single selection)
+  ids?: string[]; // For multi-selection (multiple categories or tags)
   label?: string; // Display label for the filter
 }
 

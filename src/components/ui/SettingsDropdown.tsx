@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, ExternalLink, Trash2, MessageSquare, Zap, Volume2, VolumeX,
   ArrowUpDown, Eye, EyeOff, Copy, RefreshCw, BookOpen, CheckCircle2,
   AlertCircle, Loader2, Cloud, HardDrive, Plug, ArrowUpCircle, HelpCircle,
-  Activity, Download, Upload, List, Keyboard,
+  Activity, Download, Upload, List, Keyboard, Bot,
 } from "lucide-react";
 import { isTauriWebView, getServerPort } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
@@ -78,6 +78,7 @@ const CATEGORIES = [
   { id: "backups",     labelKey: "settings.backups",     descKey: "settings.backupsDesc",     icon: Save,             color: "text-teal-500",   bg: "bg-teal-500/10"   },
   { id: "herramientas",labelKey: "settings.tools",       descKey: "settings.toolsDesc",       icon: Wrench,           color: "text-green-500",  bg: "bg-green-500/10"  },
   { id: "atajos",      labelKey: "settings.shortcuts",   descKey: "settings.shortcutsDesc",   icon: Keyboard,         color: "text-yellow-500", bg: "bg-yellow-500/10" },
+  { id: "ia-local",    labelKey: "settings.ollamaLocal",  descKey: "settings.ollamaLocalDesc", icon: Bot,              color: "text-purple-500", bg: "bg-purple-500/10" },
   { id: "mcp",         labelKey: "settings.mcp",         descKey: "settings.mcpDesc",         icon: Plug,             color: "text-cyan-500",   bg: "bg-cyan-500/10"   },
   { id: "sistema",     labelKey: "settings.system",      descKey: "settings.systemDesc",      icon: Database,         color: "text-orange-500", bg: "bg-orange-500/10" },
 ] as const;
@@ -194,10 +195,12 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
   const {
     theme: storedTheme, viewDensity, viewMode, showTooltips, reduceMotion, stickerSoundVolume,
     databaseInfo, isDatabaseLoading, mcpEnabled, mcpApiKey,
+    ollamaEnabled, ollamaUrl, ollamaModel,
     language, gridColumns, sidebarAlwaysVisible, defaultSortField, defaultSortOrder,
     thumbnailSize, sidebarDensity, autoBackupInterval, confirmBeforeDelete, linkClickBehavior,
     setTheme: setStoredTheme, setViewDensity, setViewMode, setShowTooltips, setReduceMotion,
     setStickerSoundVolume, fetchDatabaseInfo, setMcpEnabled, regenerateMcpApiKey,
+    setOllamaEnabled, setOllamaUrl, setOllamaModel,
     setLanguage, setGridColumns, setSidebarAlwaysVisible, setDefaultSortField, setDefaultSortOrder,
     setThumbnailSize, setSidebarDensity, setAutoBackupInterval, setConfirmBeforeDelete, setLinkClickBehavior,
   } = useSettingsStore();
@@ -214,6 +217,12 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [ollamaTestResult, setOllamaTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [ollamaTestLoading, setOllamaTestLoading] = useState(false);
+  // Estado local para los inputs de texto — evita escrituras a BD en cada tecla
+  const [localOllamaUrl, setLocalOllamaUrl] = useState(ollamaUrl ?? "http://localhost:11434");
+  const [localOllamaModel, setLocalOllamaModel] = useState(ollamaModel ?? "");
   const isDesktop = isTauriWebView();
 
   // Puerto preferido estable para MCP en desktop (debe coincidir con PREFERRED_PORT en lib.rs)
@@ -264,6 +273,30 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
     await regenerateMcpApiKey();
     setIsRegenerating(false);
     toast.success(t("settings.mcpKeyRegenerated"));
+  };
+
+  const handleTestOllama = async () => {
+    // Guardar la URL actual antes de probar
+    const urlToTest = localOllamaUrl || "http://localhost:11434";
+    setOllamaUrl(urlToTest);
+    setOllamaTestLoading(true);
+    setOllamaTestResult(null);
+    try {
+      const res = await fetch(`/api/ollama/status?url=${encodeURIComponent(urlToTest)}`);
+      const data = await res.json() as { ok: boolean; modelCount?: number; error?: string };
+      if (data.ok) {
+        setOllamaTestResult({ ok: true, message: t("settings.ollamaTestOk", { count: String(data.modelCount ?? 0) }) });
+        const modelsRes = await fetch(`/api/ollama/models?url=${encodeURIComponent(urlToTest)}`);
+        const modelsData = await modelsRes.json() as { models?: { name: string }[] };
+        setOllamaModels((modelsData.models ?? []).map((m) => m.name));
+      } else {
+        setOllamaTestResult({ ok: false, message: t("settings.ollamaTestError", { error: data.error ?? "Error" }) });
+      }
+    } catch {
+      setOllamaTestResult({ ok: false, message: t("settings.ollamaTestError", { error: "Error de red" }) });
+    } finally {
+      setOllamaTestLoading(false);
+    }
   };
 
   const handleCheckUpdate = () => {
@@ -1033,6 +1066,96 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
           </div>
         );
       }
+
+      case "ia-local":
+        return (
+          <div className="p-3 space-y-4">
+            {/* Toggle Ollama */}
+            <div className="flex items-center gap-3 px-1">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
+                <Bot className="w-3.5 h-3.5 text-purple-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{t("settings.ollamaEnabled")}</p>
+                <p className="text-[10px] text-muted-foreground">{t("settings.ollamaEnabledDesc")}</p>
+              </div>
+              <Toggle value={ollamaEnabled} onChange={setOllamaEnabled} label={t("settings.ollamaEnabled")} t={t} />
+            </div>
+
+            <AnimatePresence>
+              {ollamaEnabled && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-3 pt-1">
+                    {/* URL */}
+                    <div className="rounded-xl border border-border/50 p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">{t("settings.ollamaUrl")}</p>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={localOllamaUrl}
+                          onChange={(e) => setLocalOllamaUrl(e.target.value)}
+                          onBlur={() => setOllamaUrl(localOllamaUrl)}
+                          placeholder={t("settings.ollamaUrlPlaceholder")}
+                          className="flex-1 bg-muted rounded-lg px-2.5 py-1.5 text-xs font-mono border border-border/30 focus:border-primary/50 focus:outline-none transition-colors"
+                        />
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleTestOllama(); }}
+                          disabled={ollamaTestLoading}
+                          className="text-xs px-2.5 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 text-foreground transition-colors font-medium shrink-0 disabled:opacity-50"
+                        >
+                          {ollamaTestLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : t("settings.ollamaTest")}
+                        </button>
+                      </div>
+                      {ollamaTestResult && (
+                        <p className={cn("text-[10px] flex items-center gap-1", ollamaTestResult.ok ? "text-green-500" : "text-destructive")}>
+                          <span>{ollamaTestResult.ok ? "✓" : "✗"}</span>
+                          {ollamaTestResult.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Model selector */}
+                    <div className="rounded-xl border border-border/50 p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">{t("settings.ollamaModel")}</p>
+                      {ollamaModels.length > 0 ? (
+                        <select
+                          value={ollamaModel ?? ""}
+                          onChange={(e) => setOllamaModel(e.target.value || null)}
+                          className="w-full bg-muted rounded-lg px-2.5 py-1.5 text-xs border border-border/30 focus:border-primary/50 focus:outline-none transition-colors"
+                        >
+                          <option value="">{t("settings.ollamaModelPlaceholder")}</option>
+                          {ollamaModels.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={localOllamaModel}
+                          onChange={(e) => setLocalOllamaModel(e.target.value)}
+                          onBlur={() => setOllamaModel(localOllamaModel || null)}
+                          placeholder={t("settings.ollamaModelPlaceholder")}
+                          className="w-full bg-muted rounded-lg px-2.5 py-1.5 text-xs font-mono border border-border/30 focus:border-primary/50 focus:outline-none transition-colors"
+                        />
+                      )}
+                    </div>
+
+                    {/* Hint */}
+                    <p className="text-[10px] text-muted-foreground/60 px-1 leading-relaxed">
+                      {t("settings.ollamaHint")}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
 
       case "mcp":
         return (
