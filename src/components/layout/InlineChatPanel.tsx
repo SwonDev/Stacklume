@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { useLinksStore } from "@/stores/links-store";
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ interface InlineChatPanelProps {
 
 export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const { t } = useTranslation();
+  const refreshAllData = useLinksStore((s) => s.refreshAllData);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -345,6 +347,10 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     : m
                 )
               );
+              // Refrescar biblioteca si se guardaron links (señalado por ✅ en la respuesta)
+              if (typeof data.content === "string" && data.content.includes("✅")) {
+                refreshAllData().catch(() => {/* silencioso */});
+              }
               resolve();
             } else if (data.status === "error") {
               clearInterval(interval);
