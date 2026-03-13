@@ -357,7 +357,7 @@ async function loadLibrary(): Promise<string> {
       .reverse()
       .map(
         (l) =>
-          `- ${l.title ?? l.url} [${l.categoryId ? (catMap.get(l.categoryId) ?? "?") : "?"}]`
+          `- ${l.title ?? l.url} [${l.categoryId ? (catMap.get(l.categoryId) ?? "Sin categoría") : "Sin categoría"}]`
       );
     const parts = [
       `Total: ${total} enlaces, ${catMap.size} categorías.`,
@@ -396,19 +396,35 @@ async function runLlmJob(
 
     const wantsSearch =
       /busca(?!d)|search|en internet|en la web|encuentra en|recomienda|googlea/i.test(msgNorm);
-    // \banad coincide con "añade/añadir/añádelo" en msgNorm (tras NFD + strip diacríticos).
-    // Evita falsos positivos de "mañana" (manana), "tamaño" (tamano), "compañía" (compania).
-    // Negative lookahead ?!d evita "guardado/s", "agregado/s", "integrado/s".
+    // \banad(?!id) coincide con "añade/añadir/añádelo" en msgNorm (tras NFD + strip diacríticos).
+    // Evita falsos positivos:
+    //   - "mañana" (manana), "tamaño" (tamano), "compañía" (compania)
+    //   - "añadidos" (anadidos) — el ?!id excluye el participio pasado
+    //   - "guardado/s", "agregado/s", "integrado/s" — los (?!d) de cada alternativa
     const wantsAdd =
-      /\banad/i.test(msgNorm) ||
+      /\banad(?!id)/i.test(msgNorm) ||
       /guarda(?!d)|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm);
+    // Detectar dominio sin esquema: "añade react.dev", "guarda svelte.dev"
+    // Solo cuando NO hay búsqueda explícita (wantsSearch desactiva esto para no confundir
+    // "busca Node.js y guarda" con "Node.js" como dominio).
+    // TLD whitelist: excluye extensiones de archivo (.js, .ts, .css, .py, etc.)
+    const VALID_TLDS = /^(com|org|net|dev|io|app|sh|ai|co|me|tv|ly|is|to|pm|gg|tech|info|blog|wiki|live|site|web|zone|cloud|store|studio|design|tools|codes|run|works|world|pro|one|fun|xyz|biz|edu|gov|cc|be|uk|es|fr|it|jp|cn|ru|br|ca|au|de|eu|us|nz|sg|mx|ar|cl|pe|in|ng|za)$/i;
+    const domainMatch = !urlMatch && !wantsSearch && wantsAdd
+      ? (() => {
+          const m = userMessage.match(/\b([a-zA-Z0-9][-a-zA-Z0-9]{2,}\.([a-zA-Z]{2,6})(?:\/[^\s]*)?)\b/);
+          return m && VALID_TLDS.test(m[2]) ? m : null;
+        })()
+      : null;
+    const resolvedUrl = urlMatch ? urlMatch[0] : (domainMatch ? `https://${domainMatch[1]}` : null);
+    const resolvedUrlMatch = urlMatch ?? domainMatch;
     // "inclúyelos" / "añade los 3 primeros" = añadir resultado de búsqueda previa
-    const wantsAddPrev = wantsAdd && !urlMatch && !wantsSearch && hasRecentSearch;
+    const wantsAddPrev = wantsAdd && !resolvedUrlMatch && !wantsSearch && hasRecentSearch;
     // "¿qué links tengo de X?", "¿tienes algo de Y?", "mis links de Z", "cuántos links de X"
+    // También: "tengo links de react?", "qué tengo en Desarrollo Web?", "tengo algo en X"
     // "cuantos links tengo?" sin tema específico va a Q&A (no aquí)
     const wantsLibrarySearch =
       !wantsSearch && !wantsAdd && !urlMatch &&
-      /cuantos? (links?|enlaces?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?) tengo|que tengo (de|sobre|con)|tienes algo (de|sobre)|tengo algo (de|sobre)|mis links? (de|sobre)|mis enlaces? (de|sobre)/i.test(msgNorm);
+      /cuantos? (links?|enlaces?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?) tengo|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en)|tengo algo (de|sobre|en)|mis links? (de|sobre)|mis enlaces? (de|sobre)|tengo (links?|enlaces?|recursos?) (de|sobre)/i.test(msgNorm);
 
     // ── CASO 1: Añadir resultados de búsqueda previa ──────────────────────────
     // "inclúyelos", "añade los 3 primeros", "guárdalos todos"
@@ -451,10 +467,10 @@ async function runLlmJob(
       return;
     }
 
-    // ── CASO 2: Guardar URL directa ───────────────────────────────────────────
-    // "guarda https://deno.com", "añade https://bun.sh a mi biblioteca"
-    if (wantsAdd && urlMatch) {
-      const url = urlMatch[0].replace(/[.,;)]+$/, "");
+    // ── CASO 2: Guardar URL directa o dominio sin esquema ─────────────────────
+    // "guarda https://deno.com", "añade https://bun.sh", "añade react.dev"
+    if (wantsAdd && resolvedUrlMatch) {
+      const url = (resolvedUrl ?? resolvedUrlMatch[0]).replace(/[.,;)]+$/, "");
       let title: string;
       try {
         title = new URL(url).hostname.replace(/^www\./, "");
@@ -486,9 +502,11 @@ async function runLlmJob(
     if (wantsLibrarySearch) {
       const keyword = msgNorm
         .replace(
-          /cuantos? (links?|enlaces?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (de|sobre|con)|tienes algo (de|sobre)|tengo algo (de|sobre)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?/gi,
+          /cuantos? (links?|enlaces?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en)|tengo algo (de|sobre|en)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|tengo (links?|enlaces?|recursos?) (de|sobre) ?/gi,
           ""
         )
+        // Eliminar artículos y palabras de categoría sueltas tras el reemplazo
+        .replace(/\bla (categoria|seccion|carpeta)\b|\ben la (categoria|seccion)\b/gi, "")
         // Eliminar ruido de ubicación: "en mi biblioteca", "en la app", etc.
         .replace(/\ben mi biblioteca\b|\ben la app\b|\ben stacklume\b|\ben mi coleccion\b|\bde mi biblioteca\b/gi, "")
         .replace(/^(de|sobre|con|en|tengo)\s+/i, "")
@@ -525,7 +543,7 @@ async function runLlmJob(
     // ── CASO 4: Búsqueda web (con o sin guardar) ──────────────────────────────
     // "busca los mejores gestores de paquetes", "encuentra tutoriales de Next.js"
     // "busca React y guárdalo", "guarda react" (sin URL → búsqueda implícita)
-    if (wantsSearch || (wantsAdd && !urlMatch)) {
+    if (wantsSearch || (wantsAdd && !resolvedUrlMatch)) {
       const query = userMessage
         .normalize("NFC")
         .replace(
