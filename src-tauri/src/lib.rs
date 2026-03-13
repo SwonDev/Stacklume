@@ -765,17 +765,22 @@ async fn download_llm_model_impl(
                         .map_err(|e| format!("Error escribiendo: {}", e))?;
                     downloaded += n as u64;
 
-                    // Emitir progreso cada 2 MB
-                    if downloaded.saturating_sub(last_emitted) >= 2_097_152 {
+                    // Emitir progreso cada 256 KB (o en el primer bloque leído)
+                    if downloaded.saturating_sub(last_emitted) >= 262_144 || last_emitted == 0 {
                         last_emitted = downloaded;
+                        // Si el servidor no devolvió Content-Length (chunked), estimamos
+                        // el tamaño del modelo Qwen3.5-2B (~1.35 GB) para mostrar progreso.
+                        let effective_total = if content_length > 0 {
+                            content_length
+                        } else {
+                            1_450_000_000 // ~1.35 GB estimado
+                        };
                         let _ = app_clone.emit(
                             "llm:download-progress",
                             serde_json::json!({
                                 "downloaded": downloaded,
-                                "total": content_length,
-                                "percent": if content_length > 0 {
-                                    (downloaded * 100 / content_length).min(99)
-                                } else { 0 }
+                                "total": effective_total,
+                                "percent": ((downloaded * 100 / effective_total) as u64).min(99)
                             }),
                         );
                     }

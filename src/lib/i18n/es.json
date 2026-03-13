@@ -3049,6 +3049,8 @@
   "llmChat.noModelDesc": "Descarga el modelo Qwen3.5-2B (~{{size}} GB) para usar el asistente IA de forma local y privada.",
   "llmChat.downloadModel": "Descargar modelo (~{{size}} GB)",
   "llmChat.downloading": "Descargando modelo...",
+  "llmChat.connecting": "Conectando...",
+  "llmChat.waitingData": "Iniciando descarga...",
   "llmChat.modelReady": "Modelo listo",
   "llmChat.errorDownload": "Error al descargar",
   "llmChat.errorChat": "Error al procesar el mensaje",
