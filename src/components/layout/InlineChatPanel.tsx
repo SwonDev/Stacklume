@@ -406,13 +406,13 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
 
           {/* Panel */}
           <motion.div
-            initial={{ x: "100%", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-80 sm:w-96 flex flex-col border-l border-border shadow-2xl bg-card"
-            style={{ backgroundColor: "var(--card, #1a1f2e)" }}
+            className="fixed right-0 top-0 bottom-0 z-50 w-80 sm:w-96"
           >
+          <div className="absolute inset-0 flex flex-col border-l border-border shadow-2xl bg-card">
             {/* Header */}
             <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
@@ -629,6 +629,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                 </>
               )}
             </div>
+          </div>
           </motion.div>
         </>
       )}
