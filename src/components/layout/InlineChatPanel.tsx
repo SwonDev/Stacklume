@@ -483,23 +483,33 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>{t("llmChat.downloading")}</span>
                         <span>
-                          {downloadProgress
-                            ? `${formatBytes(downloadProgress.downloaded)} / ${downloadProgress.total > 0 ? formatBytes(downloadProgress.total) : "?"}`
-                            : "0 B"}
+                          {downloadProgress && downloadProgress.downloaded > 0
+                            ? `${formatBytes(downloadProgress.downloaded)} / ${downloadProgress.total > 0 ? formatBytes(downloadProgress.total) : "~1.35 GB"}`
+                            : t("llmChat.connecting")}
                         </span>
                       </div>
-                      <div className="w-full bg-secondary rounded-full h-2">
-                        <motion.div
-                          className="h-2 rounded-full bg-primary"
-                          initial={{ width: "0%" }}
-                          animate={{
-                            width: `${downloadProgress?.percent ?? 0}%`,
-                          }}
-                          transition={{ ease: "linear" }}
-                        />
+                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                        {downloadProgress && downloadProgress.percent > 0 ? (
+                          <motion.div
+                            className="h-2 rounded-full bg-primary"
+                            initial={{ width: "0%" }}
+                            animate={{ width: `${downloadProgress.percent}%` }}
+                            transition={{ ease: "linear" }}
+                          />
+                        ) : (
+                          // Barra indeterminada mientras no hay progreso real
+                          <motion.div
+                            className="h-2 rounded-full bg-primary"
+                            animate={{ x: ["-100%", "200%"] }}
+                            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                            style={{ width: "40%" }}
+                          />
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {downloadProgress?.percent ?? 0}%
+                        {downloadProgress && downloadProgress.percent > 0
+                          ? `${downloadProgress.percent}%`
+                          : t("llmChat.waitingData")}
                       </p>
                     </div>
                   ) : (

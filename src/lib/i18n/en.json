@@ -3049,6 +3049,8 @@
   "llmChat.noModelDesc": "Download the Qwen3.5-0.8B model (~{{size}} GB) to use the AI assistant locally and privately.",
   "llmChat.downloadModel": "Download model (~{{size}} GB)",
   "llmChat.downloading": "Downloading model...",
+  "llmChat.connecting": "Connecting...",
+  "llmChat.waitingData": "Starting download...",
   "llmChat.modelReady": "Model ready",
   "llmChat.errorDownload": "Download error",
   "llmChat.errorChat": "Error processing message",
