@@ -90,18 +90,25 @@ async function executeTool(
       const query = String(args.query || "").trim();
       if (!query) return JSON.stringify({ error: "query vacía" });
 
-      const res = await fetch(
-        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            Accept: "text/html",
-          },
-          signal: AbortSignal.timeout(10_000),
-        }
-      );
-      if (!res.ok) return JSON.stringify({ error: `DuckDuckGo error ${res.status}` });
+      // DuckDuckGo requiere Referer para no devolver página de challenge (202).
+      // Accept-Language garantiza resultados más relevantes al idioma del usuario.
+      const ddgHeaders = {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://duckduckgo.com/",
+      };
+      const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+      let res = await fetch(ddgUrl, { headers: ddgHeaders, signal: AbortSignal.timeout(12_000) });
+      // 202 = página de challenge (rate-limit/bot detection). Reintentar una vez tras 2s.
+      if (res.status === 202) {
+        await new Promise((r) => setTimeout(r, 2000));
+        res = await fetch(ddgUrl, { headers: ddgHeaders, signal: AbortSignal.timeout(12_000) });
+      }
+      if (!res.ok || res.status === 202)
+        return JSON.stringify({ error: `DuckDuckGo no disponible (${res.status})` });
 
       const html = await res.text();
       const titleRe =
@@ -113,31 +120,37 @@ async function executeTool(
       const snippets: string[] = [];
 
       let m: RegExpExecArray | null;
-      while ((m = titleRe.exec(html)) !== null && rawLinks.length < 6)
+      // Recoger más candidatos (8) para poder descartar ads y quedarnos con 5 orgánicos
+      while ((m = titleRe.exec(html)) !== null && rawLinks.length < 8)
         rawLinks.push({
           href: m[1],
           title: m[2].replace(/<[^>]+>/g, "").trim(),
         });
-      while ((m = snippetRe.exec(html)) !== null && snippets.length < 6)
+      while ((m = snippetRe.exec(html)) !== null && snippets.length < 8)
         snippets.push(
           m[1]
             .replace(/<[^>]+>/g, "")
             .trim()
-            .slice(0, 180)
+            .slice(0, 200)
         );
 
       const results: SearchResult[] = rawLinks
         .map((r, i) => {
           let url = r.href;
+          // Filtrar anuncios: DDG usa /y.js? como tracker de clicks en ads
+          if (url.includes("/y.js?")) return null;
           const uddg = url.match(/uddg=([^&]+)/)?.[1];
           if (uddg) url = decodeURIComponent(uddg);
           else if (url.startsWith("//")) url = "https:" + url;
           const title = r.title
             .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
+            .replace(/&#x27;/g, "'").replace(/&#39;/g, "'");
           return { title, url, description: snippets[i] ?? "" };
         })
-        .filter((r) => r.url.startsWith("http"));
+        .filter((r): r is SearchResult =>
+          r !== null && r.url.startsWith("http") && !r.url.includes("duckduckgo.com")
+        );
 
       if (results.length === 0)
         return JSON.stringify({
@@ -534,13 +547,16 @@ async function runLlmJob(
       const searchData = JSON.parse(searchRes) as {
         results?: SearchResult[];
         message?: string;
+        error?: string;
       };
 
       if (!searchData.results?.length) {
-        jobs.set(jobId, {
-          status: "done",
-          content: searchData.message ?? "No encontré resultados. Prueba con otros términos.",
-        });
+        // Limpiar búsqueda previa para que "añade los primeros" no use resultados obsoletos
+        g.__llmLastSearch = [];
+        const msg = searchData.error?.includes("no disponible")
+          ? "🔍 El buscador no está disponible ahora mismo. Inténtalo de nuevo en unos segundos."
+          : (searchData.message ?? "No encontré resultados. Prueba con otros términos.");
+        jobs.set(jobId, { status: "done", content: msg });
         return;
       }
 
