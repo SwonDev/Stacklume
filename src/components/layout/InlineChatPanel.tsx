@@ -43,9 +43,9 @@ interface DownloadProgress {
 // ─── Modelo por defecto ────────────────────────────────────────────────────────
 
 const DEFAULT_MODEL_URL =
-  "https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf";
-const DEFAULT_MODEL_NAME = "Qwen_Qwen3.5-0.8B-Q4_K_M.gguf";
-const MODEL_SIZE_GB = "0.6";
+  "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf";
+const DEFAULT_MODEL_NAME = "Qwen3.5-2B-Q4_K_M.gguf";
+const MODEL_SIZE_GB = "1.3";
 
 // ─── Utilidades Tauri ─────────────────────────────────────────────────────────
 
@@ -410,7 +410,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-80 sm:w-96"
+            className="fixed right-0 top-12 bottom-0 z-50 w-80 sm:w-96"
           >
           <div className="absolute inset-0 flex flex-col border-l border-border shadow-2xl bg-card">
             {/* Header */}
