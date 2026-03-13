@@ -225,6 +225,9 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         // Máximo de tokens por respuesta
         .arg("--n-predict")
         .arg("1024")
+        // Habilitar Jinja templating — OBLIGATORIO para tool calling (function calling)
+        // Sin este flag, llama-server ignora el campo "tools" en las peticiones.
+        .arg("--jinja")
         // Desactivar thinking mode: fix para bug de parser de tool_call con razonamiento activo
         // (llama.cpp issue #20260 — afecta a Qwen3.5 y modelos con thinking mode)
         .arg("--reasoning")
@@ -955,7 +958,7 @@ pub fn run() {
                             Some(llama_exe.to_string_lossy().to_string());
                         // Comprobar si ya hay un modelo descargado
                         if let Ok(app_data) = app.path().app_data_dir() {
-                            let model_path = app_data.join("models/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf");
+                            let model_path = app_data.join("models/Qwen3.5-2B-Q4_K_M.gguf");
                             if model_path.exists() {
                                 *llama_state.model_path.lock().unwrap() =
                                     Some(model_path.to_string_lossy().to_string());
