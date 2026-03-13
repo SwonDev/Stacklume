@@ -449,17 +449,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Puerto leído desde env var (producción — inyectado por lib.rs al arrancar node.exe)
   const llamaPort = process.env.LLAMA_PORT;
-  if (!llamaPort || llamaPort === "0") {
-    return NextResponse.json(
-      { error: "LLM local no configurado. Instala el modelo primero." },
-      { status: 503 }
-    );
-  }
 
   let body: {
     userMessage: string;
     history?: ConversationMessage[];
+    llamaPort?: number;
   };
 
   try {
@@ -468,17 +464,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 });
   }
 
-  const { userMessage, history = [] } = body;
+  const { userMessage, history = [], llamaPort: clientPort } = body;
 
   if (!userMessage?.trim()) {
     return NextResponse.json({ error: "userMessage es obligatorio" }, { status: 400 });
+  }
+
+  // En dev mode, el frontend pasa el puerto via clientPort (env var no disponible).
+  // En producción, el puerto lo inyecta lib.rs como LLAMA_PORT al arrancar node.exe.
+  const resolvedPort = clientPort && clientPort > 0
+    ? clientPort.toString()
+    : llamaPort;
+
+  if (!resolvedPort || resolvedPort === "0") {
+    return NextResponse.json(
+      { error: "LLM local no configurado. Instala el modelo primero." },
+      { status: 503 }
+    );
   }
 
   const jobId = crypto.randomUUID();
   jobs.set(jobId, { status: "pending" });
 
   // Ejecutar en background sin await
-  runLlmJob(jobId, llamaPort, userMessage.trim(), history);
+  runLlmJob(jobId, resolvedPort, userMessage.trim(), history);
 
   return NextResponse.json({ jobId });
 }

@@ -105,6 +105,19 @@ async function extractZip(zipPath, destDir) {
 async function main() {
   const skipNext = process.env.SKIP_NEXT_BUILD === "1";
 
+  // ── 0. Descargar llama-server si no existe ───────────────────────────────────
+  const llamaExe = join(ROOT, "src-tauri", "resources", "llama", "llama-server.exe");
+  if (!existsSync(llamaExe)) {
+    log("llama-server.exe no encontrado — descargando binarios llama.cpp...");
+    run("node scripts/download-llama.mjs");
+    if (!existsSync(llamaExe)) {
+      throw new Error("download-llama.mjs no generó llama-server.exe en src-tauri/resources/llama/");
+    }
+    log("✓ llama-server descargado");
+  } else {
+    log("✓ llama-server.exe ya existe — saltando descarga");
+  }
+
   // ── 1. Limpiar .next (solo si vamos a compilar) ──────────────────────────────
   if (!skipNext) {
     log("Limpiando .next/...");
@@ -396,13 +409,17 @@ async function main() {
   log("Verificando archivos clave antes de continuar...");
   const nodeExeCheck = join(PATHS.nodeResources, "node.exe");
   const serverJsCheck = join(PATHS.serverResources, "server.js");
+  const llamaExeCheck = join(ROOT, "src-tauri", "resources", "llama", "llama-server.exe");
   if (!existsSync(nodeExeCheck)) {
     throw new Error(`node.exe no encontrado en ${nodeExeCheck}`);
   }
   if (!existsSync(serverJsCheck)) {
     throw new Error(`server.js no encontrado en ${serverJsCheck}`);
   }
-  log("✓ node.exe y server.js verificados");
+  if (!existsSync(llamaExeCheck)) {
+    throw new Error(`llama-server.exe no encontrado en ${llamaExeCheck}`);
+  }
+  log("✓ node.exe, server.js y llama-server.exe verificados");
 
   log("Actualizando src-tauri/tauri.conf.json con recursos...");
   const tauriConfPath = join(ROOT, "src-tauri", "tauri.conf.json");
