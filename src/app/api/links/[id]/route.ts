@@ -93,6 +93,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (validatedData.isRead !== undefined) updateData.isRead = validatedData.isRead;
     if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
     if (validatedData.reminderAt !== undefined) updateData.reminderAt = validatedData.reminderAt;
+    if (validatedData.installCommands !== undefined)
+      updateData.installCommands = validatedData.installCommands ? JSON.stringify(validatedData.installCommands) : null;
 
     const [updated] = await withRetry(
       () => db.update(links).set(updateData).where(eq(links.id, id)).returning(),

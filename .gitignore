@@ -79,6 +79,7 @@ NUL
 src-tauri/target/
 src-tauri/resources/node/
 src-tauri/resources/server/
+src-tauri/resources/llama/
 src-tauri/gen/
 
 # Next.js standalone build para desktop (generado por build-desktop.mjs)

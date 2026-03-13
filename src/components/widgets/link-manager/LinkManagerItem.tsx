@@ -12,6 +12,7 @@ import {
   Plus,
   GripVertical,
   CheckIcon,
+  BookOpen,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -45,6 +46,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useTranslation } from "@/lib/i18n";
 import { showConfirm } from "@/components/ui/ConfirmDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ReaderModeModal } from "@/components/modals/ReaderModeModal";
 import type { Link, Tag } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -81,6 +83,7 @@ export function LinkManagerItem({
   const { t } = useTranslation();
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
+  const [readerOpen, setReaderOpen] = useState(false);
 
   const tags = useLinksStore((state) => state.tags);
   const updateLink = useLinksStore((state) => state.updateLink);
@@ -207,6 +210,14 @@ export function LinkManagerItem({
   }, [link.url]);
 
   return (
+    <>
+    <ReaderModeModal
+      open={readerOpen}
+      onOpenChange={setReaderOpen}
+      linkId={link.id}
+      linkUrl={link.url}
+      linkTitle={link.title}
+    />
     <div
       ref={setNodeRef}
       style={style}
@@ -428,6 +439,10 @@ export function LinkManagerItem({
                 <Pencil className="w-4 h-4 mr-2" />
                 {t("linkManager.edit")}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setReaderOpen(true)}>
+                <BookOpen className="w-4 h-4 mr-2" />
+                Modo lectura
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyUrl}>
                 <Copy className="w-4 h-4 mr-2" />
                 {t("linkManager.copyUrl")}
@@ -460,5 +475,6 @@ export function LinkManagerItem({
         </div>
       </motion.div>
     </div>
+    </>
   );
 }

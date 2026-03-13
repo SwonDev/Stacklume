@@ -20,6 +20,14 @@ const eslintConfig = defineConfig([
     // Temporary and generated files
     "tmp/**",
     "scripts/i18n-keys-*.json",
+    // Archivos auto-generados por Astro (stacklume-web) y artefactos de build
+    "stacklume-web/.astro/**",
+    "stacklume-web/.vercel/**",
+    "stacklume-web/dist/**",
+    // Extensión de navegador (no es código Next.js)
+    "extension/**",
+    // Cobertura de tests
+    "coverage/**",
   ]),
   // Custom rule overrides
   {

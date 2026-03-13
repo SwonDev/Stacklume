@@ -414,25 +414,33 @@ export const useLinksStore = create<LinksState>((set, get) => ({
     return state.links.filter((link) => normalizeUrlForComparison(link.url) === normalizedInput);
   },
 
-  // Refresh all data from API — cache: "no-store" para evitar que WebView2 devuelva datos cacheados
+  // Refresh all data from API — cache: "no-store" + timestamp para evitar que WebView2 devuelva datos cacheados.
+  // WebView2 puede ignorar cache: "no-store" en ciertos escenarios; una URL diferente garantiza cache miss real.
   refreshAllData: async () => {
     try {
+      const t = Date.now();
       const [linksRes, categoriesRes, tagsRes, linkTagsRes, linkCategoriesRes] = await Promise.all([
-        fetch("/api/links", { credentials: "include", cache: "no-store" }),
-        fetch("/api/categories", { credentials: "include", cache: "no-store" }),
-        fetch("/api/tags", { credentials: "include", cache: "no-store" }),
-        fetch("/api/link-tags", { credentials: "include", cache: "no-store" }),
-        fetch("/api/link-categories", { credentials: "include", cache: "no-store" }),
+        fetch(`/api/links?_t=${t}`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/categories?_t=${t}`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/tags?_t=${t}`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/link-tags?_t=${t}`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/link-categories?_t=${t}`, { credentials: "include", cache: "no-store" }),
       ]);
       const [newLinks, newCategories, newTags, newLinkTags, newLinkCategories] = await Promise.all([
-        linksRes.json(),
-        categoriesRes.json(),
-        tagsRes.json(),
-        linkTagsRes.json(),
+        linksRes.ok ? linksRes.json() : null,
+        categoriesRes.ok ? categoriesRes.json() : null,
+        tagsRes.ok ? tagsRes.json() : null,
+        linkTagsRes.ok ? linkTagsRes.json() : null,
         linkCategoriesRes.ok ? linkCategoriesRes.json() : [],
       ]);
-      // Actualización atómica — un solo re-render en lugar de cinco
-      set({ links: newLinks, categories: newCategories, tags: newTags, linkTags: newLinkTags, linkCategories: newLinkCategories });
+      // Actualización atómica — solo actualiza si la respuesta es un array válido
+      const patch: Partial<LinksState> = {};
+      if (Array.isArray(newLinks)) patch.links = newLinks;
+      if (Array.isArray(newCategories)) patch.categories = newCategories;
+      if (Array.isArray(newTags)) patch.tags = newTags;
+      if (Array.isArray(newLinkTags)) patch.linkTags = newLinkTags;
+      if (Array.isArray(newLinkCategories)) patch.linkCategories = newLinkCategories;
+      set(patch);
     } catch (error) {
       console.error("[refreshAllData] Error al recargar datos:", error);
     }

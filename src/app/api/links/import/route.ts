@@ -262,11 +262,42 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         };
 
+        // Aplicar reglas de autoclasificación (no bloquea si falla)
+        let autoTagIds: string[] = [];
+        try {
+          const { applyClassificationRules } = await import("@/lib/classification");
+          const classified = await applyClassificationRules(
+            { url: sanitizedUrl, title: sanitizedTitle, platform: sanitizeText(link.platform) },
+            resolvedCategoryId
+          );
+          if (classified.categoryId && !resolvedCategoryId) {
+            newLink.categoryId = classified.categoryId;
+          }
+          autoTagIds = classified.tagIds;
+        } catch {
+          // No bloquear la importación
+        }
+
         const [created] = await withRetry(
           () => db.insert(links).values(newLink).returning(),
           { operationName: "import link" }
         );
         imported++;
+
+        // Insertar etiquetas automáticas de clasificación
+        if (autoTagIds.length > 0) {
+          try {
+            await withRetry(
+              () =>
+                db.insert(linkTags).values(
+                  autoTagIds.map((tagId) => ({ linkId: created.id, tagId }))
+                ).onConflictDoNothing(),
+              { operationName: "insert auto classification tags (import)" }
+            );
+          } catch {
+            // No crítico
+          }
+        }
 
         // Importar asociaciones link-tag usando el ID original del link
         const originalLinkId = link.id; // Ahora accesible directamente (id en schema)

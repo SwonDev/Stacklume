@@ -126,8 +126,8 @@ export function OnboardingTour({
     if (!mounted) return;
 
     if (forceShow) {
-      setIsActive(true);
-      return;
+      const t = setTimeout(() => setIsActive(true), 0);
+      return () => clearTimeout(t);
     }
 
     // Esperar a que settings esté inicializado para leer el valor real de la DB

@@ -191,6 +191,9 @@ export type WidgetType =
   | 'diff-viewer'      // Text diff comparison
   | 'password-manager'  // Gestor de contraseñas (logins, usuarios, URLs)
   | 'ollama-chat'       // Chat IA con Ollama local
+  // Nuevas funcionalidades exclusivas desktop (v0.3.27)
+  | 'session-launcher'  // Lanzador de sesiones: abre grupos de links a la vez
+  | 'reading-queue'     // Cola de lectura: inbox → reading → done
   | 'custom-user';      // Widget con HTML/CSS/JS personalizado (creado vía MCP o UI)
 
 export type WidgetSize = 'small' | 'medium' | 'large' | 'wide' | 'tall';

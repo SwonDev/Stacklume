@@ -193,6 +193,8 @@ export function EditLinkModal() {
 
         toast.success(t("editLink.successUpdate"));
         useLinksStore.getState().closeEditLinkModal();
+        // Sincronizar estado servidor → cliente para reflejar cambios en todos los widgets
+        await useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("editLink.errorUpdate"));
       }
@@ -219,6 +221,8 @@ export function EditLinkModal() {
         useLinksStore.getState().removeLink(selectedLink.id);
         toast.success(t("editLink.successDelete"));
         useLinksStore.getState().closeEditLinkModal();
+        // Sincronizar estado servidor → cliente
+        await useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("editLink.errorDelete"));
       }

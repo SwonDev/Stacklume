@@ -5,35 +5,103 @@ import { toast } from "sonner";
 import { useLinksStore } from "@/stores/links-store";
 import { openExternalUrl } from "@/lib/desktop";
 
+const NOTIFIED_KEY = "stacklume-notified-reminders";
+
+function loadNotifiedFromStorage(): Set<string> {
+  try {
+    const raw = localStorage.getItem(NOTIFIED_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set<string>(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveNotifiedToStorage(set: Set<string>): void {
+  try {
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...set]));
+  } catch {
+    // localStorage lleno — ignorar
+  }
+}
+
+async function requestNotificationPermission(): Promise<boolean> {
+  if (typeof Notification === "undefined") return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  const result = await Notification.requestPermission();
+  return result === "granted";
+}
+
+function showNativeNotification(title: string, body: string, url: string): void {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const notification = new Notification(`Recordatorio: ${title}`, {
+      body,
+      icon: "/favicon-32x32.png",
+      tag: `reminder-${url}`,
+      requireInteraction: true,
+    });
+    notification.onclick = () => {
+      notification.close();
+      openExternalUrl(url);
+    };
+  } catch {
+    // Fallo silencioso — el toast ya se mostró
+  }
+}
+
 export function ReminderChecker() {
   const links = useLinksStore((s) => s.links);
-  const notifiedIds = useRef(new Set<string>());
+  // Ref mutable — se inicializa lazy desde localStorage
+  const notifiedRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
-    const check = () => {
+    // Inicializar desde localStorage una sola vez
+    if (!notifiedRef.current) {
+      notifiedRef.current = loadNotifiedFromStorage();
+    }
+    const notified = notifiedRef.current;
+
+    const check = async () => {
       const now = new Date();
+      const newIds: string[] = [];
+
       for (const link of links) {
         if (
           link.reminderAt &&
           new Date(link.reminderAt) <= now &&
-          !link.isRead &&
-          !notifiedIds.current.has(link.id)
+          !notified.has(link.id)
         ) {
-          notifiedIds.current.add(link.id);
+          notified.add(link.id);
+          newIds.push(link.id);
+
+          const description = link.notes || link.url;
+
           toast.info(`Recordatorio: ${link.title}`, {
-            description: link.notes || link.url,
+            description,
             action: {
               label: "Abrir",
               onClick: () => openExternalUrl(link.url),
             },
             duration: 10000,
           });
+
+          const hasPermission = await requestNotificationPermission();
+          if (hasPermission) {
+            showNativeNotification(link.title, description, link.url);
+          }
         }
+      }
+
+      if (newIds.length > 0) {
+        saveNotifiedToStorage(notified);
       }
     };
 
     check();
-    const interval = setInterval(check, 60000);
+    const interval = setInterval(check, 60_000);
     return () => clearInterval(interval);
   }, [links]);
 

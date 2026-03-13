@@ -72,6 +72,8 @@ interface ScrapedData {
   platformLabel?: string;
   platformColor?: string;
   platformIcon?: string;
+  // DevKit
+  installCommands?: string[];
 }
 
 interface TagSuggestion {
@@ -372,6 +374,7 @@ export function AddLinkModal() {
           platform: scrapedData?.platform,
           contentType: scrapedData?.contentType,
           platformColor: scrapedData?.platformColor,
+          installCommands: scrapedData?.installCommands ?? null,
         }),
       });
 

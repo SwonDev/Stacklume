@@ -184,6 +184,11 @@ export const links = pgTable(
     isRead: boolCol("is_read").default(false),
     notes: text("notes"),
     reminderAt: timestamp("reminder_at", { withTimezone: true }),
+    // Feature 5: Reading Queue
+    readingStatus: varchar("reading_status", { length: 20 }).default("inbox"), // "inbox" | "reading" | "done"
+    reviewAt: timestamp("review_at", { withTimezone: true }), // Para repetición espaciada
+    // DevKit — comandos de instalación extraídos del HTML al guardar el enlace
+    installCommands: text("install_commands"), // JSON string: string[]
   },
   (table) => ({
     userIdIdx: index("idx_links_user_id").on(table.userId),
@@ -542,3 +547,76 @@ export const linkCategories = pgTable("link_categories", {
 }, (table) => [
   primaryKey({ columns: [table.linkId, table.categoryId] }),
 ]);
+
+// ─── Classification Rules ────────────────────────────────────────────────────
+export const classificationRules = pgTable(
+  "classification_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").default("default"),
+    name: varchar("name", { length: 100 }).notNull(),
+    // Tipo de condición: url_pattern | title_keyword | platform | domain
+    conditionType: varchar("condition_type", { length: 30 }).notNull(),
+    // Valor de la condición: regex, keyword, nombre de plataforma o dominio
+    conditionValue: text("condition_value").notNull(),
+    // Acción: set_category | add_tag
+    actionType: varchar("action_type", { length: 30 }).notNull(),
+    // ID de la categoría o etiqueta a aplicar
+    actionValue: text("action_value").notNull(),
+    order: integer("order").default(0).notNull(),
+    isActive: boolCol("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    userIdIdx: index("idx_classification_rules_user_id").on(table.userId),
+    orderIdx: index("idx_classification_rules_order").on(table.order),
+  })
+);
+
+export type ClassificationRule = typeof classificationRules.$inferSelect;
+export type NewClassificationRule = typeof classificationRules.$inferInsert;
+
+// ─── Link Sessions (Feature 3: Session Launcher) ─────────────────────────────
+export const linkSessions = pgTable(
+  "link_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: varchar("user_id", { length: 100 }).default("default"),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    linkIds: json("link_ids").$type<string[]>().default([]).notNull(),
+    order: integer("order").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => ({
+    userIdIdx: index("idx_link_sessions_user_id").on(table.userId),
+  })
+);
+
+export type LinkSession = typeof linkSessions.$inferSelect;
+export type NewLinkSession = typeof linkSessions.$inferInsert;
+
+// ─── Page Archives (Feature 4: Local Archiving) ───────────────────────────────
+export const pageArchives = pgTable(
+  "page_archives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: varchar("user_id", { length: 100 }).default("default"),
+    linkId: uuid("link_id").notNull().references(() => links.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 500 }),
+    textContent: text("text_content"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    wordCount: integer("word_count").default(0).notNull(),
+    size: integer("size").default(0).notNull(), // bytes
+  },
+  (table) => ({
+    userIdIdx: index("idx_page_archives_user_id").on(table.userId),
+    linkIdIdx: index("idx_page_archives_link_id").on(table.linkId),
+  })
+);
+
+export type PageArchive = typeof pageArchives.$inferSelect;
+export type NewPageArchive = typeof pageArchives.$inferInsert;

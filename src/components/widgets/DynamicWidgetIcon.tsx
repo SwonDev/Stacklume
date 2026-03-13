@@ -408,6 +408,7 @@ export function DynamicWidgetIcon({ iconValue, className }: DynamicWidgetIconPro
   // Si es una data URL, renderizar como imagen
   if (iconValue.startsWith("data:")) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={iconValue}
         className={cn("w-4 h-4 object-contain rounded-sm", className)}

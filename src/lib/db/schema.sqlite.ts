@@ -156,6 +156,11 @@ export const links = sqliteTable(
     isRead: integer("is_read", { mode: "boolean" }).default(false),
     notes: text("notes"),
     reminderAt: integer("reminder_at", { mode: "timestamp_ms" }),
+    // Feature 5: Reading Queue
+    readingStatus: text("reading_status").notNull().default("inbox"), // "inbox" | "reading" | "done"
+    reviewAt: integer("review_at", { mode: "timestamp_ms" }), // Para repetición espaciada
+    // DevKit — comandos de instalación extraídos del HTML al guardar el enlace
+    installCommands: text("install_commands"), // JSON string: string[]
   },
   (table) => [
     index("idx_links_user_id").on(table.userId),
@@ -481,6 +486,66 @@ export const linkCategories = sqliteTable("link_categories", {
 }, (table) => [
   primaryKey({ columns: [table.linkId, table.categoryId] }),
 ]);
+
+// ─── Classification Rules ────────────────────────────────────────────────────
+export const classificationRules = sqliteTable("classification_rules", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").default("default"),
+  name: text("name").notNull(),
+  conditionType: text("condition_type").notNull(),
+  conditionValue: text("condition_value").notNull(),
+  actionType: text("action_type").notNull(),
+  actionValue: text("action_value").notNull(),
+  order: integer("order").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export type ClassificationRule = typeof classificationRules.$inferSelect;
+export type NewClassificationRule = typeof classificationRules.$inferInsert;
+
+// ─── Link Sessions (Feature 3: Session Launcher) ─────────────────────────────
+export const linkSessions = sqliteTable(
+  "link_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").default("default"),
+    name: text("name").notNull(),
+    description: text("description"),
+    linkIds: text("link_ids", { mode: "json" }).$type<string[]>().default([]).notNull(),
+    order: integer("order").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [index("idx_link_sessions_user_id").on(table.userId)]
+);
+
+export type LinkSession = typeof linkSessions.$inferSelect;
+export type NewLinkSession = typeof linkSessions.$inferInsert;
+
+// ─── Page Archives (Feature 4: Local Archiving) ───────────────────────────────
+export const pageArchives = sqliteTable(
+  "page_archives",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").default("default"),
+    linkId: text("link_id").notNull().references(() => links.id, { onDelete: "cascade" }),
+    title: text("title"),
+    textContent: text("text_content"),
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }).notNull(),
+    wordCount: integer("word_count").notNull().default(0),
+    size: integer("size").notNull().default(0),
+  },
+  (table) => [
+    index("idx_page_archives_user_id").on(table.userId),
+    index("idx_page_archives_link_id").on(table.linkId),
+  ]
+);
+
+export type PageArchive = typeof pageArchives.$inferSelect;
+export type NewPageArchive = typeof pageArchives.$inferInsert;
 
 // Evitar error TS de módulo sin usar
 export { real };

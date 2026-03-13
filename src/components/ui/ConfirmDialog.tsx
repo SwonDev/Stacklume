@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +57,12 @@ export function showConfirm(options: ConfirmOptions): Promise<boolean> {
  */
 export function ConfirmDialog() {
   const [state, setState] = useState<ConfirmState>(CLOSED);
-  _set = setState;
+
+  // Sincronizar el setter en un efecto para no mutar una variable de módulo durante el render
+  useLayoutEffect(() => {
+    _set = setState;
+    return () => { _set = null; };
+  }, [setState]);
 
   const close = (result: boolean) => {
     state.resolve?.(result);

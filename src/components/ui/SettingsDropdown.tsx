@@ -7,13 +7,13 @@ import {
   Image as ImageIcon, ExternalLink, Trash2, MessageSquare, Zap, Volume2, VolumeX,
   ArrowUpDown, Eye, EyeOff, Copy, RefreshCw, BookOpen, CheckCircle2,
   AlertCircle, Loader2, Cloud, HardDrive, Plug, ArrowUpCircle, HelpCircle,
-  Activity, Download, Upload, List, Keyboard, Bot,
+  Activity, Download, Upload, List, Keyboard, Bot, Tags, Layers, Inbox,
 } from "lucide-react";
 import { isTauriWebView, getServerPort } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { McpDocsDialog } from "@/components/ui/McpDocsDialog";
 import { useTheme } from "next-themes";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -186,10 +186,13 @@ interface SettingsDropdownProps {
   onOpenImportExport?: () => void;
   onOpenDuplicates?: () => void;
   onOpenHealthCheck?: () => void;
+  onOpenClassificationRules?: () => void;
+  onOpenSessions?: () => void;
+  onOpenReadingQueue?: () => void;
 }
 
 // ─── Componente principal ────────────────────────────────────────────────────
-export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenHealthCheck }: SettingsDropdownProps) {
+export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenHealthCheck, onOpenClassificationRules, onOpenSessions, onOpenReadingQueue }: SettingsDropdownProps) {
   const { setTheme: setNextTheme, theme: currentNextTheme } = useTheme();
   const { t } = useTranslation();
   const {
@@ -206,7 +209,11 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
   } = useSettingsStore();
 
   const [open, setOpen]                       = useState(false);
-  const settingsTriggerId = useId();
+  // ID estático en lugar de useId() — hay un único SettingsDropdown en la página,
+  // por lo que un ID fijo evita el hydration mismatch causado por useSyncExternalStore
+  // (DesktopTitleBar, useElectron) que desplazan el contador de IDs de Radix entre
+  // el render SSR y el render de hidratación del cliente.
+  const settingsTriggerId = "stacklume-settings-trigger";
   const [activePanel, setActivePanel]         = useState<PanelId>("main");
   const [direction, setDirection]             = useState(1);
   const [showMcpKey, setShowMcpKey]           = useState(false);
@@ -962,13 +969,33 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
             Icon: Activity,
             onClick: () => { setOpen(false); onOpenHealthCheck?.(); },
           },
-          ...(isDesktop ? [{
-            labelKey: "settings.checkUpdates",
-            descKey: "settings.checkUpdatesDesc",
-            Icon: ArrowUpCircle,
-            onClick: handleCheckUpdate,
-            loading: isCheckingUpdate,
-          }] : []),
+          {
+            labelKey: "settings.classificationRules",
+            descKey: "settings.classificationRulesDesc",
+            Icon: Tags,
+            onClick: () => { setOpen(false); onOpenClassificationRules?.(); },
+          },
+          {
+            labelKey: "settings.linkSessions",
+            descKey: "settings.linkSessionsDesc",
+            Icon: Layers,
+            onClick: () => { setOpen(false); onOpenSessions?.(); },
+          },
+          {
+            labelKey: "settings.readingQueue",
+            descKey: "settings.readingQueueDesc",
+            Icon: Inbox,
+            onClick: () => { setOpen(false); onOpenReadingQueue?.(); },
+          },
+          ...(isDesktop ? [
+            {
+              labelKey: "settings.checkUpdates",
+              descKey: "settings.checkUpdatesDesc",
+              Icon: ArrowUpCircle,
+              onClick: handleCheckUpdate,
+              loading: isCheckingUpdate,
+            },
+          ] : []),
         ];
 
         return (

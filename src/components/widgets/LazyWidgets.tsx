@@ -194,6 +194,8 @@ const DiffViewerWidget = lazy(() => import("./DiffViewerWidget").then(m => ({ de
 const PasswordManagerWidget = lazy(() => import("./PasswordManagerWidget").then(m => ({ default: m.PasswordManagerWidget })));
 const CustomUserWidget = lazy(() => import("./custom-user/CustomUserWidget").then(m => ({ default: m.CustomUserWidget })));
 const OllamaChatWidget = lazy(() => import("./OllamaChatWidget").then(m => ({ default: m.OllamaChatWidget })));
+const SessionLauncherWidget = lazy(() => import("./SessionLauncherWidget").then(m => ({ default: m.SessionLauncherWidget })));
+const ReadingQueueWidget = lazy(() => import("./ReadingQueueWidget").then(m => ({ default: m.ReadingQueueWidget })));
 
 // Map of widget types to their lazy components
 const widgetMap: Record<string, LazyWidgetComponent> = {
@@ -384,6 +386,8 @@ const widgetMap: Record<string, LazyWidgetComponent> = {
   "diff-viewer": DiffViewerWidget,
   "password-manager": PasswordManagerWidget,
   "ollama-chat": OllamaChatWidget,
+  "session-launcher": SessionLauncherWidget,
+  "reading-queue": ReadingQueueWidget,
   "custom-user": CustomUserWidget,
 };
 
@@ -588,7 +592,7 @@ export function LazyWidgetRenderer({ widget }: LazyWidgetRendererProps) {
   const skeletonVariant = getSkeletonVariant(widget.type);
 
   // Some widgets don't need the widget prop (like ClockWidget, StatsWidget)
-  const noPropsWidgets = ["clock", "stats", "calendar", "quick-add"];
+  const noPropsWidgets = ["clock", "stats", "calendar", "quick-add", "session-launcher", "reading-queue"];
   const needsWidget = !noPropsWidgets.includes(widget.type);
 
   return (
@@ -777,6 +781,8 @@ export {
   DiffViewerWidget,
   PasswordManagerWidget,
   OllamaChatWidget,
+  SessionLauncherWidget,
+  ReadingQueueWidget,
   CustomUserWidget,
 };
 
@@ -831,6 +837,9 @@ export const specialWidgetTypes = [
   "password-manager",
   // AI local widgets
   "ollama-chat",
+  // Desktop-exclusive features (v0.3.27)
+  "session-launcher",
+  "reading-queue",
   // Custom user widgets (HTML/CSS/JS via iframe)
   "custom-user",
 ];

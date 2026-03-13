@@ -5,6 +5,7 @@ import { validateUrlForSSRF } from "@/lib/security/ssrf-protection";
 import { createModuleLogger } from "@/lib/logger";
 import { scrapeCache } from "@/lib/cache";
 import { scrapeUrlSchema, validateRequest } from "@/lib/validations";
+import { extractInstallCommands } from "@/lib/install-extractor";
 
 // Create a module-specific logger
 const log = createModuleLogger("api/scrape");
@@ -45,6 +46,8 @@ interface ScrapeResult {
   platformLabel: string;
   platformColor: string;
   platformIcon: string;
+  // DevKit — comandos de instalación extraídos del HTML
+  installCommands: string[];
 }
 
 // Check if a YouTube thumbnail exists and return best quality
@@ -512,6 +515,7 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
 
     const html = await response.text();
     const metadata = parseMetaTagsWithCheerio(html, url);
+    const installCommands = extractInstallCommands(html);
 
     log.debug({
       url: url.toString(),
@@ -520,6 +524,7 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
       hasImage: !!metadata.imageUrl,
       hasDescription: !!metadata.description,
       siteName: metadata.siteName,
+      installCommandsCount: installCommands.length,
     }, "Scraped metadata with cheerio");
 
     return {
@@ -534,6 +539,7 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
       platformLabel: detection.label,
       platformColor: detection.color,
       platformIcon: detection.icon,
+      installCommands,
     };
   } catch (error) {
     log.warn({ error, url: url.toString() }, "Error fetching page for scrape");
@@ -551,6 +557,7 @@ async function scrapeWithFetch(url: URL, detection: ReturnType<typeof detectPlat
       platformLabel: detection.label,
       platformColor: detection.color,
       platformIcon: detection.icon,
+      installCommands: [],
     };
   }
 }
@@ -618,6 +625,8 @@ export async function POST(request: NextRequest) {
       platformLabel: platformResult?.platformLabel || detection.label,
       platformColor: platformResult?.platformColor || detection.color,
       platformIcon: platformResult?.platformIcon || detection.icon,
+      // DevKit — comandos extraídos del HTML (solo desde scrapeWithFetch, no plataformas)
+      installCommands: htmlResult.installCommands,
     };
 
     scrapeCache.set(url, result);

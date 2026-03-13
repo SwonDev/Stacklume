@@ -273,6 +273,7 @@ export function WidgetIconPicker({ widget, open, onClose, position }: WidgetIcon
           {/* Vista previa del icono actual si es imagen */}
           {currentCustomIcon?.startsWith("data:") && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentCustomIcon}
                 alt="Icono actual"

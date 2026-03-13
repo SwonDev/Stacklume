@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { useLinksStore } from "@/stores/links-store";
@@ -175,8 +174,8 @@ export function HealthCheckModal({ open, onOpenChange }: HealthCheckModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl glass">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl glass max-h-[88vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
             {t("healthCheck.title")}
@@ -225,8 +224,8 @@ export function HealthCheckModal({ open, onOpenChange }: HealthCheckModalProps) 
         )}
 
         {!isChecking && summary && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-5 gap-2">
+          <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
+            <div className="grid grid-cols-5 gap-2 shrink-0">
               {(Object.keys(STATUS_ICONS) as HealthStatus[]).map((status) => {
                 const cfg = STATUS_ICONS[status];
                 const count = summary[status];
@@ -252,20 +251,20 @@ export function HealthCheckModal({ open, onOpenChange }: HealthCheckModalProps) 
             </div>
 
             {hasIssues ? (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-amber-600 dark:text-amber-400">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-amber-600 dark:text-amber-400 shrink-0">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 {issueCount !== 1
                   ? t("healthCheck.problemsFoundPlural", { count: issueCount })
                   : t("healthCheck.problemsFound", { count: issueCount })}
               </div>
             ) : (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm text-green-600 dark:text-green-400">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm text-green-600 dark:text-green-400 shrink-0">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 {t("healthCheck.allGood")}
               </div>
             )}
 
-            <ScrollArea className="max-h-[40vh]">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="space-y-1 pr-1">
                 {filteredResults.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-6">
@@ -338,9 +337,9 @@ export function HealthCheckModal({ open, onOpenChange }: HealthCheckModalProps) 
                   })
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
-            <div className="flex justify-end pt-1">
+            <div className="flex justify-end pt-1 shrink-0">
               <Button variant="outline" size="sm" onClick={handleStartCheck} className="gap-2">
                 <RefreshCw className="w-3.5 h-3.5" />
                 {t("healthCheck.retryCheck")}
