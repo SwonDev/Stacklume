@@ -240,7 +240,11 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         url: DEFAULT_MODEL_URL,
         modelName: DEFAULT_MODEL_NAME,
       });
-      // El estado se actualiza via "llm:status-changed" event
+      // Descarga completada — transición inmediata a "iniciando"
+      setIsDownloading(false);
+      setDownloadProgress(null);
+      setLlmStatus("starting");
+      pollUntilReady();
     } catch (err) {
       setStatusError(err instanceof Error ? err.message : String(err));
       setIsDownloading(false);
@@ -489,15 +493,15 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                         </span>
                       </div>
                       <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-                        {downloadProgress && downloadProgress.percent > 0 ? (
+                        {downloadProgress && downloadProgress.downloaded > 0 ? (
                           <motion.div
                             className="h-2 rounded-full bg-primary"
                             initial={{ width: "0%" }}
-                            animate={{ width: `${downloadProgress.percent}%` }}
-                            transition={{ ease: "linear" }}
+                            animate={{ width: `${Math.max(downloadProgress.percent, 0.5)}%` }}
+                            transition={{ ease: "linear", duration: 0.3 }}
                           />
                         ) : (
-                          // Barra indeterminada mientras no hay progreso real
+                          // Barra indeterminada mientras conecta (aún no llegan bytes)
                           <motion.div
                             className="h-2 rounded-full bg-primary"
                             animate={{ x: ["-100%", "200%"] }}
@@ -507,7 +511,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {downloadProgress && downloadProgress.percent > 0
+                        {downloadProgress && downloadProgress.downloaded > 0
                           ? `${downloadProgress.percent}%`
                           : t("llmChat.waitingData")}
                       </p>
