@@ -639,6 +639,7 @@ async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
     std::thread::spawn(move || {
         if let Err(e) = spawn_llama_server_blocking(&app_clone) {
             eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
+            let _ = app_clone.emit("llm:status-changed", format!("error: {}", e));
         }
     });
     Ok(())
@@ -710,6 +711,7 @@ async fn download_llm_model_impl(
         std::thread::spawn(move || {
             if let Err(e) = spawn_llama_server_blocking(&app_clone) {
                 eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
+                let _ = app_clone.emit("llm:status-changed", format!("error: {}", e));
             }
         });
         return Ok(());
@@ -775,12 +777,13 @@ async fn download_llm_model_impl(
                         } else {
                             1_450_000_000 // ~1.35 GB estimado
                         };
+                        let percent = ((downloaded as f64 / effective_total as f64) * 100.0) as u64;
                         let _ = app_clone.emit(
                             "llm:download-progress",
                             serde_json::json!({
                                 "downloaded": downloaded,
                                 "total": effective_total,
-                                "percent": ((downloaded * 100 / effective_total) as u64).min(99)
+                                "percent": percent.min(99)
                             }),
                         );
                     }
@@ -834,6 +837,7 @@ async fn download_llm_model_impl(
     std::thread::spawn(move || {
         if let Err(e) = spawn_llama_server_blocking(&app_clone) {
             eprintln!("[Stacklume] Error arrancando llama-server tras descarga: {}", e);
+            let _ = app_clone.emit("llm:status-changed", format!("error: {}", e));
         }
     });
 
