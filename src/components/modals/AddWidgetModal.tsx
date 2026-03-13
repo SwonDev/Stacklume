@@ -410,6 +410,8 @@ const formSchema = z.object({
     "diff-viewer",
     "password-manager",
     "ollama-chat",
+    "session-launcher",
+    "reading-queue",
     "custom-user",
   ]),
   title: z.string().min(1),
@@ -629,6 +631,8 @@ const widgetTypeOptions: Array<{
   { type: "diff-viewer", labelKey: "widget.diff-viewer.label", descKey: "widget.diff-viewer.desc", icon: GitCompare },
   { type: "password-manager", labelKey: "widget.password-manager.label", descKey: "widget.password-manager.desc", icon: KeyRound },
   { type: "ollama-chat", labelKey: "widget.ollama-chat.label", descKey: "widget.ollama-chat.desc", icon: Bot },
+  { type: "session-launcher", labelKey: "widget.session-launcher.label", descKey: "widget.session-launcher.desc", icon: Layers },
+  { type: "reading-queue", labelKey: "widget.reading-queue.label", descKey: "widget.reading-queue.desc", icon: BookOpen },
 ];
 
 // Size options - labels resolved via i18n
@@ -650,7 +654,7 @@ interface WidgetCategory {
 }
 
 const WIDGET_CATEGORIES: WidgetCategory[] = [
-  { id: "links", labelKey: "addWidget.catLinks", icon: Link, color: "blue", widgets: ["favorites", "recent", "category", "tag", "categories", "quick-add", "bookmarks", "search", "random-link", "link-manager"] },
+  { id: "links", labelKey: "addWidget.catLinks", icon: Link, color: "blue", widgets: ["favorites", "recent", "category", "tag", "categories", "quick-add", "bookmarks", "search", "random-link", "link-manager", "session-launcher", "reading-queue"] },
   { id: "productivity", labelKey: "addWidget.catProductivity", icon: Clock, color: "green", widgets: ["clock", "notes", "progress", "pomodoro", "calendar", "todo", "countdown", "habit-tracker", "weather", "quote", "custom"] },
   { id: "analytics", labelKey: "addWidget.catAnalytics", icon: BarChart3, color: "purple", widgets: ["stats", "link-analytics", "github-activity", "bookmark-growth", "reading-streak", "tag-cloud", "rss-feed"] },
   { id: "external", labelKey: "addWidget.catExternal", icon: Globe, color: "cyan", widgets: ["github-trending", "steam-games", "nintendo-deals", "github-search", "codepen", "spotify", "youtube", "crypto", "unsplash", "embed"] },
@@ -1041,7 +1045,8 @@ export function AddWidgetModal() {
 
     if (newSelection.length === 1) {
       const metadata = WIDGET_TYPE_METADATA[newSelection[0]];
-      form.setValue("type", newSelection[0]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      form.setValue("type", newSelection[0] as any);
       form.setValue("title", metadata.defaultTitle);
       form.setValue("size", metadata.defaultSize);
     }

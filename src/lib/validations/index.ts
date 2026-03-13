@@ -36,20 +36,31 @@ const uuidSchema = z.string().uuid('Invalid UUID format');
 // Optional UUID (can be null or undefined)
 const optionalUuidSchema = z.string().uuid('Invalid UUID format').nullable().optional();
 
-// URL validation - must be valid URL format
+// URL validation - must be valid URL format or local:// path
 const urlSchema = z
   .string()
   .min(1, 'URL is required')
-  .url('Must be a valid URL');
+  .refine(
+    (url) => {
+      if (url.startsWith('local://')) return url.length > 8;
+      try { new URL(url); return true; } catch { return false; }
+    },
+    'Must be a valid URL or local:// path'
+  );
 
-// URL validation with protocol requirement (http/https)
+// URL validation with protocol requirement (http/https or local://)
 const httpUrlSchema = z
   .string()
   .min(1, 'URL is required')
-  .url('Must be a valid URL')
   .refine(
-    (url) => url.startsWith('http://') || url.startsWith('https://'),
-    'URL must start with http:// or https://'
+    (url) => {
+      if (url.startsWith('local://')) return url.length > 8;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        try { new URL(url); return true; } catch { return false; }
+      }
+      return false;
+    },
+    'URL must start with http://, https://, or local://'
   );
 
 // Color hex validation
@@ -89,6 +100,7 @@ export const createLinkSchema = z.object({
   platform: z.string().max(50, 'Platform must be 50 characters or less').nullable().optional(),
   contentType: z.string().max(30, 'Content type must be 30 characters or less').nullable().optional(),
   platformColor: z.string().max(20, 'Platform color must be 20 characters or less').nullable().optional(),
+  installCommands: z.array(z.string().max(300)).max(20).nullable().optional(),
 });
 
 // Update link request body (all fields optional except ID)
@@ -111,6 +123,7 @@ export const updateLinkSchema = z.object({
   isRead: z.boolean().optional(),
   notes: z.string().nullable().optional(),
   reminderAt: isoDateSchema.nullable().optional(),
+  installCommands: z.array(z.string().max(300)).max(20).nullable().optional(),
 });
 
 // Link ID param
@@ -378,6 +391,10 @@ const widgetTypeSchema = z.enum([
   'tilemap',
   // AI local widgets
   'ollama-chat',
+  // Feature 3: Session Launcher
+  'session-launcher',
+  // Feature 5: Reading Queue
+  'reading-queue',
   // Custom user widgets (created via MCP or UI with HTML/CSS/JS)
   'custom-user',
 ] as const);
@@ -549,6 +566,87 @@ export const widgetLayoutsUpdateSchema = z.object({
 });
 
 export type WidgetLayoutsUpdateInput = z.infer<typeof widgetLayoutsUpdateSchema>;
+
+// ============================================================================
+// CLASSIFICATION RULES SCHEMAS
+// ============================================================================
+
+const conditionTypeSchema = z.enum(
+  ['url_pattern', 'title_keyword', 'platform', 'domain'],
+  { error: 'conditionType debe ser url_pattern, title_keyword, platform o domain' }
+);
+
+const actionTypeSchema = z.enum(
+  ['set_category', 'add_tag'],
+  { error: 'actionType debe ser set_category o add_tag' }
+);
+
+export const createClassificationRuleSchema = z.object({
+  name: z.string().min(1, 'name es obligatorio').max(100, 'name debe tener máximo 100 caracteres'),
+  conditionType: conditionTypeSchema,
+  conditionValue: z.string().min(1, 'conditionValue es obligatorio').max(500, 'conditionValue debe tener máximo 500 caracteres'),
+  actionType: actionTypeSchema,
+  actionValue: z.string().min(1, 'actionValue es obligatorio'),
+  order: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const updateClassificationRuleSchema = createClassificationRuleSchema.partial();
+
+export type CreateClassificationRuleInput = z.infer<typeof createClassificationRuleSchema>;
+export type UpdateClassificationRuleInput = z.infer<typeof updateClassificationRuleSchema>;
+
+// ============================================================================
+// LINK SESSIONS SCHEMAS (Feature 3: Session Launcher)
+// ============================================================================
+
+export const createLinkSessionSchema = z.object({
+  name: z.string().min(1, "name es obligatorio").max(100, "name debe tener máximo 100 caracteres"),
+  description: z.string().max(500, "description debe tener máximo 500 caracteres").optional(),
+  linkIds: z.array(z.string()).default([]),
+  order: z.number().int().min(0).optional(),
+});
+
+export const updateLinkSessionSchema = z.object({
+  name: z.string().min(1, "name no puede estar vacío").max(100, "name debe tener máximo 100 caracteres").optional(),
+  description: z.string().max(500, "description debe tener máximo 500 caracteres").nullable().optional(),
+  linkIds: z.array(z.string()).optional(),
+  order: z.number().int().min(0).optional(),
+});
+
+export type CreateLinkSessionInput = z.infer<typeof createLinkSessionSchema>;
+export type UpdateLinkSessionInput = z.infer<typeof updateLinkSessionSchema>;
+
+// ============================================================================
+// READING STATUS SCHEMAS (Feature 5: Reading Queue)
+// ============================================================================
+
+export const readingStatusSchema = z.enum(["inbox", "reading", "done"]);
+
+export const updateReadingStatusSchema = z.object({
+  readingStatus: readingStatusSchema,
+  reviewAt: z.string().datetime("reviewAt debe ser una fecha ISO válida").nullable().optional(),
+});
+
+export type UpdateReadingStatusInput = z.infer<typeof updateReadingStatusSchema>;
+
+// ============================================================================
+// PAGE ARCHIVES SCHEMAS (Feature 4: Local Archiving)
+// ============================================================================
+
+export const createArchiveSchema = z.object({
+  linkId: z.string().uuid("linkId debe ser un UUID válido"),
+  url: z
+    .string()
+    .min(1, "url es obligatorio")
+    .url("url debe ser una URL válida")
+    .refine(
+      (u) => u.startsWith("http://") || u.startsWith("https://"),
+      "url debe comenzar con http:// o https://"
+    ),
+});
+
+export type CreateArchiveInput = z.infer<typeof createArchiveSchema>;
 
 // ============================================================================
 // SCRAPE REQUEST SCHEMA

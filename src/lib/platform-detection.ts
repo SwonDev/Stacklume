@@ -56,6 +56,7 @@ export type Platform =
   | 'netflix'
   | 'disney-plus'
   | 'hbo'
+  | 'local-file'
   | 'generic';
 
 export interface PlatformDetectionResult {
@@ -84,6 +85,15 @@ interface PlatformPattern {
 }
 
 const platformPatterns: PlatformPattern[] = [
+  // Archivos y carpetas locales (local:// scheme — Feature 2)
+  {
+    pattern: /^local:\/\//,
+    platform: 'local-file',
+    contentType: 'document',
+    color: '#6366f1',
+    icon: 'FolderOpen',
+    label: 'Archivo local',
+  },
   // Video Platforms
   {
     pattern: /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,

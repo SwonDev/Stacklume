@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { Search as SearchLucide, LayoutGrid, Sparkles, Trash2, PenLine, X, Sticker, LogOut, CheckSquare, List } from "lucide-react";
+import { Search as SearchLucide, LayoutGrid, Sparkles, Trash2, PenLine, X, Sticker, LogOut, CheckSquare, List, Bot } from "lucide-react";
 // Temporarily using static icons instead of animated ones due to motion/react 19 compatibility
 import { Menu, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,11 @@ import {
 import { ImportExportModal } from "@/components/modals/ImportExportModal";
 import { DuplicatesModal } from "@/components/modals/DuplicatesModal";
 import { HealthCheckModal } from "@/components/modals/HealthCheckModal";
+import { ClassificationRulesModal } from "@/components/modals/ClassificationRulesModal";
+import { InlineChatPanel } from "@/components/layout/InlineChatPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SessionLauncherWidget } from "@/components/widgets/SessionLauncherWidget";
+import { ReadingQueueWidget } from "@/components/widgets/ReadingQueueWidget";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { SettingsDropdown } from "@/components/ui/SettingsDropdown";
 import { OfflineBadge } from "@/components/ui/OfflineIndicator";
@@ -72,6 +77,10 @@ export function Header() {
   const [showImportExport, setShowImportExport] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [showHealthCheck, setShowHealthCheck] = useState(false);
+  const [showClassificationRules, setShowClassificationRules] = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
+  const [showReadingQueue, setShowReadingQueue] = useState(false);
+  const [showLlmChat, setShowLlmChat] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileSearchValue, setMobileSearchValue] = useState(searchQuery);
   const [isMounted, setIsMounted] = useState(false);
@@ -396,6 +405,31 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
 
+          {/* Botón Asistente IA — solo visible en desktop Tauri */}
+          {isMounted && isDesktop && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showLlmChat ? "secondary" : "ghost"}
+                  size="icon"
+                  className={`hidden sm:inline-flex h-8 w-8 ${
+                    showLlmChat
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                  onClick={() => setShowLlmChat((v) => !v)}
+                  aria-label={t("header.llmChat")}
+                  aria-pressed={showLlmChat}
+                >
+                  <Bot size={16} aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{t("header.llmChat")}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Offline indicator */}
           <OfflineBadge />
 
@@ -427,6 +461,9 @@ export function Header() {
             onOpenImportExport={() => setShowImportExport(true)}
             onOpenDuplicates={() => setShowDuplicates(true)}
             onOpenHealthCheck={() => setShowHealthCheck(true)}
+            onOpenClassificationRules={() => setShowClassificationRules(true)}
+            onOpenSessions={() => setShowSessions(true)}
+            onOpenReadingQueue={() => setShowReadingQueue(true)}
           />
         </div>
       </div>
@@ -442,9 +479,39 @@ export function Header() {
       <ImportExportModal open={showImportExport} onOpenChange={setShowImportExport} />
       <DuplicatesModal open={showDuplicates} onOpenChange={setShowDuplicates} />
       <HealthCheckModal open={showHealthCheck} onOpenChange={setShowHealthCheck} />
+      <ClassificationRulesModal open={showClassificationRules} onOpenChange={setShowClassificationRules} />
+
+      {/* Desktop-only: Sesiones de links */}
+      <Dialog open={showSessions} onOpenChange={setShowSessions}>
+        <DialogContent className="sm:max-w-lg h-[560px] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 pt-4 pb-0 shrink-0">
+            <DialogTitle>{t("settings.linkSessions")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <SessionLauncherWidget />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Desktop-only: Cola de lectura */}
+      <Dialog open={showReadingQueue} onOpenChange={setShowReadingQueue}>
+        <DialogContent className="sm:max-w-lg h-[560px] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 pt-4 pb-0 shrink-0">
+            <DialogTitle>{t("settings.readingQueue")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ReadingQueueWidget />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Sticker Book - only render when mounted to prevent hydration issues */}
       {isMounted && isStickerBookOpen && <StickerBook onClose={() => useStickerStore.getState().closeStickerBook()} />}
+
+      {/* Asistente IA local — solo desktop */}
+      {isMounted && isDesktop && (
+        <InlineChatPanel open={showLlmChat} onClose={() => setShowLlmChat(false)} />
+      )}
 
       {/* Mobile Search Sheet */}
       <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>

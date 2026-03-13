@@ -9,6 +9,7 @@ import { UpdateChecker } from "@/components/desktop/UpdateChecker";
 import { DemoProvider } from "@/components/demo/DemoProvider";
 import { DemoBanner } from "@/components/demo/DemoBanner";
 import { ExtensionLinkHandler } from "@/components/layout/ExtensionLinkHandler";
+import { QuickLauncherOverlay } from "@/components/layout/QuickLauncherOverlay";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -95,16 +96,17 @@ export default function RootLayout({
           En DEMO_MODE inyectamos el flag antes de la hidratación para que
           el interceptor de fetch sepa que debe activarse inmediatamente.
         */}
-        {isDemoMode && (
+        {isDemoMode && !isDesktopMode && (
           <script
             dangerouslySetInnerHTML={{ __html: "Object.defineProperty(window,'__DEMO_MODE__',{value:true,writable:false,configurable:false});" }}
           />
         )}
-        {isDemoMode ? (
+        {isDemoMode && !isDesktopMode ? (
           <DemoProvider>
             <Providers>
               <DemoBanner />
               <ExtensionLinkHandler />
+              <QuickLauncherOverlay />
               <AppShell>{children}</AppShell>
               <Toaster
                 theme="dark"
@@ -121,6 +123,7 @@ export default function RootLayout({
             <DesktopContextMenu />
             <UpdateChecker />
             <ExtensionLinkHandler />
+            <QuickLauncherOverlay />
             <AppShell>{children}</AppShell>
             <Toaster
               theme="dark"

@@ -1692,6 +1692,24 @@ export const WIDGET_TYPE_METADATA: Record<WidgetType, WidgetTypeMetadata> = {
     defaultTitle: 'Asistente IA',
     configurable: false,
   },
+  'session-launcher': {
+    type: 'session-launcher',
+    label: 'Sesiones de links',
+    description: 'Guarda grupos de links y ábrelos todos de una vez con un clic',
+    icon: 'Layers',
+    defaultSize: 'medium',
+    defaultTitle: 'Sesiones',
+    configurable: false,
+  },
+  'reading-queue': {
+    type: 'reading-queue',
+    label: 'Cola de lectura',
+    description: 'Organiza tus links pendientes con estados: pendiente, leyendo, completado',
+    icon: 'BookOpen',
+    defaultSize: 'medium',
+    defaultTitle: 'Cola de lectura',
+    configurable: false,
+  },
   'custom-user': {
     type: 'custom-user',
     label: 'Widget personalizado',
@@ -2815,6 +2833,12 @@ export function getDefaultWidgetConfig(type: WidgetType): WidgetConfigOptions {
 
     case 'ollama-chat':
       return { messages: [] };
+
+    case 'session-launcher':
+      return {};
+
+    case 'reading-queue':
+      return {};
 
     case 'custom-user':
       return {};

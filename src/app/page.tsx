@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { BentoGrid } from "@/components/bento/BentoGrid";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { StickerLayer } from "@/components/stickers";
@@ -31,6 +31,35 @@ export default function Home() {
     return () => cancelAnimationFrame(timer);
   }, []);
 
+  // Refrescar datos cuando la ventana recupera el foco o la visibilidad.
+  // Cubre el caso Tauri/WebView2 donde el usuario sale y vuelve a la app:
+  //   - focus: al hacer clic en la ventana tras usar otra app
+  //   - visibilitychange: al restaurar desde minimizado (Tauri puede no disparar focus)
+  const lastRefreshRef = useRef(0);
+  useEffect(() => {
+    const DEBOUNCE_MS = 30_000; // mínimo 30 s entre refrescos automáticos
+
+    const doRefresh = () => {
+      const now = Date.now();
+      if (now - lastRefreshRef.current > DEBOUNCE_MS) {
+        lastRefreshRef.current = now;
+        useLinksStore.getState().refreshAllData();
+      }
+    };
+
+    const handleFocus = () => doRefresh();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") doRefresh();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   // Fetch initial data
   // Note: Zustand store functions are stable and don't need to be in dependencies
   useEffect(() => {
@@ -38,12 +67,13 @@ export default function Home() {
       const store = useLinksStore.getState();
       store.setIsLoading(true);
       try {
+        const t = Date.now();
         const [linksRes, categoriesRes, tagsRes, linkTagsRes, linkCategoriesRes] = await Promise.all([
-          fetch("/api/links", { credentials: "include" }),
-          fetch("/api/categories", { credentials: "include" }),
-          fetch("/api/tags", { credentials: "include" }),
-          fetch("/api/link-tags", { credentials: "include" }),
-          fetch("/api/link-categories", { credentials: "include" }),
+          fetch(`/api/links?_t=${t}`, { credentials: "include", cache: "no-store" }),
+          fetch(`/api/categories?_t=${t}`, { credentials: "include", cache: "no-store" }),
+          fetch(`/api/tags?_t=${t}`, { credentials: "include", cache: "no-store" }),
+          fetch(`/api/link-tags?_t=${t}`, { credentials: "include", cache: "no-store" }),
+          fetch(`/api/link-categories?_t=${t}`, { credentials: "include", cache: "no-store" }),
         ]);
 
         // Parse all JSON responses in parallel

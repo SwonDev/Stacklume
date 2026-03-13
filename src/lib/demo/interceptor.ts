@@ -22,6 +22,9 @@ import {
   demoWidgets,
   demoProjects,
   demoSettings,
+  demoClassificationRules,
+  demoLinkSessions,
+  demoPageArchives,
 } from "./storage";
 
 // ─── Helper: crear una Response JSON ─────────────────────────────────────────
@@ -333,6 +336,120 @@ async function handleDemoRequest(
       hasMore: false,
       error: "Nintendo eShop no disponible en modo demo",
     });
+  }
+
+  // ── /api/classification-rules ──
+  if (resource === "classification-rules") {
+    if (!resourceId) {
+      if (method === "GET") return jsonResponse(demoClassificationRules.list());
+      if (method === "POST") return jsonResponse(demoClassificationRules.create(body as Record<string, unknown>), 201);
+      if (method === "DELETE") {
+        demoClassificationRules.deleteAll();
+        return jsonResponse({ success: true });
+      }
+    }
+    if (resourceId) {
+      if (method === "PUT" || method === "PATCH") {
+        const updated = demoClassificationRules.update(resourceId, body as Record<string, unknown>);
+        return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+      }
+      if (method === "DELETE") {
+        demoClassificationRules.delete(resourceId);
+        return jsonResponse({ success: true });
+      }
+    }
+  }
+
+  // ── /api/link-sessions ──
+  if (resource === "link-sessions") {
+    if (!resourceId) {
+      if (method === "GET") return jsonResponse(demoLinkSessions.list());
+      if (method === "POST") return jsonResponse(demoLinkSessions.create(body as Record<string, unknown>), 201);
+    }
+    if (resourceId) {
+      // /api/link-sessions/[id]/launch
+      const subAction = segments[3]; // "launch" o undefined
+      if (subAction === "launch" && method === "POST") {
+        const session = demoLinkSessions.get(resourceId);
+        if (!session) return jsonResponse({ error: "Not found" }, 404);
+        return jsonResponse({ success: true, linkIds: session.linkIds });
+      }
+      if (method === "GET") {
+        const session = demoLinkSessions.get(resourceId);
+        return session ? jsonResponse(session) : jsonResponse({ error: "Not found" }, 404);
+      }
+      if (method === "PUT" || method === "PATCH") {
+        const updated = demoLinkSessions.update(resourceId, body as Record<string, unknown>);
+        return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+      }
+      if (method === "DELETE") {
+        demoLinkSessions.remove(resourceId);
+        return jsonResponse({ success: true });
+      }
+    }
+  }
+
+  // ── /api/archives ──
+  if (resource === "archives") {
+    if (!resourceId) {
+      if (method === "GET") {
+        const linkId = url.searchParams.get("linkId") ?? undefined;
+        return jsonResponse(demoPageArchives.list(linkId));
+      }
+      if (method === "POST") {
+        const b = body as Record<string, unknown>;
+        const linkId = b.linkId as string;
+        const allLinks = demoLinks.list({});
+        const linkRecord = Array.isArray(allLinks)
+          ? (allLinks as unknown as Array<Record<string, unknown>>).find((l) => l.id === linkId)
+          : null;
+        const linkTitle = (linkRecord?.title as string) ?? "Página archivada";
+        const demoText = [
+          `Esta es una vista previa del modo lectura para "${linkTitle}".`,
+          ``,
+          `El modo lectura de Stacklume extrae el contenido principal de una página web y lo presenta en un formato limpio y sin distracciones. Se eliminan automáticamente los anuncios, menús de navegación y otros elementos visuales secundarios para que puedas concentrarte en lo que importa: el contenido.`,
+          ``,
+          `Esta funcionalidad es especialmente útil para artículos largos, entradas de blog o cualquier contenido que quieras leer con detenimiento. El texto archivado se guarda localmente en tu dispositivo y está disponible incluso cuando no tienes conexión a internet.`,
+          ``,
+          `Puedes guardar múltiples versiones del mismo artículo a lo largo del tiempo para comparar cambios, o simplemente tener siempre disponible una copia de referencia de los recursos que más utilizas en tu día a día.`,
+          ``,
+          `El sistema de archivado también registra la fecha en que se guardó el contenido, el número de palabras y el tiempo estimado de lectura, para que puedas organizar mejor tu cola de lectura.`,
+          ``,
+          `En la versión completa de Stacklume (fuera del modo demo), esta función descarga el contenido real de la URL indicada y lo procesa de forma inteligente para ofrecerte la mejor experiencia de lectura posible.`,
+        ].join("\n");
+        const wordCount = demoText.split(/\s+/).filter(Boolean).length;
+        const archive = demoPageArchives.create({
+          linkId,
+          title: linkTitle,
+          textContent: demoText,
+          wordCount,
+          size: demoText.length,
+        });
+        return jsonResponse(archive, 201);
+      }
+    }
+    if (resourceId) {
+      if (method === "GET") {
+        const archive = demoPageArchives.get(resourceId);
+        return archive ? jsonResponse(archive) : jsonResponse({ error: "Not found" }, 404);
+      }
+      if (method === "DELETE") {
+        demoPageArchives.remove(resourceId);
+        return jsonResponse({ success: true });
+      }
+    }
+  }
+
+  // ── /api/links/[id]/reading-status ──
+  if (resource === "links" && resourceId && segments[3] === "reading-status") {
+    if (method === "PUT" || method === "PATCH") {
+      const b = body as Record<string, unknown>;
+      const updated = demoLinks.update(resourceId, {
+        readingStatus: b.readingStatus as string | undefined,
+        reviewAt: b.reviewAt as string | undefined,
+      } as Parameters<typeof demoLinks.update>[1]);
+      return updated ? jsonResponse(updated) : jsonResponse({ error: "Not found" }, 404);
+    }
   }
 
   // ── /api/backups ── (no disponible en demo)

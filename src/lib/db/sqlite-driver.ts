@@ -295,6 +295,45 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       category_id TEXT NOT NULL,
       PRIMARY KEY (link_id, category_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS classification_rules (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      name TEXT NOT NULL,
+      condition_type TEXT NOT NULL,
+      condition_value TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      action_value TEXT NOT NULL,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_classification_rules_user_id ON classification_rules(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_classification_rules_order ON classification_rules("order")`,
+    `CREATE TABLE IF NOT EXISTS link_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      name TEXT NOT NULL,
+      description TEXT,
+      link_ids TEXT NOT NULL DEFAULT '[]',
+      "order" INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      deleted_at INTEGER
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_link_sessions_user_id ON link_sessions(user_id)`,
+    `CREATE TABLE IF NOT EXISTS page_archives (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      link_id TEXT NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+      title TEXT,
+      text_content TEXT,
+      archived_at INTEGER NOT NULL,
+      word_count INTEGER NOT NULL DEFAULT 0,
+      size INTEGER NOT NULL DEFAULT 0
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_page_archives_user_id ON page_archives(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_page_archives_link_id ON page_archives(link_id)`,
   ];
 
   for (const sql of statements) {
@@ -399,6 +438,82 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url) WHERE deleted_at IS NULL`,
       description: "idx_links_url parcial (deleted_at IS NULL)",
+    },
+    // v0.3.26 — Reglas de autoclasificación
+    {
+      sql: `CREATE TABLE IF NOT EXISTS classification_rules (
+        id TEXT PRIMARY KEY,
+        user_id TEXT DEFAULT 'default',
+        name TEXT NOT NULL,
+        condition_type TEXT NOT NULL,
+        condition_value TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        action_value TEXT NOT NULL,
+        "order" INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+      description: "classification_rules table",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_classification_rules_user_id ON classification_rules(user_id)`,
+      description: "idx_classification_rules_user_id",
+    },
+    // v0.3.27 — Reading Queue (Feature 5)
+    {
+      sql: `ALTER TABLE links ADD COLUMN reading_status TEXT DEFAULT 'inbox'`,
+      description: "links.reading_status",
+    },
+    {
+      sql: `ALTER TABLE links ADD COLUMN review_at INTEGER`,
+      description: "links.review_at",
+    },
+    // v0.3.27 — Link Sessions (Feature 3)
+    {
+      sql: `CREATE TABLE IF NOT EXISTS link_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT DEFAULT 'default',
+        name TEXT NOT NULL,
+        description TEXT,
+        link_ids TEXT NOT NULL DEFAULT '[]',
+        "order" INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
+      )`,
+      description: "link_sessions table",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_link_sessions_user_id ON link_sessions(user_id)`,
+      description: "idx_link_sessions_user_id",
+    },
+    // v0.3.27 — Page Archives (Feature 4)
+    {
+      sql: `CREATE TABLE IF NOT EXISTS page_archives (
+        id TEXT PRIMARY KEY,
+        user_id TEXT DEFAULT 'default',
+        link_id TEXT NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+        title TEXT,
+        text_content TEXT,
+        archived_at INTEGER NOT NULL,
+        word_count INTEGER NOT NULL DEFAULT 0,
+        size INTEGER NOT NULL DEFAULT 0
+      )`,
+      description: "page_archives table",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_page_archives_user_id ON page_archives(user_id)`,
+      description: "idx_page_archives_user_id",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_page_archives_link_id ON page_archives(link_id)`,
+      description: "idx_page_archives_link_id",
+    },
+    // v0.3.28 — DevKit: comandos de instalación extraídos del scraping
+    {
+      sql: `ALTER TABLE links ADD COLUMN install_commands TEXT`,
+      description: "links.install_commands",
     },
   ];
 

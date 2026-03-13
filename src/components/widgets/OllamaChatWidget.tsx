@@ -141,39 +141,83 @@ export function OllamaChatWidget({ widget }: { widget: Widget }) {
       setMessages(nextMessages);
       setIsLoading(true);
 
-      abortRef.current = new AbortController();
+      const abort = new AbortController();
+      abortRef.current = abort;
 
       try {
-        const res = await fetch("/api/ollama/chat", {
+        // 1. Iniciar job — responde inmediatamente con jobId (no bloquea WebView2)
+        const startRes = await fetch("/api/ollama/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // Payload mínimo: solo el mensaje y el historial de conversación (sin system prompt)
           body: JSON.stringify({
             model: ollamaModel ?? "llama3.2",
             ollamaUrl: ollamaUrl ?? "http://localhost:11434",
             userMessage: query,
             history: messages.map((m) => ({ role: m.role, content: m.content })),
           }),
-          signal: abortRef.current.signal,
+          signal: abort.signal,
         });
 
-        const data = (await res.json()) as { content?: string; error?: string };
+        const startData = (await startRes.json()) as { jobId?: string; error?: string };
 
-        if (!res.ok) {
-          throw new Error(data.error ?? `Error ${res.status}`);
+        if (!startRes.ok || !startData.jobId) {
+          throw new Error(startData.error ?? `Error ${startRes.status}`);
         }
 
-        const assistantMsg: ChatMessage = {
-          role: "assistant",
-          content: data.content || "(sin respuesta)",
-          timestamp: Date.now(),
-        };
-        const finalMessages = [...nextMessages, assistantMsg];
-        setMessages(finalMessages);
-        saveMessages(finalMessages);
+        const { jobId } = startData;
+
+        // 2. Polling cada 1 segundo hasta completarse, abortarse o agotar el tiempo
+        const MAX_POLLS = 150; // 150s máximo (el timeout de Ollama en el servidor es 120s)
+        let pollCount = 0;
+
+        while (!abort.signal.aborted && pollCount < MAX_POLLS) {
+          pollCount++;
+
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, 1000);
+            abort.signal.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
+          });
+
+          if (abort.signal.aborted) break;
+
+          const pollRes = await fetch(`/api/ollama/chat?jobId=${encodeURIComponent(jobId)}`, {
+            signal: abort.signal,
+          });
+
+          if (!pollRes.ok) {
+            const errData = (await pollRes.json()) as { error?: string };
+            throw new Error(errData.error ?? `Error al consultar job (${pollRes.status})`);
+          }
+
+          const pollData = (await pollRes.json()) as {
+            status: "pending" | "done" | "error";
+            content?: string;
+            error?: string;
+          };
+
+          if (pollData.status === "pending") continue;
+
+          if (pollData.status === "error") {
+            throw new Error(pollData.error ?? "Error al procesar la respuesta");
+          }
+
+          // status === "done"
+          const assistantMsg: ChatMessage = {
+            role: "assistant",
+            content: pollData.content || "(sin respuesta)",
+            timestamp: Date.now(),
+          };
+          const finalMessages = [...nextMessages, assistantMsg];
+          setMessages(finalMessages);
+          saveMessages(finalMessages);
+          break;
+        }
+
+        if (pollCount >= MAX_POLLS && !abort.signal.aborted) {
+          throw new Error("Tiempo de espera agotado. El modelo tardó demasiado en responder.");
+        }
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
-        // Mantener nextMessages visible (con el mensaje del usuario) y mostrar el error debajo
         setMessages(nextMessages);
         setError(err instanceof Error ? err.message : "Error al conectar con Ollama");
       } finally {
@@ -181,7 +225,6 @@ export function OllamaChatWidget({ widget }: { widget: Widget }) {
         abortRef.current = null;
       }
     },
-    // Solo depende de lo estrictamente necesario
     [input, isLoading, messages, ollamaUrl, ollamaModel, saveMessages]
   );
 

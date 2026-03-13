@@ -745,7 +745,9 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
       'diff-viewer': -114,
       'password-manager': -115,
       'ollama-chat': -116,
-      'custom-user': -117,
+      'session-launcher': -117,
+      'reading-queue': -118,
+      'custom-user': -119,
     };
 
     const sortedWidgets = [...projectWidgets].sort((a, b) => {
