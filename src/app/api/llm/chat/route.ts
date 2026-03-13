@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isNull, like, and, or, eq } from "drizzle-orm";
-import { db, links, categories, tags, withRetry, generateId } from "@/lib/db";
+import { db, links, categories, tags, linkTags, withRetry, generateId } from "@/lib/db";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -272,8 +272,40 @@ async function executeTool(
         }
       }
 
+      // Buscar por nombre de etiqueta (tag)
+      const allTagsDb = await withRetry(
+        () =>
+          db
+            .select({ id: tags.id, name: tags.name })
+            .from(tags)
+            .where(isNull(tags.deletedAt)),
+        { operationName: "llm search tags" }
+      );
+      const byTag: typeof byContent = [];
+      for (const tag of allTagsDb) {
+        if (norm(tag.name).includes(query) || query.includes(norm(tag.name))) {
+          const tagLinks = await withRetry(
+            () =>
+              db
+                .select({
+                  title: links.title,
+                  url: links.url,
+                  categoryId: links.categoryId,
+                })
+                .from(links)
+                .innerJoin(linkTags, eq(links.id, linkTags.linkId))
+                .where(
+                  and(isNull(links.deletedAt), eq(linkTags.tagId, tag.id))
+                )
+                .limit(10),
+            { operationName: "llm search_library_tag" }
+          );
+          byTag.push(...tagLinks);
+        }
+      }
+
       const unique = new Map<string, (typeof byContent)[0]>();
-      for (const l of [...byContent, ...byCat]) unique.set(l.url, l);
+      for (const l of [...byContent, ...byCat, ...byTag]) unique.set(l.url, l);
       const results = [...unique.values()].slice(0, 10);
 
       if (results.length === 0)
@@ -408,10 +440,13 @@ async function runLlmJob(
     // Solo cuando NO hay búsqueda explícita (wantsSearch desactiva esto para no confundir
     // "busca Node.js y guarda" con "Node.js" como dominio).
     // TLD whitelist: excluye extensiones de archivo (.js, .ts, .css, .py, etc.)
-    const VALID_TLDS = /^(com|org|net|dev|io|app|sh|ai|co|me|tv|ly|is|to|pm|gg|tech|info|blog|wiki|live|site|web|zone|cloud|store|studio|design|tools|codes|run|works|world|pro|one|fun|xyz|biz|edu|gov|cc|be|uk|es|fr|it|jp|cn|ru|br|ca|au|de|eu|us|nz|sg|mx|ar|cl|pe|in|ng|za)$/i;
+    const VALID_TLDS = /^(com|org|net|dev|io|app|sh|ai|co|me|tv|ly|is|to|pm|gg|tech|info|blog|wiki|live|site|web|zone|cloud|store|studio|design|tools|codes|run|works|world|pro|one|fun|xyz|biz|edu|gov|cc|be|uk|es|fr|it|jp|cn|ru|br|ca|au|de|eu|us|nz|sg|mx|ar|cl|pe|in|ng|za|build|team|page|new|link|land|city|guide|tips|help|plus|next|now|today|social|media|news|space|network|systems|software|services|solutions|academy|school|online|digital|work|jobs|career|agency|company|group|global|international|foundation|institute|community|center|hub|lab|labs|studio|media|press|report|review|blog|news|wiki|docs|api|sdk|cli|ui|ux|dev)$/i;
     const domainMatch = !urlMatch && !wantsSearch && wantsAdd
       ? (() => {
-          const m = userMessage.match(/\b([a-zA-Z0-9][-a-zA-Z0-9]{2,}\.([a-zA-Z]{2,6})(?:\/[^\s]*)?)\b/);
+          // Soporta subdominios: docs.astro.build, pkg.go.dev, etc.
+          // (?:[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.)+ = una o más partes "nombre."
+          // ([a-zA-Z]{2,6}) = TLD final puramente alfabético
+          const m = userMessage.match(/\b((?:[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.)+([a-zA-Z]{2,6})(?:\/[^\s]*)?)\b/);
           return m && VALID_TLDS.test(m[2]) ? m : null;
         })()
       : null;
@@ -420,11 +455,11 @@ async function runLlmJob(
     // "inclúyelos" / "añade los 3 primeros" = añadir resultado de búsqueda previa
     const wantsAddPrev = wantsAdd && !resolvedUrlMatch && !wantsSearch && hasRecentSearch;
     // "¿qué links tengo de X?", "¿tienes algo de Y?", "mis links de Z", "cuántos links de X"
-    // También: "tengo links de react?", "qué tengo en Desarrollo Web?", "tengo algo en X"
+    // También: "links de X", "recursos de X", "tengo algo con la etiqueta X"
     // "cuantos links tengo?" sin tema específico va a Q&A (no aquí)
     const wantsLibrarySearch =
       !wantsSearch && !wantsAdd && !urlMatch &&
-      /cuantos? (links?|enlaces?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?) tengo|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en)|tengo algo (de|sobre|en)|mis links? (de|sobre)|mis enlaces? (de|sobre)|tengo (links?|enlaces?|recursos?) (de|sobre)/i.test(msgNorm);
+      /cuantos? (links?|enlaces?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?) tengo|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\betiqueta\b|how many links|do i have (?:any )?(?:\w+\s+)?(links?|resources?)|my links? (about|on|for)|what .{1,25} (links?|resources?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|any (links?|resources?) (about|on|for)/i.test(msgNorm);
 
     // ── CASO 1: Añadir resultados de búsqueda previa ──────────────────────────
     // "inclúyelos", "añade los 3 primeros", "guárdalos todos"
@@ -502,14 +537,28 @@ async function runLlmJob(
     if (wantsLibrarySearch) {
       const keyword = msgNorm
         .replace(
-          /cuantos? (links?|enlaces?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en)|tengo algo (de|sobre|en)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|tengo (links?|enlaces?|recursos?) (de|sobre) ?/gi,
+          /cuantos? (links?|enlaces?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (de|sobre|en|con)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|tengo (links?|enlaces?|recursos?) (de|sobre) ?|links? (de|sobre) ?|enlaces? (de|sobre) ?|recursos? (de|sobre) ?/gi,
           ""
         )
         // Eliminar artículos y palabras de categoría sueltas tras el reemplazo
         .replace(/\bla (categoria|seccion|carpeta)\b|\ben la (categoria|seccion)\b/gi, "")
-        // Eliminar ruido de ubicación: "en mi biblioteca", "en la app", etc.
+        // Eliminar ruido de ubicación y "etiqueta X" → solo X
         .replace(/\ben mi biblioteca\b|\ben la app\b|\ben stacklume\b|\ben mi coleccion\b|\bde mi biblioteca\b/gi, "")
-        .replace(/^(de|sobre|con|en|tengo)\s+/i, "")
+        .replace(/\bcon la etiqueta\b|\bcon etiqueta\b|\bla etiqueta\b/gi, "")
+        // Ruido verbal al inicio (ES+EN)
+        .replace(/^(dame|dime|muestrame|mostrame|listame|necesito|quiero|puedes|podrias|show me|give me|list)\s+(una? )?(lista(do)?|coleccion|listado)?\s*(de\s+)?/gi, "")
+        // Prefijos EN para búsqueda en biblioteca: "how many links do i have about X"
+        .replace(/^how many links( do i have)?( about| on| for)?/gi, "")
+        // "do I have any TypeScript resources" → extrae solo el tema
+        .replace(/^do i have (?:any )?(\w+\s+)?(links?|resources?)( about| on| for| with)?\s?/gi, "$1")
+        .replace(/^my links? (about|on|for)\s?/gi, "")
+        // "what TypeScript resources do I have?" → captura el tema entre "what" y "links/resources"
+        .replace(/^what (.{1,25}?) (?:links?|resources?)(?:\s*do i have)?(?:\s*about|\s*on|\s*for|\s*with)?\s?/gi, "$1 ")
+        .replace(/^do you have (any(thing)?|something)? ?(about|on|for)\s?/gi, "")
+        .replace(/^any (?:links?|resources?) (about|on|for)\s?/gi, "")
+        .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|about|on|for)\s+/i, "")
+        // Ruido al final en inglés: "...do I have?", "...that I have"
+        .replace(/\s*(do i have|that i have|i have|do you have)[?!.\s]*$/i, "")
         .replace(/[¿?¡!,;:]/g, " ")
         .replace(/\s+/g, " ")
         .trim()
@@ -649,9 +698,28 @@ REGLAS CRÍTICAS:
     };
     if (data.error) throw new Error(String(data.error));
 
+    let llmContent = cleanLlmText(data.choices?.[0]?.message?.content ?? "Sin respuesta.");
+
+    // Filtro anti-alucinación: eliminar líneas que contengan URLs no presentes
+    // en la biblioteca real del usuario. El modelo pequeño tiende a inventar URLs.
+    const urlsInLibrary = new Set(
+      (await withRetry(
+        () => db.select({ url: links.url }).from(links).where(isNull(links.deletedAt)),
+        { operationName: "llm url validation" }
+      )).map((l) => l.url.toLowerCase())
+    );
+    const filteredLines = llmContent.split("\n").filter((line) => {
+      const urlsInLine = line.match(/https?:\/\/[^\s)>]+/g);
+      if (!urlsInLine) return true; // sin URLs → mantener
+      // Si todas las URLs de la línea existen en la biblioteca → mantener
+      return urlsInLine.every((u) => urlsInLibrary.has(u.toLowerCase().replace(/\/+$/, "")));
+    });
+    llmContent = filteredLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()
+      || "No encontré información relevante en tu biblioteca. Prueba con 'busca [tema]' para buscar en internet.";
+
     jobs.set(jobId, {
       status: "done",
-      content: cleanLlmText(data.choices?.[0]?.message?.content ?? "Sin respuesta."),
+      content: llmContent,
     });
   } catch (err) {
     let error = "Error desconocido";
