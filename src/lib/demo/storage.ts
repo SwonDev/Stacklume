@@ -18,6 +18,9 @@ const KEYS = {
   settings: "stacklume-demo-settings",
   projects: "stacklume-demo-projects",
   layouts: "stacklume-demo-layouts",
+  classificationRules: "stacklume-demo-classification-rules",
+  linkSessions: "stacklume-demo-link-sessions",
+  pageArchives: "stacklume-demo-page-archives",
 } as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -75,6 +78,8 @@ interface DemoLink {
   isRead: boolean;
   notes: string | null;
   reminderAt: string | null;
+  readingStatus: string;
+  reviewAt: string | null;
   siteName: string | null;
   author: string | null;
   source: string;
@@ -150,6 +155,20 @@ interface DemoProject {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+}
+
+interface DemoClassificationRule {
+  id: string;
+  userId: string;
+  name: string;
+  conditionType: string;
+  conditionValue: string;
+  actionType: string;
+  actionValue: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface DemoSettings {
@@ -281,6 +300,8 @@ export const demoLinks = {
       isRead: data.isRead ?? false,
       notes: data.notes ?? null,
       reminderAt: data.reminderAt ?? null,
+      readingStatus: data.readingStatus ?? "inbox",
+      reviewAt: data.reviewAt ?? null,
       siteName: data.siteName ?? null,
       author: data.author ?? null,
       source: data.source ?? "manual",
@@ -601,6 +622,178 @@ export const demoProjects = {
     if (idx === -1) return false;
     projects[idx].deletedAt = now();
     writeKey(KEYS.projects, projects);
+    return true;
+  },
+};
+
+// ─── Classification Rules ─────────────────────────────────────────────────────
+
+export const demoClassificationRules = {
+  list(): DemoClassificationRule[] {
+    return readArrayKey<DemoClassificationRule>(KEYS.classificationRules)
+      .sort((a, b) => a.order - b.order);
+  },
+
+  create(data: Record<string, unknown>): DemoClassificationRule {
+    const rule: DemoClassificationRule = {
+      id: id(),
+      userId: "demo",
+      name: (data.name as string) ?? "Nueva regla",
+      conditionType: (data.conditionType as string) ?? "url_pattern",
+      conditionValue: (data.conditionValue as string) ?? "",
+      actionType: (data.actionType as string) ?? "add_tag",
+      actionValue: (data.actionValue as string) ?? "",
+      order: (data.order as number) ?? 0,
+      isActive: (data.isActive as boolean) ?? true,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    const rules = readArrayKey<DemoClassificationRule>(KEYS.classificationRules);
+    rules.push(rule);
+    writeKey(KEYS.classificationRules, rules);
+    return rule;
+  },
+
+  update(ruleId: string, patch: Record<string, unknown>): DemoClassificationRule | null {
+    const rules = readArrayKey<DemoClassificationRule>(KEYS.classificationRules);
+    const idx = rules.findIndex((r) => r.id === ruleId);
+    if (idx === -1) return null;
+    const updated = { ...rules[idx], ...patch, updatedAt: now() };
+    rules[idx] = updated;
+    writeKey(KEYS.classificationRules, rules);
+    return updated;
+  },
+
+  delete(ruleId: string): boolean {
+    const rules = readArrayKey<DemoClassificationRule>(KEYS.classificationRules);
+    const filtered = rules.filter((r) => r.id !== ruleId);
+    if (filtered.length === rules.length) return false;
+    writeKey(KEYS.classificationRules, filtered);
+    return true;
+  },
+
+  deleteAll(): void {
+    writeKey(KEYS.classificationRules, []);
+  },
+};
+
+// ─── Link Sessions ────────────────────────────────────────────────────────────
+
+interface DemoLinkSession {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  linkIds: string[];
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export const demoLinkSessions = {
+  list(): DemoLinkSession[] {
+    return readArrayKey<DemoLinkSession>(KEYS.linkSessions)
+      .filter((s) => !s.deletedAt)
+      .sort((a, b) => a.order - b.order);
+  },
+
+  get(sessionId: string): DemoLinkSession | null {
+    return (
+      readArrayKey<DemoLinkSession>(KEYS.linkSessions).find(
+        (s) => s.id === sessionId && !s.deletedAt
+      ) ?? null
+    );
+  },
+
+  create(data: Record<string, unknown>): DemoLinkSession {
+    const existing = this.list();
+    const session: DemoLinkSession = {
+      id: id(),
+      userId: "demo",
+      name: (data.name as string) ?? "Nueva sesión",
+      description: (data.description as string | undefined) ?? undefined,
+      linkIds: (data.linkIds as string[]) ?? [],
+      order: (data.order as number) ?? existing.length,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    const sessions = readArrayKey<DemoLinkSession>(KEYS.linkSessions);
+    sessions.push(session);
+    writeKey(KEYS.linkSessions, sessions);
+    return session;
+  },
+
+  update(sessionId: string, patch: Record<string, unknown>): DemoLinkSession | null {
+    const sessions = readArrayKey<DemoLinkSession>(KEYS.linkSessions);
+    const idx = sessions.findIndex((s) => s.id === sessionId);
+    if (idx === -1) return null;
+    const updated = { ...sessions[idx], ...patch, updatedAt: now() };
+    sessions[idx] = updated;
+    writeKey(KEYS.linkSessions, sessions);
+    return updated;
+  },
+
+  remove(sessionId: string): boolean {
+    const sessions = readArrayKey<DemoLinkSession>(KEYS.linkSessions);
+    const idx = sessions.findIndex((s) => s.id === sessionId);
+    if (idx === -1) return false;
+    sessions[idx].deletedAt = now();
+    writeKey(KEYS.linkSessions, sessions);
+    return true;
+  },
+};
+
+// ─── Page Archives ────────────────────────────────────────────────────────────
+
+interface DemoPageArchive {
+  id: string;
+  userId: string;
+  linkId: string;
+  title?: string;
+  textContent?: string;
+  archivedAt: string;
+  wordCount: number;
+  size: number;
+}
+
+export const demoPageArchives = {
+  list(linkId?: string): DemoPageArchive[] {
+    const all = readArrayKey<DemoPageArchive>(KEYS.pageArchives);
+    if (linkId) return all.filter((a) => a.linkId === linkId);
+    return all;
+  },
+
+  get(archiveId: string): DemoPageArchive | null {
+    return (
+      readArrayKey<DemoPageArchive>(KEYS.pageArchives).find(
+        (a) => a.id === archiveId
+      ) ?? null
+    );
+  },
+
+  create(data: Record<string, unknown>): DemoPageArchive {
+    const archive: DemoPageArchive = {
+      id: id(),
+      userId: "demo",
+      linkId: (data.linkId as string) ?? "",
+      title: (data.title as string | undefined) ?? undefined,
+      textContent: (data.textContent as string | undefined) ?? undefined,
+      archivedAt: now(),
+      wordCount: (data.wordCount as number) ?? 0,
+      size: (data.size as number) ?? 0,
+    };
+    const archives = readArrayKey<DemoPageArchive>(KEYS.pageArchives);
+    archives.push(archive);
+    writeKey(KEYS.pageArchives, archives);
+    return archive;
+  },
+
+  remove(archiveId: string): boolean {
+    const archives = readArrayKey<DemoPageArchive>(KEYS.pageArchives).filter(
+      (a) => a.id !== archiveId
+    );
+    writeKey(KEYS.pageArchives, archives);
     return true;
   },
 };

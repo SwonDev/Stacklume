@@ -1,6 +1,7 @@
 use std::io::Read as _;
 use std::sync::Mutex;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 /// Estado global del servidor Next.js
 struct ServerState {
@@ -13,6 +14,24 @@ struct ServerState {
     /// el OS cierra este handle automáticamente y mata node.exe con él.
     #[cfg(windows)]
     node_job: Mutex<isize>,
+}
+
+/// Estado del servidor LLM local integrado (llama.cpp llama-server)
+struct LlamaState {
+    /// Puerto asignado al servidor llama-server (0 = no iniciado/disponible)
+    port: Mutex<u16>,
+    /// Estado actual: "no_binary" | "no_model" | "starting" | "ready" | "error"
+    status: Mutex<String>,
+    /// Ruta al modelo GGUF actualmente configurado
+    model_path: Mutex<Option<String>>,
+    /// Ruta al binario llama-server.exe (resuelto en startup)
+    binary_path: Mutex<Option<String>>,
+    /// Handle del proceso llama-server (solo producción)
+    #[cfg(not(dev))]
+    llama_child: Mutex<Option<std::process::Child>>,
+    /// Windows Job Object: mata llama-server automáticamente al cerrar la app
+    #[cfg(windows)]
+    llama_job: Mutex<isize>,
 }
 
 /// Crea un Windows Job Object y asigna el proceso hijo a él.
@@ -122,6 +141,154 @@ fn wait_for_server(port: u16) -> bool {
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
     false
+}
+
+/// Busca cualquier puerto TCP libre (sin puerto preferido específico)
+#[cfg(not(dev))]
+fn find_any_free_port() -> u16 {
+    for _ in 0..50 {
+        if let Ok(listener) = TcpListener::bind("127.0.0.1:0") {
+            if let Ok(addr) = listener.local_addr() {
+                return addr.port();
+            }
+        }
+    }
+    7881
+}
+
+/// Espera hasta que llama-server responda al health check (máx 30 s)
+#[cfg(not(dev))]
+fn wait_for_llama_server(port: u16) -> bool {
+    let url = format!("http://127.0.0.1:{}/health", port);
+    for _ in 0..60 {
+        match ureq::get(&url).call() {
+            Ok(resp) if resp.status() < 500 => return true,
+            _ => {}
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    false
+}
+
+/// Arranca llama-server de forma síncrona (llamar desde un hilo background).
+/// Usa el puerto y modelo ya almacenados en LlamaState.
+#[cfg(not(dev))]
+fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
+    use std::process::{Command, Stdio};
+
+    let binary_path;
+    let model_path;
+    let port;
+
+    {
+        let state = app.state::<LlamaState>();
+        binary_path = state
+            .binary_path
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| "llama-server no disponible".to_string())?;
+        model_path = state
+            .model_path
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| "Modelo no configurado".to_string())?;
+        port = *state.port.lock().unwrap();
+    }
+
+    if port == 0 {
+        return Err("Puerto llama-server no asignado".to_string());
+    }
+
+    // Detectar número de CPUs lógicos para --threads (mínimo 2, máximo 8)
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get().min(8).max(2))
+        .unwrap_or(4)
+        .to_string();
+
+    let mut cmd = Command::new(&binary_path);
+    cmd.env_clear()
+        .arg("--model")
+        .arg(&model_path)
+        .arg("--host")
+        .arg("127.0.0.1")
+        .arg("--port")
+        .arg(port.to_string())
+        // Contexto: 8192 tokens (suficiente para conversaciones largas con tool calling)
+        .arg("--ctx-size")
+        .arg("8192")
+        // CPU only: 0 capas en GPU
+        .arg("-ngl")
+        .arg("0")
+        // Threads dinámico según CPU del sistema
+        .arg("--threads")
+        .arg(&n_threads)
+        .arg("--threads-batch")
+        .arg(&n_threads)
+        // Máximo de tokens por respuesta
+        .arg("--n-predict")
+        .arg("1024")
+        // Desactivar thinking mode: fix para bug de parser de tool_call con razonamiento activo
+        // (llama.cpp issue #20260 — afecta a Qwen3.5 y modelos con thinking mode)
+        .arg("--reasoning")
+        .arg("off")
+        // Flash attention: mejora rendimiento en CPU con modelos híbridos GatedDeltaNet
+        .arg("--flash-attn")
+        .arg("--log-disable")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .env(
+            "SystemRoot",
+            std::env::var("SystemRoot").unwrap_or_default(),
+        )
+        .env(
+            "SystemDrive",
+            std::env::var("SystemDrive").unwrap_or_default(),
+        )
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .env("TEMP", std::env::var("TEMP").unwrap_or_default())
+        .env("TMP", std::env::var("TMP").unwrap_or_default())
+        .env("APPDATA", std::env::var("APPDATA").unwrap_or_default());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    match cmd.spawn() {
+        Ok(child) => {
+            let pid = child.id();
+
+            #[cfg(windows)]
+            {
+                let job = create_job_for_child(pid);
+                if job != 0 {
+                    *app.state::<LlamaState>().llama_job.lock().unwrap() = job;
+                }
+            }
+
+            *app.state::<LlamaState>().llama_child.lock().unwrap() = Some(child);
+
+            // Health check polling — bloquea el hilo hasta que llama-server esté listo
+            if wait_for_llama_server(port) {
+                *app.state::<LlamaState>().status.lock().unwrap() = "ready".to_string();
+                let _ = app.emit("llm:status-changed", "ready");
+            } else {
+                *app.state::<LlamaState>().status.lock().unwrap() = "error".to_string();
+                let _ = app.emit("llm:status-changed", "error");
+                return Err("llama-server no respondió en 30s".to_string());
+            }
+        }
+        Err(e) => {
+            *app.state::<LlamaState>().status.lock().unwrap() = "error".to_string();
+            let _ = app.emit("llm:status-changed", format!("error: {}", e));
+            return Err(e.to_string());
+        }
+    }
+
+    Ok(())
 }
 
 /// Resuelve la ruta de un recurso empaquetado.
@@ -320,6 +487,73 @@ fn open_url(url: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Abre una ruta local (archivo o carpeta) con la aplicación por defecto del sistema.
+/// Usa ShellExecuteW en Windows para evitar inyección de comandos.
+#[tauri::command]
+fn open_local_path(path: String) -> Result<(), String> {
+    // Seguridad: rechazar bytes nulos y caracteres de escape
+    if path.contains('\0') || path.contains('\n') || path.contains('\r') {
+        return Err("Ruta inválida: contiene caracteres no permitidos".to_string());
+    }
+
+    #[cfg(windows)]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+
+        let wide_path: Vec<u16> = OsStr::new(path.as_str())
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let wide_open: Vec<u16> = OsStr::new("open")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        let result = unsafe {
+            windows_sys::Win32::UI::Shell::ShellExecuteW(
+                std::ptr::null_mut(),
+                wide_open.as_ptr(),
+                wide_path.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1, // SW_SHOWNORMAL
+            )
+        };
+        if (result as isize) <= 32 {
+            return Err("No se pudo abrir la ruta".to_string());
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Abre una ruta en VS Code (si está instalado en el PATH).
+#[tauri::command]
+fn open_in_vscode(path: String) -> Result<(), String> {
+    if path.contains('\0') || path.contains('\n') || path.contains('\r') {
+        return Err("Ruta inválida".to_string());
+    }
+    std::process::Command::new("code")
+        .arg(&path)
+        .spawn()
+        .map_err(|_| "VS Code no encontrado. Asegúrate de que 'code' está en el PATH.".to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn get_server_port(state: State<'_, ServerState>) -> u16 {
     *state.port.lock().unwrap()
@@ -381,6 +615,241 @@ fn update_tray_icon(
     Ok(())
 }
 
+// ─── Comandos LLM local ───────────────────────────────────────────────────────
+
+/// Puerto del servidor llama-server local (0 si no está iniciado/disponible)
+#[tauri::command]
+fn get_llama_port(state: State<'_, LlamaState>) -> u16 {
+    *state.port.lock().unwrap()
+}
+
+/// Estado del LLM local: "no_binary" | "no_model" | "starting" | "ready" | "error"
+#[tauri::command]
+fn get_llm_status(state: State<'_, LlamaState>) -> String {
+    state.status.lock().unwrap().clone()
+}
+
+/// Arranca llama-server si el modelo ya está descargado.
+/// No hace nada en modo dev.
+#[tauri::command]
+async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(dev)]
+    {
+        let _ = app;
+        return Err("Solo disponible en la app de escritorio compilada".to_string());
+    }
+    #[cfg(not(dev))]
+    {
+        let app_clone = app.clone();
+        *app.state::<LlamaState>().status.lock().unwrap() = "starting".to_string();
+        std::thread::spawn(move || {
+            if let Err(e) = spawn_llama_server_blocking(&app_clone) {
+                eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
+            }
+        });
+        Ok(())
+    }
+}
+
+/// Descarga un modelo GGUF desde HuggingFace y arranca llama-server.
+/// Emite eventos "llm:download-progress" con el progreso de la descarga.
+/// Solo funciona en producción (desktop).
+#[tauri::command]
+async fn download_llm_model(
+    app: tauri::AppHandle,
+    url: String,
+    model_name: String,
+) -> Result<(), String> {
+    #[cfg(dev)]
+    {
+        let _ = (app, url, model_name);
+        return Err("Solo disponible en la app de escritorio compilada".to_string());
+    }
+    #[cfg(not(dev))]
+    download_llm_model_impl(app, url, model_name).await
+}
+
+#[cfg(not(dev))]
+async fn download_llm_model_impl(
+    app: tauri::AppHandle,
+    url: String,
+    model_name: String,
+) -> Result<(), String> {
+    // Validar URL — solo HuggingFace (previene SSRF y descargas arbitrarias)
+    let parsed = url::Url::parse(&url).map_err(|e| format!("URL inválida: {}", e))?;
+    if parsed.scheme() != "https" {
+        return Err("Solo se permiten URLs HTTPS".to_string());
+    }
+    let host = parsed.host_str().unwrap_or("");
+    if host != "huggingface.co" && !host.ends_with(".huggingface.co") {
+        return Err("Solo se permiten descargas desde huggingface.co".to_string());
+    }
+
+    // Validar nombre del modelo (sin path traversal)
+    if model_name.is_empty()
+        || model_name.contains('/')
+        || model_name.contains('\\')
+        || model_name.contains("..")
+    {
+        return Err("Nombre de modelo inválido".to_string());
+    }
+    if !model_name.to_lowercase().ends_with(".gguf") {
+        return Err("Solo se permiten archivos .gguf".to_string());
+    }
+
+    // Verificar que el binario existe
+    {
+        let state = app.state::<LlamaState>();
+        if state.binary_path.lock().unwrap().is_none() {
+            return Err("llama-server no disponible en esta instalación".to_string());
+        }
+    }
+
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Error app_data: {}", e))?;
+    let models_dir = app_data.join("models");
+    let _ = std::fs::create_dir_all(&models_dir);
+    let model_path = models_dir.join(&model_name);
+
+    // Si el modelo ya existe, solo arrancar el servidor
+    if model_path.exists() {
+        {
+            let state = app.state::<LlamaState>();
+            *state.model_path.lock().unwrap() =
+                Some(model_path.to_string_lossy().to_string());
+            *state.status.lock().unwrap() = "starting".to_string();
+        }
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = spawn_llama_server_blocking(&app_clone) {
+                eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
+            }
+        });
+        return Ok(());
+    }
+
+    // Actualizar estado a "descargando" (usando "starting" como estado intermedio)
+    {
+        let state = app.state::<LlamaState>();
+        *state.status.lock().unwrap() = "starting".to_string();
+    }
+
+    let url_clone = url.clone();
+    let model_path_clone = model_path.clone();
+    let app_clone = app.clone();
+
+    // Descarga en hilo blocking para no bloquear el runtime async de Tauri
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        const MAX_SIZE: u64 = 20 * 1024 * 1024 * 1024; // 20 GB límite
+        const MIN_SIZE: u64 = 10 * 1024 * 1024; // 10 MB mínimo
+
+        let agent = ureq::AgentBuilder::new().redirects(10).build();
+        let response = agent
+            .get(&url_clone)
+            .call()
+            .map_err(|e| format!("Error de descarga: {}", e))?;
+
+        if response.status() != 200 {
+            return Err(format!(
+                "HTTP {}: error al descargar modelo",
+                response.status()
+            ));
+        }
+
+        let content_length = response
+            .header("Content-Length")
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+
+        let mut file = std::fs::File::create(&model_path_clone)
+            .map_err(|e| format!("Error creando archivo: {}", e))?;
+
+        let mut reader = response.into_reader();
+        let mut buf = [0u8; 65536]; // 64 KB buffer
+        let mut downloaded: u64 = 0;
+        let mut last_emitted: u64 = 0;
+
+        use std::io::{Read, Write};
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    file.write_all(&buf[..n])
+                        .map_err(|e| format!("Error escribiendo: {}", e))?;
+                    downloaded += n as u64;
+
+                    // Emitir progreso cada 2 MB
+                    if downloaded.saturating_sub(last_emitted) >= 2_097_152 {
+                        last_emitted = downloaded;
+                        let _ = app_clone.emit(
+                            "llm:download-progress",
+                            serde_json::json!({
+                                "downloaded": downloaded,
+                                "total": content_length,
+                                "percent": if content_length > 0 {
+                                    (downloaded * 100 / content_length).min(99)
+                                } else { 0 }
+                            }),
+                        );
+                    }
+
+                    if downloaded > MAX_SIZE {
+                        drop(file);
+                        let _ = std::fs::remove_file(&model_path_clone);
+                        return Err("Modelo demasiado grande (> 20 GB)".to_string());
+                    }
+                }
+                Err(e) => {
+                    drop(file);
+                    let _ = std::fs::remove_file(&model_path_clone);
+                    return Err(format!("Error de lectura durante descarga: {}", e));
+                }
+            }
+        }
+
+        if downloaded < MIN_SIZE {
+            let _ = std::fs::remove_file(&model_path_clone);
+            return Err(format!(
+                "Descarga incompleta: solo {} bytes (mínimo 10 MB esperado)",
+                downloaded
+            ));
+        }
+
+        // Progreso final: 100%
+        let _ = app_clone.emit(
+            "llm:download-progress",
+            serde_json::json!({
+                "downloaded": downloaded,
+                "total": downloaded,
+                "percent": 100
+            }),
+        );
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Error interno en tarea de descarga: {}", e))??;
+
+    // Guardar ruta del modelo y arrancar llama-server
+    {
+        let state = app.state::<LlamaState>();
+        *state.model_path.lock().unwrap() =
+            Some(model_path.to_string_lossy().to_string());
+        *state.status.lock().unwrap() = "starting".to_string();
+    }
+
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        if let Err(e) = spawn_llama_server_blocking(&app_clone) {
+            eprintln!("[Stacklume] Error arrancando llama-server tras descarga: {}", e);
+        }
+    });
+
+    Ok(())
+}
+
 // ─── System Tray ──────────────────────────────────────────────────────────────
 
 fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -432,6 +901,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(ServerState {
             port: Mutex::new(7878),
             #[cfg(not(dev))]
@@ -439,9 +909,41 @@ pub fn run() {
             #[cfg(windows)]
             node_job: Mutex::new(0),
         })
+        .manage(LlamaState {
+            port: Mutex::new(0),
+            status: Mutex::new("no_binary".to_string()),
+            model_path: Mutex::new(None),
+            binary_path: Mutex::new(None),
+            #[cfg(not(dev))]
+            llama_child: Mutex::new(None),
+            #[cfg(windows)]
+            llama_job: Mutex::new(0),
+        })
         .setup(|app| {
             // Crear system tray (dev y prod)
             setup_tray(app)?;
+
+            // ── Global Quick Launcher — Ctrl+Shift+Space ─────────────────────
+            // Registra un atajo de sistema global para mostrar Stacklume desde
+            // cualquier aplicación y abrir el lanzador rápido en el frontend.
+            if let Err(e) = app.global_shortcut().on_shortcut(
+                "Ctrl+Shift+Space",
+                |app_handle, _shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        if let Some(w) = app_handle.get_webview_window("main") {
+                            let is_visible = w.is_visible().unwrap_or(false);
+                            if !is_visible {
+                                let _ = w.show();
+                            }
+                            let _ = w.set_focus();
+                            // Emitir evento al frontend para abrir el overlay de búsqueda
+                            let _ = w.emit("stacklume:show-launcher", ());
+                        }
+                    }
+                },
+            ) {
+                eprintln!("[Stacklume] No se pudo registrar atajo global Ctrl+Shift+Space: {}", e);
+            }
 
             // ── MODO DEV ────────────────────────────────────────────────────────
             #[cfg(dev)]
@@ -499,13 +1001,16 @@ pub fn run() {
 
                 let node_exe = resolve_resource(&resource_dir, "node/node.exe");
                 let server_js = resolve_resource(&resource_dir, "server/server.js");
+                let llama_exe = resolve_resource(&resource_dir, "llama/llama-server.exe");
 
                 let node_ok = node_exe.exists();
                 let server_ok = server_js.exists();
+                let llama_ok = llama_exe.exists();
 
                 log(&log_path, &format!("resource_dir : {}", resource_dir.display()));
                 log(&log_path, &format!("node.exe     : {} [{}]", node_exe.display(), if node_ok { "OK" } else { "FALTA" }));
                 log(&log_path, &format!("server.js    : {} [{}]", server_js.display(), if server_ok { "OK" } else { "FALTA" }));
+                log(&log_path, &format!("llama-server : {} [{}]", llama_exe.display(), if llama_ok { "OK" } else { "NO" }));
                 log(&log_path, &format!("db_path      : {}", db_path.display()));
 
                 // ── 3. Mostrar ventana INMEDIATAMENTE con página de carga ────────
@@ -611,13 +1116,59 @@ pub fn run() {
                     return Ok(());
                 }
 
-                // ── 5. Asignar puerto ────────────────────────────────────────────
+                // ── 5. Asignar puerto Next.js ────────────────────────────────────
                 let port = find_free_port();
                 {
                     let srv = app.state::<ServerState>();
                     *srv.port.lock().unwrap() = port;
                 }
                 log(&log_path, &format!("Puerto asignado: {}", port));
+
+                // ── 5b. Configurar LLM local (llama-server) ───────────────────────
+                // Pre-asignamos el puerto aunque el modelo no esté descargado todavía,
+                // para que el env var LLAMA_PORT esté disponible en node.exe desde el inicio.
+                let llama_port = if llama_ok { find_any_free_port() } else { 0 };
+                {
+                    let llama_srv = app.state::<LlamaState>();
+                    *llama_srv.port.lock().unwrap() = llama_port;
+
+                    if llama_ok {
+                        *llama_srv.binary_path.lock().unwrap() =
+                            llama_exe.to_str().map(|s| s.to_string());
+
+                        // Buscar modelo .gguf en app_data/models/
+                        let models_dir = app_data.join("models");
+                        let model_opt = std::fs::read_dir(&models_dir)
+                            .ok()
+                            .and_then(|entries| {
+                                entries.filter_map(|e| e.ok()).find_map(|entry| {
+                                    let p = entry.path();
+                                    if p.extension()
+                                        .and_then(|s| s.to_str())
+                                        == Some("gguf")
+                                    {
+                                        Some(p)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            });
+
+                        if let Some(model) = &model_opt {
+                            *llama_srv.model_path.lock().unwrap() =
+                                model.to_str().map(|s| s.to_string());
+                            *llama_srv.status.lock().unwrap() = "starting".to_string();
+                            log(&log_path, &format!("Modelo LLM encontrado: {}", model.display()));
+                        } else {
+                            *llama_srv.status.lock().unwrap() = "no_model".to_string();
+                            log(&log_path, "LLM: modelo no instalado (no_model)");
+                        }
+                    } else {
+                        *llama_srv.status.lock().unwrap() = "no_binary".to_string();
+                        log(&log_path, "LLM: llama-server.exe no encontrado (no_binary)");
+                    }
+                }
+                log(&log_path, &format!("llama_port: {}", llama_port));
 
                 // ── 6. Lanzar servidor Next.js ───────────────────────────────────
                 // Redirigimos stdout y stderr al archivo server.log para diagnóstico.
@@ -664,7 +1215,9 @@ pub fn run() {
                     .env("COMPUTERNAME", std::env::var("COMPUTERNAME").unwrap_or_default())
                     .env("USERNAME", std::env::var("USERNAME").unwrap_or_default())
                     .env("ProgramData", std::env::var("ProgramData").unwrap_or_default())
-                    .env("windir", std::env::var("windir").unwrap_or_default());
+                    .env("windir", std::env::var("windir").unwrap_or_default())
+                    // Puerto de llama-server para que la API route /api/llm/* lo use
+                    .env("LLAMA_PORT", llama_port.to_string());
 
                 // Cargar claves privadas desde .env.keys (generado por build-desktop.mjs).
                 // Este archivo solo existe en builds privadas del propietario — no en el repo público.
@@ -745,6 +1298,28 @@ pub fn run() {
 
                         // Guardamos el handle para poder matar el proceso explícitamente al cerrar
                         *app.state::<ServerState>().node_child.lock().unwrap() = Some(child);
+
+                        // Arrancar llama-server en background si el modelo está disponible
+                        if llama_ok {
+                            let has_model = {
+                                let s = app.state::<LlamaState>();
+                                let result = s.model_path.lock().unwrap().is_some();
+                                result
+                            };
+                            if has_model {
+                                let app_llama = app.handle().clone();
+                                let log_path_llama = log_path.clone();
+                                std::thread::spawn(move || {
+                                    // Delay pequeño para no competir con el arranque de node.js
+                                    std::thread::sleep(std::time::Duration::from_secs(2));
+                                    log(&log_path_llama, "Arrancando llama-server...");
+                                    match spawn_llama_server_blocking(&app_llama) {
+                                        Ok(()) => log(&log_path_llama, "llama-server listo"),
+                                        Err(e) => log(&log_path_llama, &format!("llama-server error: {}", e)),
+                                    }
+                                });
+                            }
+                        }
                     }
                     Err(e) => {
                         log(&log_path, &format!("ERROR spawning: {}", e));
@@ -860,22 +1435,41 @@ pub fn run() {
                 let _ = _window.hide();
             }
 
-            // Cuando la ventana principal se destruye, matar el proceso node.exe hijo.
-            // Esto evita que node.exe quede bloqueando el archivo durante reinstalaciones.
+            // Cuando la ventana principal se destruye, matar node.exe y llama-server.
+            // Esto evita que queden procesos bloqueando archivos durante reinstalaciones.
             if let tauri::WindowEvent::Destroyed = event {
                 #[cfg(not(dev))]
                 {
                     let app = _window.app_handle();
-                    let state = app.state::<ServerState>();
-                    // Extraemos el Child en una expresión para que el MutexGuard se suelte
-                    // antes de que 'state' salga de scope (evita error E0597 en release)
-                    let maybe_child = state.node_child.lock()
-                        .ok()
-                        .and_then(|mut g| g.take());
-                    drop(state);
-                    if let Some(mut child) = maybe_child {
-                        let _ = child.kill();
-                        let _ = child.wait();
+
+                    // Matar node.exe
+                    {
+                        let state = app.state::<ServerState>();
+                        let maybe_child = state
+                            .node_child
+                            .lock()
+                            .ok()
+                            .and_then(|mut g| g.take());
+                        drop(state);
+                        if let Some(mut child) = maybe_child {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                        }
+                    }
+
+                    // Matar llama-server
+                    {
+                        let llama = app.state::<LlamaState>();
+                        let maybe_llama = llama
+                            .llama_child
+                            .lock()
+                            .ok()
+                            .and_then(|mut g| g.take());
+                        drop(llama);
+                        if let Some(mut child) = maybe_llama {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                        }
                     }
                 }
             }
@@ -883,12 +1477,18 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             download_and_run_update,
             open_url,
+            open_local_path,
+            open_in_vscode,
             get_server_port,
             get_app_data_dir,
             minimize_window,
             toggle_maximize_window,
             close_window,
             update_tray_icon,
+            get_llama_port,
+            get_llm_status,
+            start_llama_server,
+            download_llm_model,
         ])
         .run(tauri::generate_context!())
         .expect("Error al ejecutar Stacklume");

@@ -3,8 +3,6 @@
  *
  * Handles registering and updating the service worker for offline support.
  */
-import { showConfirm } from "@/components/ui/ConfirmDialog";
-
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     console.log('[SW] Service workers not supported');
@@ -32,21 +30,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       if (newWorker) {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New service worker is ready
-            console.log('[SW] New service worker installed, update available');
-
-            // Notificar al usuario con el diálogo estilizado de la app
-            showConfirm({
-              title: 'Nueva versión disponible',
-              description: '¿Deseas actualizar la aplicación ahora?',
-              confirmLabel: 'Actualizar',
-              cancelLabel: 'Más tarde',
-            }).then((confirmed) => {
-              if (confirmed) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                window.location.reload();
-              }
-            });
+            // Activar el nuevo SW silenciosamente — el usuario no necesita confirmar
+            // actualizaciones de caché del service worker
+            console.log('[SW] New service worker installed, activating silently');
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
           }
         });
       }

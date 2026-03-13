@@ -271,6 +271,21 @@ export async function POST(request: NextRequest) {
       }, { status: 409 }); // 409 Conflict
     }
 
+    // Aplicar reglas de autoclasificación (no bloquea si falla)
+    let autoTagIds: string[] = [];
+    let autoCategoryId: string | null = null;
+    try {
+      const { applyClassificationRules } = await import("@/lib/classification");
+      const classified = await applyClassificationRules(
+        { url: validatedData.url, title: validatedData.title, platform: validatedData.platform },
+        validatedData.categoryId
+      );
+      autoCategoryId = classified.categoryId;
+      autoTagIds = classified.tagIds;
+    } catch {
+      // No bloquear la creación si la clasificación falla
+    }
+
     const newLink: NewLink = {
       id: generateId(), // Necesario para SQLite; PostgreSQL acepta IDs externos
       url: validatedData.url,
@@ -278,7 +293,7 @@ export async function POST(request: NextRequest) {
       description: validatedData.description || null,
       imageUrl: validatedData.imageUrl || null,
       faviconUrl: validatedData.faviconUrl || null,
-      categoryId: validatedData.categoryId || null,
+      categoryId: validatedData.categoryId || autoCategoryId || null,
       isFavorite: validatedData.isFavorite,
       siteName: validatedData.siteName || null,
       author: validatedData.author || null,
@@ -287,6 +302,8 @@ export async function POST(request: NextRequest) {
       platform: validatedData.platform || null,
       contentType: validatedData.contentType || null,
       platformColor: validatedData.platformColor || null,
+      // DevKit
+      installCommands: validatedData.installCommands ? JSON.stringify(validatedData.installCommands) : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -297,6 +314,21 @@ export async function POST(request: NextRequest) {
       () => db.insert(links).values(newLink).returning(),
       { operationName: "create link" }
     );
+
+    // Insertar etiquetas automáticas (clasificación)
+    if (autoTagIds.length > 0) {
+      try {
+        await withRetry(
+          () =>
+            db.insert(linkTags).values(
+              autoTagIds.map((tagId) => ({ linkId: created.id, tagId }))
+            ).onConflictDoNothing(),
+          { operationName: "insert auto classification tags" }
+        );
+      } catch {
+        // No crítico — el enlace se creó correctamente
+      }
+    }
 
     log.info({ linkId: created.id, url: created.url }, "Link created successfully");
     return NextResponse.json(created, { status: 201 });

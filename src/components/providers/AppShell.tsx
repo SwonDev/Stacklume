@@ -60,7 +60,7 @@ export function AppShell({ children }: AppShellProps) {
       const anchor = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
       if (!anchor) return;
       const href = anchor.getAttribute("href") ?? "";
-      if (href.startsWith("http://") || href.startsWith("https://")) {
+      if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("local://")) {
         e.preventDefault();
         e.stopPropagation();
         void openExternalUrl(href);

@@ -7,9 +7,9 @@
  * - Background sync for pending mutations
  */
 
-const _CACHE_NAME = 'stacklume-v6'; // Reserved for future cache versioning
-const STATIC_CACHE_NAME = 'stacklume-static-v6';
-const API_CACHE_NAME = 'stacklume-api-v6';
+const _CACHE_NAME = 'stacklume-v7'; // Reserved for future cache versioning
+const STATIC_CACHE_NAME = 'stacklume-static-v11';
+const API_CACHE_NAME = 'stacklume-api-v11';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
@@ -30,6 +30,9 @@ const CACHEABLE_API_ROUTES = [
   '/api/widgets',
   '/api/projects',
   '/api/settings',
+  '/api/link-sessions',
+  '/api/archives',
+  '/api/classification-rules',
 ];
 
 // Install event - cache static assets

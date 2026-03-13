@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -123,6 +122,8 @@ export function ManageCategoriesModal() {
         updateCategory(editingId, { name: editingName.trim(), color: editingColor });
         toast.success(t("manageCategories.successUpdate"));
         handleCancelEdit();
+        // Propagar nombre/color actualizado a todos los componentes reactivos
+        useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("manageCategories.errorUpdate"));
       }
@@ -152,6 +153,9 @@ export function ManageCategoriesModal() {
             : t("manageCategories.successDelete")
         );
         setDeleteId(null);
+        // Los links que tenían esta categoría quedan huérfanos en el store;
+        // refreshAllData() los actualiza con categoryId: null del servidor
+        useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("manageCategories.errorDelete"));
       }
@@ -167,19 +171,19 @@ export function ManageCategoriesModal() {
         open={isManageCategoriesModalOpen}
         onOpenChange={setManageCategoriesModalOpen}
       >
-        <DialogContent className="sm:max-w-lg glass">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg glass max-h-[88vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-primary" />
               {t("manageCategories.title")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
             {/* Add button */}
             <Button
               variant="outline"
-              className="w-full gap-2"
+              className="w-full gap-2 shrink-0"
               onClick={() => {
                 setManageCategoriesModalOpen(false);
                 setAddCategoryModalOpen(true);
@@ -190,7 +194,7 @@ export function ManageCategoriesModal() {
             </Button>
 
             {/* Categories list */}
-            <ScrollArea className="h-[360px] pr-4">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-4">
               {categories.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <FolderOpen className="w-12 h-12 mb-2 opacity-50" />
@@ -321,7 +325,7 @@ export function ManageCategoriesModal() {
                   })}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

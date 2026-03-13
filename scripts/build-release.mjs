@@ -43,14 +43,39 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
   console.warn("[build-release] ⚠ TAURI_SIGNING_PRIVATE_KEY no encontrada — el auto-updater no funcionará.");
 }
 
-// ─── 2. Ejecutar tauri build (beforeBuildCommand ya incluye Next.js + recursos) ──
+// ─── 2a. Construir Next.js standalone (paso separado, más fácil de reintentar) ──
+// Si SKIP_NEXT_BUILD=1 ya está en el entorno, el usuario ya construyó Next.js
+// manualmente y solo quiere recompilar Rust + empaquetar.
 
-console.log("\n[build-release] Iniciando tauri build...\n");
+if (process.env.SKIP_NEXT_BUILD !== "1") {
+  console.log("\n[build-release] Paso 1/2: Build Next.js standalone...\n");
+  try {
+    execSync("node scripts/build-desktop.mjs", {
+      stdio: "inherit",
+      cwd: ROOT,
+      env: { ...process.env, DESKTOP_MODE: "true", ELECTRON_BUILD: "true", NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1" },
+    });
+  } catch {
+    console.error("\n[build-release] ✗ Build Next.js fallido.");
+    console.error("  Si el problema es falta de recursos del sistema (hilos, memoria),");
+    console.error("  cierra otras aplicaciones, pausa OneDrive y ejecuta:");
+    console.error("    pnpm build:desktop");
+    console.error("  Cuando termine, vuelve a ejecutar con:");
+    console.error("    SKIP_NEXT_BUILD=1 pnpm tauri:build");
+    process.exit(1);
+  }
+} else {
+  console.log("\n[build-release] Paso 1/2: Saltando Next.js build (SKIP_NEXT_BUILD=1)\n");
+}
+
+// ─── 2b. Ejecutar tauri build con SKIP_NEXT_BUILD=1 (beforeBuildCommand no rehace Next.js) ──
+
+console.log("\n[build-release] Paso 2/2: Compilando Rust + empaquetando instalador...\n");
 try {
   execSync("pnpm exec tauri build", {
     stdio: "inherit",
     cwd: ROOT,
-    env: process.env,
+    env: { ...process.env, SKIP_NEXT_BUILD: "1" },
   });
 } catch {
   process.exit(1);

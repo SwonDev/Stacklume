@@ -103,22 +103,34 @@ async function extractZip(zipPath, destDir) {
 }
 
 async function main() {
-  // ── 1. Limpiar .next ────────────────────────────────────────────────────────
-  log("Limpiando .next/...");
-  if (existsSync(PATHS.next)) {
-    rmSync(PATHS.next, { recursive: true, force: true });
+  const skipNext = process.env.SKIP_NEXT_BUILD === "1";
+
+  // ── 1. Limpiar .next (solo si vamos a compilar) ──────────────────────────────
+  if (!skipNext) {
+    log("Limpiando .next/...");
+    if (existsSync(PATHS.next)) {
+      rmSync(PATHS.next, { recursive: true, force: true });
+    }
   }
 
   // ── 2. Build Next.js standalone ─────────────────────────────────────────────
-  log("Compilando Next.js (standalone, DESKTOP_MODE=true)...");
-  run("pnpm build", {
-    env: {
-      ...process.env,
-      DESKTOP_MODE: "true",
-      ELECTRON_BUILD: "true",
-      NODE_ENV: "production",
-    },
-  });
+  if (skipNext) {
+    log("Saltando build Next.js (SKIP_NEXT_BUILD=1) — usando .next/standalone existente...");
+    if (!existsSync(PATHS.standalone)) {
+      throw new Error(".next/standalone no existe. Ejecuta `pnpm build:desktop` sin SKIP_NEXT_BUILD primero.");
+    }
+  } else {
+    log("Compilando Next.js (standalone, DESKTOP_MODE=true)...");
+    run("pnpm build", {
+      env: {
+        ...process.env,
+        DESKTOP_MODE: "true",
+        ELECTRON_BUILD: "true",
+        NODE_ENV: "production",
+        NEXT_TELEMETRY_DISABLED: "1",
+      },
+    });
+  }
 
   // ── 3. Copiar static y public al standalone ─────────────────────────────────
   log("Copiando .next/static → .next/standalone/.next/static...");

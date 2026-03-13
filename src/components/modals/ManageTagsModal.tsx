@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -120,6 +119,8 @@ export function ManageTagsModal() {
         updateTag(editingId, { name: editingName.trim(), color: editingColor });
         toast.success(t("manageTags.successUpdate"));
         handleCancelEdit();
+        // Propagar cambio de nombre/color a todos los componentes con badges de tags
+        useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("manageTags.errorUpdate"));
       }
@@ -144,6 +145,8 @@ export function ManageTagsModal() {
         setLinkTags(linkTags.filter((lt) => lt.tagId !== deleteId));
         toast.success(t("manageTags.successDelete"));
         setDeleteId(null);
+        // Sincronizar para garantizar que las asociaciones linkTags del servidor coinciden
+        useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("manageTags.errorDelete"));
       }
@@ -159,19 +162,19 @@ export function ManageTagsModal() {
         open={isManageTagsModalOpen}
         onOpenChange={setManageTagsModalOpen}
       >
-        <DialogContent className="sm:max-w-lg glass">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg glass max-h-[88vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Tag className="w-5 h-5 text-primary" />
               {t("manageTags.title")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
             {/* Add button */}
             <Button
               variant="outline"
-              className="w-full gap-2"
+              className="w-full gap-2 shrink-0"
               onClick={() => {
                 setManageTagsModalOpen(false);
                 setAddTagModalOpen(true);
@@ -182,7 +185,7 @@ export function ManageTagsModal() {
             </Button>
 
             {/* Tags list */}
-            <ScrollArea className="h-[360px] pr-4">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-4">
               {tags.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Tag className="w-12 h-12 mb-2 opacity-50" />
@@ -317,7 +320,7 @@ export function ManageTagsModal() {
                   })}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

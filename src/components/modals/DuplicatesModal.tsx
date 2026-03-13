@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
@@ -192,8 +191,8 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl glass">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl glass max-h-[88vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
               {t("duplicates.found")}
@@ -205,7 +204,7 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
 
           {/* Actions bar */}
           {totalSelected > 0 && (
-            <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/10 border border-destructive/20 shrink-0">
               <span className="text-sm">
                 {totalSelected > 1
                   ? t("duplicates.linksSelected", { count: totalSelected })
@@ -223,7 +222,7 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
             </div>
           )}
 
-          <ScrollArea className="max-h-[60vh]">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="space-y-2">
               {groups.map((group) => (
                 <div
@@ -330,7 +329,7 @@ export function DuplicatesModal({ open, onOpenChange }: DuplicatesModalProps) {
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 

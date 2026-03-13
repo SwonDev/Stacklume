@@ -100,6 +100,13 @@ export async function updateTrayIcon(
 export async function openExternalUrl(url: string): Promise<void> {
   if (typeof window === "undefined") return;
 
+  // Rutas locales (local:// scheme) — convertir a path del sistema de archivos
+  if (url.startsWith("local://")) {
+    const path = url.slice("local://".length);
+    await openLocalPath(path);
+    return;
+  }
+
   if (window.__TAURI_INTERNALS__) {
     // 1. Nuestro comando Rust nativo — más fiable en Windows
     try {
@@ -121,4 +128,62 @@ export async function openExternalUrl(url: string): Promise<void> {
 
   // Navegador web normal (no Tauri)
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Abre una ruta local (archivo o carpeta) con la aplicación por defecto del sistema.
+ * Solo funciona en el desktop Tauri.
+ */
+export async function openLocalPath(path: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!window.__TAURI_INTERNALS__) return;
+  await window.__TAURI_INTERNALS__.invoke("open_local_path", { path });
+}
+
+/**
+ * Abre una ruta local en VS Code.
+ * Solo funciona en el desktop Tauri si VS Code está instalado en el PATH.
+ */
+export async function openInVscode(path: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!window.__TAURI_INTERNALS__) return;
+  await window.__TAURI_INTERNALS__.invoke("open_in_vscode", { path });
+}
+
+/**
+ * Registra un listener para el evento global de Quick Launcher.
+ * Tauri v2 (withGlobalTauri: true) expone `window.__TAURI_INTERNALS__.event.listen`.
+ * Devuelve una función para desregistrar el listener.
+ */
+export function onShowLauncher(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  type ListenFn = (event: string, handler: () => void) => Promise<() => void>;
+
+  // Tauri v2: __TAURI_INTERNALS__.event.listen
+  const internals = (window as unknown as Record<string, unknown>)
+    .__TAURI_INTERNALS__ as { event?: { listen?: ListenFn } } | undefined;
+  const listenV2 = internals?.event?.listen;
+  if (typeof listenV2 === "function") {
+    let unlisten: (() => void) | null = null;
+    listenV2("stacklume:show-launcher", callback)
+      .then((fn) => { unlisten = fn; })
+      .catch(() => {});
+    return () => { if (unlisten) unlisten(); };
+  }
+
+  // Fallback Tauri v1: __TAURI__.event.listen
+  const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as
+    | { event?: { listen?: ListenFn } }
+    | undefined;
+  const listenV1 = tauri?.event?.listen;
+  if (typeof listenV1 === "function") {
+    let unlisten: (() => void) | null = null;
+    listenV1("stacklume:show-launcher", callback)
+      .then((fn) => { unlisten = fn; })
+      .catch(() => {});
+    return () => { if (unlisten) unlisten(); };
+  }
+
+  return () => {};
 }

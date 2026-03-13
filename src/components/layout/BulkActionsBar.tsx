@@ -1,6 +1,7 @@
 "use client";
 
-import { Star, FolderOpen, Tag, Trash2, X, CheckSquare } from "lucide-react";
+import { useState } from "react";
+import { Star, FolderOpen, Tag, Trash2, X, CheckSquare, Terminal } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useLinksStore } from "@/stores/links-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { toast } from "sonner";
+import { DevPromptModal } from "@/components/modals/DevPromptModal";
 
 export function BulkActionsBar() {
   const { isSelecting, selectedIds, clearSelection, exitSelecting, selectAll } =
@@ -26,6 +28,7 @@ export function BulkActionsBar() {
   const categories = useLinksStore((s) => s.categories);
   const tags = useLinksStore((s) => s.tags);
   const refreshAllData = useLinksStore((s) => s.refreshAllData);
+  const [devPromptOpen, setDevPromptOpen] = useState(false);
 
   const count = selectedIds.size;
 
@@ -119,6 +122,7 @@ export function BulkActionsBar() {
   };
 
   return (
+    <>
     <AnimatePresence>
       {isSelecting && (
         <motion.div
@@ -204,6 +208,24 @@ export function BulkActionsBar() {
               </Select>
             )}
 
+            {/* DevKit — generar prompt */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-primary hover:text-primary hover:bg-primary/10"
+                  onClick={() => setDevPromptOpen(true)}
+                  aria-label="Generar prompt DevKit"
+                >
+                  <Terminal className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>DevKit — Generar prompt</p>
+              </TooltipContent>
+            </Tooltip>
+
             {/* Eliminar */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -243,5 +265,8 @@ export function BulkActionsBar() {
         </motion.div>
       )}
     </AnimatePresence>
+
+    <DevPromptModal open={devPromptOpen} onClose={() => setDevPromptOpen(false)} />
+    </>
   );
 }
