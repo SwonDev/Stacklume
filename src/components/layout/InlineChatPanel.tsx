@@ -43,8 +43,8 @@ interface DownloadProgress {
 // ─── Modelo por defecto ────────────────────────────────────────────────────────
 
 const DEFAULT_MODEL_URL =
-  "https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf";
-const DEFAULT_MODEL_NAME = "Qwen3.5-0.8B-Q4_K_M.gguf";
+  "https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf";
+const DEFAULT_MODEL_NAME = "Qwen_Qwen3.5-0.8B-Q4_K_M.gguf";
 const MODEL_SIZE_GB = "0.6";
 
 // ─── Utilidades Tauri ─────────────────────────────────────────────────────────
@@ -269,10 +269,16 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         .slice(-10) // últimos 10 mensajes para no sobrepasar el contexto
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
+      // Obtener el puerto de llama-server desde Tauri (necesario en dev mode)
+      let llamaPort = 0;
+      try {
+        llamaPort = await tauriInvoke<number>("get_llama_port");
+      } catch { /* ignorar — producción usa LLAMA_PORT env var */ }
+
       const res = await fetch("/api/llm/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userMessage: text, history }),
+        body: JSON.stringify({ userMessage: text, history, llamaPort }),
       });
 
       if (!res.ok) {
@@ -404,7 +410,8 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-80 sm:w-96 flex flex-col bg-background border-l border-border shadow-2xl"
+            className="fixed right-0 top-0 bottom-0 z-50 w-80 sm:w-96 flex flex-col border-l border-border shadow-2xl bg-card"
+            style={{ backgroundColor: "var(--card, #1a1f2e)" }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
