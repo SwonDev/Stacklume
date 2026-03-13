@@ -436,9 +436,10 @@ async function runLlmJob(
     //   - "guardado/s", "agregado/s", "integrado/s" — los (?!d) de cada alternativa
     const wantsAdd =
       /\banad(?!id)/i.test(msgNorm) ||
-      /guarda(?!d)|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
-      // EN: "save https://..." o "add https://..." al inicio del mensaje
-      /^\s*(save|add)\s+\S/i.test(userMessage);
+      // guarda(?!d|r): excluye "guardado/s" (participio) Y "guardar" (infinitivo) — solo el imperativo "guarda"
+      /guarda(?!d|r)|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
+      // EN: "save/add/bookmark URL" al inicio del mensaje
+      /^\s*(save|add|bookmark)\s+\S/i.test(userMessage);
     // Detectar dominio sin esquema: "añade react.dev", "guarda svelte.dev"
     // Solo cuando NO hay búsqueda explícita (wantsSearch desactiva esto para no confundir
     // "busca Node.js y guarda" con "Node.js" como dominio).
@@ -462,7 +463,7 @@ async function runLlmJob(
     // "cuantos links tengo?" sin tema específico va a Q&A (no aquí)
     const wantsLibrarySearch =
       !wantsSearch && !wantsAdd && !urlMatch &&
-      /cuantos? (links?|enlaces?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) tengo|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\betiqueta\b|how many links|do i have (?:any )?(?:\w+\s+)?(links?|resources?)|my (links?|resources?) (about|on|for)|what .{1,25} (links?|resources?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|any (links?|resources?) (about|on|for)|show me (my )?(links?|resources?)|list (my )?(links?|resources?)|give me (my )?(links?|resources?)/i.test(msgNorm);
+      /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) tengo|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|mis (bookmarks?|favoritos?) |tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\bbookmarks?\b|\betiqueta\b|how many (links?|resources?)|do i have (?:any )?(?:\w+\s+)?(links?|resources?|bookmarks?)|my (saved )?(links?|resources?|bookmarks?) ?(about|on|for|de|sobre)|my (saved )?(links?|resources?|bookmarks?)(?:\s|$)|what (links?|resources?|bookmarks?) (do i have)? ?(about|on|for)?|what .{1,25} (links?|resources?|bookmarks?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|any (links?|resources?|bookmarks?) (about|on|for)|show me (my )?(saved )?(links?|resources?|bookmarks?)|list (my )?(saved )?(links?|resources?|bookmarks?)|give me (my )?(saved )?(links?|resources?|bookmarks?)/i.test(msgNorm);
 
     // ── CASO 1: Añadir resultados de búsqueda previa ──────────────────────────
     // "inclúyelos", "añade los 3 primeros", "guárdalos todos"
@@ -540,7 +541,7 @@ async function runLlmJob(
     if (wantsLibrarySearch) {
       const keyword = msgNorm
         .replace(
-          /cuantos? (links?|enlaces?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (de|sobre|en|con)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|tengo (links?|enlaces?|recursos?) (de|sobre) ?|links? (de|sobre) ?|enlaces? (de|sobre) ?|recursos? (de|sobre) ?/gi,
+          /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|mis (bookmarks?|favoritos?) ?|tengo (links?|enlaces?|recursos?) (de|sobre) ?|links? (de|sobre) ?|enlaces? (de|sobre) ?|recursos? (de|sobre) ?|bookmarks? (de|sobre|about)? ?/gi,
           ""
         )
         // Eliminar artículos y palabras de categoría sueltas tras el reemplazo
@@ -555,14 +556,18 @@ async function runLlmJob(
         .replace(/^how many links( do i have)?( about| on| for)?/gi, "")
         // "do I have any TypeScript resources" → extrae solo el tema
         .replace(/^do i have (?:any )?(\w+\s+)?(links?|resources?)( about| on| for| with)?\s?/gi, "$1")
-        .replace(/^my (links?|resources?) (about|on|for)\s?/gi, "")
+        .replace(/^my\s+(saved\s+)?(links?|resources?|bookmarks?)\s*(about|on|for|de|sobre)?\s*/gi, "")
+        // "what links/resources do I have about X?" → extrae solo el tema
+        .replace(/^what (links?|resources?|bookmarks?) ?(do i have)? ?(about|on|for)?\s?/gi, "")
         // "what TypeScript resources do I have?" → captura el tema entre "what" y "links/resources"
-        .replace(/^what (.{1,25}?) (?:links?|resources?)(?:\s*do i have)?(?:\s*about|\s*on|\s*for|\s*with)?\s?/gi, "$1 ")
+        .replace(/^what (.{1,25}?) (?:links?|resources?|bookmarks?)(?:\s*do i have)?(?:\s*about|\s*on|\s*for|\s*with)?\s?/gi, "$1 ")
         .replace(/^do you have (any(thing)?|something)? ?(about|on|for)\s?/gi, "")
         .replace(/^any (?:links?|resources?) (about|on|for)\s?/gi, "")
         // Residuo tras eliminar "show me/list/give me": "links about X" → "X"
         .replace(/^(links?|resources?) (about|on|for)\s?/gi, "")
-        .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|todos?|about|on|for)\s+/i, "")
+        .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|todos?|lo|la|my|about|on|for)\s+/i, "")
+        // Segunda pasada: eliminar un segundo prefijo residual (ej: "todo lo X" → "lo X" → "X")
+        .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|todos?|lo|la|my|about|on|for)\s+/i, "")
         // Ruido al final en inglés y en español: "...do I have?", "...que tengo", "...tengo?"
         .replace(/\s*(do i have|that i have|i have|do you have)[?!.\s]*$/i, "")
         .replace(/\s*(que tengo|que tienes?|tengo|que hay)[?!.,\s]*$/i, "")
@@ -588,9 +593,11 @@ async function runLlmJob(
           content: `📚 Tienes ${libData.count} enlace${libData.count === 1 ? "" : "s"}:\n\n${list}`,
         });
       } else {
+        // También muestra 📚 para indicar que sí se buscó en la biblioteca (CASO 3)
+        const notFoundMsg = libData.message ?? `No encontré enlaces sobre "${keyword || msgNorm.slice(0, 30)}" en tu biblioteca.`;
         jobs.set(jobId, {
           status: "done",
-          content: libData.message ?? "No encontré enlaces sobre ese tema en tu biblioteca.",
+          content: `📚 ${notFoundMsg}`,
         });
       }
       return;
