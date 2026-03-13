@@ -133,6 +133,7 @@ export function Header() {
   };
 
   return (
+    <>
     <header className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border/50 bg-background/80 backdrop-blur-md will-change-[backdrop-filter]" role="banner" aria-label="Barra de navegación principal">
       <div className="flex h-full items-center justify-between px-4">
         {/* Left side - Menu & Search */}
@@ -508,11 +509,6 @@ export function Header() {
       {/* Sticker Book - only render when mounted to prevent hydration issues */}
       {isMounted && isStickerBookOpen && <StickerBook onClose={() => useStickerStore.getState().closeStickerBook()} />}
 
-      {/* Asistente IA local — solo desktop */}
-      {isMounted && isDesktop && (
-        <InlineChatPanel open={showLlmChat} onClose={() => setShowLlmChat(false)} />
-      )}
-
       {/* Mobile Search Sheet */}
       <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
         <SheetContent side="top" className="h-auto">
@@ -589,5 +585,10 @@ export function Header() {
         </SheetContent>
       </Sheet>
     </header>
+    {/* Asistente IA local — fuera del header para evitar que backdrop-blur afecte el fondo del panel */}
+    {isMounted && isDesktop && (
+      <InlineChatPanel open={showLlmChat} onClose={() => setShowLlmChat(false)} />
+    )}
+    </>
   );
 }
