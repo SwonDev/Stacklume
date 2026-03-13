@@ -3046,7 +3046,7 @@
   "llmChat.send": "Enviar",
   "llmChat.thinking": "Pensando...",
   "llmChat.noModel": "Modelo no instalado",
-  "llmChat.noModelDesc": "Descarga el modelo Qwen2.5-1.5B (~{{size}} GB) para usar el asistente IA de forma local y privada.",
+  "llmChat.noModelDesc": "Descarga el modelo Qwen3.5-0.8B (~{{size}} GB) para usar el asistente IA de forma local y privada.",
   "llmChat.downloadModel": "Descargar modelo (~{{size}} GB)",
   "llmChat.downloading": "Descargando modelo...",
   "llmChat.modelReady": "Modelo listo",

@@ -90,7 +90,6 @@ fn create_job_for_child(child_pid: u32) -> isize {
 
 // ─── Utilidades de producción ─────────────────────────────────────────────────
 
-#[cfg(not(dev))]
 use std::net::TcpListener;
 
 /// Puerto preferido estable para producción.
@@ -144,7 +143,6 @@ fn wait_for_server(port: u16) -> bool {
 }
 
 /// Busca cualquier puerto TCP libre (sin puerto preferido específico)
-#[cfg(not(dev))]
 fn find_any_free_port() -> u16 {
     for _ in 0..50 {
         if let Ok(listener) = TcpListener::bind("127.0.0.1:0") {
@@ -157,7 +155,6 @@ fn find_any_free_port() -> u16 {
 }
 
 /// Espera hasta que llama-server responda al health check (máx 30 s)
-#[cfg(not(dev))]
 fn wait_for_llama_server(port: u16) -> bool {
     let url = format!("http://127.0.0.1:{}/health", port);
     for _ in 0..60 {
@@ -171,8 +168,7 @@ fn wait_for_llama_server(port: u16) -> bool {
 }
 
 /// Arranca llama-server de forma síncrona (llamar desde un hilo background).
-/// Usa el puerto y modelo ya almacenados en LlamaState.
-#[cfg(not(dev))]
+/// Funciona en dev y prod. En dev no guarda el handle del proceso hijo.
 fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     use std::process::{Command, Stdio};
 
@@ -233,8 +229,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         // (llama.cpp issue #20260 — afecta a Qwen3.5 y modelos con thinking mode)
         .arg("--reasoning")
         .arg("off")
-        // Flash attention: mejora rendimiento en CPU con modelos híbridos GatedDeltaNet
-        .arg("--flash-attn")
         .arg("--log-disable")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -269,7 +263,12 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
 
-            *app.state::<LlamaState>().llama_child.lock().unwrap() = Some(child);
+            // En producción guardamos el handle para matarlo al cerrar la app.
+            // En dev el proceso se gestiona por el SO al cerrar tauri dev.
+            #[cfg(not(dev))]
+            {
+                *app.state::<LlamaState>().llama_child.lock().unwrap() = Some(child);
+            }
 
             // Health check polling — bloquea el hilo hasta que llama-server esté listo
             if wait_for_llama_server(port) {
@@ -630,46 +629,29 @@ fn get_llm_status(state: State<'_, LlamaState>) -> String {
 }
 
 /// Arranca llama-server si el modelo ya está descargado.
-/// No hace nada en modo dev.
 #[tauri::command]
 async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
-    #[cfg(dev)]
-    {
-        let _ = app;
-        return Err("Solo disponible en la app de escritorio compilada".to_string());
-    }
-    #[cfg(not(dev))]
-    {
-        let app_clone = app.clone();
-        *app.state::<LlamaState>().status.lock().unwrap() = "starting".to_string();
-        std::thread::spawn(move || {
-            if let Err(e) = spawn_llama_server_blocking(&app_clone) {
-                eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
-            }
-        });
-        Ok(())
-    }
+    let app_clone = app.clone();
+    *app.state::<LlamaState>().status.lock().unwrap() = "starting".to_string();
+    std::thread::spawn(move || {
+        if let Err(e) = spawn_llama_server_blocking(&app_clone) {
+            eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
+        }
+    });
+    Ok(())
 }
 
 /// Descarga un modelo GGUF desde HuggingFace y arranca llama-server.
 /// Emite eventos "llm:download-progress" con el progreso de la descarga.
-/// Solo funciona en producción (desktop).
 #[tauri::command]
 async fn download_llm_model(
     app: tauri::AppHandle,
     url: String,
     model_name: String,
 ) -> Result<(), String> {
-    #[cfg(dev)]
-    {
-        let _ = (app, url, model_name);
-        return Err("Solo disponible en la app de escritorio compilada".to_string());
-    }
-    #[cfg(not(dev))]
     download_llm_model_impl(app, url, model_name).await
 }
 
-#[cfg(not(dev))]
 async fn download_llm_model_impl(
     app: tauri::AppHandle,
     url: String,
@@ -960,6 +942,51 @@ pub fn run() {
                         let _ = w.set_focus();
                     }
                 });
+                // ── Inicializar llama-server en modo dev ─────────────────────────
+                // CARGO_MANIFEST_DIR apunta a src-tauri/ en tiempo de compilación (siempre correcto)
+                {
+                    let llama_exe = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("resources/llama/llama-server.exe");
+                    if llama_exe.exists() {
+                        let llama_port = find_any_free_port();
+                        let llama_state = app.handle().state::<LlamaState>();
+                        *llama_state.port.lock().unwrap() = llama_port;
+                        *llama_state.binary_path.lock().unwrap() =
+                            Some(llama_exe.to_string_lossy().to_string());
+                        // Comprobar si ya hay un modelo descargado
+                        if let Ok(app_data) = app.path().app_data_dir() {
+                            let model_path = app_data.join("models/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf");
+                            if model_path.exists() {
+                                *llama_state.model_path.lock().unwrap() =
+                                    Some(model_path.to_string_lossy().to_string());
+                                *llama_state.status.lock().unwrap() = "starting".to_string();
+                                let app_clone = app.handle().clone();
+                                std::thread::spawn(move || {
+                                    // Pequeño delay para no competir con el arranque de Next.js
+                                    std::thread::sleep(std::time::Duration::from_secs(3));
+                                    if let Err(e) = spawn_llama_server_blocking(&app_clone) {
+                                        eprintln!("[Stacklume Dev] llama-server error: {}", e);
+                                    }
+                                });
+                            } else {
+                                *llama_state.status.lock().unwrap() = "no_model".to_string();
+                            }
+                        } else {
+                            *llama_state.status.lock().unwrap() = "no_model".to_string();
+                        }
+                        println!(
+                            "[Stacklume Dev] llama-server configurado: port={}, binary={}",
+                            llama_port,
+                            llama_exe.display()
+                        );
+                    } else {
+                        println!(
+                            "[Stacklume Dev] llama-server.exe no encontrado en: {}",
+                            llama_exe.display()
+                        );
+                    }
+                }
+
                 return Ok(());
             }
 
