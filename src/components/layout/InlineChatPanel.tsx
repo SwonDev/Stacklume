@@ -10,6 +10,9 @@ import {
   Trash2,
   Wrench,
   Loader2,
+  Plus,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +75,148 @@ function tauriListen(
     return listen(event, (evt) => handler(evt.payload));
   }
   return Promise.resolve(() => {});
+}
+
+// ─── Renderizado enriquecido de mensajes ──────────────────────────────────────
+
+interface ParsedLink {
+  title: string;
+  url: string;
+  desc?: string;
+}
+
+/** Extrae bloques "N. Título\n   URL\n   Desc opcional" del texto de un mensaje */
+function parseMessageParts(content: string) {
+  type Part = { type: "text"; text: string } | { type: "link"; link: ParsedLink };
+  const parts: Part[] = [];
+  let lastIdx = 0;
+  // Formato: "1. **Título opcional bold**\n   https://url\n   descripción opcional"
+  const re = /(\d+)\.\s+(.*?)\n[ \t]+(https?:\/\/[^\s\n]+)(?:\n[ \t]+([^\n]+))?/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push({ type: "text", text: content.slice(lastIdx, match.index) });
+    }
+    const title = match[2].replace(/\*{1,2}/g, "").trim();
+    const url = match[3].trim();
+    const desc = match[4]?.trim();
+    parts.push({ type: "link", link: { title, url, desc } });
+    lastIdx = match.index + match[0].length;
+  }
+
+  if (lastIdx < content.length) {
+    parts.push({ type: "text", text: content.slice(lastIdx) });
+  }
+
+  return parts;
+}
+
+/** Tarjeta de un link individual con botón para abrir y añadir a Stacklume */
+function ChatLinkCard({ link, onAdded }: { link: ParsedLink; onAdded: () => void }) {
+  const [status, setStatus] = useState<"idle" | "adding" | "added" | "exists" | "error">("idle");
+
+  // Declarar antes de los callbacks para evitar TDZ y claridad
+  const urlShort = link.url.replace(/^https?:\/\//, "");
+  // Quitar "[Categoría]" del título para display limpio
+  const displayTitle = link.title.replace(/\s*\[[^\]]+\]\s*$/, "").trim() || urlShort;
+
+  const openLink = () => {
+    tauriInvoke("open_url", { url: link.url }).catch(() => {
+      window.open(link.url, "_blank", "noopener,noreferrer");
+    });
+  };
+
+  const addToLibrary = async () => {
+    if (status !== "idle") return;
+    setStatus("adding");
+    try {
+      // Limpiar "[Categoría]" que CASO 3 añade al título para display
+      const cleanTitle = link.title.replace(/\s*\[[^\]]+\]\s*$/, "").trim() || urlShort;
+      const res = await fetch("/api/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: link.url, title: cleanTitle }),
+      });
+      if (res.status === 409) {
+        setStatus("exists");
+      } else if (res.ok) {
+        setStatus("added");
+        onAdded();
+      } else {
+        setStatus("error");
+        setTimeout(() => setStatus("idle"), 3000);
+      }
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 3000);
+    }
+  };
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-border/60 bg-background/60 p-2 text-xs">
+      <div className="flex items-start gap-1.5">
+        <button onClick={openLink} className="flex-1 text-left min-w-0" title={link.url}>
+          <span className="font-medium text-primary hover:underline block truncate">
+            {displayTitle}
+          </span>
+          <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
+            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+            <span className="truncate">{urlShort.length > 48 ? urlShort.slice(0, 48) + "…" : urlShort}</span>
+          </span>
+        </button>
+        <button
+          onClick={addToLibrary}
+          disabled={status !== "idle"}
+          title={
+            status === "added" ? "Añadido a Stacklume" :
+            status === "exists" ? "Ya está en tu biblioteca" :
+            status === "error" ? "Error al añadir" :
+            "Añadir a Stacklume"
+          }
+          className={cn(
+            "shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-colors mt-0.5",
+            status === "idle" && "text-muted-foreground hover:text-primary hover:bg-primary/10",
+            status === "adding" && "text-muted-foreground",
+            status === "added" && "text-green-500 bg-green-500/10",
+            status === "exists" && "text-muted-foreground bg-secondary",
+            status === "error" && "text-destructive",
+          )}
+        >
+          {status === "idle" && <Plus className="w-3.5 h-3.5" />}
+          {status === "adding" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {(status === "added" || status === "exists") && <Check className="w-3.5 h-3.5" />}
+          {status === "error" && <AlertCircle className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+      {link.desc && (
+        <p className="text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{link.desc}</p>
+      )}
+    </div>
+  );
+}
+
+/** Renderiza el contenido de un mensaje, convirtiendo listas de links en tarjetas interactivas */
+function ChatMessageContent({ content, onLinkAdded }: { content: string; onLinkAdded: () => void }) {
+  const parts = parseMessageParts(content);
+  const hasLinks = parts.some((p) => p.type === "link");
+
+  if (!hasLinks) {
+    return <span className="whitespace-pre-wrap break-words">{content}</span>;
+  }
+
+  return (
+    <div className="break-words">
+      {parts.map((part, i) => {
+        if (part.type === "text") {
+          const text = part.text.replace(/^\n+/, "").replace(/\n+$/, "");
+          if (!text) return null;
+          return <p key={i} className="whitespace-pre-wrap mb-1">{text}</p>;
+        }
+        return <ChatLinkCard key={i} link={part.link} onAdded={onLinkAdded} />;
+      })}
+    </div>
+  );
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────────
@@ -351,8 +496,9 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     : m
                 )
               );
-              // Refrescar biblioteca si se guardaron links (señalado por ✅ en la respuesta)
-              if (typeof data.content === "string" && data.content.includes("✅")) {
+              // Refrescar biblioteca si se guardaron links (CASO 2: ✅, CASO 1: Añadidos)
+              if (typeof data.content === "string" &&
+                  (data.content.includes("✅") || data.content.includes("Añadidos"))) {
                 refreshAllData().catch(() => {/* silencioso */});
               }
               resolve();
@@ -605,9 +751,10 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                                 <span className="animate-bounce [animation-delay:300ms]">·</span>
                               </span>
                             ) : (
-                              <span className="whitespace-pre-wrap break-words">
-                                {msg.content}
-                              </span>
+                              <ChatMessageContent
+                                content={msg.content}
+                                onLinkAdded={() => refreshAllData().catch(() => {})}
+                              />
                             )}
                           </div>
                         )}

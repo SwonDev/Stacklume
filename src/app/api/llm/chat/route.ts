@@ -429,18 +429,30 @@ async function runLlmJob(
 
     const wantsSearch =
       // \bbusca\b excluye "buscando/buscador" (gerundio/sustantivo). \bbuscar\b permite "quiero buscar X"
-      /\bbusca\b|\bbuscar\b|search|en internet|en la web|\bencuentra|recomienda|googlea|\bfind\b|look for|show me resources|get me links/i.test(msgNorm);
+      // \brecomienda(?:me)?\b excluye "recomiendas" (2ª persona) — solo imperativo/reflexivo
+      /\bbusca\b|\bbuscar\b|search|en internet|en la web|\bencuentra|\brecomienda(?:me)?\b|googlea|\bfind\b|look for|show me resources|get me links/i.test(msgNorm);
+    // Preguntas de "¿cómo...?" → CASO 5 Q&A, nunca wantsAdd ni wantsLibrarySearch.
+    // "como puedo anadir", "como importo", "how to add" etc.
+    const isHowToQuestion =
+      /^como (importo|exporto|uso|configuro|instalo|creo|hago|cambio|elimino|borro|edito|accedo|activo|desactivo|personalizo|actualizo)\b/.test(msgNorm) ||
+      /^como (puedo |podria |se puede |se |podemos )?(anadir|agregar|guardar|importar|exportar|usar|crear|instalar|configurar|editar|eliminar|borrar)\b/.test(msgNorm) ||
+      /^how (to|do i|can i) (import|export|use|configure|install|create|delete|add|edit|access|enable|disable|update)\b/.test(msgNorm);
     // Solo las formas imperativas/infinitivo de "añadir": "anade" (añade), "anadir" (añadir).
     // Evita falsos positivos de conjugación:
     //   - "anado" (yo añado), "anadi" (yo añadí), "anadio" (él añadió)
     //   - "anadiendo" (gerundio), "anadimos" (nosotros), "anaden" (ellos)
     //   - Antes: \banad(?!id) solo bloqueaba el participio "anadido"
+    // isHowToQuestion: "como puedo anadir widgets?" no debe guardar nada
     const wantsAdd =
-      /\banade|\banadir\b/i.test(msgNorm) ||
-      // guarda(?!d|r): excluye "guardado/s" (participio) Y "guardar" (infinitivo) — solo el imperativo "guarda"
-      /guarda(?!d|r)|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
-      // EN: "save/add/bookmark URL" al inicio del mensaje
-      /^\s*(save|add|bookmark)\s+\S/i.test(userMessage);
+      !isHowToQuestion && (
+        // \banade(?!s\b): excluye "añades" (2ª persona "¿añades tú?") — solo imperativo/infinitivo
+        /\banade(?!s\b)|\banadir\b/i.test(msgNorm) ||
+        // guarda(?!\w): imperativo "guarda URL" (excluye "guardado/s", "guardan")
+        // guardar\b / guarde[s]?\b: infinitivo/subjuntivo para "quiero que guardes URL", "necesito guardar URL"
+        /guarda(?!\w)|\bguardar\b|\bguarde[s]?\b|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
+        // EN: "save/add/bookmark URL" al inicio del mensaje
+        /^\s*(save|add|bookmark)\s+\S/i.test(userMessage)
+      );
     // Detectar dominio sin esquema: "añade react.dev", "guarda svelte.dev"
     // Solo cuando NO hay búsqueda explícita (wantsSearch desactiva esto para no confundir
     // "busca Node.js y guarda" con "Node.js" como dominio).
@@ -457,14 +469,22 @@ async function runLlmJob(
       : null;
     const resolvedUrl = urlMatch ? urlMatch[0] : (domainMatch ? `https://${domainMatch[1]}` : null);
     const resolvedUrlMatch = urlMatch ?? domainMatch;
-    // "inclúyelos" / "añade los 3 primeros" = añadir resultado de búsqueda previa
-    const wantsAddPrev = wantsAdd && !resolvedUrlMatch && !wantsSearch && hasRecentSearch;
+    // "inclúyelos" / "añade los 3 primeros" = añadir resultado de búsqueda previa.
+    // Requiere referencia explícita a los resultados previos para evitar falsos positivos
+    // como "guarda el momento" o "¿añades tú?" que no se refieren a búsquedas anteriores.
+    const wantsAddPrev = wantsAdd && !resolvedUrlMatch && !wantsSearch && hasRecentSearch && (
+      /\b(todos?|esos?|estos?|los anteriores?|los de (arriba|antes))\b/i.test(msgNorm) ||
+      /\b(all|those|these|previous|above)\b/i.test(msgNorm) ||
+      /incluy|añadelos?|guardalos?|agrega(los?)?/i.test(msgNorm) ||
+      /\blos primeros?\b|\bel primer(o)?\b|\b\d+\s+primeros?\b/i.test(msgNorm)
+    );
     // "¿qué links tengo de X?", "¿tienes algo de Y?", "mis links de Z", "cuántos links de X"
     // También: "links de X", "recursos de X", "tengo algo con la etiqueta X"
     // "cuantos links tengo?" sin tema específico va a Q&A (no aquí)
+    // isHowToQuestion ya se calcula antes (también guarda wantsAdd)
     const wantsLibrarySearch =
-      !wantsSearch && !wantsAdd && !urlMatch &&
-      /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) .{0,25}?tengo|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|mis (bookmarks?|favoritos?) |tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\bbookmarks?\b|\betiqueta\b|how many (links?|resources?)|do i have (?:any )?(?:\w+\s+)?(links?|resources?|bookmarks?)|my (saved )?(links?|resources?|bookmarks?) ?(about|on|for|de|sobre)|my (saved )?(links?|resources?|bookmarks?)(?:\s|$)|what (links?|resources?|bookmarks?) (do i have)? ?(about|on|for)?|what .{1,25} (links?|resources?|bookmarks?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|any (links?|resources?|bookmarks?) (about|on|for)|show me (my )?(saved )?(links?|resources?|bookmarks?)|list (my )?(saved )?(links?|resources?|bookmarks?)|give me (my )?(saved )?(links?|resources?|bookmarks?)/i.test(msgNorm);
+      !wantsSearch && !wantsAdd && !urlMatch && !isHowToQuestion &&
+      /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) .{0,25}?tengo|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|mis (bookmarks?|favoritos?) |tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\bbookmarks?\b|\betiqueta\b|how many (links?|resources?)|do i have (?:any )?(?:\w+\s+)?(links?|resources?|bookmarks?)|my (saved )?(links?|resources?|bookmarks?) ?(about|on|for|de|sobre)|my (saved )?(links?|resources?|bookmarks?)(?:\s|$)|what (links?|resources?|bookmarks?) (do i have)? ?(about|on|for)?|what .{1,25} (links?|resources?|bookmarks?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|do you have any \w+ (links?|resources?|bookmarks?)|any (links?|resources?|bookmarks?) (about|on|for)|show me (my )?(saved )?(links?|resources?|bookmarks?)|list (my )?(saved )?(links?|resources?|bookmarks?)|give me (my )?(saved )?(links?|resources?|bookmarks?)|my \w+ (links?|resources?|bookmarks?)|show me what (i have|i.ve) saved|(muestrame|mostrame) (todo )?(de|sobre) |hay algo (de|sobre|con) \w|(tengo|tienes?|hay) (recursos?|links?|enlaces?|bookmarks?) (de|sobre|con|para) \w/i.test(msgNorm);
 
     // ── CASO 1: Añadir resultados de búsqueda previa ──────────────────────────
     // "inclúyelos", "añade los 3 primeros", "guárdalos todos"
@@ -501,7 +521,7 @@ async function runLlmJob(
       if (added.length > 0)
         reply += `\n\n✅ Añadidos a tu biblioteca (${added.length}): ${added.join(", ")}`;
       if (skipped.length > 0)
-        reply += `\n⚠️ Ya existían: ${skipped.join(", ")}`;
+        reply += `\n⚠️ Ya estaban en tu biblioteca: ${skipped.join(", ")}`;
 
       jobs.set(jobId, { status: "done", content: reply });
       return;
@@ -528,6 +548,11 @@ async function runLlmJob(
           status: "done",
           content: `✅ Añadido a tu biblioteca:\n${addData.added.title}\n${addData.added.url}`,
         });
+      } else if (addData.error?.includes("ya existe")) {
+        jobs.set(jobId, {
+          status: "done",
+          content: `ℹ️ Ya existía en tu biblioteca: ${resolvedUrl}`,
+        });
       } else {
         jobs.set(jobId, {
           status: "done",
@@ -542,9 +567,11 @@ async function runLlmJob(
     if (wantsLibrarySearch) {
       const keyword = msgNorm
         .replace(
-          /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|mis (bookmarks?|favoritos?) ?|tengo (links?|enlaces?|recursos?) (de|sobre) ?|links? (de|sobre) ?|enlaces? (de|sobre) ?|recursos? (de|sobre) ?|bookmarks? (de|sobre|about)? ?/gi,
+          /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) ?|que (links?|enlaces?|recursos?|cosas?|paginas?) tengo (de|sobre)?|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|hay algo (de|sobre|en|con) ?|mis links? (de|sobre)?|mis enlaces? (de|sobre)?|mis (bookmarks?|favoritos?) ?|tengo (links?|enlaces?|recursos?) (de|sobre) ?|links? (de|sobre) ?|enlaces? (de|sobre) ?|recursos? (de|sobre) ?|bookmarks? (de|sobre|about)? ?/gi,
           ""
         )
+        // S7: "show me what I have saved about X" / "what I've saved about X" → extraer solo el tema
+        .replace(/^(?:show me )?what (?:i have|i.ve) saved\s*(?:about|on|for)?\s*/gi, "")
         // Eliminar artículos y palabras de categoría sueltas tras el reemplazo
         .replace(/\bla (categoria|seccion|carpeta)\b|\ben la (categoria|seccion)\b/gi, "")
         // Eliminar ruido de ubicación, "etiqueta X" → solo X, y participios ES
@@ -557,18 +584,28 @@ async function runLlmJob(
         .replace(/^how many links( do i have)?( about| on| for)?/gi, "")
         // "do I have any TypeScript resources" → extrae solo el tema
         .replace(/^do i have (?:any )?(\w+\s+)?(links?|resources?)( about| on| for| with)?\s?/gi, "$1")
+        // "do you have any Vue links?" / "do you have any resources about Docker?" → "Vue" / "Docker"
+        .replace(/^do you have (?:any )?(?:(\w+)\s+)?(?:links?|resources?|bookmarks?)\s*(?:about|on|for)?\s*/gi, "$1 ")
+        // S6: "my react links", "my JavaScript resources" → extraer solo el tema
+        .replace(/^my\s+(?!saved\s+)(\w+)\s+(?:links?|resources?|bookmarks?)\s*/gi, "$1 ")
         .replace(/^my\s+(saved\s+)?(links?|resources?|bookmarks?)\s*(about|on|for|de|sobre)?\s*/gi, "")
         // "what links/resources do I have about X?" → extrae solo el tema
         .replace(/^what (links?|resources?|bookmarks?) ?(do i have)? ?(about|on|for)?\s?/gi, "")
         // "what TypeScript resources do I have?" → captura el tema entre "what" y "links/resources"
         .replace(/^what (.{1,25}?) (?:links?|resources?|bookmarks?)(?:\s*do i have)?(?:\s*about|\s*on|\s*for|\s*with)?\s?/gi, "$1 ")
+        // "do you have any resources about X" / "do you have any Vue links?" → extrae solo el tema
+        .replace(/^do you have (?:any )?(?:links?|resources?|bookmarks?) ?(about|on|for|on)?\s*/gi, "")
         .replace(/^do you have (any(thing)?|something)? ?(about|on|for)\s?/gi, "")
         .replace(/^any (?:links?|resources?) (about|on|for)\s?/gi, "")
         // Residuo tras eliminar "show me/list/give me": "links about X" → "X"
         .replace(/^(links?|resources?) (about|on|for)\s?/gi, "")
         .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|todos?|lo|la|my|about|on|for)\s+/i, "")
+        // "y qué otros links de X" → eliminar "y que otros"
+        .replace(/^y\s+(que|qué)\s+(otros?|mas|más|hay|también|tambien)?\s*/gi, "")
+        // "también tengo/hay X" → eliminar "también"
+        .replace(/^tambi[eé]n\s+(tengo\s+|hay\s+)?/gi, "")
         // Segunda pasada: eliminar un segundo prefijo residual (ej: "todo lo X" → "lo X" → "X")
-        .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|todos?|lo|la|my|about|on|for)\s+/i, "")
+        .replace(/^(de|sobre|con|en|tengo|una?|mis|sus|los|las|todos?|lo|la|y|que|otros?|my|about|on|for)\s+/i, "")
         // Ruido al final en inglés y en español: "...do I have?", "...que tengo", "...tengo?"
         .replace(/\s*(do i have|that i have|i have|do you have)[?!.\s]*$/i, "")
         .replace(/\s*(que tengo|que tienes?|tengo|que hay)[?!.,\s]*$/i, "")
@@ -595,19 +632,26 @@ async function runLlmJob(
         });
       } else {
         // También muestra 📚 para indicar que sí se buscó en la biblioteca (CASO 3)
-        const notFoundMsg = libData.message ?? `No encontré enlaces sobre "${keyword || msgNorm.slice(0, 30)}" en tu biblioteca.`;
+        const topic = keyword || msgNorm.slice(0, 30);
+        const notFoundMsg = libData.message ?? `No encontré enlaces sobre "${topic}" en tu biblioteca.`;
+        // Sugerir búsqueda web cuando no hay resultados (solo si la keyword tiene contenido real)
+        const webSuggestion = topic.length > 1 && !/^(de|el|la|los|las|un|una|en|sobre)$/.test(topic.trim())
+          ? `\n💡 Puedes buscarlos en la web con "busca ${topic}".`
+          : "";
         jobs.set(jobId, {
           status: "done",
-          content: `📚 ${notFoundMsg}`,
+          content: `📚 ${notFoundMsg}${webSuggestion}`,
         });
       }
       return;
     }
 
-    // ── CASO 4: Búsqueda web (con o sin guardar) ──────────────────────────────
+    // ── CASO 4: Búsqueda web ──────────────────────────────────────────────────
     // "busca los mejores gestores de paquetes", "encuentra tutoriales de Next.js"
-    // "busca React y guárdalo", "guarda react" (sin URL → búsqueda implícita)
-    if (wantsSearch || (wantsAdd && !resolvedUrlMatch)) {
+    // "busca React y guárdalo"
+    // NOTA: ya no se activa con (wantsAdd && !resolvedUrlMatch) para evitar falsos
+    // positivos como "guarda el momento" o "añade una tarea" sin URL.
+    if (wantsSearch) {
       const query = userMessage
         .normalize("NFC")
         .replace(
@@ -669,11 +713,115 @@ async function runLlmJob(
       return;
     }
 
+    // ── CASO 5a: Conteo general de la biblioteca (respuesta determinista) ────────
+    // "¿cuántos links tengo en total?", "cuántos enlaces guardados", "how many links do i have?" etc.
+    // Evita que el LLM devuelva solo "137" (< 10 chars) y quede ambiguo.
+    if (/cuantos? (links?|enlaces?|recursos?|marcadores?|bookmarks?) (tengo|hay|guardados?)/i.test(msgNorm) ||
+        /how many (links?|resources?|bookmarks?) (do i have|are there|in total|in my library)/i.test(msgNorm)) {
+      const libText = await loadLibrary();
+      const totalMatch = libText.match(/Total:\s*(\d+)\s*enlaces/);
+      const catMatch = libText.match(/Categorías:\s*(.+)/);
+      const total = totalMatch?.[1] ?? "?";
+      const cats = catMatch?.[1] ?? "";
+      jobs.set(jobId, {
+        status: "done",
+        content: cats
+          ? `Tienes ${total} enlaces en tu biblioteca.\n📂 Categorías: ${cats}`
+          : `Tienes ${total} enlaces en tu biblioteca.`,
+      });
+      return;
+    }
+
+    // ── CASO 5b: Consultas sobre features de Stacklume (respuesta determinista) ─
+    // "¿cuántos temas tiene Stacklume?", "how many visual themes?" etc.
+    // El LLM pequeño tiende a devolver solo "23" (<10 chars) para esta pregunta.
+    if (/cuantos? temas? (visuales? )?(tiene|hay|disponibles?|tiene stacklume|tiene la app)?/i.test(msgNorm) ||
+        /how many (visual\s+)?themes? ?(does (it|stacklume) have|are there|available)?/i.test(msgNorm)) {
+      jobs.set(jobId, {
+        status: "done",
+        content: "🎨 Stacklume tiene 23 temas visuales: 14 oscuros (Dark, Nordic, Catppuccin, Tokyo Night, Rosé Pine, Gruvbox, Solar Dark, Vampire, Midnight, Ocean, Forest, Slate, Crimson, Aurora), 6 claros (Light, Solarized, Arctic, Sakura, Lavender, Mint) y 3 grises (Cement, Stone, Steel). Puedes cambiarlos desde el botón de configuración en la barra superior.",
+      });
+      return;
+    }
+
+    // ── CASO 5d: Conteo de etiquetas / categorías (respuesta determinista) ──────
+    // "¿cuántas etiquetas tengo?", "cuántas categorías?", "how many tags?"
+    // El LLM devuelve solo un número (<10 chars). Handler determinista.
+    if (/cuantas? (etiquetas?|tags?|categorias?|carpetas?)/i.test(msgNorm) ||
+        /how many (tags?|categories?|labels?|folders?) (do i have|are there)?/i.test(msgNorm)) {
+      const libText = await loadLibrary();
+      const catMatch = libText.match(/Total:\s*\d+\s*enlaces,\s*(\d+)\s*categorías/);
+      const tagMatch = libText.match(/Etiquetas:\s*(.+)/);
+      const numCats = catMatch?.[1] ?? "?";
+      const tags = tagMatch?.[1] ?? "";
+      const numTags = tags ? tags.split(",").length : 0;
+      let reply = `📂 Tienes ${numCats} categorías`;
+      if (tags) reply += ` y ${numTags} etiqueta${numTags === 1 ? "" : "s"}: ${tags.split(",").map(t => t.trim()).slice(0, 10).join(", ")}`;
+      reply += ".";
+      jobs.set(jobId, { status: "done", content: reply });
+      return;
+    }
+
+    // ── CASO 5e: Últimos links añadidos (respuesta determinista) ─────────────
+    // "qué links he guardado últimamente?", "mis últimos links", "recently added" etc.
+    if (/ultimos? (links?|enlaces?|recursos?|a.adidos?|guardados?)|links? (recientes?|a.adidos? recientemente)|recently (added|saved)|last (links?|saved|added)|(que|que) (guarde|anadi|guarde) (ultimamente|hoy|ayer|esta semana)/i.test(msgNorm)) {
+      const libText = await loadLibrary();
+      const lines = libText.split("\n");
+      const ultimosIdx = lines.findIndex(l => l.includes("Últimos añadidos"));
+      if (ultimosIdx !== -1) {
+        const recents = lines.slice(ultimosIdx + 1).filter(l => l.startsWith("- ")).slice(0, 5);
+        if (recents.length > 0) {
+          jobs.set(jobId, {
+            status: "done",
+            content: `🕐 Tus últimos enlaces añadidos:\n${recents.join("\n")}`,
+          });
+          return;
+        }
+      }
+      // fallback si no hay datos
+      jobs.set(jobId, { status: "done", content: "No tengo información sobre cuándo guardaste los enlaces." });
+      return;
+    }
+
+    // ── Guard: Comandos destructivos — rechazar explícitamente ──────────────────
+    // "borra todos mis links", "elimina mi biblioteca" → el LLM podría inventar que lo hizo.
+    if (/\bborra(r)?\s+(todos?|mi|mis)\b|\belimina(r)?\s+(todos?|mi|mis)\s+(links?|enlaces?|datos?|todo|biblioteca)\b|\bdelete all\b|\bclear (all|my) (links?|data)\b/i.test(msgNorm)) {
+      jobs.set(jobId, {
+        status: "done",
+        content: "Para eliminar o gestionar tus enlaces, usa la interfaz de Stacklume directamente. No puedo modificar tu biblioteca desde el chat.",
+      });
+      return;
+    }
+
+    // ── CASO 5c: Atajos de teclado (respuesta determinista) ──────────────────
+    // "¿cuál es el atajo para crear un link?", "what's the keyboard shortcut?" etc.
+    // El LLM devuelve solo "Ctrl+N" (<10 chars), necesita respuesta completa.
+    if (/\b(atajo|atajos|shortcut|shortcuts|teclas? de teclado|hotkey|keybind|teclado)\b/i.test(msgNorm) &&
+        !/busca|search|find/i.test(msgNorm)) {
+      jobs.set(jobId, {
+        status: "done",
+        content: "⌨️ Atajos de Stacklume:\n• Ctrl+K — buscar en tu biblioteca\n• Ctrl+N — crear un nuevo enlace\n• Escape — limpiar búsqueda o salir del modo edición\n\nPuedes usarlos desde cualquier parte de la app.",
+      });
+      return;
+    }
+
     // ── CASO 5: Q&A libre con LLM ─────────────────────────────────────────────
     // "¿qué es React?", "hola", "¿cuántos links tengo?", preguntas generales
     const libraryText = await loadLibrary();
 
     const systemPrompt = `Eres Stacklume AI, asistente de gestión de enlaces. Responde SIEMPRE en texto plano sin markdown, sin asteriscos, sin almohadillas. Usa emojis. Sé breve y directo.
+
+SOBRE STACKLUME:
+- Modos de vista: Bento (cuadrícula de widgets arrastrables), Kanban (columnas para gestión de proyectos), Lista
+- Más de 120 tipos de widgets: notas, tareas, pomodoro, reloj, clima, GitHub Trending, calculadoras, JSON formatter, generadores CSS, etc.
+- Organiza links con Categorías y Etiquetas
+- Proyectos/espacios de trabajo para separar contextos
+- Importar bookmarks: HTML (export del navegador) y JSON
+- Exportar links: CSV, JSON, HTML
+- Busca recursos web con "busca [tema]" o "find [topic]"
+- Guarda un link con "guarda URL" o "añade URL"
+- 23 temas visuales (claro/oscuro)
+- Atajos: Ctrl+K buscar, Ctrl+N nuevo link, Escape limpiar
 
 BIBLIOTECA DEL USUARIO:
 ${libraryText}
@@ -718,6 +866,17 @@ REGLAS CRÍTICAS:
 
     let llmContent = cleanLlmText(data.choices?.[0]?.message?.content ?? "Sin respuesta.");
 
+    // Detectar eco del system prompt (el modelo pequeño a veces repite sus propias instrucciones).
+    // Solo filtramos patrones específicos observados para evitar falsos positivos.
+    const firstLineRaw = llmContent.split("\n")[0].trim();
+    const looksLikeSystemPromptLeak =
+      /SIEMPRE EN TEXTO PLANO|Eres Stacklume AI|NUNCA inventes|REGLAS CR.TICAS|BIBLIOTECA DEL USUARIO/i.test(llmContent) ||
+      // "SIEMPRE BUSCA '...'" — modelo mezcla instrucción con la query del usuario
+      /^SIEMPRE\s+(EN\s+TEXTO|BUSCA\s|USA\s+EMOJIS|SE\s+BREVE|SIN\s+(MARKDOWN|ASTERISCOS))/i.test(firstLineRaw);
+    if (looksLikeSystemPromptLeak) {
+      llmContent = "Lo siento, no entendí eso. Prueba a reformular tu pregunta.";
+    }
+
     // Filtro anti-alucinación: eliminar líneas que contengan URLs no presentes
     // en la biblioteca real del usuario. El modelo pequeño tiende a inventar URLs.
     const urlsInLibrary = new Set(
@@ -734,6 +893,12 @@ REGLAS CRÍTICAS:
     });
     llmContent = filteredLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()
       || "No encontré información relevante en tu biblioteca. Prueba con 'busca [tema]' para buscar en internet.";
+
+    // Fallback para respuestas demasiado cortas (eco de emoji, número suelto, "Bento", etc.)
+    // Umbral: < 10 chars. Cualquier respuesta útil debe ser al menos una frase corta.
+    if (llmContent.trim().length < 10) {
+      llmContent = "No entendí del todo esa pregunta 😅 Puedes decirme: 'busca [tema]' para buscar en la web, 'guarda URL' para añadir un enlace, o pregúntame sobre cómo funciona Stacklume.";
+    }
 
     jobs.set(jobId, {
       status: "done",
