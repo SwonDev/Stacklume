@@ -75,7 +75,7 @@ function cleanLlmText(raw: string): string {
     seen.add(trimmed);
     deduped.push(line);
   }
-  return deduped.join("\n").replace(/\n{3,}/g, "\n\n").trim() || "Sin respuesta.";
+  return deduped.join("\n").replace(/\n{3,}/g, "\n\n").trim() || "No pude generar una respuesta. Intenta reformular tu pregunta.";
 }
 
 // ─── Ejecución de herramientas ────────────────────────────────────────────────
@@ -428,14 +428,15 @@ async function runLlmJob(
     const hasRecentSearch = (g.__llmLastSearch?.length ?? 0) > 0;
 
     const wantsSearch =
-      /busca(?!d)|search|en internet|en la web|\bencuentra|recomienda|googlea|\bfind\b|look for|show me resources|get me links/i.test(msgNorm);
-    // \banad(?!id) coincide con "añade/añadir/añádelo" en msgNorm (tras NFD + strip diacríticos).
-    // Evita falsos positivos:
-    //   - "mañana" (manana), "tamaño" (tamano), "compañía" (compania)
-    //   - "añadidos" (anadidos) — el ?!id excluye el participio pasado
-    //   - "guardado/s", "agregado/s", "integrado/s" — los (?!d) de cada alternativa
+      // \bbusca\b excluye "buscando/buscador" (gerundio/sustantivo). \bbuscar\b permite "quiero buscar X"
+      /\bbusca\b|\bbuscar\b|search|en internet|en la web|\bencuentra|recomienda|googlea|\bfind\b|look for|show me resources|get me links/i.test(msgNorm);
+    // Solo las formas imperativas/infinitivo de "añadir": "anade" (añade), "anadir" (añadir).
+    // Evita falsos positivos de conjugación:
+    //   - "anado" (yo añado), "anadi" (yo añadí), "anadio" (él añadió)
+    //   - "anadiendo" (gerundio), "anadimos" (nosotros), "anaden" (ellos)
+    //   - Antes: \banad(?!id) solo bloqueaba el participio "anadido"
     const wantsAdd =
-      /\banad(?!id)/i.test(msgNorm) ||
+      /\banade|\banadir\b/i.test(msgNorm) ||
       // guarda(?!d|r): excluye "guardado/s" (participio) Y "guardar" (infinitivo) — solo el imperativo "guarda"
       /guarda(?!d|r)|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
       // EN: "save/add/bookmark URL" al inicio del mensaje
@@ -463,7 +464,7 @@ async function runLlmJob(
     // "cuantos links tengo?" sin tema específico va a Q&A (no aquí)
     const wantsLibrarySearch =
       !wantsSearch && !wantsAdd && !urlMatch &&
-      /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) tengo|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|mis (bookmarks?|favoritos?) |tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\bbookmarks?\b|\betiqueta\b|how many (links?|resources?)|do i have (?:any )?(?:\w+\s+)?(links?|resources?|bookmarks?)|my (saved )?(links?|resources?|bookmarks?) ?(about|on|for|de|sobre)|my (saved )?(links?|resources?|bookmarks?)(?:\s|$)|what (links?|resources?|bookmarks?) (do i have)? ?(about|on|for)?|what .{1,25} (links?|resources?|bookmarks?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|any (links?|resources?|bookmarks?) (about|on|for)|show me (my )?(saved )?(links?|resources?|bookmarks?)|list (my )?(saved )?(links?|resources?|bookmarks?)|give me (my )?(saved )?(links?|resources?|bookmarks?)/i.test(msgNorm);
+      /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) .{0,25}?tengo|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|mis (bookmarks?|favoritos?) |tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\bbookmarks?\b|\betiqueta\b|how many (links?|resources?)|do i have (?:any )?(?:\w+\s+)?(links?|resources?|bookmarks?)|my (saved )?(links?|resources?|bookmarks?) ?(about|on|for|de|sobre)|my (saved )?(links?|resources?|bookmarks?)(?:\s|$)|what (links?|resources?|bookmarks?) (do i have)? ?(about|on|for)?|what .{1,25} (links?|resources?|bookmarks?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|any (links?|resources?|bookmarks?) (about|on|for)|show me (my )?(saved )?(links?|resources?|bookmarks?)|list (my )?(saved )?(links?|resources?|bookmarks?)|give me (my )?(saved )?(links?|resources?|bookmarks?)/i.test(msgNorm);
 
     // ── CASO 1: Añadir resultados de búsqueda previa ──────────────────────────
     // "inclúyelos", "añade los 3 primeros", "guárdalos todos"
@@ -701,6 +702,9 @@ REGLAS CRÍTICAS:
         stream: false,
         temperature: 0.3,
         max_tokens: 512,
+        // Qwen3 models use thinking mode by default (<think> blocks).
+        // Disable it so the model outputs the answer directly without empty responses.
+        chat_template_kwargs: { enable_thinking: false },
       }),
       signal: AbortSignal.timeout(90_000),
     });
