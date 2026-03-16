@@ -641,6 +641,14 @@ fn get_llama_port(state: State<'_, LlamaState>) -> u16 {
     *state.port.lock().unwrap()
 }
 
+/// Devuelve la versión del exe tal y como la conoce Tauri (compilada desde tauri.conf.json).
+/// Usar SIEMPRE esto en lugar de NEXT_PUBLIC_APP_VERSION, que puede quedar desactualizada
+/// cuando se usa SKIP_NEXT_BUILD=1 y se reutiliza un .next/standalone de una build anterior.
+#[tauri::command]
+fn get_app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
 /// Estado del LLM local: "no_binary" | "no_model" | "starting" | "ready" | "error"
 #[tauri::command]
 fn get_llm_status(state: State<'_, LlamaState>) -> String {
@@ -1540,6 +1548,7 @@ pub fn run() {
             toggle_maximize_window,
             close_window,
             update_tray_icon,
+            get_app_version,
             get_llama_port,
             get_llm_status,
             start_llama_server,
