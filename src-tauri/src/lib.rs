@@ -211,9 +211,10 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string())
-        // Contexto: 8192 tokens (suficiente para conversaciones largas con tool calling)
+        // Contexto: 16384 tokens — suficiente para conversaciones largas con tool calling
+        // (historial de 10 msgs + tool results + system prompt fácilmente caben en 16k)
         .arg("--ctx-size")
-        .arg("8192")
+        .arg("16384")
         // CPU only: 0 capas en GPU
         .arg("-ngl")
         .arg("0")
@@ -224,14 +225,28 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg(&n_threads)
         // Máximo de tokens por respuesta
         .arg("--n-predict")
-        .arg("1024")
+        .arg("2048")
         // Habilitar Jinja templating — OBLIGATORIO para tool calling (function calling)
         // Sin este flag, llama-server ignora el campo "tools" en las peticiones.
         .arg("--jinja")
-        // Desactivar thinking mode: fix para bug de parser de tool_call con razonamiento activo
-        // (llama.cpp issue #20260 — afecta a Qwen3.5 y modelos con thinking mode)
+        // Desactivar thinking mode: incompatible con tool calling en Qwen3.
+        // --reasoning off inyecta enable_thinking=false en el chat template (correcto para Qwen3).
         .arg("--reasoning")
         .arg("off")
+        // Parámetros de sampling óptimos para Qwen3 (modo no-thinking) según documentación oficial.
+        // Fuente: https://qwen.readthedocs.io/en/latest/run_locally/llama.cpp.html
+        // NUNCA usar greedy (temp=0) con Qwen3 — causa bucles de repetición.
+        .arg("--temp")
+        .arg("0.7")
+        .arg("--top-k")
+        .arg("20")
+        .arg("--top-p")
+        .arg("0.8")
+        .arg("--min-p")
+        .arg("0")
+        // Evitar corrupción de contexto en conversaciones largas multi-turno.
+        // Sin este flag, llama-server rota el contexto cuando se llena, corrompiendo tool calls.
+        .arg("--no-context-shift")
         .arg("--log-disable")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
