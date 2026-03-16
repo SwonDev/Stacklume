@@ -216,8 +216,16 @@ async function executeTool(
           success: true,
           added: { title: created.title, url: created.url },
         });
-      } catch {
-        return JSON.stringify({ error: `"${url}" ya existe o no se pudo añadir.` });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message.toLowerCase() : "";
+        // Distinguir error de duplicado de otros errores (DB init, constraint, etc.)
+        const isDuplicate = msg.includes("unique") || msg.includes("duplicate") || msg.includes("already exists");
+        return JSON.stringify({
+          error: isDuplicate
+            ? `"${url}" ya existe en tu biblioteca.`
+            : `No se pudo guardar "${url}": ${err instanceof Error ? err.message : "error desconocido"}`,
+          isDuplicate,
+        });
       }
     }
 
@@ -500,7 +508,11 @@ async function runLlmJob(
         // guardar[ao][s]?\b: subjuntivo imperfecto "me gustaría que guardaras URL", "ojala guardaras"
         /guarda(?!\w)|\bguardar\b|\bguarde[s]?\b|\bguardar[ao][s]?\b|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
         // EN: "save/add/bookmark URL" al inicio del mensaje
-        /^\s*(save|add|bookmark)\s+\S/i.test(userMessage)
+        /^\s*(save|add|bookmark)\s+\S/i.test(userMessage) ||
+        // EN: "please save URL", "can you save URL", "I want to save URL" — URL implícita o explícita
+        /\b(please|can you|could you|i want to|i'd like to|i need to)\s+(save|add|bookmark|store)\b/i.test(userMessage) ||
+        // EN: "save this URL", "add this link"
+        /\b(save|add|bookmark)\s+(this|the)\b/i.test(userMessage)
       );
     // Detectar dominio sin esquema: "añade react.dev", "guarda svelte.dev"
     // Solo cuando NO hay búsqueda explícita (wantsSearch desactiva esto para no confundir
@@ -529,7 +541,12 @@ async function runLlmJob(
       /\b(todos?|esos?|estos?|los anteriores?|los de (arriba|antes))\b/i.test(msgNorm) ||
       /\b(all|those|these|previous|above)\b/i.test(msgNorm) ||
       /incluy|añadelos?|guardalos?|agrega(los?)?/i.test(msgNorm) ||
-      /\blos primeros?\b|\bel primer(o)?\b|\b\d+\s+primeros?\b/i.test(msgNorm)
+      /\blos primeros?\b|\bel primer(o)?\b|\b\d+\s+primeros?\b/i.test(msgNorm) ||
+      // "guarda el 2", "añade el tercero", "save the 3rd" — ordinales y números directos
+      /\bel (segundo|tercero|cuarto|quinto|2|3|4|5)(\s*[.°]?)?\b/i.test(msgNorm) ||
+      /\bthe (second|third|fourth|fifth|2nd|3rd|4th|5th|first|1st)\b/i.test(msgNorm) ||
+      // "guarda ese/ese link" referenciando resultado anterior
+      /\bese\b|\baquel\b|\bese link\b|\bese resultado\b/i.test(msgNorm)
     );
     // "¿qué links tengo de X?", "¿tienes algo de Y?", "mis links de Z", "cuántos links de X"
     // También: "links de X", "recursos de X", "tengo algo con la etiqueta X"
@@ -540,20 +557,40 @@ async function runLlmJob(
       /cuantos? (links?|enlaces?|recursos?) (tengo )?(de|sobre) |que (links?|enlaces?|recursos?|cosas?|paginas?|frameworks?) .{0,25}?tengo|que tengo (guardado )?(de|sobre|con|en)|tienes algo (de|sobre|en|con)|tengo algo (guardado )?(de|sobre|en|con)|mis links? (de|sobre)|mis enlaces? (de|sobre)|mis (bookmarks?|favoritos?) |tengo (links?|enlaces?|recursos?) (de|sobre)|\blinks? (de|sobre) \w|\benlaces? (de|sobre) \w|\brecursos? (de|sobre) \w|\bbookmarks?\b|\betiqueta\b|how many (links?|resources?)|do i have (?:any )?(?:\w+\s+)?(links?|resources?|bookmarks?)|my (saved )?(links?|resources?|bookmarks?) ?(about|on|for|de|sobre)|my (saved )?(links?|resources?|bookmarks?)(?:\s|$)|what (links?|resources?|bookmarks?) (do i have)? ?(about|on|for)?|what .{1,25} (links?|resources?|bookmarks?)( do i have)?|do you have (any(thing)?|something)? ?(about|on|for)|do you have any \w+ (links?|resources?|bookmarks?)|any (links?|resources?|bookmarks?) (about|on|for)|show me (my )?(saved )?(links?|resources?|bookmarks?)|list (my )?(saved )?(links?|resources?|bookmarks?)|give me (my )?(saved )?(links?|resources?|bookmarks?)|my \w+ (links?|resources?|bookmarks?)|show me what (i have|i.ve) saved|(muestrame|mostrame) (todo )?(de|sobre) |hay algo (de|sobre|con) \w|(tengo|tienes?|hay) (recursos?|links?|enlaces?|bookmarks?) (de|sobre|con|para) \w|tengo algun(a|os|as)? (link|enlace|recurso)(s)? (de|sobre|relacionado[s]? con)|algun (link|enlace|recurso) (de|sobre|relacionado|guardado)/i.test(msgNorm);
 
     // ── CASO 1: Añadir resultados de búsqueda previa ──────────────────────────
-    // "inclúyelos", "añade los 3 primeros", "guárdalos todos"
+    // "inclúyelos", "añade los 3 primeros", "guárdalos todos", "guarda el 2"
     if (wantsAddPrev && g.__llmLastSearch?.length) {
+      // Detectar si el usuario quiere un resultado específico (ej: "guarda el 2", "añade el tercero")
+      const ordinalMap: Record<string, number> = {
+        segundo: 2, tercero: 3, cuarto: 4, quinto: 5,
+        second: 2, third: 3, fourth: 4, fifth: 5,
+        "2nd": 2, "3rd": 3, "4th": 4, "5th": 5,
+      };
+      const ordinalMatch = msgNorm.match(/\bel (segundo|tercero|cuarto|quinto|second|third|fourth|fifth)\b/i) ||
+                           userMessage.match(/the (second|third|fourth|fifth|2nd|3rd|4th|5th)\b/i);
+      // "guarda el 2", "añade el 3" — número directo como índice del resultado
+      const directIdxMatch = !ordinalMatch ? msgNorm.match(/\bel (\d)\b/) : null;
+      const specificIdx = ordinalMatch
+        ? (ordinalMap[ordinalMatch[1].toLowerCase()] ?? null)
+        : directIdxMatch
+        ? Math.min(parseInt(directIdxMatch[1]), 5)
+        : null;
+
       // Parsear cantidad pedida: "los 3 primeros" → 3, "todos" → todos, default → 3
       const numMatch = userMessage.match(/(\d+)/);
       const allOf = /todos|todas|all/i.test(userMessage);
-      const count = allOf
+      const count = specificIdx !== null
+        ? 1  // Solo un resultado específico
+        : allOf
         ? g.__llmLastSearch.length
         : numMatch
         ? Math.min(parseInt(numMatch[1]), 5)
         : 3;
-      const prevResults = g.__llmLastSearch.slice(0, count);
+      // Si specificIdx, empezar desde ese índice (base-1); si es el 2, empieza en índice 1
+      const startIdx = specificIdx !== null ? specificIdx - 1 : 0;
+      const prevResults = g.__llmLastSearch.slice(startIdx, startIdx + count);
 
       const linkList = prevResults
-        .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}`)
+        .map((r, i) => `${startIdx + i + 1}. ${r.title}\n   ${r.url}`)
         .join("\n\n");
 
       const added: string[] = [];
@@ -564,6 +601,7 @@ async function runLlmJob(
           success?: boolean;
           added?: { title: string; url: string };
           error?: string;
+          isDuplicate?: boolean;
         };
         if (parsed.success && parsed.added) added.push(parsed.added.title);
         else skipped.push(r.title);
@@ -607,13 +645,14 @@ async function runLlmJob(
         success?: boolean;
         added?: { title: string; url: string };
         error?: string;
+        isDuplicate?: boolean;
       };
       if (addData.success && addData.added) {
         jobs.set(jobId, {
           status: "done",
           content: `✅ Añadido a tu biblioteca:\n${addData.added.title}\n${addData.added.url}`,
         });
-      } else if (addData.error?.includes("ya existe")) {
+      } else if (addData.isDuplicate || addData.error?.includes("ya existe")) {
         jobs.set(jobId, {
           status: "done",
           content: `ℹ️ Ya existía en tu biblioteca: ${resolvedUrl}`,
