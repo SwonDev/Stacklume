@@ -177,8 +177,6 @@ function parseBookmarksHtml(html: string): {
   return { bookmarks, errors };
 }
 
-// TODO: Add rate limiting middleware to prevent abuse
-// Consider using @upstash/ratelimit or similar for production
 
 // POST - Import HTML bookmarks
 export async function POST(request: NextRequest) {
