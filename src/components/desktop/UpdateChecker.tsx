@@ -14,7 +14,7 @@ const GITHUB_API_URL =
 
 type UpdateState =
   | { phase: "idle" }
-  | { phase: "available"; version: string; notes: string | null }
+  | { phase: "available"; version: string; currentVersion: string; notes: string | null }
   | { phase: "downloading"; progress: number }
   | { phase: "ready" }
   | { phase: "error"; message: string };
@@ -30,14 +30,27 @@ function isNewer(latest: string, current: string): boolean {
 }
 
 /**
+ * Obtiene la versión actual del exe desde Tauri (siempre correcta) con fallback
+ * a NEXT_PUBLIC_APP_VERSION (puede estar desactualizada con SKIP_NEXT_BUILD).
+ */
+async function getCurrentVersion(): Promise<string> {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const v = await invoke<string>("get_app_version");
+    if (v && /^\d+\.\d+\.\d+/.test(v)) return v;
+  } catch { /* fallback */ }
+  return process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
+}
+
+/**
  * Comprueba actualizaciones via GitHub API (CORS abierto) desde el WebView2.
- * La versión actual se lee de NEXT_PUBLIC_APP_VERSION (incrustada en build time).
+ * La versión actual se lee de Tauri en runtime (inmune a builds con SKIP_NEXT_BUILD).
  */
 async function runUpdateCheck(
-  onAvailable: (version: string, notes: string | null) => void,
+  onAvailable: (version: string, notes: string | null, currentVersion: string) => void,
   onUpToDate?: () => void,
 ) {
-  const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
+  const currentVersion = await getCurrentVersion();
   const res = await fetch(GITHUB_API_URL, {
     cache: "no-store",
     headers: { Accept: "application/vnd.github.v3+json" },
@@ -57,7 +70,7 @@ async function runUpdateCheck(
   const latestVersion = release.tag_name.replace(/^v/, "");
 
   if (isNewer(latestVersion, currentVersion)) {
-    onAvailable(latestVersion, release.body ?? null);
+    onAvailable(latestVersion, release.body ?? null, currentVersion);
   } else {
     onUpToDate?.();
   }
@@ -81,7 +94,7 @@ export function UpdateChecker() {
 
   const checkForUpdate = useCallback((manual = false) => {
     runUpdateCheck(
-      (version, notes) => {
+      (version, notes, currentVersion) => {
         if (manual) {
           // Manual check: always show
           dismissedForSession.current = false;
@@ -90,7 +103,7 @@ export function UpdateChecker() {
           // Auto check but user already dismissed this session — stay quiet
           return;
         }
-        setState({ phase: "available", version, notes });
+        setState({ phase: "available", version, currentVersion, notes });
       },
       manual
         ? () => toast.success(t("updateChecker.upToDate"), { description: t("updateChecker.upToDateDesc") })
@@ -201,7 +214,7 @@ export function UpdateChecker() {
             </p>
             {state.phase === "available" && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                v{process.env.NEXT_PUBLIC_APP_VERSION ?? "—"} → v{state.version}
+                v{state.currentVersion} → v{state.version}
               </p>
             )}
             {isError && (
