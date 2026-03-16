@@ -57,9 +57,6 @@ function sanitizeUrl(input: string | null | undefined): string | null {
   }
 }
 
-// TODO: Add rate limiting middleware to prevent abuse
-// Consider using @upstash/ratelimit or similar for production
-
 // POST - Import JSON backup
 export async function POST(request: NextRequest) {
   try {
