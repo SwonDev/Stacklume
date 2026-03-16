@@ -650,6 +650,8 @@ async function runLlmJob(
         /\b(todos?|esos?|estos?|los anteriores?|los de (arriba|antes))\b/i.test(msgNorm) ||
         /incluy|añadelos?|guardalos?|agrega(los?)?/i.test(msgNorm) ||
         /\blos primeros?\b|\bel primer(o)?\b|\b\d+\s+primeros?\b/i.test(msgNorm) ||
+        // "el 1", "el 2" ... "el 5" (número directo, no solo ordinales en letras)
+        /\bel [1-5]\b/i.test(msgNorm) ||
         /\bel (segundo|tercero|cuarto|quinto|2|3|4|5)(\s*[.°]?)?\b/i.test(msgNorm) ||
         /\bthe (second|third|fourth|fifth|2nd|3rd|4th|5th|first|1st)\b/i.test(msgNorm) ||
         /\bese\b|\baquel\b|\bese link\b|\bese resultado\b/i.test(msgNorm)
