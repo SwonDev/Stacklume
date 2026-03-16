@@ -157,7 +157,9 @@ fn find_any_free_port() -> u16 {
 /// Espera hasta que llama-server responda al health check (máx 30 s)
 fn wait_for_llama_server(port: u16) -> bool {
     let url = format!("http://127.0.0.1:{}/health", port);
-    for _ in 0..60 {
+    // 180 × 500ms = 90 segundos. Con Qwen3.5-2B + mmproj (~2 GB en total),
+    // la carga del modelo puede superar fácilmente los 30s en discos lentos.
+    for _ in 0..180 {
         match ureq::get(&url).call() {
             Ok(resp) if resp.status() < 500 => return true,
             _ => {}
@@ -196,6 +198,14 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     if port == 0 {
         return Err("Puerto llama-server no asignado".to_string());
     }
+
+    // Detectar proyector multimodal (mmproj) para soporte de visión.
+    // Si mmproj-F16.gguf existe en el mismo directorio que el modelo,
+    // llama-server se arranca con --mmproj para habilitar análisis de imágenes.
+    let mmproj_path: Option<std::path::PathBuf> = std::path::Path::new(&model_path)
+        .parent()
+        .map(|d| d.join("mmproj-F16.gguf"))
+        .filter(|p| p.exists());
 
     // Detectar número de CPUs lógicos para --threads (mínimo 2, máximo 8)
     let n_threads = std::thread::available_parallelism()
@@ -270,6 +280,11 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
+    // Activar soporte de visión si hay proyector multimodal disponible
+    if let Some(ref mp) = mmproj_path {
+        cmd.arg("--mmproj").arg(mp);
+    }
+
     match cmd.spawn() {
         Ok(child) => {
             let pid = child.id();
@@ -294,9 +309,10 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
                 *app.state::<LlamaState>().status.lock().unwrap() = "ready".to_string();
                 let _ = app.emit("llm:status-changed", "ready");
             } else {
-                *app.state::<LlamaState>().status.lock().unwrap() = "error".to_string();
-                let _ = app.emit("llm:status-changed", "error");
-                return Err("llama-server no respondió en 30s".to_string());
+                let msg = "error: llama-server no respondió en 90s — intenta reiniciar".to_string();
+                *app.state::<LlamaState>().status.lock().unwrap() = msg.clone();
+                let _ = app.emit("llm:status-changed", msg.clone());
+                return Err(msg);
             }
         }
         Err(e) => {
@@ -658,12 +674,26 @@ fn get_llm_status(state: State<'_, LlamaState>) -> String {
 /// Arranca llama-server si el modelo ya está descargado.
 #[tauri::command]
 async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
+    // Matar proceso previo si sigue vivo (evita conflicto de puerto en reintentos)
+    #[cfg(not(dev))]
+    {
+        let state = app.state::<LlamaState>();
+        let child_opt = state.llama_child.lock().unwrap().take();
+        if let Some(mut child) = child_opt {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
     let app_clone = app.clone();
     *app.state::<LlamaState>().status.lock().unwrap() = "starting".to_string();
+    let _ = app.emit("llm:status-changed", "starting");
     std::thread::spawn(move || {
         if let Err(e) = spawn_llama_server_blocking(&app_clone) {
             eprintln!("[Stacklume] Error arrancando llama-server: {}", e);
-            let _ = app_clone.emit("llm:status-changed", format!("error: {}", e));
+            let msg = format!("error: {}", e);
+            *app_clone.state::<LlamaState>().status.lock().unwrap() = msg.clone();
+            let _ = app_clone.emit("llm:status-changed", msg);
         }
     });
     Ok(())
@@ -866,6 +896,139 @@ async fn download_llm_model_impl(
     });
 
     Ok(())
+}
+
+// ─── Visión LLM ───────────────────────────────────────────────────────────────
+
+/// Comprueba si el proyector multimodal mmproj-F16.gguf está descargado.
+/// Devuelve true si el soporte de visión está disponible.
+#[tauri::command]
+fn check_vision_status(app: tauri::AppHandle) -> bool {
+    let Ok(app_data) = app.path().app_data_dir() else { return false };
+    app_data.join("models").join("mmproj-F16.gguf").exists()
+}
+
+/// Para el servidor llama-server actual (si está corriendo).
+/// Útil para reiniciarlo con nuevas opciones (p.ej. tras descargar mmproj).
+#[tauri::command]
+fn stop_llama_server(app: tauri::AppHandle) {
+    #[cfg(not(dev))]
+    {
+        let state = app.state::<LlamaState>();
+        // Extraer el child antes de soltar el MutexGuard para evitar borrow prolongado
+        let child_opt = state.llama_child.lock().unwrap().take();
+        if let Some(mut child) = child_opt {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+    let state = app.state::<LlamaState>();
+    *state.status.lock().unwrap() = "no_model".to_string();
+    let _ = app.emit("llm:status-changed", "no_model");
+}
+
+/// Descarga el proyector multimodal mmproj-F16.gguf desde HuggingFace (~668 MB).
+/// URL fija: unsloth/Qwen3.5-2B-GGUF. Emite "llm:download-progress" con el progreso.
+#[tauri::command]
+async fn download_mmproj(app: tauri::AppHandle) -> Result<(), String> {
+    const MMPROJ_URL: &str =
+        "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf";
+
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Error app_data: {}", e))?;
+    let models_dir = app_data.join("models");
+    let _ = std::fs::create_dir_all(&models_dir);
+    let mmproj_path = models_dir.join("mmproj-F16.gguf");
+
+    if mmproj_path.exists() {
+        return Ok(());
+    }
+
+    let app_clone = app.clone();
+    let path_clone = mmproj_path.clone();
+
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        const ESTIMATED_SIZE: u64 = 700_000_000; // ~668 MB
+
+        let agent = ureq::AgentBuilder::new().redirects(10).build();
+        let response = agent
+            .get(MMPROJ_URL)
+            .call()
+            .map_err(|e| format!("Error de descarga: {}", e))?;
+
+        if response.status() != 200 {
+            return Err(format!("HTTP {}: error al descargar mmproj", response.status()));
+        }
+
+        let content_length = response
+            .header("Content-Length")
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+
+        let mut file = std::fs::File::create(&path_clone)
+            .map_err(|e| format!("Error creando archivo: {}", e))?;
+
+        let mut reader = response.into_reader();
+        let mut buf = [0u8; 65536];
+        let mut downloaded: u64 = 0;
+        let mut last_emitted: u64 = 0;
+
+        use std::io::{Read, Write};
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    file.write_all(&buf[..n])
+                        .map_err(|e| format!("Error escribiendo: {}", e))?;
+                    downloaded += n as u64;
+
+                    if downloaded.saturating_sub(last_emitted) >= 262_144 || last_emitted == 0 {
+                        last_emitted = downloaded;
+                        let total = if content_length > 0 { content_length } else { ESTIMATED_SIZE };
+                        let percent = (downloaded as f64 / total as f64 * 100.0) as u8;
+                        let _ = app_clone.emit(
+                            "llm:download-progress",
+                            serde_json::json!({
+                                "downloaded": downloaded,
+                                "total": total,
+                                "percent": percent
+                            }),
+                        );
+                    }
+                    if downloaded > 2_000_000_000 {
+                        let _ = std::fs::remove_file(&path_clone);
+                        return Err("Archivo demasiado grande".to_string());
+                    }
+                }
+                Err(e) => {
+                    let _ = std::fs::remove_file(&path_clone);
+                    return Err(format!("Error leyendo: {}", e));
+                }
+            }
+        }
+
+        if downloaded < 100_000_000 {
+            let _ = std::fs::remove_file(&path_clone);
+            return Err(format!(
+                "Descarga incompleta: {} bytes (mínimo 100 MB esperado)",
+                downloaded
+            ));
+        }
+
+        let _ = app_clone.emit(
+            "llm:download-progress",
+            serde_json::json!({
+                "downloaded": downloaded,
+                "total": downloaded,
+                "percent": 100_u8
+            }),
+        );
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Error interno: {}", e))?
 }
 
 // ─── System Tray ──────────────────────────────────────────────────────────────
@@ -1553,6 +1716,9 @@ pub fn run() {
             get_llm_status,
             start_llama_server,
             download_llm_model,
+            check_vision_status,
+            stop_llama_server,
+            download_mmproj,
         ])
         .run(tauri::generate_context!())
         .expect("Error al ejecutar Stacklume");

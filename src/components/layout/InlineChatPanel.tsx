@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Brain,
   ChevronDown,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +54,7 @@ const DEFAULT_MODEL_URL =
   "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf";
 const DEFAULT_MODEL_NAME = "Qwen3.5-2B-Q4_K_M.gguf";
 const MODEL_SIZE_GB = "1.3";
+const MMPROJ_SIZE_MB = "668";
 
 // ─── Utilidades Tauri ─────────────────────────────────────────────────────────
 
@@ -271,10 +273,18 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     return false;
   });
 
+  // Estado para imagen adjunta (visión)
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [visionAvailable, setVisionAvailable] = useState(false);
+  const [isDownloadingMmproj, setIsDownloadingMmproj] = useState(false);
+  const [mmprojProgress, setMmprojProgress] = useState<DownloadProgress | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Scroll al final cuando llegan nuevos mensajes
   useEffect(() => {
@@ -331,6 +341,8 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
 
   const checkLlmStatus = useCallback(async () => {
     setLlmStatus("checking");
+    // Comprobar si el mmproj (visión) está disponible en paralelo
+    tauriInvoke<boolean>("check_vision_status").then((ok) => setVisionAvailable(ok)).catch(() => {});
     try {
       // 1. Preguntar al backend Tauri directamente
       const status = await tauriInvoke<string>("get_llm_status");
@@ -347,7 +359,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         pollUntilReady();
       } else {
         setLlmStatus("error");
-        setStatusError(status);
+        setStatusError(status.startsWith("error: ") ? status.slice(7) : status);
       }
     } catch {
       // Fallback: comprobar la API route
@@ -375,8 +387,9 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
           setLlmStatus("ready");
           if (pollingRef.current) clearInterval(pollingRef.current);
           if (messages.length === 0) addWelcomeMessage();
-        } else if (status === "error") {
+        } else if (status.startsWith("error")) {
           setLlmStatus("error");
+          setStatusError(status.startsWith("error: ") ? status.slice(7) : status);
           if (pollingRef.current) clearInterval(pollingRef.current);
         }
       } catch {
@@ -432,10 +445,67 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     }
   };
 
+  const handleDownloadMmproj = async () => {
+    setIsDownloadingMmproj(true);
+    setMmprojProgress({ downloaded: 0, total: 0, percent: 0 });
+    setStatusError("");
+
+    const unlisten = await tauriListen("llm:download-progress", (payload) => {
+      const p = payload as DownloadProgress;
+      setMmprojProgress(p);
+    });
+
+    try {
+      await tauriInvoke("download_mmproj");
+      // Reiniciar llama-server para que cargue el mmproj
+      await tauriInvoke("stop_llama_server");
+      setLlmStatus("starting");
+      await tauriInvoke("start_llama_server");
+      pollUntilReady();
+      setVisionAvailable(true);
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsDownloadingMmproj(false);
+      setMmprojProgress(null);
+      unlisten();
+    }
+  };
+
+  const handleImageFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      const base64 = result.split(",")[1];
+      setImageBase64(base64);
+      setImagePreviewUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items || !visionAvailable) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleImageFile(file);
+        break;
+      }
+    }
+  };
+
+  const clearImage = () => {
+    setImageBase64(null);
+    setImagePreviewUrl(null);
+  };
+
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || isSending) return;
 
+    const currentImageBase64 = imageBase64;
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -443,6 +513,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    clearImage();
     setIsSending(true);
 
     try {
@@ -461,7 +532,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       const res = await fetch("/api/llm/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userMessage: text, history, llamaPort, enableThinking }),
+        body: JSON.stringify({ userMessage: text, history, llamaPort, enableThinking, imageBase64: currentImageBase64 }),
       });
 
       if (!res.ok) {
@@ -764,7 +835,20 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                       {statusError}
                     </p>
                   )}
-                  <Button variant="outline" size="sm" onClick={checkLlmStatus}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setLlmStatus("starting");
+                      setStatusError("");
+                      try {
+                        await tauriInvoke("start_llama_server");
+                      } catch {
+                        // start_llama_server siempre retorna Ok, el error llega por evento
+                      }
+                      pollUntilReady();
+                    }}
+                  >
                     {t("llmChat.retry")}
                   </Button>
                 </div>
@@ -824,24 +908,92 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* Descarga mmproj (visión) */}
+                  {!visionAvailable && !isDownloadingMmproj && (
+                    <div className="shrink-0 px-3 pb-2">
+                      <button
+                        onClick={handleDownloadMmproj}
+                        className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-lg px-3 py-2 hover:border-primary/50 transition-colors"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 shrink-0 text-primary/60" />
+                        <span>Activar visión — descarga {MMPROJ_SIZE_MB} MB</span>
+                      </button>
+                    </div>
+                  )}
+                  {isDownloadingMmproj && (
+                    <div className="shrink-0 px-3 pb-2 space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Descargando visión…
+                        </span>
+                        <span>{mmprojProgress ? `${mmprojProgress.percent}%` : "…"}</span>
+                      </div>
+                      <div className="w-full bg-secondary rounded-full h-1 overflow-hidden">
+                        <motion.div
+                          className="h-1 rounded-full bg-primary"
+                          animate={{ width: `${Math.max(mmprojProgress?.percent ?? 0, 1)}%` }}
+                          transition={{ ease: "linear", duration: 0.3 }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Input */}
                   <div className="shrink-0 p-3 border-t border-border">
+                    {/* Hint: visión funciona mejor con thinking */}
+                    {imagePreviewUrl && !enableThinking && (
+                      <p className="text-[10px] text-amber-500/80 mb-1.5 flex items-center gap-1">
+                        <Brain className="w-3 h-3" />
+                        Activa el razonamiento 🧠 para mejores resultados con imágenes
+                      </p>
+                    )}
+                    {/* Preview de imagen adjunta */}
+                    {imagePreviewUrl && (
+                      <div className="relative inline-flex mb-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imagePreviewUrl}
+                          alt="Imagen adjunta"
+                          className="max-h-20 max-w-[200px] rounded-lg border border-border object-cover"
+                        />
+                        <button
+                          onClick={clearImage}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-background border border-border rounded-full flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
                     <div className="flex gap-2 items-end">
                       <Textarea
                         ref={textareaRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={t("llmChat.inputPlaceholder")}
+                        onPaste={handlePaste}
+                        placeholder={visionAvailable ? t("llmChat.inputPlaceholder") + " (Ctrl+V para imagen)" : t("llmChat.inputPlaceholder")}
                         className="min-h-[40px] max-h-[120px] resize-none text-sm leading-relaxed"
                         rows={1}
                         disabled={isSending}
                       />
+                      {visionAvailable && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => fileInputRef.current?.click()}
+                          title="Adjuntar imagen"
+                          disabled={isSending}
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button
                         size="icon"
                         className="h-10 w-10 shrink-0"
                         onClick={sendMessage}
-                        disabled={!input.trim() || isSending}
+                        disabled={(!input.trim() && !imageBase64) || isSending}
                       >
                         {isSending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -853,6 +1005,18 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
                       {t("llmChat.enterToSend")}
                     </p>
+                    {/* Input de archivo oculto para adjuntar imágenes */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageFile(file);
+                        e.target.value = "";
+                      }}
+                    />
                   </div>
                 </>
               )}
