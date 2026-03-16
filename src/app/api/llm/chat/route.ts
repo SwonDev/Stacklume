@@ -22,11 +22,12 @@ interface LlmMessage {
   content: string | null;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+  reasoning_content?: string;
 }
 
 type JobResult =
   | { status: "pending" }
-  | { status: "done"; content: string }
+  | { status: "done"; content: string; reasoningContent?: string }
   | { status: "error"; error: string };
 
 interface SearchResult {
@@ -575,7 +576,8 @@ async function runLlmJob(
   jobId: string,
   llamaPort: string,
   userMessage: string,
-  history: ConversationMessage[]
+  history: ConversationMessage[],
+  enableThinking = false
 ): Promise<void> {
   const llamaUrl = `http://127.0.0.1:${llamaPort}/v1/chat/completions`;
 
@@ -871,7 +873,15 @@ CÓMO ACTUAR:
 
     const allowedToolUrls = new Set<string>();
     let formattedContent: string | null = null;
+    let terminalReasoningContent: string | undefined;
     const MAX_ROUNDS = 5;
+
+    // Parámetros de sampling según modo (fuente: qwen.readthedocs.io)
+    // Thinking:     temp=0.6, top_p=0.95 — más determinista para razonamiento
+    // Non-thinking: temp=0.7, top_p=0.8  — más variado para conversación
+    const samplingParams = enableThinking
+      ? { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, max_tokens: 3000 }
+      : { temperature: 0.7, top_k: 20, top_p: 0.8,  min_p: 0, max_tokens: 768  };
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const resp = await fetch(llamaUrl, {
@@ -883,13 +893,13 @@ CÓMO ACTUAR:
           tools: toolDefinitions,
           tool_choice: "auto",
           stream: false,
-          // Parámetros óptimos para Qwen3 modo no-thinking (fuente: qwen.readthedocs.io)
-          // El servidor ya arranca con --reasoning off (enable_thinking=false por defecto)
-          temperature: 0.7,
-          top_k: 20,
-          top_p: 0.8,
-          min_p: 0,
-          max_tokens: 768,
+          ...samplingParams,
+          // Control de thinking per-request.
+          // El servidor arranca con --reasoning auto, que respeta este parámetro.
+          // Thinking mode:     temp=0.6, top_p=0.95 + reasoning_format "deepseek"
+          // Non-thinking mode: temp=0.7, top_p=0.8
+          chat_template_kwargs: { enable_thinking: enableThinking },
+          ...(enableThinking ? { reasoning_format: "deepseek" } : {}),
         }),
         signal: AbortSignal.timeout(90_000),
       });
@@ -906,6 +916,10 @@ CÓMO ACTUAR:
 
       if (!toolCalls || toolCalls.length === 0) {
         // Terminal: el modelo terminó de razonar
+        // Capturar reasoning_content solo del paso terminal (no de rounds intermedios con tool_calls)
+        const rawReasoning = msg?.reasoning_content?.trim();
+        if (rawReasoning) terminalReasoningContent = rawReasoning;
+
         let content = cleanLlmText(msg?.content ?? "");
 
         // Si hay resultados de herramientas, combinar con el comentario del LLM
@@ -969,7 +983,7 @@ CÓMO ACTUAR:
             "No entendí del todo esa pregunta 😅 Puedes decirme: 'busca [tema]' para buscar en la web, 'guarda URL' para añadir un enlace, o pregúntame sobre Stacklume.";
         }
 
-        jobs.set(jobId, { status: "done", content });
+        jobs.set(jobId, { status: "done", content, reasoningContent: terminalReasoningContent });
         return;
       }
 
@@ -1111,6 +1125,7 @@ export async function POST(req: NextRequest) {
     userMessage: string;
     history?: ConversationMessage[];
     llamaPort?: number;
+    enableThinking?: boolean;
   };
 
   try {
@@ -1119,7 +1134,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   }
 
-  const { userMessage, history = [], llamaPort: clientPort } = body;
+  const { userMessage, history = [], llamaPort: clientPort, enableThinking = false } = body;
   if (!userMessage?.trim())
     return NextResponse.json(
       { error: "userMessage es obligatorio" },
@@ -1137,7 +1152,7 @@ export async function POST(req: NextRequest) {
 
   const jobId = crypto.randomUUID();
   jobs.set(jobId, { status: "pending" });
-  runLlmJob(jobId, resolvedPort, userMessage.trim(), history);
+  runLlmJob(jobId, resolvedPort, userMessage.trim(), history, enableThinking);
   return NextResponse.json({ jobId });
 }
 

@@ -13,6 +13,8 @@ import {
   Plus,
   Check,
   ExternalLink,
+  Brain,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +29,7 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "tool-info";
   content: string;
+  reasoningContent?: string;
   isError?: boolean;
 }
 
@@ -196,6 +199,28 @@ function ChatLinkCard({ link, onAdded }: { link: ParsedLink; onAdded: () => void
   );
 }
 
+/** Burbuja colapsable que muestra el razonamiento interno del modelo */
+function ThinkingBubble({ content }: { content: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="mb-2">
+      <button
+        onClick={() => setIsOpen((o) => !o)}
+        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <Brain className="w-3 h-3" />
+        <span>Razonamiento</span>
+        <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", isOpen && "rotate-180")} />
+      </button>
+      {isOpen && (
+        <div className="mt-1.5 text-[10px] text-muted-foreground bg-muted/40 border border-border/40 rounded-lg p-2.5 max-h-[180px] overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed">
+          {content}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Renderiza el contenido de un mensaje, convirtiendo listas de links en tarjetas interactivas */
 function ChatMessageContent({ content, onLinkAdded }: { content: string; onLinkAdded: () => void }) {
   const parts = parseMessageParts(content);
@@ -238,6 +263,13 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     useState<DownloadProgress | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [statusError, setStatusError] = useState("");
+  // Modo razonamiento: cuando está activo el modelo "piensa" antes de responder
+  const [enableThinking, setEnableThinking] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("stacklume-llm-thinking") === "true";
+    }
+    return false;
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -429,7 +461,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       const res = await fetch("/api/llm/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userMessage: text, history, llamaPort }),
+        body: JSON.stringify({ userMessage: text, history, llamaPort, enableThinking }),
       });
 
       if (!res.ok) {
@@ -492,7 +524,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === thinkingId
-                    ? { ...m, content: data.content }
+                    ? { ...m, content: data.content, reasoningContent: data.reasoningContent }
                     : m
                 )
               );
@@ -586,6 +618,26 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                 )}
               </div>
               <div className="flex items-center gap-1">
+                {llmStatus === "ready" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-7 w-7 transition-colors",
+                      enableThinking
+                        ? "text-primary hover:text-primary/80"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => {
+                      const next = !enableThinking;
+                      setEnableThinking(next);
+                      localStorage.setItem("stacklume-llm-thinking", String(next));
+                    }}
+                    title={enableThinking ? "Desactivar razonamiento" : "Activar razonamiento"}
+                  >
+                    <Brain className="w-3.5 h-3.5" />
+                  </Button>
+                )}
                 {messages.length > 1 && (
                   <Button
                     variant="ghost"
@@ -755,10 +807,15 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                                 <span className="animate-bounce [animation-delay:300ms]">·</span>
                               </span>
                             ) : (
-                              <ChatMessageContent
-                                content={msg.content}
-                                onLinkAdded={() => refreshAllData().catch(() => {})}
-                              />
+                              <>
+                                {msg.role === "assistant" && msg.reasoningContent && (
+                                  <ThinkingBubble content={msg.reasoningContent} />
+                                )}
+                                <ChatMessageContent
+                                  content={msg.content}
+                                  onLinkAdded={() => refreshAllData().catch(() => {})}
+                                />
+                              </>
                             )}
                           </div>
                         )}
