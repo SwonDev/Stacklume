@@ -883,9 +883,13 @@ CÓMO ACTUAR:
           tools: toolDefinitions,
           tool_choice: "auto",
           stream: false,
-          temperature: 0.4,
+          // Parámetros óptimos para Qwen3 modo no-thinking (fuente: qwen.readthedocs.io)
+          // El servidor ya arranca con --reasoning off (enable_thinking=false por defecto)
+          temperature: 0.7,
+          top_k: 20,
+          top_p: 0.8,
+          min_p: 0,
           max_tokens: 768,
-          chat_template_kwargs: { enable_thinking: false },
         }),
         signal: AbortSignal.timeout(90_000),
       });
