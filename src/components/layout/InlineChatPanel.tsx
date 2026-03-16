@@ -496,9 +496,13 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     : m
                 )
               );
-              // Refrescar biblioteca si se guardaron links (CASO 2: ✅, CASO 1: Añadidos)
+              // Refrescar biblioteca si hubo cambios: guardar (✅), añadir múltiples, eliminar (🗑️), favorito (⭐), mover (Movido)
               if (typeof data.content === "string" &&
-                  (data.content.includes("✅") || data.content.includes("Añadidos"))) {
+                  (data.content.includes("✅") ||
+                   data.content.includes("Añadidos") ||
+                   data.content.includes("🗑️") ||
+                   data.content.includes("favoritos ⭐") ||
+                   data.content.includes("Movido a"))) {
                 refreshAllData().catch(() => {/* silencioso */});
               }
               resolve();
