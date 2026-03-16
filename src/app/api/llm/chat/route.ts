@@ -725,38 +725,43 @@ async function runLlmJob(
 
     const lastSearchCtx =
       g.__llmLastSearch?.length
-        ? `\nÚLTIMA BÚSQUEDA:\n${g.__llmLastSearch
-            .slice(0, 3)
+        ? `\nRESULTADOS RECIENTES (úsalos cuando el usuario diga "el primero", "ése", "inclúyelos", "guárdalos", etc.):\n${g.__llmLastSearch
+            .slice(0, 5)
             .map((r, i) => `${i + 1}. ${r.title} — ${r.url}`)
             .join("\n")}`
         : "";
 
-    const systemPrompt = `Eres Stacklume AI, asistente local inteligente de gestión de bookmarks. Responde siempre en español, en texto plano sin asteriscos ni #. Sé directo y útil.
+    const systemPrompt = `Eres Stacklume AI, el asistente inteligente de Stacklume. Tu misión: ayudar al usuario a gestionar su colección de enlaces y descubrir nuevos recursos de forma natural y conversacional.
 
-STACKLUME: Dashboard de bookmarks con modos Bento/Kanban/Lista. 120+ widgets (notas, clima, GitHub, tareas, estadísticas...). 23 temas visuales. Ctrl+K busca, Ctrl+N nuevo enlace. Soporta importar/exportar bookmarks HTML, etiquetas y categorías.
+STACKLUME: Dashboard de bookmarks con modos Bento/Kanban/Lista. 120+ widgets (notas, clima, GitHub, tareas, estadísticas...). 23 temas visuales. Ctrl+K busca, Ctrl+N nuevo enlace. Importar/exportar HTML, etiquetas y categorías.
 
-BIBLIOTECA DEL USUARIO: ${libraryText}${lastSearchCtx}
+BIBLIOTECA DEL USUARIO:
+${libraryText}${lastSearchCtx}
 
-HERRAMIENTAS — úsalas de forma proactiva cuando el contexto lo requiera:
-• search_library(query) — busca enlaces guardados. Úsala cuando el usuario pregunte qué links tiene sobre un tema.
-• web_search(query) — busca en internet. Úsala cuando pidan buscar recursos o recomendaciones actualizadas.
-• save_link(url, title?) — guarda un enlace. Úsala SOLO si el usuario da una URL explícita y quiere guardarla.
-• delete_link(url) — borra un link. Si no hay URL, usa search_library primero para encontrarlo.
-• mark_favorite(url, favorite?) — marca/desmarca favorito. favorite=false para desmarcar.
-• move_to_category(url, category) — mueve un link a una categoría diferente.
+HERRAMIENTAS — razona libremente y úsalas cuando tenga sentido:
+• search_library(query) — busca en la biblioteca del usuario por título, URL, categoría o etiqueta
+• web_search(query) — busca recursos en internet: documentación, tutoriales, proyectos, herramientas
+• save_link(url, title?) — guarda un enlace (requiere URL explícita que el usuario haya dado)
+• delete_link(url) — elimina un enlace (usa search_library antes si no tienes la URL exacta)
+• mark_favorite(url, favorite?) — favorite=true para marcar, false para desmarcar
+• move_to_category(url, category) — mueve un enlace a otra categoría
 
-REGLAS:
-1. Puedes recomendar tecnologías y frameworks por nombre — es útil y correcto.
-2. NUNCA escribas URLs inventadas. Solo URLs de resultados de herramientas o de la biblioteca.
-3. NUNCA afirmes que ejecutaste una acción sin llamar la herramienta correspondiente.
-4. Usa las herramientas de forma proactiva cuando la situación lo requiera.`;
+CÓMO ACTUAR:
+• Eres un LLM inteligente — razona, interpreta el contexto y actúa de forma autónoma
+• Puedes encadenar herramientas (buscar → guardar, buscar → eliminar, etc.) si el contexto lo pide
+• Cuando el usuario diga "el primero", "ése", "inclúyelos" → usa los RESULTADOS RECIENTES
+• Si la intención no está clara, pregunta brevemente en lugar de asumir
+• Puedes recomendar tecnologías, frameworks y herramientas por nombre — es útil
+• Responde en español, texto plano, directo y conversacional — sin asteriscos ni #
+• Solo usa URLs reales provenientes de herramientas o de la biblioteca — nunca inventes
+• Solo afirma haber ejecutado una acción si realmente llamaste la herramienta`;
 
     const toolDefinitions = [
       {
         type: "function" as const,
         function: {
           name: "search_library",
-          description: "Busca enlaces guardados en la biblioteca del usuario por tema, título, URL, categoría o etiqueta.",
+          description: "Busca en la biblioteca del usuario. Úsala para: '¿qué links tengo de X?', 'muéstrame mis recursos de Y', 'tengo algo de Z?', 'mis favoritos', 'links de categoría X'.",
           parameters: {
             type: "object",
             properties: {
@@ -770,7 +775,7 @@ REGLAS:
         type: "function" as const,
         function: {
           name: "web_search",
-          description: "Busca en internet recursos, documentación y recomendaciones actualizadas.",
+          description: "Busca en internet. Úsala para: 'busca X', 'recomiéndame Y', 'encuentra Z en la web', 'documentación de X', 'mejores herramientas para Y'.",
           parameters: {
             type: "object",
             properties: {
@@ -784,7 +789,7 @@ REGLAS:
         type: "function" as const,
         function: {
           name: "save_link",
-          description: "Guarda un enlace en la biblioteca. Úsala SOLO si el usuario proporciona una URL explícita.",
+          description: "Guarda un enlace en la biblioteca. Úsala cuando el usuario dé una URL explícita y pida guardarla. NO la uses si no hay URL.",
           parameters: {
             type: "object",
             properties: {
@@ -799,7 +804,7 @@ REGLAS:
         type: "function" as const,
         function: {
           name: "delete_link",
-          description: "Elimina un enlace de la biblioteca. Requiere URL exacta. Si el usuario no da URL, usa search_library primero.",
+          description: "Elimina un enlace de la biblioteca. Si el usuario no da la URL exacta, usa search_library primero para encontrarla.",
           parameters: {
             type: "object",
             properties: {
@@ -843,19 +848,20 @@ REGLAS:
 
     const cleanHistoryMsg = (content: string, role: string): string => {
       if (role !== "assistant") return content;
+      // Mantener URLs para resolución de referencias ("el primero", "ése")
+      // pero limpiar emojis de prefijo y colapsar espacios extra
       const simplified = content
-        .replace(/^\d+\.\s+(.+)\n\s+https?:\/\/[^\n]+/gm, "• $1")
-        .replace(/^[📚✅⚠️🔍🕐📂⌨️🎨💡]\s*/gm, "")
+        .replace(/^[📚✅⚠️🔍🕐📂⌨️🎨💡ℹ️🗑️]\s*/gm, "")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
-      return simplified.slice(0, 300) + (simplified.length > 300 ? "…" : "");
+      return simplified.slice(0, 600) + (simplified.length > 600 ? "…" : "");
     };
 
     const messages: LlmMessage[] = [
       { role: "system", content: systemPrompt },
       ...history
         .filter((m) => m.role === "user" || m.role === "assistant")
-        .slice(-8)
+        .slice(-10)
         .map((m) => ({
           role: m.role as string,
           content: cleanHistoryMsg(m.content, m.role),
@@ -877,8 +883,8 @@ REGLAS:
           tools: toolDefinitions,
           tool_choice: "auto",
           stream: false,
-          temperature: 0.3,
-          max_tokens: 512,
+          temperature: 0.4,
+          max_tokens: 768,
           chat_template_kwargs: { enable_thinking: false },
         }),
         signal: AbortSignal.timeout(90_000),
@@ -898,12 +904,14 @@ REGLAS:
         // Terminal: el modelo terminó de razonar
         let content = cleanLlmText(msg?.content ?? "");
 
-        // Si hay resultados de herramientas y el LLM solo comenta, combinar
+        // Si hay resultados de herramientas, combinar con el comentario del LLM
         if (formattedContent) {
-          const commentIsUseful =
-            content.length > 30 &&
-            !content.startsWith("Aquí tienes") &&
-            !content.startsWith("📚");
+          // Detectar si el LLM solo repite el encabezado de la lista (preamble sin valor añadido)
+          const normContent = norm(content);
+          const isJustIntro =
+            /^(aqui tienes|te (muestro|presento)|encontre|aqui estan|estos son|he (buscado|encontrado)|aqui hay)/.test(normContent) &&
+            content.length < 80;
+          const commentIsUseful = content.length > 50 && !isJustIntro;
           content = commentIsUseful
             ? `${formattedContent}\n\n${content}`
             : formattedContent;
@@ -943,12 +951,11 @@ REGLAS:
           .replace(/\n{3,}/g, "\n\n")
           .trim();
         if (!content)
-          content =
-            "No encontré información relevante. Prueba con 'busca [tema]' para buscar en internet.";
+          content = formattedContent ?? "No encontré información relevante. Prueba con 'busca [tema]' para buscar en internet.";
 
-        // Eliminar preamble defensivo innecesario
+        // Eliminar preamble defensivo innecesario que el modelo pequeño a veces genera
         const defensivePreamble =
-          /^(no puedo inventar url[^\n]*|no puedo mencionar url[^\n]*|no hay [^\n]*(biblioteca|lista)[^\n]*|no tengo acceso[^\n]*)\n+/gi;
+          /^(no puedo inventar url[^\n]*|no puedo mencionar url[^\n]*|no hay [^\n]*(biblioteca|lista)[^\n]*|no tengo acceso[^\n]*|como asistente de (ia|inteligencia artificial)[^\n]*|como modelo de (lenguaje|ia)[^\n]*|lo siento pero no puedo[^\n]*|lamentablemente no (puedo|tengo)[^\n]*)\n+/gi;
         const stripped = content.replace(defensivePreamble, "").trim();
         if (stripped.length >= 10) content = stripped;
 
