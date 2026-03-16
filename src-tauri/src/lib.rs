@@ -229,10 +229,11 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         // Habilitar Jinja templating — OBLIGATORIO para tool calling (function calling)
         // Sin este flag, llama-server ignora el campo "tools" en las peticiones.
         .arg("--jinja")
-        // Desactivar thinking mode: incompatible con tool calling en Qwen3.
-        // --reasoning off inyecta enable_thinking=false en el chat template (correcto para Qwen3).
+        // Modo razonamiento: "auto" respeta el parámetro per-request `chat_template_kwargs.enable_thinking`.
+        // Esto permite activar/desactivar el thinking desde el frontend sin reiniciar el servidor.
+        // "off" forzaría thinking=false globalmente e ignoraría las peticiones per-request.
         .arg("--reasoning")
-        .arg("off")
+        .arg("auto")
         // Parámetros de sampling óptimos para Qwen3 (modo no-thinking) según documentación oficial.
         // Fuente: https://qwen.readthedocs.io/en/latest/run_locally/llama.cpp.html
         // NUNCA usar greedy (temp=0) con Qwen3 — causa bucles de repetición.
