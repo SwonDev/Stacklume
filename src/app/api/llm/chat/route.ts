@@ -345,6 +345,117 @@ async function executeTool(
       });
     }
 
+    // ── delete_link ──────────────────────────────────────────────────────────
+    if (name === "delete_link") {
+      let url = String(args.url || "").trim().replace(/\/+$/, "");
+      if (!url.includes("://")) url = "https://" + url;
+      if (!url.startsWith("http")) return JSON.stringify({ error: "URL inválida" });
+      try {
+        const found = await withRetry(
+          () =>
+            db
+              .select({ id: links.id, title: links.title, url: links.url })
+              .from(links)
+              .where(and(isNull(links.deletedAt), eq(links.url, url)))
+              .limit(1),
+          { operationName: "llm delete_link find" }
+        );
+        if (!found.length)
+          return JSON.stringify({ error: `No encontré "${url}" en tu biblioteca.` });
+        const [link] = found;
+        await withRetry(
+          () => db.update(links).set({ deletedAt: new Date() }).where(eq(links.id, link.id)),
+          { operationName: "llm delete_link" }
+        );
+        return JSON.stringify({ success: true, deleted: { title: link.title ?? url, url: link.url } });
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : "Error al eliminar" });
+      }
+    }
+
+    // ── mark_favorite ─────────────────────────────────────────────────────────
+    if (name === "mark_favorite") {
+      let url = String(args.url || "").trim().replace(/\/+$/, "");
+      if (!url.includes("://")) url = "https://" + url;
+      if (!url.startsWith("http")) return JSON.stringify({ error: "URL inválida" });
+      const favorite = args.favorite !== false;
+      try {
+        const found = await withRetry(
+          () =>
+            db
+              .select({ id: links.id, title: links.title })
+              .from(links)
+              .where(and(isNull(links.deletedAt), eq(links.url, url)))
+              .limit(1),
+          { operationName: "llm mark_favorite find" }
+        );
+        if (!found.length)
+          return JSON.stringify({ error: `No encontré "${url}" en tu biblioteca.` });
+        await withRetry(
+          () =>
+            db
+              .update(links)
+              .set({ isFavorite: favorite, updatedAt: new Date() })
+              .where(eq(links.id, found[0].id)),
+          { operationName: "llm mark_favorite" }
+        );
+        return JSON.stringify({ success: true, title: found[0].title ?? url, url, isFavorite: favorite });
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : "Error" });
+      }
+    }
+
+    // ── move_to_category ──────────────────────────────────────────────────────
+    if (name === "move_to_category") {
+      let url = String(args.url || "").trim().replace(/\/+$/, "");
+      if (!url.includes("://")) url = "https://" + url;
+      if (!url.startsWith("http")) return JSON.stringify({ error: "URL inválida" });
+      const catQuery = norm(String(args.category || "").trim());
+      if (!catQuery) return JSON.stringify({ error: "Categoría no especificada" });
+      try {
+        const allCats = await withRetry(
+          () =>
+            db
+              .select({ id: categories.id, name: categories.name })
+              .from(categories)
+              .where(isNull(categories.deletedAt)),
+          { operationName: "llm move cats" }
+        );
+        const cat = allCats.find(
+          (c) =>
+            norm(c.name) === catQuery ||
+            norm(c.name).includes(catQuery) ||
+            catQuery.includes(norm(c.name))
+        );
+        if (!cat)
+          return JSON.stringify({
+            error: `No encontré la categoría "${args.category}". Disponibles: ${allCats.map((c) => c.name).join(", ")}`,
+          });
+        const found = await withRetry(
+          () =>
+            db
+              .select({ id: links.id, title: links.title })
+              .from(links)
+              .where(and(isNull(links.deletedAt), eq(links.url, url)))
+              .limit(1),
+          { operationName: "llm move link find" }
+        );
+        if (!found.length)
+          return JSON.stringify({ error: `No encontré "${url}" en tu biblioteca.` });
+        await withRetry(
+          () =>
+            db
+              .update(links)
+              .set({ categoryId: cat.id, updatedAt: new Date() })
+              .where(eq(links.id, found[0].id)),
+          { operationName: "llm move_to_category" }
+        );
+        return JSON.stringify({ success: true, title: found[0].title ?? url, url, category: cat.name });
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : "Error" });
+      }
+    }
+
     return JSON.stringify({ error: `Herramienta desconocida: ${name}` });
   } catch (err) {
     return JSON.stringify({
@@ -506,7 +617,7 @@ async function runLlmJob(
         // guarda(?!\w): imperativo "guarda URL" (excluye "guardado/s", "guardan")
         // guardar\b / guarde[s]?\b: infinitivo/subjuntivo presente "quiero que guardes URL", "necesito guardar URL"
         // guardar[ao][s]?\b: subjuntivo imperfecto "me gustaría que guardaras URL", "ojala guardaras"
-        /guarda(?!\w)|\bguardar\b|\bguarde[s]?\b|\bguardar[ao][s]?\b|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
+        /guarda(?!d|r|n|s\b)|\bguardar\b|\bguarde[s]?\b|\bguardar[ao][s]?\b|agrega(?!d)|add link|save link|\bpon\b|mete |integra(?!d|ci)|incluy/i.test(msgNorm) ||
         // EN: "save/add/bookmark URL" al inicio del mensaje
         /^\s*(save|add|bookmark)\s+\S/i.test(userMessage) ||
         // EN: "please save URL", "can you save URL", "I want to save URL" — URL implícita o explícita
@@ -548,6 +659,27 @@ async function runLlmJob(
       // "guarda ese/ese link" referenciando resultado anterior
       /\bese\b|\baquel\b|\bese link\b|\bese resultado\b/i.test(msgNorm)
     );
+    // Detectar intención de borrar un link específico (NO borrado masivo — ese va al guard destructivo)
+    const wantsDelete =
+      !isHowToQuestion && !wantsSearch && !wantsAdd &&
+      /\b(borra|elimina|quita|borrar|eliminar|quitar|remove|delete)\b/i.test(msgNorm) &&
+      !/\b(todos?|toda|all|everything|datos?|biblioteca|coleccion)\b/i.test(msgNorm);
+
+    // Detectar intención de marcar favorito
+    const wantsFavorite =
+      !isHowToQuestion && !wantsSearch &&
+      /\b(favorito|favorita|favorites?|fav)\b/i.test(msgNorm) &&
+      /\b(marca|a[ñn]ade?|pon|set|add|mark|agrega|save as)\b/i.test(msgNorm);
+
+    // Detectar intención de mover/categorizar un link
+    const wantsOrganize =
+      !isHowToQuestion && !wantsSearch && !wantsAdd &&
+      (
+        /\b(mueve|mover|pon en|ponlo en|categoriza|categorizar)\b.{0,40}\b(categor[ií]a|carpeta|folder|secci[oó]n)\b/i.test(msgNorm) ||
+        /\b(a[ñn]ade a la|mueve a la)\b.{0,20}(categor|carpeta|folder)/i.test(msgNorm) ||
+        /\bmove .{0,40}(categor|folder|section)\b/i.test(msgNorm)
+      );
+
     // "¿qué links tengo de X?", "¿tienes algo de Y?", "mis links de Z", "cuántos links de X"
     // También: "links de X", "recursos de X", "tengo algo con la etiqueta X"
     // "cuantos links tengo?" sin tema específico va a Q&A (no aquí)
@@ -1016,29 +1148,176 @@ async function runLlmJob(
       return;
     }
 
+    // ── CASO 6: Eliminar link ─────────────────────────────────────────────────
+    if (wantsDelete) {
+      if (resolvedUrlMatch) {
+        const url = (resolvedUrl ?? "").replace(/[.,;)]+$/, "");
+        const delRes = await executeTool("delete_link", { url });
+        const delData = JSON.parse(delRes) as {
+          success?: boolean;
+          deleted?: { title: string; url: string };
+          error?: string;
+        };
+        if (delData.success && delData.deleted) {
+          jobs.set(jobId, {
+            status: "done",
+            content: `🗑️ Eliminado de tu biblioteca:\n${delData.deleted.title}\n${delData.deleted.url}`,
+          });
+        } else {
+          jobs.set(jobId, { status: "done", content: `⚠️ ${delData.error ?? "No se pudo eliminar"}` });
+        }
+        return;
+      }
+      // Sin URL — buscar por tema en la biblioteca
+      const delTopic = msgNorm
+        .replace(/\b(borra|elimina|quita|borrar|eliminar|quitar|remove|delete)\b/gi, "")
+        .replace(/\b(el link|el enlace|la pagina|esta|este|la url|mi|de|el|la|un|una)\b/gi, " ")
+        .replace(/[¿?¡!,;:]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 60);
+      if (delTopic.length > 2) {
+        const libRes = await executeTool("search_library", { query: delTopic });
+        const libData = JSON.parse(libRes) as {
+          results?: Array<{ title: string; url: string }>;
+          message?: string;
+        };
+        if (libData.results?.length === 1) {
+          const top = libData.results[0];
+          const delRes2 = await executeTool("delete_link", { url: top.url });
+          const delData2 = JSON.parse(delRes2) as {
+            success?: boolean;
+            deleted?: { title: string; url: string };
+            error?: string;
+          };
+          if (delData2.success && delData2.deleted) {
+            jobs.set(jobId, {
+              status: "done",
+              content: `🗑️ Eliminado de tu biblioteca:\n${delData2.deleted.title}\n${delData2.deleted.url}`,
+            });
+            return;
+          }
+        } else if (libData.results && libData.results.length > 1) {
+          const list = libData.results
+            .slice(0, 5)
+            .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}`)
+            .join("\n\n");
+          g.__llmLastSearch = libData.results
+            .slice(0, 5)
+            .map((r) => ({ title: r.title, url: r.url, description: "" }));
+          jobs.set(jobId, {
+            status: "done",
+            content: `Encontré varios enlaces sobre "${delTopic}". ¿Cuál quieres eliminar?\n\n${list}\n\nDi "borra el 1" (o el número que corresponda) para confirmar.`,
+          });
+          return;
+        }
+      }
+      jobs.set(jobId, {
+        status: "done",
+        content: `Para eliminar un enlace necesito la URL completa o un nombre más específico.\nEjemplo: "borra https://ejemplo.com"`,
+      });
+      return;
+    }
+
+    // ── CASO 7: Marcar como favorito ─────────────────────────────────────────
+    if (wantsFavorite) {
+      if (resolvedUrlMatch) {
+        const url = (resolvedUrl ?? "").replace(/[.,;)]+$/, "");
+        const isFav = !/desmarcar|quitar favorito|unfavorite|remove.*fav/i.test(msgNorm);
+        const favRes = await executeTool("mark_favorite", { url, favorite: isFav });
+        const favData = JSON.parse(favRes) as {
+          success?: boolean;
+          title?: string;
+          url?: string;
+          isFavorite?: boolean;
+          error?: string;
+        };
+        if (favData.success) {
+          const action = favData.isFavorite ? "añadido a favoritos ⭐" : "quitado de favoritos";
+          jobs.set(jobId, {
+            status: "done",
+            content: `✅ ${favData.title ?? favData.url} — ${action}`,
+          });
+        } else {
+          jobs.set(jobId, { status: "done", content: `⚠️ ${favData.error ?? "No se pudo actualizar"}` });
+        }
+        return;
+      }
+      jobs.set(jobId, {
+        status: "done",
+        content: `Para marcar un enlace como favorito necesito la URL.\nEjemplo: "marca https://react.dev como favorito"`,
+      });
+      return;
+    }
+
+    // ── CASO 8: Mover a categoría ─────────────────────────────────────────────
+    if (wantsOrganize) {
+      if (resolvedUrlMatch) {
+        const url = (resolvedUrl ?? "").replace(/[.,;)]+$/, "");
+        const catMatch =
+          userMessage.match(
+            /(?:categor[ií]a|carpeta|folder|secci[oó]n)\s+[""']?([^""'.,;!?\n]{2,30})[""']?/i
+          ) ??
+          userMessage.match(
+            /(?:a la?|al?|to the?|to)\s+[""']?([^""'.,;!?\n]{2,30})[""']?\s*(?:categor|carpeta|folder)?$/i
+          );
+        const catName = catMatch?.[1]?.trim();
+        if (!catName) {
+          jobs.set(jobId, {
+            status: "done",
+            content: `¿A qué categoría quieres moverlo? Especifica el nombre.\nEjemplo: "mueve https://... a la categoría Diseño"`,
+          });
+          return;
+        }
+        const moveRes = await executeTool("move_to_category", { url, category: catName });
+        const moveData = JSON.parse(moveRes) as {
+          success?: boolean;
+          title?: string;
+          category?: string;
+          error?: string;
+        };
+        if (moveData.success) {
+          jobs.set(jobId, {
+            status: "done",
+            content: `✅ Movido a "${moveData.category}":\n${moveData.title}`,
+          });
+        } else {
+          jobs.set(jobId, { status: "done", content: `⚠️ ${moveData.error ?? "No se pudo mover"}` });
+        }
+        return;
+      }
+      jobs.set(jobId, {
+        status: "done",
+        content: `Para mover un enlace de categoría necesito la URL.\nEjemplo: "mueve https://... a la categoría Diseño"`,
+      });
+      return;
+    }
+
     // ── CASO 5: Q&A libre con LLM + tool calling agéntico ─────────────────────
     // El LLM puede decidir llamar herramientas (search_library, web_search) según
     // el contexto. Máximo 1 ronda de tool calling para mantener latencia controlada.
     // Usamos un resumen COMPACTO de la biblioteca para no saturar el context window del modelo.
     const libraryText = await loadLibrarySummary();
 
-    const systemPrompt = `Eres Stacklume AI, asistente de gestión de enlaces web. Responde en español, en texto plano sin asteriscos ni #. Sé breve, útil y directo. Emojis solo cuando aporten valor.
+    const systemPrompt = `Eres Stacklume AI, asistente inteligente de gestión de enlaces web. Responde en español, en texto plano sin asteriscos ni #. Sé breve, útil y directo. Emojis solo cuando aporten valor.
 
 CAPACIDADES:
 - Responder preguntas sobre tecnologías, frameworks, desarrollo web y la app Stacklume
-- Dar recomendaciones sin necesitar URLs (solo di los nombres, el usuario las buscará)
-- Usar search_library si el usuario pregunta por sus links guardados
-- Usar web_search si el usuario pide buscar en internet
+- Dar recomendaciones de herramientas y frameworks por nombre (sin inventar URLs)
+- Usar search_library cuando el usuario pregunta qué enlaces tiene guardados sobre un tema
+- Usar web_search cuando el usuario pide buscar recursos en internet
+- Usar save_link SOLO si el usuario da una URL explícita y quiere guardarla
 
-STACKLUME: Gestión de bookmarks con modo Bento/Kanban/Lista, 120+ widgets (notas, tareas, clima, GitHub, etc.), 23 temas, importar/exportar, Ctrl+K buscar, Ctrl+N nuevo.
+STACKLUME: Gestión de bookmarks con modos Bento/Kanban/Lista, 120+ widgets (notas, tareas, clima, GitHub, estadísticas, etc.), 23 temas visuales, importar/exportar bookmarks, Ctrl+K para buscar, Ctrl+N para nuevo enlace. Puedes eliminar, favoritar y mover enlaces desde el chat.
 
 BIBLIOTECA DEL USUARIO: ${libraryText}
 
 REGLAS CRÍTICAS:
-1. NUNCA escribas URLs inventadas. Solo menciona nombres de herramientas/frameworks.
-2. Para URLs reales, usa SOLO las de la biblioteca del usuario o resultados de herramientas.
-3. NUNCA digas que guardaste o borraste algo que no hayas hecho.
-4. Si no sabes algo, dilo honestamente. No inventes datos.`;
+1. PUEDES recomendar herramientas y frameworks por nombre sin URLs — es útil y esperado.
+2. NUNCA escribas URLs inventadas en tu texto. Solo usa URLs reales de herramientas o biblioteca.
+3. Si usas search_library o web_search, las URLs de resultados son reales y puedes mencionarlas.
+4. NUNCA digas que guardaste, borraste o modificaste algo sin haber llamado la herramienta.
+5. Si no sabes algo, dilo con honestidad. No inventes datos ni estadísticas.`;
 
     // Herramientas disponibles para el LLM en Q&A libre
     const toolDefinitions = [
@@ -1067,6 +1346,21 @@ REGLAS CRÍTICAS:
               query: { type: "string", description: "Consulta de búsqueda" },
             },
             required: ["query"],
+          },
+        },
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "save_link",
+          description: "Guarda un enlace en la biblioteca del usuario. Úsala SOLO cuando el usuario proporcione una URL explícita y quiera guardarla.",
+          parameters: {
+            type: "object",
+            properties: {
+              url: { type: "string", description: "URL completa del enlace" },
+              title: { type: "string", description: "Título descriptivo (opcional)" },
+            },
+            required: ["url"],
           },
         },
       },
@@ -1162,6 +1456,22 @@ REGLAS CRÍTICAS:
                 .map((r, i) => `${i + 1}. ${r.title ?? r.url}\n   ${r.url}`)
                 .join("\n\n");
               formattedToolContent = `📚 Encontré ${parsed.results.length} enlace${parsed.results.length === 1 ? "" : "s"} en tu biblioteca:\n\n${list}`;
+            }
+            // Confirmar guardado desde el LLM
+            if (tc.function.name === "save_link") {
+              const saveRes = JSON.parse(toolResult) as {
+                success?: boolean;
+                added?: { title: string; url: string };
+                error?: string;
+                isDuplicate?: boolean;
+              };
+              if (saveRes.success && saveRes.added) {
+                formattedToolContent = `✅ Añadido a tu biblioteca:\n${saveRes.added.title}\n${saveRes.added.url}`;
+              } else if (saveRes.isDuplicate || saveRes.error?.includes("ya existe")) {
+                formattedToolContent = `ℹ️ Ya existía en tu biblioteca: ${saveRes.added?.url ?? args.url ?? ""}`;
+              } else {
+                formattedToolContent = `⚠️ No se pudo guardar: ${saveRes.error ?? "error desconocido"}`;
+              }
             }
             // Formatear resultados de búsqueda web en el formato numerado
             if (tc.function.name === "web_search") {
