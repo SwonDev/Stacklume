@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { useLinksStore } from "@/stores/links-store";
+import { ModelManagementDialog } from "@/components/modals/ModelManagementDialog";
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -291,6 +292,11 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const [isDownloadingMmproj, setIsDownloadingMmproj] = useState(false);
   const [mmprojProgress, setMmprojProgress] = useState<DownloadProgress | null>(null);
 
+  // Modelo activo
+  const [activeModelName, setActiveModelName] = useState<string | null>(null);
+  const [activeModelFamily, setActiveModelFamily] = useState("qwen3");
+  const [showModelDialog, setShowModelDialog] = useState(false);
+
   // Historial persistente
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionHistory, setSessionHistory] = useState<SessionSummary[]>([]);
@@ -308,6 +314,20 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cargar nombre del modelo activo
+  const refreshActiveModel = useCallback(async () => {
+    try {
+      const data = await tauriInvoke<{ displayName?: string; family?: string; supportsThinking?: boolean; supportsVision?: boolean } | null>("get_active_model");
+      if (data?.displayName) {
+        setActiveModelName(data.displayName);
+        if (data.family) setActiveModelFamily(data.family);
+        if (data.supportsVision !== undefined) setVisionAvailable(data.supportsVision);
+      }
+    } catch {
+      // En dev o sin Tauri
+    }
+  }, []);
 
   // Scroll al final cuando llegan nuevos mensajes (solo si el usuario está cerca del fondo)
   useEffect(() => {
@@ -381,6 +401,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       if (status === "ready") {
         setLlmStatus("ready");
         initOrLoadSession();
+        refreshActiveModel();
       } else if (status === "no_binary") {
         setLlmStatus("no_binary");
       } else if (status === "no_model") {
@@ -833,7 +854,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       const res = await fetch("/api/llm/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userMessage: text, history, llamaPort, enableThinking, imageBase64: currentImageBase64 }),
+        body: JSON.stringify({ userMessage: text, history, llamaPort, enableThinking, imageBase64: currentImageBase64, modelFamily: activeModelFamily }),
       });
 
       if (!res.ok) {
@@ -960,6 +981,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   };
 
   return (
+    <>
     <AnimatePresence>
       {open && (
         <>
@@ -983,14 +1005,24 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
           <div className="absolute inset-0 flex flex-col border-l border-border shadow-2xl bg-card">
             {/* Header */}
             <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
-              <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">{t("llmChat.title")}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Bot className="w-4 h-4 text-primary shrink-0" />
+                {llmStatus === "ready" && activeModelName ? (
+                  <button
+                    onClick={() => setShowModelDialog(true)}
+                    className="text-sm font-semibold truncate max-w-[140px] hover:text-primary transition-colors"
+                    title={`Modelo: ${activeModelName} — clic para gestionar modelos`}
+                  >
+                    {activeModelName}
+                  </button>
+                ) : (
+                  <span className="text-sm font-semibold">{t("llmChat.title")}</span>
+                )}
                 {llmStatus === "ready" && (
-                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block shrink-0" />
                 )}
                 {llmStatus === "starting" && (
-                  <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-500 shrink-0" />
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -1262,14 +1294,24 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                       </p>
                     </div>
                   ) : (
-                    <Button
-                      onClick={handleDownload}
-                      className="gap-2"
-                      disabled={isDownloading}
-                    >
-                      <Download className="w-4 h-4" />
-                      {t("llmChat.downloadModel", { size: MODEL_SIZE_GB })}
-                    </Button>
+                    <div className="space-y-2">
+                      <Button
+                        onClick={handleDownload}
+                        className="gap-2 w-full"
+                        disabled={isDownloading}
+                      >
+                        <Download className="w-4 h-4" />
+                        {t("llmChat.downloadModel", { size: MODEL_SIZE_GB })}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-2 w-full text-xs"
+                        onClick={() => setShowModelDialog(true)}
+                      >
+                        <Search className="w-3.5 h-3.5" />
+                        Explorar otros modelos
+                      </Button>
+                    </div>
                   )}
 
                   {statusError && (
@@ -1498,5 +1540,18 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         </>
       )}
     </AnimatePresence>
+
+    {/* Diálogo de gestión de modelos */}
+    <ModelManagementDialog
+      open={showModelDialog}
+      onClose={() => setShowModelDialog(false)}
+      onModelChanged={() => {
+        refreshActiveModel();
+        // Si el modelo cambió, el status habrá cambiado a "starting"
+        setLlmStatus("starting");
+        pollUntilReady();
+      }}
+    />
+    </>
   );
 }
