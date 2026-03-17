@@ -577,15 +577,61 @@ async function loadLibrarySummary(): Promise<string> {
 // Arquitectura: 3 fast-paths mínimos → todo lo demás pasa por el LLM agéntico.
 // El modelo razona autónomamente y decide qué herramientas usar (hasta 5 rondas).
 
+// Parámetros de sampling por familia de modelo
+const MODEL_PARAMS: Record<string, {
+  thinking: { temperature: number; top_k: number; top_p: number; min_p: number; presence_penalty: number; max_tokens: number };
+  nonThinking: { temperature: number; top_k: number; top_p: number; min_p: number; presence_penalty: number; max_tokens: number };
+  supportsTools: boolean;
+  supportsThinking: boolean;
+}> = {
+  qwen3: {
+    thinking:    { temperature: 1.0, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 1.5, max_tokens: 4096 },
+    nonThinking: { temperature: 1.0, top_k:  0, top_p: 1.0,  min_p: 0, presence_penalty: 2.0, max_tokens: 1024 },
+    supportsTools: true, supportsThinking: true,
+  },
+  qwen2: {
+    thinking:    { temperature: 0.7, top_k: 20, top_p: 0.8, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
+    nonThinking: { temperature: 0.7, top_k: 20, top_p: 0.8, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
+    supportsTools: true, supportsThinking: false,
+  },
+  llama3: {
+    thinking:    { temperature: 0.6, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
+    nonThinking: { temperature: 0.6, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
+    supportsTools: true, supportsThinking: false,
+  },
+  mistral: {
+    thinking:    { temperature: 0.7, top_k: 50, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
+    nonThinking: { temperature: 0.7, top_k: 50, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
+    supportsTools: true, supportsThinking: false,
+  },
+  deepseek: {
+    thinking:    { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 0, max_tokens: 4096 },
+    nonThinking: { temperature: 0.6, top_k:  0, top_p: 0.9,  min_p: 0, presence_penalty: 0, max_tokens: 1024 },
+    supportsTools: true, supportsThinking: true,
+  },
+  default: {
+    thinking:    { temperature: 0.7, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
+    nonThinking: { temperature: 0.7, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
+    supportsTools: false, supportsThinking: false,
+  },
+};
+
+function getModelParams(family: string) {
+  return MODEL_PARAMS[family] ?? MODEL_PARAMS.default;
+}
+
 async function runLlmJob(
   jobId: string,
   llamaPort: string,
   userMessage: string,
   history: ConversationMessage[],
   enableThinking = false,
-  imageBase64?: string
+  imageBase64?: string,
+  modelFamily = "qwen3"
 ): Promise<void> {
   const llamaUrl = `http://127.0.0.1:${llamaPort}/v1/chat/completions`;
+  const mParams = getModelParams(modelFamily);
+  const effectiveThinking = enableThinking && mParams.supportsThinking;
   // Modo visión: cuando hay imagen adjunta, el modelo solo debe describir/analizar.
   // No pasar herramientas — el modelo pequeño no puede razonar sobre imagen Y decidir
   // cuándo no usar herramientas simultáneamente, lo que provoca tool calls alucinados.
@@ -766,7 +812,7 @@ INSTRUCCIONES DE VISIÓN:
           stream: false,
           ...visionParams,
           chat_template_kwargs: {
-            enable_thinking: enableThinking,
+            enable_thinking: effectiveThinking,
             ...(enableThinking ? {} : { thinking_budget: 0 }),
           },
           ...(enableThinking ? { reasoning_format: "deepseek" } : {}),
@@ -1052,12 +1098,8 @@ REGLAS CRÍTICAS:
     let terminalReasoningContent: string | undefined;
     const MAX_ROUNDS = 5;
 
-    // Parámetros oficiales Qwen3.5-2B: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF
-    // Non-thinking: temp=1.0, top_k desactivado (0), top_p=1.0, presence_penalty=2.0
-    // Thinking:     temp=1.0, top_k=20,             top_p=0.95, presence_penalty=1.5
-    const samplingParams = enableThinking
-      ? { temperature: 1.0, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 1.5, max_tokens: 4096 }
-      : { temperature: 1.0, top_k:  0, top_p: 1.0,  min_p: 0, presence_penalty: 2.0, max_tokens: 1024 };
+    // Parámetros de sampling dinámicos según familia del modelo activo
+    const samplingParams = effectiveThinking ? mParams.thinking : mParams.nonThinking;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const resp = await fetch(llamaUrl, {
@@ -1072,15 +1114,14 @@ REGLAS CRÍTICAS:
           ...samplingParams,
           // Control de thinking per-request.
           // El servidor arranca con --reasoning auto, que respeta este parámetro.
-          // Thinking mode:     temp=1.0, top_p=0.95, presence_penalty=1.5 + reasoning_format "deepseek"
-          // Non-thinking mode: temp=1.0, top_p=1.0,  presence_penalty=2.0 + thinking_budget:0
+          // Thinking/non-thinking dinámico según familia del modelo
           chat_template_kwargs: {
-            enable_thinking: enableThinking,
-            ...(enableThinking ? {} : { thinking_budget: 0 }),
+            enable_thinking: effectiveThinking,
+            ...(effectiveThinking ? {} : { thinking_budget: 0 }),
           },
-          ...(enableThinking ? { reasoning_format: "deepseek" } : {}),
+          ...(effectiveThinking ? { reasoning_format: "deepseek" } : {}),
         }),
-        signal: AbortSignal.timeout(enableThinking ? 120_000 : 90_000),
+        signal: AbortSignal.timeout(effectiveThinking ? 120_000 : 90_000),
       });
 
       if (!resp.ok) {
@@ -1362,6 +1403,7 @@ export async function POST(req: NextRequest) {
     llamaPort?: number;
     enableThinking?: boolean;
     imageBase64?: string;
+    modelFamily?: string;
   };
 
   try {
@@ -1370,7 +1412,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   }
 
-  const { userMessage, history = [], llamaPort: clientPort, enableThinking = false, imageBase64 } = body;
+  const { userMessage, history = [], llamaPort: clientPort, enableThinking = false, imageBase64, modelFamily = "qwen3" } = body;
   // Permitir userMessage vacío cuando hay imagen adjunta (el usuario solo pegó una imagen)
   if (!userMessage?.trim() && !imageBase64)
     return NextResponse.json(
@@ -1389,7 +1431,7 @@ export async function POST(req: NextRequest) {
 
   const jobId = crypto.randomUUID();
   jobs.set(jobId, { status: "pending" });
-  runLlmJob(jobId, resolvedPort, (userMessage ?? "").trim(), history, enableThinking, imageBase64);
+  runLlmJob(jobId, resolvedPort, (userMessage ?? "").trim(), history, enableThinking, imageBase64, modelFamily as string);
   return NextResponse.json({ jobId });
 }
 
