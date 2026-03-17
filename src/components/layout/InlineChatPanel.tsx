@@ -16,6 +16,8 @@ import {
   Brain,
   ChevronDown,
   ImageIcon,
+  Clock,
+  MessageSquarePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +48,13 @@ interface DownloadProgress {
   downloaded: number;
   total: number;
   percent: number;
+}
+
+interface SessionSummary {
+  id: string;
+  title: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 // ─── Modelo por defecto ────────────────────────────────────────────────────────
@@ -280,6 +289,13 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const [isDownloadingMmproj, setIsDownloadingMmproj] = useState(false);
   const [mmprojProgress, setMmprojProgress] = useState<DownloadProgress | null>(null);
 
+  // Historial persistente
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [sessionHistory, setSessionHistory] = useState<SessionSummary[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionTitleSetRef = useRef(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -315,7 +331,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         setLlmStatus("ready");
         setIsDownloading(false);
         setDownloadProgress(null);
-        addWelcomeMessage();
+        initOrLoadSession();
       } else if (newStatus.startsWith("error")) {
         setLlmStatus("error");
         setStatusError(newStatus.replace("error: ", ""));
@@ -348,7 +364,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       const status = await tauriInvoke<string>("get_llm_status");
       if (status === "ready") {
         setLlmStatus("ready");
-        if (messages.length === 0) addWelcomeMessage();
+        if (messages.length === 0) initOrLoadSession();
       } else if (status === "no_binary") {
         setLlmStatus("no_binary");
       } else if (status === "no_model") {
@@ -386,7 +402,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         if (status === "ready") {
           setLlmStatus("ready");
           if (pollingRef.current) clearInterval(pollingRef.current);
-          if (messages.length === 0) addWelcomeMessage();
+          if (messages.length === 0) initOrLoadSession();
         } else if (status.startsWith("error")) {
           setLlmStatus("error");
           setStatusError(status.startsWith("error: ") ? status.slice(7) : status);
@@ -403,13 +419,202 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       if (prev.length > 0) return prev;
       return [
         {
-          id: crypto.randomUUID(),
+          id: "welcome",
           role: "assistant",
           content: t("llmChat.welcomeMessage"),
         },
       ];
     });
   }
+
+  // ─── Funciones de sesión persistente ────────────────────────────────────────
+
+  /** Guarda un mensaje en la sesión activa (silencioso si falla) */
+  const saveMessageToSession = useCallback(async (msg: ChatMessage) => {
+    const sid = sessionIdRef.current;
+    if (!sid || msg.id === "welcome" || msg.role === "tool-info") return;
+    try {
+      await fetch(`/api/llm/sessions/${sid}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          reasoningContent: msg.reasoningContent ?? null,
+          isError: msg.isError ?? false,
+        }),
+      });
+    } catch {
+      // silencioso — no bloquear la UI
+    }
+  }, []);
+
+  /** Actualiza el título de la sesión con el primer mensaje del usuario */
+  const updateSessionTitle = useCallback(async (firstUserText: string) => {
+    const sid = sessionIdRef.current;
+    if (!sid || sessionTitleSetRef.current) return;
+    sessionTitleSetRef.current = true;
+    const title = firstUserText.slice(0, 60).trim() || "Nueva conversación";
+    try {
+      await fetch(`/api/llm/sessions/${sid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      setSessionHistory((prev) =>
+        prev.map((s) => (s.id === sid ? { ...s, title } : s))
+      );
+    } catch {
+      // silencioso
+    }
+  }, []);
+
+  /** Carga el historial de sesiones desde la API */
+  const loadSessionHistory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/llm/sessions?limit=50");
+      if (!res.ok) return;
+      const data = await res.json();
+      setSessionHistory(data.sessions ?? []);
+    } catch {
+      // silencioso
+    }
+  }, []);
+
+  /** Crea una sesión nueva y la activa */
+  const createNewSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/llm/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Nueva conversación" }),
+      });
+      if (!res.ok) throw new Error("No se pudo crear sesión");
+      const data = await res.json();
+      const newId = data.session.id as string;
+      setCurrentSessionId(newId);
+      sessionIdRef.current = newId;
+      sessionTitleSetRef.current = false;
+      setSessionHistory((prev) => [data.session, ...prev]);
+      setMessages([]);
+      if (llmStatus === "ready") {
+        setTimeout(addWelcomeMessage, 50);
+      }
+    } catch {
+      // fallback: funcionar sin persistencia
+      setMessages([]);
+      if (llmStatus === "ready") setTimeout(addWelcomeMessage, 50);
+    }
+  }, [llmStatus]);
+
+  /** Carga los mensajes de una sesión existente */
+  const loadSession = useCallback(async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/llm/sessions/${sessionId}/messages`);
+      if (!res.ok) throw new Error("Error al cargar mensajes");
+      const data = await res.json();
+      const loaded = (data.messages as Array<{
+        id: string; role: string; content: string;
+        reasoningContent?: string | null; isError?: boolean;
+      }>).map((m) => ({
+        id: m.id,
+        role: m.role as ChatMessage["role"],
+        content: m.content,
+        reasoningContent: m.reasoningContent ?? undefined,
+        isError: m.isError ?? false,
+      }));
+      setCurrentSessionId(sessionId);
+      sessionIdRef.current = sessionId;
+      sessionTitleSetRef.current = true; // ya tiene título
+      if (loaded.length > 0) {
+        setMessages(loaded);
+      } else {
+        setMessages([]);
+        addWelcomeMessage();
+      }
+    } catch {
+      // fallback
+      setMessages([]);
+      addWelcomeMessage();
+    }
+  }, []);
+
+  /** Elimina una sesión del historial */
+  const deleteSession = useCallback(async (sessionId: string) => {
+    try {
+      await fetch(`/api/llm/sessions/${sessionId}`, { method: "DELETE" });
+      setSessionHistory((prev) => prev.filter((s) => s.id !== sessionId));
+      if (sessionIdRef.current === sessionId) {
+        await createNewSession();
+      }
+    } catch {
+      // silencioso
+    }
+  }, [createNewSession]);
+
+  /** Inicializa o carga la última sesión al arrancar */
+  const initOrLoadSession = useCallback(async () => {
+    if (sessionIdRef.current) return; // ya inicializado
+    try {
+      const res = await fetch("/api/llm/sessions?limit=50");
+      if (res.ok) {
+        const data = await res.json();
+        const sessions: SessionSummary[] = data.sessions ?? [];
+        setSessionHistory(sessions);
+        if (sessions.length > 0) {
+          const latest = sessions[0];
+          // Cargar mensajes de la sesión más reciente
+          const msgsRes = await fetch(`/api/llm/sessions/${latest.id}/messages`);
+          if (msgsRes.ok) {
+            const msgsData = await msgsRes.json();
+            const loaded = (msgsData.messages as Array<{
+              id: string; role: string; content: string;
+              reasoningContent?: string | null; isError?: boolean;
+            }>).map((m) => ({
+              id: m.id,
+              role: m.role as ChatMessage["role"],
+              content: m.content,
+              reasoningContent: m.reasoningContent ?? undefined,
+              isError: m.isError ?? false,
+            }));
+            setCurrentSessionId(latest.id);
+            sessionIdRef.current = latest.id;
+            sessionTitleSetRef.current = true;
+            if (loaded.length > 0) {
+              setMessages(loaded);
+              return;
+            }
+          }
+          // Sesión vacía — usar tal cual y mostrar bienvenida
+          setCurrentSessionId(latest.id);
+          sessionIdRef.current = latest.id;
+          sessionTitleSetRef.current = false;
+          addWelcomeMessage();
+          return;
+        }
+      }
+    } catch {
+      // sin conectividad a DB — continuar sin persistencia
+    }
+    // Sin sesiones — crear una nueva
+    await createNewSession();
+  }, [createNewSession]);
+
+  /** Formatea una fecha relativa para el panel de historial */
+  const formatSessionDate = (date: string | Date) => {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (mins < 1) return "Ahora";
+    if (mins < 60) return `Hace ${mins}m`;
+    if (hours < 24) return `Hace ${hours}h`;
+    if (days < 7) return `Hace ${days}d`;
+    return d.toLocaleDateString("es", { month: "short", day: "numeric" });
+  };
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -515,6 +720,9 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     setInput("");
     clearImage();
     setIsSending(true);
+    // Persistir mensaje del usuario y actualizar título si es el primero
+    saveMessageToSession(userMsg);
+    updateSessionTitle(text);
 
     try {
       // Construir historial (excluir mensajes de herramientas y errores)
@@ -592,13 +800,17 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
 
             if (data.status === "done") {
               clearInterval(interval);
+              const assistantMsg: ChatMessage = {
+                id: thinkingId,
+                role: "assistant",
+                content: data.content,
+                reasoningContent: data.reasoningContent,
+              };
               setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === thinkingId
-                    ? { ...m, content: data.content, reasoningContent: data.reasoningContent }
-                    : m
-                )
+                prev.map((m) => m.id === thinkingId ? assistantMsg : m)
               );
+              // Persistir mensaje del asistente
+              saveMessageToSession(assistantMsg);
               // Refrescar biblioteca si hubo cambios: guardar (✅), añadir múltiples, eliminar (🗑️), favorito (⭐), mover (Movido)
               if (typeof data.content === "string" &&
                   (data.content.includes("✅") ||
@@ -611,13 +823,16 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
               resolve();
             } else if (data.status === "error") {
               clearInterval(interval);
+              const errMsg: ChatMessage = {
+                id: thinkingId,
+                role: "assistant",
+                content: data.error,
+                isError: true,
+              };
               setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === thinkingId
-                    ? { ...m, content: data.error, isError: true }
-                    : m
-                )
+                prev.map((m) => m.id === thinkingId ? errMsg : m)
               );
+              saveMessageToSession(errMsg);
               resolve();
             }
             // status === "pending" → seguir sondeando
@@ -640,10 +855,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   };
 
   const clearHistory = () => {
-    setMessages([]);
-    if (llmStatus === "ready") {
-      setTimeout(addWelcomeMessage, 50);
-    }
+    createNewSession();
   };
 
   const formatBytes = (bytes: number) => {
@@ -693,6 +905,20 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setShowHistory((v) => !v);
+                      if (!showHistory) loadSessionHistory();
+                    }}
+                    title="Historial de conversaciones"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+                {llmStatus === "ready" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className={cn(
                       "h-7 w-7 transition-colors",
                       enableThinking
@@ -709,15 +935,15 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     <Brain className="w-3.5 h-3.5" />
                   </Button>
                 )}
-                {messages.length > 1 && (
+                {llmStatus === "ready" && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={clearHistory}
-                    title={t("llmChat.clearHistory")}
+                    title="Nueva conversación"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <MessageSquarePlus className="w-3.5 h-3.5" />
                   </Button>
                 )}
                 <Button
@@ -730,6 +956,79 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                 </Button>
               </div>
             </div>
+
+            {/* Panel de historial */}
+            <AnimatePresence>
+              {showHistory && (
+                <motion.div
+                  initial={{ x: "100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "100%" }}
+                  transition={{ type: "spring", damping: 30, stiffness: 320 }}
+                  className="absolute inset-0 z-20 flex flex-col bg-card border-l border-border"
+                >
+                  <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-semibold">Historial</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => { setShowHistory(false); createNewSession(); }}
+                        title="Nueva conversación"
+                      >
+                        <MessageSquarePlus className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowHistory(false)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+                    {sessionHistory.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-10">
+                        No hay conversaciones guardadas
+                      </p>
+                    )}
+                    {sessionHistory.map((session) => (
+                      <button
+                        key={session.id}
+                        onClick={() => { loadSession(session.id); setShowHistory(false); }}
+                        className={cn(
+                          "w-full text-left px-3 py-2.5 rounded-lg text-xs hover:bg-accent transition-colors group flex items-start justify-between gap-2",
+                          session.id === currentSessionId && "bg-accent"
+                        )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate leading-snug">{session.title}</p>
+                          <p className="text-muted-foreground mt-0.5">
+                            {formatSessionDate(session.updatedAt)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSession(session.id);
+                          }}
+                          className="shrink-0 w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all rounded"
+                          title="Eliminar conversación"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Contenido */}
             <div className="flex-1 min-h-0 flex flex-col">
