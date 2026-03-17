@@ -58,6 +58,7 @@ interface DownloadProgress {
   downloaded: number;
   total: number;
   percent: number;
+  phase?: "connecting" | "downloading";
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -237,18 +238,32 @@ export function ModelManagementDialog({
   const handleDownload = useCallback(async (url: string, modelName: string) => {
     setDownloading(modelName);
     setDownloadError(null);
-    setDownloadProgress({ downloaded: 0, total: 0, percent: 0 });
+    setDownloadProgress({ downloaded: 0, total: 0, percent: 0, phase: "connecting" });
 
+    let receivedBytes = false;
     const unlisten = await tauriListen("llm:download-progress", (payload) => {
-      setDownloadProgress(payload as DownloadProgress);
+      const p = payload as DownloadProgress;
+      if (p.downloaded > 0) receivedBytes = true;
+      setDownloadProgress(p);
     });
+
+    // Timeout frontend: si después de 90s no llegan bytes, asumir error de conexión
+    const timeoutId = setTimeout(() => {
+      if (!receivedBytes) {
+        setDownloadError("Timeout: no se recibieron datos en 90 segundos. Verifica tu conexión a Internet o prueba más tarde.");
+        setDownloading(null);
+        setDownloadProgress(null);
+      }
+    }, 90_000);
 
     try {
       await tauriInvoke("download_llm_model", { url, modelName });
+      clearTimeout(timeoutId);
       await loadModels();
       setSelectedRepo(null);
       onModelChanged();
     } catch (err) {
+      clearTimeout(timeoutId);
       const msg = err instanceof Error ? err.message : String(err);
       setDownloadError(msg);
     } finally {
@@ -445,7 +460,9 @@ export function ModelManagementDialog({
                                 <p className="text-[10px] text-muted-foreground">
                                   {downloadProgress.downloaded > 0
                                     ? `${formatSize(downloadProgress.downloaded)} / ${formatSize(file.size)} — ${downloadProgress.percent}%`
-                                    : "Conectando a HuggingFace..."}
+                                    : downloadProgress.phase === "downloading"
+                                    ? "Iniciando descarga..."
+                                    : "Resolviendo URL de HuggingFace..."}
                                 </p>
                               </div>
                             )}
