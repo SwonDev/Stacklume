@@ -295,6 +295,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const [showHistory, setShowHistory] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
   const sessionTitleSetRef = useRef(false);
+  const isInitializingRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -364,7 +365,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       const status = await tauriInvoke<string>("get_llm_status");
       if (status === "ready") {
         setLlmStatus("ready");
-        if (messages.length === 0) initOrLoadSession();
+        initOrLoadSession();
       } else if (status === "no_binary") {
         setLlmStatus("no_binary");
       } else if (status === "no_model") {
@@ -384,7 +385,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         const data = await res.json();
         if (data.ready) {
           setLlmStatus("ready");
-          if (messages.length === 0) addWelcomeMessage();
+          initOrLoadSession();
         } else {
           setLlmStatus("no_model");
         }
@@ -392,7 +393,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         setLlmStatus("no_binary");
       }
     }
-  }, [messages.length]);
+  }, []);
 
   const pollUntilReady = useCallback(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -402,7 +403,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         if (status === "ready") {
           setLlmStatus("ready");
           if (pollingRef.current) clearInterval(pollingRef.current);
-          if (messages.length === 0) initOrLoadSession();
+          initOrLoadSession();
         } else if (status.startsWith("error")) {
           setLlmStatus("error");
           setStatusError(status.startsWith("error: ") ? status.slice(7) : status);
@@ -412,7 +413,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         if (pollingRef.current) clearInterval(pollingRef.current);
       }
     }, 2000);
-  }, [messages.length]);
+  }, []);
 
   function addWelcomeMessage() {
     setMessages((prev) => {
@@ -496,17 +497,14 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       setCurrentSessionId(newId);
       sessionIdRef.current = newId;
       sessionTitleSetRef.current = false;
-      setSessionHistory((prev) => [data.session, ...prev]);
-      setMessages([]);
-      if (llmStatus === "ready") {
-        setTimeout(addWelcomeMessage, 50);
-      }
+      setSessionHistory((prev) => [data.session, ...prev.filter((s) => s.id !== newId)]);
     } catch {
-      // fallback: funcionar sin persistencia
-      setMessages([]);
-      if (llmStatus === "ready") setTimeout(addWelcomeMessage, 50);
+      // fallback: funcionar sin persistencia — no bloquear la UI
     }
-  }, [llmStatus]);
+    // Siempre limpiar mensajes y mostrar bienvenida (sin depender del estado llmStatus)
+    setMessages([]);
+    setTimeout(addWelcomeMessage, 50);
+  }, []);
 
   /** Carga los mensajes de una sesión existente */
   const loadSession = useCallback(async (sessionId: string) => {
@@ -555,7 +553,8 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
 
   /** Inicializa o carga la última sesión al arrancar */
   const initOrLoadSession = useCallback(async () => {
-    if (sessionIdRef.current) return; // ya inicializado
+    if (sessionIdRef.current || isInitializingRef.current) return; // ya inicializado o en curso
+    isInitializingRef.current = true;
     try {
       const res = await fetch("/api/llm/sessions?limit=50");
       if (res.ok) {
@@ -725,9 +724,9 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     updateSessionTitle(text);
 
     try {
-      // Construir historial (excluir mensajes de herramientas y errores)
+      // Construir historial (excluir tool-info, mensajes de error y mensaje de bienvenida)
       const history = messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
+        .filter((m) => (m.role === "user" || m.role === "assistant") && !m.isError && m.id !== "welcome")
         .slice(-10) // últimos 10 mensajes para no sobrepasar el contexto
         .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
