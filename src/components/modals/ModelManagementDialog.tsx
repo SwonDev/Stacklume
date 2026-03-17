@@ -235,7 +235,7 @@ export function ModelManagementDialog({
   }, []);
 
   // Descargar modelo desde HuggingFace
-  const handleDownload = useCallback(async (url: string, modelName: string) => {
+  const handleDownload = useCallback(async (url: string, modelName: string, expectedSize?: number) => {
     setDownloading(modelName);
     setDownloadError(null);
     setDownloadProgress({ downloaded: 0, total: 0, percent: 0, phase: "connecting" });
@@ -257,7 +257,7 @@ export function ModelManagementDialog({
     }, 90_000);
 
     try {
-      await tauriInvoke("download_llm_model", { url, modelName });
+      await tauriInvoke("download_llm_model", { url, modelName, expectedSize: expectedSize || 0 });
       clearTimeout(timeoutId);
       await loadModels();
       setSelectedRepo(null);
@@ -480,7 +480,7 @@ export function ModelManagementDialog({
                                 variant="outline"
                                 size="sm"
                                 className="h-7 text-xs gap-1"
-                                onClick={() => handleDownload(file.downloadUrl, file.filename)}
+                                onClick={() => handleDownload(file.downloadUrl, file.filename, file.size)}
                                 disabled={downloading !== null}
                               >
                                 <Download className="w-3 h-3" />
