@@ -620,3 +620,40 @@ export const pageArchives = pgTable(
 
 export type PageArchive = typeof pageArchives.$inferSelect;
 export type NewPageArchive = typeof pageArchives.$inferInsert;
+
+// ─── LLM Chat Sessions ─────────────────────────────────────────────────────────
+export const llmChats = pgTable(
+  "llm_chats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: varchar("user_id", { length: 100 }).default("default"),
+    title: varchar("title", { length: 500 }).notNull().default("Nueva conversación"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    userIdIdx: index("idx_llm_chats_user_id").on(table.userId),
+    updatedAtIdx: index("idx_llm_chats_updated_at").on(table.updatedAt),
+  })
+);
+
+export const llmMessages = pgTable(
+  "llm_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chatId: uuid("chat_id").notNull().references(() => llmChats.id, { onDelete: "cascade" }),
+    role: varchar("role", { length: 20 }).notNull(), // 'user' | 'assistant'
+    content: text("content").notNull(),
+    reasoningContent: text("reasoning_content"),
+    isError: boolCol("is_error").default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    chatIdIdx: index("idx_llm_messages_chat_id").on(table.chatId),
+  })
+);
+
+export type LlmChat = typeof llmChats.$inferSelect;
+export type NewLlmChat = typeof llmChats.$inferInsert;
+export type LlmMessage = typeof llmMessages.$inferSelect;
+export type NewLlmMessage = typeof llmMessages.$inferInsert;

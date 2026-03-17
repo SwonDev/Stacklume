@@ -334,6 +334,25 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_page_archives_user_id ON page_archives(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_page_archives_link_id ON page_archives(link_id)`,
+    `CREATE TABLE IF NOT EXISTS llm_chats (
+      id TEXT PRIMARY KEY,
+      user_id TEXT DEFAULT 'default',
+      title TEXT NOT NULL DEFAULT 'Nueva conversación',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_llm_chats_user_id ON llm_chats(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_llm_chats_updated_at ON llm_chats(updated_at)`,
+    `CREATE TABLE IF NOT EXISTS llm_messages (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT NOT NULL REFERENCES llm_chats(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      reasoning_content TEXT,
+      is_error INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_llm_messages_chat_id ON llm_messages(chat_id)`,
   ];
 
   for (const sql of statements) {
@@ -514,6 +533,41 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `ALTER TABLE links ADD COLUMN install_commands TEXT`,
       description: "links.install_commands",
+    },
+    // v0.3.55 — Historial persistente del chat IA
+    {
+      sql: `CREATE TABLE IF NOT EXISTS llm_chats (
+        id TEXT PRIMARY KEY,
+        user_id TEXT DEFAULT 'default',
+        title TEXT NOT NULL DEFAULT 'Nueva conversación',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+      description: "llm_chats table",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_llm_chats_user_id ON llm_chats(user_id)`,
+      description: "idx_llm_chats_user_id",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_llm_chats_updated_at ON llm_chats(updated_at)`,
+      description: "idx_llm_chats_updated_at",
+    },
+    {
+      sql: `CREATE TABLE IF NOT EXISTS llm_messages (
+        id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL REFERENCES llm_chats(id) ON DELETE CASCADE,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        reasoning_content TEXT,
+        is_error INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )`,
+      description: "llm_messages table",
+    },
+    {
+      sql: `CREATE INDEX IF NOT EXISTS idx_llm_messages_chat_id ON llm_messages(chat_id)`,
+      description: "idx_llm_messages_chat_id",
     },
   ];
 
