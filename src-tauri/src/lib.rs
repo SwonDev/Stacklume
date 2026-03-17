@@ -1153,9 +1153,28 @@ pub fn run() {
                         *llama_state.binary_path.lock().unwrap() =
                             Some(llama_exe.to_string_lossy().to_string());
                         // Comprobar si ya hay un modelo descargado
+                        // Mismo scan que producción: busca cualquier .gguf que NO sea mmproj
                         if let Ok(app_data) = app.path().app_data_dir() {
-                            let model_path = app_data.join("models/Qwen3.5-2B-Q4_K_M.gguf");
-                            if model_path.exists() {
+                            let models_dir = app_data.join("models");
+                            let model_opt = std::fs::read_dir(&models_dir)
+                                .ok()
+                                .and_then(|entries| {
+                                    entries.filter_map(|e| e.ok()).find_map(|entry| {
+                                        let p = entry.path();
+                                        let stem = p
+                                            .file_stem()
+                                            .and_then(|s| s.to_str())
+                                            .unwrap_or("");
+                                        if p.extension().and_then(|s| s.to_str()) == Some("gguf")
+                                            && !stem.contains("mmproj")
+                                        {
+                                            Some(p)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                });
+                            if let Some(model_path) = model_opt {
                                 *llama_state.model_path.lock().unwrap() =
                                     Some(model_path.to_string_lossy().to_string());
                                 *llama_state.status.lock().unwrap() = "starting".to_string();
@@ -1363,15 +1382,21 @@ pub fn run() {
                             llama_exe.to_str().map(|s| s.to_string());
 
                         // Buscar modelo .gguf en app_data/models/
+                        // IMPORTANTE: excluir mmproj-*.gguf (proyector multimodal de visión)
+                        // para no confundirlo con el modelo de lenguaje principal.
                         let models_dir = app_data.join("models");
                         let model_opt = std::fs::read_dir(&models_dir)
                             .ok()
                             .and_then(|entries| {
                                 entries.filter_map(|e| e.ok()).find_map(|entry| {
                                     let p = entry.path();
-                                    if p.extension()
+                                    let stem = p
+                                        .file_stem()
                                         .and_then(|s| s.to_str())
-                                        == Some("gguf")
+                                        .unwrap_or("");
+                                    // Solo seleccionar archivos .gguf que NO sean el proyector mmproj
+                                    if p.extension().and_then(|s| s.to_str()) == Some("gguf")
+                                        && !stem.contains("mmproj")
                                     {
                                         Some(p)
                                     } else {
