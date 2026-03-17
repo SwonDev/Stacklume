@@ -748,6 +748,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       await tauriInvoke("download_llm_model", {
         url: DEFAULT_MODEL_URL,
         modelName: DEFAULT_MODEL_NAME,
+        expectedSize: 1_280_835_840, // ~1.19 GB (Q4_K_M)
       });
       // Descarga completada — transición inmediata a "iniciando"
       setIsDownloading(false);

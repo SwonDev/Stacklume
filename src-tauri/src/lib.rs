@@ -712,32 +712,31 @@ async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Descarga un archivo desde una URL usando curl.exe del sistema (Windows 10+).
-/// curl es mucho más robusto que ureq para HuggingFace CDN (redirects, TLS, timeouts).
-/// Emite eventos "llm:download-progress" durante la descarga.
+/// Descarga un archivo usando curl.exe (Windows 10+), monitorizando progreso
+/// via tamaño del archivo en disco (no parseo de stderr — curl usa \r no \n).
 fn download_with_curl(
     app: &tauri::AppHandle,
     url: &str,
     dest: &std::path::Path,
     hf_token: Option<&str>,
+    expected_size: u64,
 ) -> Result<(), String> {
     use std::process::{Command, Stdio};
-    use std::io::{BufRead, BufReader};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
 
     let mut cmd = Command::new("curl");
-    cmd.arg("-L")           // seguir redirects
-       .arg("--fail")       // fallar con error en HTTP >= 400
+    cmd.arg("-L")              // seguir redirects
+       .arg("--fail")          // error en HTTP >= 400
        .arg("--connect-timeout").arg("30")
        .arg("--retry").arg("3")
        .arg("--retry-delay").arg("5")
        .arg("-o").arg(dest.to_string_lossy().as_ref())
-       .arg("--progress-bar") // modo barra de progreso
-       .arg("-w").arg("\\n%{http_code}") // escribir HTTP code al final
+       .arg("-s")              // silencioso (no stderr basura)
        .arg("--user-agent").arg("Stacklume/0.3 (desktop)")
-       .stderr(Stdio::piped())
-       .stdout(Stdio::piped());
+       .stdout(Stdio::null())
+       .stderr(Stdio::null());
 
-    // Token de HuggingFace para modelos gated
     if let Some(token) = hf_token {
         if !token.is_empty() {
             cmd.arg("-H").arg(&format!("Authorization: Bearer {}", token));
@@ -754,65 +753,58 @@ fn download_with_curl(
 
     let mut child = cmd.spawn().map_err(|e| format!("Error ejecutando curl: {}", e))?;
 
-    // Leer stderr de curl (donde va la barra de progreso) en un hilo separado
-    let stderr = child.stderr.take();
-    let app_for_progress = app.clone();
-    let progress_thread = std::thread::spawn(move || {
-        if let Some(stderr) = stderr {
-            let reader = BufReader::new(stderr);
-            let mut last_percent: u64 = 0;
-            for line in reader.lines().map_while(Result::ok) {
-                // curl --progress-bar escribe líneas como: "###  5.2%" o similar
-                // Buscar porcentaje en la línea
-                let trimmed = line.trim();
-                if let Some(pct_str) = trimmed.strip_suffix('%') {
-                    // Puede haber espacios y caracteres # antes del número
-                    let num_str = pct_str.trim_start_matches(|c: char| !c.is_ascii_digit() && c != '.');
-                    if let Ok(pct) = num_str.parse::<f64>() {
-                        let pct_int = pct as u64;
-                        if pct_int != last_percent {
-                            last_percent = pct_int;
-                            let _ = app_for_progress.emit(
-                                "llm:download-progress",
-                                serde_json::json!({
-                                    "downloaded": 0_u64, // curl no reporta bytes exactos en --progress-bar
-                                    "total": 0_u64,
-                                    "percent": pct_int.min(99),
-                                    "phase": "downloading"
-                                }),
-                            );
-                        }
-                    }
-                }
+    // Hilo que monitoriza el tamaño del archivo cada segundo y emite progreso
+    let done = Arc::new(AtomicBool::new(false));
+    let done_clone = done.clone();
+    let dest_clone = dest.to_path_buf();
+    let app_clone = app.clone();
+
+    let monitor_thread = std::thread::spawn(move || {
+        let effective_total = if expected_size > 0 { expected_size } else { 1 };
+        loop {
+            if done_clone.load(Ordering::Relaxed) { break; }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            let current_size = std::fs::metadata(&dest_clone).map(|m| m.len()).unwrap_or(0);
+            if current_size > 0 {
+                let percent = if expected_size > 0 {
+                    ((current_size as f64 / effective_total as f64) * 100.0) as u64
+                } else {
+                    0
+                };
+                let _ = app_clone.emit(
+                    "llm:download-progress",
+                    serde_json::json!({
+                        "downloaded": current_size,
+                        "total": expected_size,
+                        "percent": percent.min(99),
+                        "phase": "downloading"
+                    }),
+                );
             }
         }
     });
 
     // Esperar a que curl termine
     let status = child.wait().map_err(|e| format!("Error esperando curl: {}", e))?;
-    let _ = progress_thread.join();
+    done.store(true, Ordering::Relaxed);
+    let _ = monitor_thread.join();
 
     if !status.success() {
-        // Limpiar archivo parcial
         let _ = std::fs::remove_file(dest);
         let code = status.code().unwrap_or(-1);
         return Err(match code {
-            6 => "No se pudo resolver el host de HuggingFace. Verifica tu conexión a Internet.".to_string(),
-            7 => "No se pudo conectar a HuggingFace. Verifica tu conexión o prueba más tarde.".to_string(),
-            22 => "Error HTTP al descargar (modelo no encontrado o acceso denegado). Verifica la URL o configura tu token de HuggingFace.".to_string(),
-            28 => "Timeout de conexión. Tu conexión a Internet puede ser lenta o HuggingFace no responde.".to_string(),
-            _ => format!("curl falló con código {}. Verifica tu conexión a Internet.", code),
+            6 => "No se pudo resolver el host. Verifica tu conexión a Internet.".to_string(),
+            7 => "No se pudo conectar a HuggingFace. Prueba más tarde.".to_string(),
+            22 => "Error HTTP (modelo no encontrado o acceso denegado). Configura tu token en API Key.".to_string(),
+            28 => "Timeout de conexión. Internet lenta o HuggingFace no responde.".to_string(),
+            _ => format!("Error de descarga (curl código {}). Verifica tu conexión.", code),
         });
     }
 
-    // Verificar tamaño mínimo
     let file_size = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
     if file_size < 10 * 1024 * 1024 {
         let _ = std::fs::remove_file(dest);
-        return Err(format!(
-            "Descarga incompleta: {} bytes (mínimo 10 MB esperado). Prueba de nuevo.",
-            file_size
-        ));
+        return Err(format!("Descarga incompleta: {} bytes. Prueba de nuevo.", file_size));
     }
 
     // Progreso final: 100%
@@ -836,14 +828,17 @@ async fn download_llm_model(
     app: tauri::AppHandle,
     url: String,
     model_name: String,
+    #[allow(non_snake_case)]
+    expectedSize: Option<u64>,
 ) -> Result<(), String> {
-    download_llm_model_impl(app, url, model_name).await
+    download_llm_model_impl(app, url, model_name, expectedSize.unwrap_or(0)).await
 }
 
 async fn download_llm_model_impl(
     app: tauri::AppHandle,
     url: String,
     model_name: String,
+    expected_size: u64,
 ) -> Result<(), String> {
     // Validar URL — solo HuggingFace (previene SSRF y descargas arbitrarias)
     let parsed = url::Url::parse(&url).map_err(|e| format!("URL inválida: {}", e))?;
@@ -926,7 +921,7 @@ async fn download_llm_model_impl(
             serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64, "phase": "connecting" }),
         );
 
-        download_with_curl(&app_clone, &url_clone, &model_path_clone, hf_token.as_deref())
+        download_with_curl(&app_clone, &url_clone, &model_path_clone, hf_token.as_deref(), expected_size)
     })
     .await
     .map_err(|e| format!("Error interno: {}", e))??;
@@ -1007,7 +1002,7 @@ async fn download_mmproj(app: tauri::AppHandle) -> Result<(), String> {
     let path_clone = mmproj_path.clone();
 
     tokio::task::spawn_blocking(move || -> Result<(), String> {
-        download_with_curl(&app_clone, MMPROJ_URL, &path_clone, None)
+        download_with_curl(&app_clone, MMPROJ_URL, &path_clone, None, 700_000_000)
     })
     .await
     .map_err(|e| format!("Error interno: {}", e))?
