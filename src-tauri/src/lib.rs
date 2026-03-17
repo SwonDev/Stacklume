@@ -790,6 +790,9 @@ async fn download_llm_model_impl(
         *state.status.lock().unwrap() = "starting".to_string();
     }
 
+    // Leer token de HuggingFace si está configurado
+    let hf_token = load_model_prefs(&app).hf_token.clone();
+
     let url_clone = url.clone();
     let model_path_clone = model_path.clone();
     let app_clone = app.clone();
@@ -800,8 +803,14 @@ async fn download_llm_model_impl(
         const MIN_SIZE: u64 = 10 * 1024 * 1024; // 10 MB mínimo
 
         let agent = ureq::AgentBuilder::new().redirects(10).build();
-        let response = agent
-            .get(&url_clone)
+        let mut req = agent.get(&url_clone);
+        // Enviar token de HuggingFace si está configurado (necesario para modelos gated)
+        if let Some(ref token) = hf_token {
+            if !token.is_empty() {
+                req = req.set("Authorization", &format!("Bearer {}", token));
+            }
+        }
+        let response = req
             .call()
             .map_err(|e| format!("Error de descarga: {}", e))?;
 
@@ -1057,6 +1066,9 @@ async fn download_mmproj(app: tauri::AppHandle) -> Result<(), String> {
 struct ModelPreferences {
     /// Nombre del archivo .gguf seleccionado (e.g. "Qwen3.5-2B-Q4_K_M.gguf")
     active_model: Option<String>,
+    /// Token de HuggingFace para descargar modelos gated/privados
+    #[serde(default)]
+    hf_token: Option<String>,
 }
 
 fn model_prefs_path(app: &tauri::AppHandle) -> std::path::PathBuf {
@@ -1240,6 +1252,21 @@ async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), Str
         }
     });
 
+    Ok(())
+}
+
+/// Obtiene el token de HuggingFace configurado (vacío si no hay).
+#[tauri::command]
+fn get_hf_token(app: tauri::AppHandle) -> String {
+    load_model_prefs(&app).hf_token.unwrap_or_default()
+}
+
+/// Guarda el token de HuggingFace para descargas de modelos gated/privados.
+#[tauri::command]
+fn set_hf_token(app: tauri::AppHandle, token: String) -> Result<(), String> {
+    let mut prefs = load_model_prefs(&app);
+    prefs.hf_token = if token.trim().is_empty() { None } else { Some(token.trim().to_string()) };
+    save_model_prefs(&app, &prefs);
     Ok(())
 }
 
@@ -2019,6 +2046,8 @@ pub fn run() {
             get_active_model,
             switch_model,
             delete_model,
+            get_hf_token,
+            set_hf_token,
         ])
         .run(tauri::generate_context!())
         .expect("Error al ejecutar Stacklume");

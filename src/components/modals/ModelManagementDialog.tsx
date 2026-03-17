@@ -20,6 +20,9 @@ import {
   AlertCircle,
   ChevronRight,
   ArrowLeft,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -115,6 +118,12 @@ export function ModelManagementDialog({
   // Estado: descarga
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Estado: HuggingFace token
+  const [hfToken, setHfToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,7 +141,11 @@ export function ModelManagementDialog({
   }, []);
 
   useEffect(() => {
-    if (open) loadModels();
+    if (open) {
+      loadModels();
+      // Cargar token de HuggingFace
+      tauriInvoke<string>("get_hf_token").then((t) => setHfToken(t || "")).catch(() => {});
+    }
   }, [open, loadModels]);
 
   // Buscar en HuggingFace con debounce
@@ -209,9 +222,21 @@ export function ModelManagementDialog({
     }
   }, [onModelChanged, loadModels]);
 
+  // Guardar token de HuggingFace
+  const saveHfToken = useCallback(async (token: string) => {
+    try {
+      await tauriInvoke("set_hf_token", { token: token.trim() });
+      setTokenSaved(true);
+      setTimeout(() => setTokenSaved(false), 2000);
+    } catch {
+      // Silencioso
+    }
+  }, []);
+
   // Descargar modelo desde HuggingFace
   const handleDownload = useCallback(async (url: string, modelName: string) => {
     setDownloading(modelName);
+    setDownloadError(null);
     setDownloadProgress({ downloaded: 0, total: 0, percent: 0 });
 
     const unlisten = await tauriListen("llm:download-progress", (payload) => {
@@ -224,7 +249,8 @@ export function ModelManagementDialog({
       setSelectedRepo(null);
       onModelChanged();
     } catch (err) {
-      console.error("Error al descargar:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setDownloadError(msg);
     } finally {
       setDownloading(null);
       setDownloadProgress(null);
@@ -246,17 +272,21 @@ export function ModelManagementDialog({
         </DialogHeader>
 
         <Tabs defaultValue="downloaded" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="downloaded" className="gap-1.5 text-xs">
               <HardDrive className="w-3.5 h-3.5" />
-              Mis modelos
+              Modelos
               {models.length > 0 && (
                 <span className="text-[10px] text-muted-foreground">({models.length})</span>
               )}
             </TabsTrigger>
             <TabsTrigger value="search" className="gap-1.5 text-xs">
               <Globe className="w-3.5 h-3.5" />
-              HuggingFace
+              Descargar
+            </TabsTrigger>
+            <TabsTrigger value="config" className="gap-1.5 text-xs">
+              <Key className="w-3.5 h-3.5" />
+              API Key
             </TabsTrigger>
           </TabsList>
 
@@ -438,6 +468,19 @@ export function ModelManagementDialog({
                       );
                     })
                   )}
+                  {downloadError && !downloading && (
+                    <div className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <p className="text-xs text-destructive flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        {downloadError}
+                      </p>
+                      {downloadError.includes("403") || downloadError.includes("401") ? (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Este modelo puede requerir un token de HuggingFace. Configúralo en la pestaña &quot;API Key&quot;.
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -508,6 +551,58 @@ export function ModelManagementDialog({
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* Pestaña: Configuración API Key */}
+          <TabsContent value="config" className="mt-3 space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Token de HuggingFace</p>
+              <p className="text-xs text-muted-foreground">
+                Necesario para descargar modelos gated o privados. Obtén tu token en{" "}
+                <span className="text-primary font-mono">huggingface.co/settings/tokens</span>
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showToken ? "text" : "password"}
+                    value={hfToken}
+                    onChange={(e) => { setHfToken(e.target.value); setTokenSaved(false); }}
+                    placeholder="hf_..."
+                    className="w-full pr-9 px-3 py-2 text-sm bg-secondary border border-border rounded-lg outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground font-mono"
+                  />
+                  <button
+                    onClick={() => setShowToken((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    type="button"
+                  >
+                    {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-1"
+                  onClick={() => saveHfToken(hfToken)}
+                >
+                  {tokenSaved ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Key className="w-3.5 h-3.5" />}
+                  {tokenSaved ? "Guardado" : "Guardar"}
+                </Button>
+              </div>
+              {hfToken && (
+                <p className="text-[10px] text-muted-foreground">
+                  El token se almacena localmente en tu ordenador y solo se usa para descargas de HuggingFace.
+                </p>
+              )}
+            </div>
+            <div className="border-t border-border pt-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Información</p>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+                <li>Los modelos públicos no requieren token</li>
+                <li>Los modelos gated (ej. Llama 3, Mistral) requieren aceptar las condiciones en HuggingFace y un token</li>
+                <li>Los modelos se descargan a <span className="font-mono text-[10px]">%APPDATA%/com.stacklume.app/models/</span></li>
+                <li>Al eliminar un modelo desde aquí, se borra el archivo del disco</li>
+              </ul>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
