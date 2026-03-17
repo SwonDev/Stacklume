@@ -712,6 +712,17 @@ async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Timestamp simple sin dependencia de chrono
+fn chrono_lite() -> String {
+    use std::time::SystemTime;
+    let d = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
+    let secs = d.as_secs();
+    let h = (secs / 3600) % 24;
+    let m = (secs / 60) % 60;
+    let s = secs % 60;
+    format!("{:02}:{:02}:{:02}", h, m, s)
+}
+
 /// Descarga un archivo usando curl.exe (Windows 10+), monitorizando progreso
 /// via tamaño del archivo en disco (no parseo de stderr — curl usa \r no \n).
 fn download_with_curl(
@@ -725,14 +736,39 @@ fn download_with_curl(
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
-    let mut cmd = Command::new("curl");
+    // Usar ruta absoluta de curl.exe — en producción el PATH puede no incluir System32
+    let curl_path = if std::path::Path::new("C:\\Windows\\System32\\curl.exe").exists() {
+        "C:\\Windows\\System32\\curl.exe".to_string()
+    } else {
+        // Fallback: buscar en PATH
+        "curl".to_string()
+    };
+
+    // Log para debug
+    let log_dir = app.path().app_data_dir().unwrap_or_default();
+    let log_path = log_dir.join("download.log");
+    let log = |msg: &str| {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+            let ts = chrono_lite();
+            let _ = writeln!(f, "[{}] {}", ts, msg);
+        }
+    };
+    // Limpiar log al inicio de cada descarga
+    let _ = std::fs::write(&log_path, "");
+
+    log(&format!("Iniciando descarga: {} → {}", url, dest.display()));
+    log(&format!("curl: {}", curl_path));
+    log(&format!("expected_size: {}", expected_size));
+
+    let mut cmd = Command::new(&curl_path);
     cmd.arg("-L")              // seguir redirects
        .arg("--fail")          // error en HTTP >= 400
        .arg("--connect-timeout").arg("30")
        .arg("--retry").arg("3")
        .arg("--retry-delay").arg("5")
        .arg("-o").arg(dest.to_string_lossy().as_ref())
-       .arg("-s")              // silencioso (no stderr basura)
+       .arg("-s")              // silencioso
        .arg("--user-agent").arg("Stacklume/0.3 (desktop)")
        .stdout(Stdio::null())
        .stderr(Stdio::null());
@@ -751,7 +787,12 @@ fn download_with_curl(
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
-    let mut child = cmd.spawn().map_err(|e| format!("Error ejecutando curl: {}", e))?;
+    log("Spawning curl...");
+    let mut child = cmd.spawn().map_err(|e| {
+        log(&format!("ERROR spawn curl: {}", e));
+        format!("Error ejecutando curl: {} (ruta: {})", e, curl_path)
+    })?;
+    log(&format!("curl spawned: pid={}", child.id()));
 
     // Hilo que monitoriza el tamaño del archivo cada segundo y emite progreso
     let done = Arc::new(AtomicBool::new(false));
@@ -784,27 +825,40 @@ fn download_with_curl(
         }
     });
 
+    log("Esperando a que curl termine...");
+
     // Esperar a que curl termine
-    let status = child.wait().map_err(|e| format!("Error esperando curl: {}", e))?;
+    let status = child.wait().map_err(|e| {
+        log(&format!("Error wait: {}", e));
+        format!("Error esperando curl: {}", e)
+    })?;
     done.store(true, Ordering::Relaxed);
     let _ = monitor_thread.join();
+
+    log(&format!("curl terminó: success={} code={:?}", status.success(), status.code()));
 
     if !status.success() {
         let _ = std::fs::remove_file(dest);
         let code = status.code().unwrap_or(-1);
-        return Err(match code {
+        let err = match code {
             6 => "No se pudo resolver el host. Verifica tu conexión a Internet.".to_string(),
             7 => "No se pudo conectar a HuggingFace. Prueba más tarde.".to_string(),
             22 => "Error HTTP (modelo no encontrado o acceso denegado). Configura tu token en API Key.".to_string(),
             28 => "Timeout de conexión. Internet lenta o HuggingFace no responde.".to_string(),
             _ => format!("Error de descarga (curl código {}). Verifica tu conexión.", code),
-        });
+        };
+        log(&format!("ERROR: {}", err));
+        return Err(err);
     }
 
     let file_size = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
+    log(&format!("Descarga completada: {} bytes", file_size));
+
     if file_size < 10 * 1024 * 1024 {
         let _ = std::fs::remove_file(dest);
-        return Err(format!("Descarga incompleta: {} bytes. Prueba de nuevo.", file_size));
+        let err = format!("Descarga incompleta: {} bytes. Prueba de nuevo.", file_size);
+        log(&err);
+        return Err(err);
     }
 
     // Progreso final: 100%
