@@ -445,10 +445,10 @@ export function ModelManagementDialog({
                             {isDownloadingThis && downloadProgress && (
                               <div className="mt-1.5 space-y-0.5">
                                 <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
-                                  {downloadProgress.downloaded > 0 ? (
+                                  {downloadProgress.percent > 0 ? (
                                     <div
                                       className="h-1.5 rounded-full bg-primary transition-all duration-300"
-                                      style={{ width: `${Math.max(downloadProgress.percent, 1)}%` }}
+                                      style={{ width: `${downloadProgress.percent}%` }}
                                     />
                                   ) : (
                                     <div
@@ -458,11 +458,11 @@ export function ModelManagementDialog({
                                   )}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground">
-                                  {downloadProgress.downloaded > 0
-                                    ? `${formatSize(downloadProgress.downloaded)} / ${formatSize(file.size)} — ${downloadProgress.percent}%`
+                                  {downloadProgress.percent > 0
+                                    ? `${downloadProgress.percent}% de ${formatSize(file.size)}`
                                     : downloadProgress.phase === "downloading"
-                                    ? "Iniciando descarga..."
-                                    : "Resolviendo URL de HuggingFace..."}
+                                    ? "Descargando..."
+                                    : "Conectando a HuggingFace..."}
                                 </p>
                               </div>
                             )}

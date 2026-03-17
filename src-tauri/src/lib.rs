@@ -712,58 +712,121 @@ async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Resuelve la URL final de descarga siguiendo redirects de HuggingFace manualmente.
-/// HuggingFace responde 302 a cdn-lfs-*.hf.co. ureq no propaga headers como Authorization
-/// en redirects cross-domain, así que los seguimos manualmente.
-fn resolve_hf_redirect(url: &str, hf_token: Option<&str>) -> Result<String, String> {
-    let agent = ureq::AgentBuilder::new()
-        .redirects(0) // No seguir redirects automáticamente
-        .timeout_connect(std::time::Duration::from_secs(15))
-        .timeout_read(std::time::Duration::from_secs(15))
-        .build();
+/// Descarga un archivo desde una URL usando curl.exe del sistema (Windows 10+).
+/// curl es mucho más robusto que ureq para HuggingFace CDN (redirects, TLS, timeouts).
+/// Emite eventos "llm:download-progress" durante la descarga.
+fn download_with_curl(
+    app: &tauri::AppHandle,
+    url: &str,
+    dest: &std::path::Path,
+    hf_token: Option<&str>,
+) -> Result<(), String> {
+    use std::process::{Command, Stdio};
+    use std::io::{BufRead, BufReader};
 
-    let mut current_url = url.to_string();
-    for _ in 0..10 {
-        let mut req = agent.get(&current_url);
-        req = req.set("User-Agent", "Stacklume/0.3 (desktop; ureq)");
-        if let Some(token) = hf_token {
-            if !token.is_empty() {
-                req = req.set("Authorization", &format!("Bearer {}", token));
-            }
-        }
+    let mut cmd = Command::new("curl");
+    cmd.arg("-L")           // seguir redirects
+       .arg("--fail")       // fallar con error en HTTP >= 400
+       .arg("--connect-timeout").arg("30")
+       .arg("--retry").arg("3")
+       .arg("--retry-delay").arg("5")
+       .arg("-o").arg(dest.to_string_lossy().as_ref())
+       .arg("--progress-bar") // modo barra de progreso
+       .arg("-w").arg("\\n%{http_code}") // escribir HTTP code al final
+       .arg("--user-agent").arg("Stacklume/0.3 (desktop)")
+       .stderr(Stdio::piped())
+       .stdout(Stdio::piped());
 
-        match req.call() {
-            Ok(resp) => {
-                let status = resp.status();
-                if status == 200 {
-                    // URL final encontrada (no redirige más)
-                    return Ok(current_url);
-                } else if (301..=308).contains(&status) {
-                    // Redirect — extraer Location header
-                    if let Some(location) = resp.header("Location") {
-                        current_url = location.to_string();
-                        continue;
-                    }
-                    return Err(format!("Redirect HTTP {} sin header Location", status));
-                } else {
-                    return Err(format!("HTTP {} al resolver URL de descarga", status));
-                }
-            }
-            Err(ureq::Error::Status(status, resp)) => {
-                if (301..=308).contains(&status) {
-                    if let Some(location) = resp.header("Location") {
-                        current_url = location.to_string();
-                        continue;
-                    }
-                }
-                return Err(format!("HTTP {} al resolver URL de descarga", status));
-            }
-            Err(e) => {
-                return Err(format!("Error de conexión: {}", e));
-            }
+    // Token de HuggingFace para modelos gated
+    if let Some(token) = hf_token {
+        if !token.is_empty() {
+            cmd.arg("-H").arg(&format!("Authorization: Bearer {}", token));
         }
     }
-    Err("Demasiados redirects (>10)".to_string())
+
+    cmd.arg(url);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    let mut child = cmd.spawn().map_err(|e| format!("Error ejecutando curl: {}", e))?;
+
+    // Leer stderr de curl (donde va la barra de progreso) en un hilo separado
+    let stderr = child.stderr.take();
+    let app_for_progress = app.clone();
+    let progress_thread = std::thread::spawn(move || {
+        if let Some(stderr) = stderr {
+            let reader = BufReader::new(stderr);
+            let mut last_percent: u64 = 0;
+            for line in reader.lines().map_while(Result::ok) {
+                // curl --progress-bar escribe líneas como: "###  5.2%" o similar
+                // Buscar porcentaje en la línea
+                let trimmed = line.trim();
+                if let Some(pct_str) = trimmed.strip_suffix('%') {
+                    // Puede haber espacios y caracteres # antes del número
+                    let num_str = pct_str.trim_start_matches(|c: char| !c.is_ascii_digit() && c != '.');
+                    if let Ok(pct) = num_str.parse::<f64>() {
+                        let pct_int = pct as u64;
+                        if pct_int != last_percent {
+                            last_percent = pct_int;
+                            let _ = app_for_progress.emit(
+                                "llm:download-progress",
+                                serde_json::json!({
+                                    "downloaded": 0_u64, // curl no reporta bytes exactos en --progress-bar
+                                    "total": 0_u64,
+                                    "percent": pct_int.min(99),
+                                    "phase": "downloading"
+                                }),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Esperar a que curl termine
+    let status = child.wait().map_err(|e| format!("Error esperando curl: {}", e))?;
+    let _ = progress_thread.join();
+
+    if !status.success() {
+        // Limpiar archivo parcial
+        let _ = std::fs::remove_file(dest);
+        let code = status.code().unwrap_or(-1);
+        return Err(match code {
+            6 => "No se pudo resolver el host de HuggingFace. Verifica tu conexión a Internet.".to_string(),
+            7 => "No se pudo conectar a HuggingFace. Verifica tu conexión o prueba más tarde.".to_string(),
+            22 => "Error HTTP al descargar (modelo no encontrado o acceso denegado). Verifica la URL o configura tu token de HuggingFace.".to_string(),
+            28 => "Timeout de conexión. Tu conexión a Internet puede ser lenta o HuggingFace no responde.".to_string(),
+            _ => format!("curl falló con código {}. Verifica tu conexión a Internet.", code),
+        });
+    }
+
+    // Verificar tamaño mínimo
+    let file_size = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
+    if file_size < 10 * 1024 * 1024 {
+        let _ = std::fs::remove_file(dest);
+        return Err(format!(
+            "Descarga incompleta: {} bytes (mínimo 10 MB esperado). Prueba de nuevo.",
+            file_size
+        ));
+    }
+
+    // Progreso final: 100%
+    let _ = app.emit(
+        "llm:download-progress",
+        serde_json::json!({
+            "downloaded": file_size,
+            "total": file_size,
+            "percent": 100_u64,
+            "phase": "done"
+        }),
+    );
+
+    Ok(())
 }
 
 /// Descarga un modelo GGUF desde HuggingFace y arranca llama-server.
@@ -851,126 +914,22 @@ async fn download_llm_model_impl(
     let model_path_clone = model_path.clone();
     let app_clone = app.clone();
 
-    // Descarga en hilo blocking para no bloquear el runtime async de Tauri
+    // Descarga usando curl.exe del sistema (Windows 10+).
+    // curl es mucho más robusto que ureq para HuggingFace CDN:
+    // - Sigue redirects correctamente con headers
+    // - TLS nativo del sistema (no depende de rustls)
+    // - Timeout y reintentos integrados
+    // - Nunca cuelga indefinidamente
     tokio::task::spawn_blocking(move || -> Result<(), String> {
-        const MAX_SIZE: u64 = 20 * 1024 * 1024 * 1024; // 20 GB límite
-        const MIN_SIZE: u64 = 10 * 1024 * 1024; // 10 MB mínimo
-
-        // Emitir evento de progreso "connecting" para feedback inmediato al usuario
         let _ = app_clone.emit(
             "llm:download-progress",
             serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64, "phase": "connecting" }),
         );
 
-        // Paso 1: resolver la URL final siguiendo redirects manualmente.
-        // HuggingFace usa 302 a cdn-lfs.huggingface.com. ureq no propaga headers
-        // en redirects cross-domain, así que resolvemos la URL final primero.
-        let final_url = resolve_hf_redirect(&url_clone, hf_token.as_deref())?;
-
-        let _ = app_clone.emit(
-            "llm:download-progress",
-            serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64, "phase": "downloading" }),
-        );
-
-        // Paso 2: descargar desde la URL final del CDN (sin redirects)
-        let agent = ureq::AgentBuilder::new()
-            .redirects(0) // No seguir más redirects — ya tenemos la URL final
-            .timeout_connect(std::time::Duration::from_secs(30))
-            .timeout_read(std::time::Duration::from_secs(120))
-            .build();
-        let response = agent
-            .get(&final_url)
-            .set("User-Agent", "Stacklume/0.3 (desktop; ureq)")
-            .call()
-            .map_err(|e| format!("Error descargando desde CDN: {}", e))?;
-
-        if response.status() != 200 {
-            return Err(format!(
-                "HTTP {} al descargar modelo (URL: {})",
-                response.status(),
-                &final_url[..final_url.len().min(80)]
-            ));
-        }
-
-        let content_length = response
-            .header("Content-Length")
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(0);
-
-        let mut file = std::fs::File::create(&model_path_clone)
-            .map_err(|e| format!("Error creando archivo: {}", e))?;
-
-        let mut reader = response.into_reader();
-        let mut buf = [0u8; 65536]; // 64 KB buffer
-        let mut downloaded: u64 = 0;
-        let mut last_emitted: u64 = 0;
-
-        use std::io::{Read, Write};
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    file.write_all(&buf[..n])
-                        .map_err(|e| format!("Error escribiendo: {}", e))?;
-                    downloaded += n as u64;
-
-                    // Emitir progreso cada 256 KB (o en el primer bloque leído)
-                    if downloaded.saturating_sub(last_emitted) >= 262_144 || last_emitted == 0 {
-                        last_emitted = downloaded;
-                        // Si el servidor no devolvió Content-Length (chunked), estimamos
-                        // el tamaño del modelo Qwen3.5-2B (~1.35 GB) para mostrar progreso.
-                        let effective_total = if content_length > 0 {
-                            content_length
-                        } else {
-                            1_450_000_000 // ~1.35 GB estimado
-                        };
-                        let percent = ((downloaded as f64 / effective_total as f64) * 100.0) as u64;
-                        let _ = app_clone.emit(
-                            "llm:download-progress",
-                            serde_json::json!({
-                                "downloaded": downloaded,
-                                "total": effective_total,
-                                "percent": percent.min(99)
-                            }),
-                        );
-                    }
-
-                    if downloaded > MAX_SIZE {
-                        drop(file);
-                        let _ = std::fs::remove_file(&model_path_clone);
-                        return Err("Modelo demasiado grande (> 20 GB)".to_string());
-                    }
-                }
-                Err(e) => {
-                    drop(file);
-                    let _ = std::fs::remove_file(&model_path_clone);
-                    return Err(format!("Error de lectura durante descarga: {}", e));
-                }
-            }
-        }
-
-        if downloaded < MIN_SIZE {
-            let _ = std::fs::remove_file(&model_path_clone);
-            return Err(format!(
-                "Descarga incompleta: solo {} bytes (mínimo 10 MB esperado)",
-                downloaded
-            ));
-        }
-
-        // Progreso final: 100%
-        let _ = app_clone.emit(
-            "llm:download-progress",
-            serde_json::json!({
-                "downloaded": downloaded,
-                "total": downloaded,
-                "percent": 100
-            }),
-        );
-
-        Ok(())
+        download_with_curl(&app_clone, &url_clone, &model_path_clone, hf_token.as_deref())
     })
     .await
-    .map_err(|e| format!("Error interno en tarea de descarga: {}", e))??;
+    .map_err(|e| format!("Error interno: {}", e))??;
 
     // Guardar ruta del modelo, preferencia y arrancar llama-server
     {
@@ -1048,87 +1007,7 @@ async fn download_mmproj(app: tauri::AppHandle) -> Result<(), String> {
     let path_clone = mmproj_path.clone();
 
     tokio::task::spawn_blocking(move || -> Result<(), String> {
-        const ESTIMATED_SIZE: u64 = 700_000_000; // ~668 MB
-
-        let agent = ureq::AgentBuilder::new()
-            .redirects(10)
-            .timeout_connect(std::time::Duration::from_secs(30))
-            .timeout_read(std::time::Duration::from_secs(300))
-            .build();
-        let response = agent
-            .get(MMPROJ_URL)
-            .set("User-Agent", "Stacklume/0.3 (desktop; ureq)")
-            .call()
-            .map_err(|e| format!("Error de conexión a HuggingFace: {}", e))?;
-
-        if response.status() != 200 {
-            return Err(format!("HTTP {}: error al descargar mmproj", response.status()));
-        }
-
-        let content_length = response
-            .header("Content-Length")
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(0);
-
-        let mut file = std::fs::File::create(&path_clone)
-            .map_err(|e| format!("Error creando archivo: {}", e))?;
-
-        let mut reader = response.into_reader();
-        let mut buf = [0u8; 65536];
-        let mut downloaded: u64 = 0;
-        let mut last_emitted: u64 = 0;
-
-        use std::io::{Read, Write};
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    file.write_all(&buf[..n])
-                        .map_err(|e| format!("Error escribiendo: {}", e))?;
-                    downloaded += n as u64;
-
-                    if downloaded.saturating_sub(last_emitted) >= 262_144 || last_emitted == 0 {
-                        last_emitted = downloaded;
-                        let total = if content_length > 0 { content_length } else { ESTIMATED_SIZE };
-                        let percent = (downloaded as f64 / total as f64 * 100.0) as u8;
-                        let _ = app_clone.emit(
-                            "llm:download-progress",
-                            serde_json::json!({
-                                "downloaded": downloaded,
-                                "total": total,
-                                "percent": percent
-                            }),
-                        );
-                    }
-                    if downloaded > 2_000_000_000 {
-                        let _ = std::fs::remove_file(&path_clone);
-                        return Err("Archivo demasiado grande".to_string());
-                    }
-                }
-                Err(e) => {
-                    let _ = std::fs::remove_file(&path_clone);
-                    return Err(format!("Error leyendo: {}", e));
-                }
-            }
-        }
-
-        if downloaded < 100_000_000 {
-            let _ = std::fs::remove_file(&path_clone);
-            return Err(format!(
-                "Descarga incompleta: {} bytes (mínimo 100 MB esperado)",
-                downloaded
-            ));
-        }
-
-        let _ = app_clone.emit(
-            "llm:download-progress",
-            serde_json::json!({
-                "downloaded": downloaded,
-                "total": downloaded,
-                "percent": 100_u8
-            }),
-        );
-        Ok(())
+        download_with_curl(&app_clone, MMPROJ_URL, &path_clone, None)
     })
     .await
     .map_err(|e| format!("Error interno: {}", e))?
