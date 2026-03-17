@@ -795,8 +795,8 @@ INSTRUCCIONES DE VISIÓN:
       return;
     }
 
-    // ── Fast-path C: Recomendación sobre resultados recientes ─────────────────
-    // "cuál de esos me recomiendas?", "cuál es mejor?", "which one should I use?"
+    // ── Fast-path C: Recomendación / preguntas sobre resultados recientes ───────
+    // "cuál de esos me recomiendas?", "por qué me recomiendas X?", "which one?"
     const isRecommendQuery =
       !hasImage &&
       hasRecentSearch &&
@@ -805,7 +805,10 @@ INSTRUCCIONES DE VISIÓN:
         /\b(cual|cuales?|which)\b.{0,20}\b(de|of)\b.{0,15}\b(esos?|estos?|ellos|ellas|them)\b/i.test(msgNorm) ||
         /\b(which one|cual me recomiend|que me recomiend|cual(es)? son mejores?)\b/i.test(msgNorm) ||
         /\b(que|cual).{0,20}(recomiend|sugieres?|aconsejas?)\b/i.test(msgNorm) ||
-        /\b(recommend|suggest|which (should|would))\b.{0,30}\b(use|choose|pick|start)\b/i.test(msgNorm)
+        /\b(recommend|suggest|which (should|would))\b.{0,30}\b(use|choose|pick|start)\b/i.test(msgNorm) ||
+        // "por qué me lo recomiendas?", "por qué aparece X?", "why is X here?"
+        /\bpor que.{0,50}(recomiend|aparec|mencion|incluy|sali|tiene|esta)\b/i.test(msgNorm) ||
+        /\bwhy\b.{0,40}(recommend|appear|mention|include|listed|show)\b/i.test(msgNorm)
       );
 
     if (isRecommendQuery && g.__llmLastSearch?.length) {
@@ -813,16 +816,17 @@ INSTRUCCIONES DE VISIÓN:
         .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}${r.description ? "\n   " + r.description.slice(0, 120) : ""}`)
         .join("\n\n");
 
-      const recSystemPrompt = `Eres Stacklume AI. El usuario pregunta cuál de estos recursos recomiendar.
+      const recSystemPrompt = `Eres Stacklume AI. El usuario tiene preguntas sobre estos recursos.
 
 RECURSOS DISPONIBLES:
 ${items}
 
 INSTRUCCIONES:
-- Recomienda 1 o 2 recursos específicos de la lista de arriba
-- Explica brevemente POR QUÉ los recomiendas (qué los hace especiales)
+- Si pregunta "cuál recomiendas": recomienda 1-2 de la lista y explica brevemente por qué
+- Si pregunta "por qué aparece X" o "por qué me lo recomiendas": explica qué es ese recurso y por qué está en la colección del usuario
+- Responde en 2-4 frases, directo y útil
 - SOLO menciona URLs que estén en la lista de RECURSOS DISPONIBLES — NUNCA inventes URLs
-- Responde en 2-4 frases, directo y útil`;
+- Texto plano, sin asteriscos ni markdown`;
 
       const recMessages: LlmMessage[] = [
         { role: "system", content: recSystemPrompt },
@@ -837,12 +841,12 @@ INSTRUCCIONES:
           messages: recMessages,
           stream: false,
           temperature: 1.0,
-          top_k: 20,
+          top_k: 0,
           top_p: 1.0,
           min_p: 0,
           presence_penalty: 2.0,
           max_tokens: 512,
-          chat_template_kwargs: { enable_thinking: false },
+          chat_template_kwargs: { enable_thinking: false, thinking_budget: 0 },
         }),
         signal: AbortSignal.timeout(60_000),
       });
@@ -1079,7 +1083,36 @@ REGLAS CRÍTICAS:
         signal: AbortSignal.timeout(enableThinking ? 120_000 : 90_000),
       });
 
-      if (!resp.ok) throw new Error(`LLM HTTP ${resp.status}`);
+      if (!resp.ok) {
+        // HTTP 500: probable desbordamiento de contexto (--no-context-shift).
+        // Reintentar con contexto mínimo (solo system + mensaje actual) y sin tools ni thinking.
+        if (resp.status === 500 && round === 0) {
+          const fallbackResp = await fetch(llamaUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "local-model",
+              messages: [messages[0], messages[messages.length - 1]],
+              stream: false,
+              temperature: 1.0, top_k: 0, top_p: 1.0, min_p: 0,
+              presence_penalty: 2.0, max_tokens: 512,
+              chat_template_kwargs: { enable_thinking: false, thinking_budget: 0 },
+            }),
+            signal: AbortSignal.timeout(60_000),
+          });
+          if (fallbackResp.ok) {
+            const fbData = (await fallbackResp.json()) as { choices?: Array<{ message?: LlmMessage }> };
+            const fbMsg = fbData.choices?.[0]?.message;
+            const rawFb = typeof fbMsg?.content === "string" ? fbMsg.content : "";
+            let fbContent = cleanLlmText(rawFb);
+            if (fbContent.length < 10)
+              fbContent = "Lo siento, el contexto de la conversación es muy largo. Intenta empezar una nueva conversación.";
+            jobs.set(jobId, { status: "done", content: fbContent });
+            return;
+          }
+        }
+        throw new Error(`LLM HTTP ${resp.status}`);
+      }
       const data = (await resp.json()) as {
         choices?: Array<{ message?: LlmMessage; finish_reason?: string }>;
         error?: string;
@@ -1166,9 +1199,18 @@ REGLAS CRÍTICAS:
       }
 
       // Ejecutar tool calls
+      // Eliminar <think>...</think> del content antes de añadir a messages.
+      // Con thinking ON, el modelo genera bloques de razonamiento largos que inflan
+      // el contexto en rondas subsiguientes y causan HTTP 500 con --no-context-shift.
+      const assistantContent = (() => {
+        const raw = msg?.content;
+        if (typeof raw !== "string" || !raw) return raw ?? null;
+        const stripped = raw.replace(/<think>[\s\S]*?<\/think>\n?/g, "").trim();
+        return stripped || null;
+      })();
       messages.push({
         role: "assistant",
-        content: msg?.content ?? null,
+        content: assistantContent,
         tool_calls: toolCalls,
       });
 
@@ -1219,6 +1261,13 @@ REGLAS CRÍTICAS:
               const list = (parsed as { formatted?: string }).formatted
                 ?? parsed.results.slice(0, 8).map((r, i) => `${i + 1}. ${r.title ?? r.url}\n   ${r.url}`).join("\n\n");
               formattedContent = `📚 Encontré ${parsed.results.length} enlace${parsed.results.length === 1 ? "" : "s"}:\n\n${list}`;
+              // Guardar en g.__llmLastSearch para que isRecommendQuery capture follow-ups
+              // ("por qué me recomiendas X?", "cuál de esos es mejor?")
+              g.__llmLastSearch = parsed.results.slice(0, 5).map((r) => ({
+                title: r.title ?? r.url ?? "",
+                url: r.url ?? "",
+                description: "",
+              }));
             } else {
               formattedContent = `📚 ${parsed.message ?? "No encontré enlaces sobre ese tema."}\n💡 Prueba "busca [tema]" para buscar en internet.`;
             }
