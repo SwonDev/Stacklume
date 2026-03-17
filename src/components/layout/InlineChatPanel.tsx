@@ -303,14 +303,24 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const isInitializingRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll al final cuando llegan nuevos mensajes
+  // Scroll al final cuando llegan nuevos mensajes (solo si el usuario está cerca del fondo)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 120;
+    if (isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // Comprobar estado LLM cuando se abre el panel
@@ -671,6 +681,32 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     if (hours < 24) return `Hace ${hours}h`;
     if (days < 7) return `Hace ${days}d`;
     return d.toLocaleDateString("es", { month: "short", day: "numeric" });
+  };
+
+  /** Agrupa sesiones por período (Hoy, Ayer, Últimos 7 días, Más antiguas) */
+  const groupSessionsByDate = (sessions: SessionSummary[]) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterday = today - 86400000;
+    const lastWeek = today - 7 * 86400000;
+    const groups: { label: string; sessions: SessionSummary[] }[] = [];
+    const todaySessions: SessionSummary[] = [];
+    const yesterdaySessions: SessionSummary[] = [];
+    const weekSessions: SessionSummary[] = [];
+    const olderSessions: SessionSummary[] = [];
+
+    for (const s of sessions) {
+      const t = new Date(s.updatedAt).getTime();
+      if (t >= today) todaySessions.push(s);
+      else if (t >= yesterday) yesterdaySessions.push(s);
+      else if (t >= lastWeek) weekSessions.push(s);
+      else olderSessions.push(s);
+    }
+    if (todaySessions.length > 0) groups.push({ label: "Hoy", sessions: todaySessions });
+    if (yesterdaySessions.length > 0) groups.push({ label: "Ayer", sessions: yesterdaySessions });
+    if (weekSessions.length > 0) groups.push({ label: "Últimos 7 días", sessions: weekSessions });
+    if (olderSessions.length > 0) groups.push({ label: "Más antiguas", sessions: olderSessions });
+    return groups;
   };
 
   const handleDownload = async () => {
@@ -1079,76 +1115,89 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                         No hay conversaciones guardadas
                       </p>
                     )}
-                    {sessionHistory
-                      .filter((s) => !historySearch || s.title.toLowerCase().includes(historySearch.toLowerCase()))
-                      .map((session) => (
-                      <div
-                        key={session.id}
-                        onClick={() => {
-                          if (editingSessionId !== session.id) {
-                            loadSession(session.id);
-                            setShowHistory(false);
-                            setHistorySearch("");
-                            setEditingSessionId(null);
-                          }
-                        }}
-                        className={cn(
-                          "w-full text-left px-3 py-2.5 rounded-lg text-xs hover:bg-accent transition-colors group flex items-start justify-between gap-2 cursor-pointer",
-                          session.id === currentSessionId && "bg-accent"
-                        )}
-                      >
-                        <div className="flex-1 min-w-0">
-                          {editingSessionId === session.id ? (
-                            <input
-                              type="text"
-                              value={editingTitle}
-                              onChange={(e) => setEditingTitle(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") renameSession(session.id, editingTitle);
-                                if (e.key === "Escape") setEditingSessionId(null);
-                              }}
-                              onBlur={() => renameSession(session.id, editingTitle)}
-                              className="w-full text-xs font-medium bg-secondary border border-primary/50 rounded px-1.5 py-0.5 outline-none"
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <p className="font-medium truncate leading-snug">{session.title}</p>
-                          )}
-                          <p className="text-muted-foreground mt-0.5">
-                            {formatSessionDate(session.updatedAt)}
+                    {(() => {
+                      const filtered = sessionHistory.filter(
+                        (s) => !historySearch || s.title.toLowerCase().includes(historySearch.toLowerCase())
+                      );
+                      if (filtered.length === 0 && historySearch) {
+                        return (
+                          <p className="text-xs text-muted-foreground text-center py-8">
+                            Sin resultados para &ldquo;{historySearch}&rdquo;
                           </p>
+                        );
+                      }
+                      const groups = groupSessionsByDate(filtered);
+                      return groups.map((group) => (
+                        <div key={group.label}>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-3 pb-1">
+                            {group.label}
+                          </p>
+                          {group.sessions.map((session) => (
+                            <div
+                              key={session.id}
+                              onClick={() => {
+                                if (editingSessionId !== session.id) {
+                                  loadSession(session.id);
+                                  setShowHistory(false);
+                                  setHistorySearch("");
+                                  setEditingSessionId(null);
+                                }
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-accent transition-colors group flex items-start justify-between gap-2 cursor-pointer",
+                                session.id === currentSessionId && "bg-accent"
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                {editingSessionId === session.id ? (
+                                  <input
+                                    type="text"
+                                    value={editingTitle}
+                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") renameSession(session.id, editingTitle);
+                                      if (e.key === "Escape") setEditingSessionId(null);
+                                    }}
+                                    onBlur={() => renameSession(session.id, editingTitle)}
+                                    className="w-full text-xs font-medium bg-secondary border border-primary/50 rounded px-1.5 py-0.5 outline-none"
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                ) : (
+                                  <p className="font-medium truncate leading-snug">{session.title}</p>
+                                )}
+                                <p className="text-muted-foreground mt-0.5">
+                                  {formatSessionDate(session.updatedAt)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSessionId(session.id);
+                                    setEditingTitle(session.title);
+                                  }}
+                                  className="w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all rounded"
+                                  title="Renombrar conversación"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteSession(session.id);
+                                  }}
+                                  className="w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all rounded"
+                                  title="Eliminar conversación"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingSessionId(session.id);
-                              setEditingTitle(session.title);
-                            }}
-                            className="w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all rounded"
-                            title="Renombrar conversación"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSession(session.id);
-                            }}
-                            className="w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all rounded"
-                            title="Eliminar conversación"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {historySearch && sessionHistory.filter((s) => s.title.toLowerCase().includes(historySearch.toLowerCase())).length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-8">
-                        Sin resultados para &ldquo;{historySearch}&rdquo;
-                      </p>
-                    )}
+                      ));
+                    })()}
                   </div>
                 </motion.div>
               )}
@@ -1281,7 +1330,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
               {llmStatus === "ready" && (
                 <>
                   {/* Mensajes */}
-                  <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+                  <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
