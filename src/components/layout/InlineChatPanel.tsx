@@ -18,6 +18,8 @@ import {
   ImageIcon,
   Clock,
   MessageSquarePlus,
+  Search,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -293,6 +295,9 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionHistory, setSessionHistory] = useState<SessionSummary[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const sessionIdRef = useRef<string | null>(null);
   const sessionTitleSetRef = useRef(false);
   const isInitializingRef = useRef(false);
@@ -433,7 +438,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   /** Guarda un mensaje en la sesión activa (silencioso si falla) */
   const saveMessageToSession = useCallback(async (msg: ChatMessage) => {
     const sid = sessionIdRef.current;
-    if (!sid || msg.id === "welcome" || msg.role === "tool-info") return;
+    if (!sid || msg.id === "welcome" || msg.role === "tool-info" || msg.isError) return;
     try {
       await fetch(`/api/llm/sessions/${sid}/messages`, {
         method: "POST",
@@ -515,13 +520,15 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       const loaded = (data.messages as Array<{
         id: string; role: string; content: string;
         reasoningContent?: string | null; isError?: boolean;
-      }>).map((m) => ({
-        id: m.id,
-        role: m.role as ChatMessage["role"],
-        content: m.content,
-        reasoningContent: m.reasoningContent ?? undefined,
-        isError: m.isError ?? false,
-      }));
+      }>)
+        .filter((m) => !m.isError) // excluir errores persistidos en versiones anteriores
+        .map((m) => ({
+          id: m.id,
+          role: m.role as ChatMessage["role"],
+          content: m.content,
+          reasoningContent: m.reasoningContent ?? undefined,
+          isError: false,
+        }));
       setCurrentSessionId(sessionId);
       sessionIdRef.current = sessionId;
       sessionTitleSetRef.current = true; // ya tiene título
@@ -551,6 +558,25 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     }
   }, [createNewSession]);
 
+  /** Renombra una sesión desde el panel de historial */
+  const renameSession = useCallback(async (sessionId: string, newTitle: string) => {
+    const title = newTitle.trim().slice(0, 60);
+    if (!title) return;
+    try {
+      await fetch(`/api/llm/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      setSessionHistory((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, title } : s))
+      );
+    } catch {
+      // silencioso
+    }
+    setEditingSessionId(null);
+  }, []);
+
   /** Inicializa o carga la última sesión al arrancar */
   const initOrLoadSession = useCallback(async () => {
     if (sessionIdRef.current || isInitializingRef.current) return; // ya inicializado o en curso
@@ -570,18 +596,22 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
             const loaded = (msgsData.messages as Array<{
               id: string; role: string; content: string;
               reasoningContent?: string | null; isError?: boolean;
-            }>).map((m) => ({
-              id: m.id,
-              role: m.role as ChatMessage["role"],
-              content: m.content,
-              reasoningContent: m.reasoningContent ?? undefined,
-              isError: m.isError ?? false,
-            }));
+            }>)
+              .filter((m) => !m.isError) // excluir errores persistidos en versiones anteriores
+              .map((m) => ({
+                id: m.id,
+                role: m.role as ChatMessage["role"],
+                content: m.content,
+                reasoningContent: m.reasoningContent ?? undefined,
+                isError: false,
+              }));
             setCurrentSessionId(latest.id);
             sessionIdRef.current = latest.id;
             sessionTitleSetRef.current = true;
             if (loaded.length > 0) {
               setMessages(loaded);
+              // Limpiar sesiones vacías en segundo plano
+              cleanupEmptySessions(sessions, latest.id);
               return;
             }
           }
@@ -590,6 +620,8 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
           sessionIdRef.current = latest.id;
           sessionTitleSetRef.current = false;
           addWelcomeMessage();
+          // Limpiar sesiones vacías en segundo plano
+          cleanupEmptySessions(sessions, latest.id);
           return;
         }
       }
@@ -599,6 +631,32 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     // Sin sesiones — crear una nueva
     await createNewSession();
   }, [createNewSession]);
+
+  /** Limpia sesiones vacías (sin mensajes) excepto la actual — ejecuta en segundo plano */
+  const cleanupEmptySessions = useCallback(async (sessions: SessionSummary[], currentId: string) => {
+    // Solo limpiar si hay más de 3 sesiones (evitar fetch excesivo en inicio)
+    if (sessions.length <= 3) return;
+    const toDelete: string[] = [];
+    // Revisar solo las últimas 10 sesiones (no todas) para no saturar
+    const candidates = sessions.filter((s) => s.id !== currentId).slice(0, 10);
+    for (const s of candidates) {
+      try {
+        const res = await fetch(`/api/llm/sessions/${s.id}/messages`);
+        if (res.ok) {
+          const data = await res.json();
+          const msgs = (data.messages as Array<{ isError?: boolean }>)
+            .filter((m) => !m.isError);
+          if (msgs.length === 0) toDelete.push(s.id);
+        }
+      } catch { /* ignorar */ }
+    }
+    if (toDelete.length > 0) {
+      for (const id of toDelete) {
+        try { await fetch(`/api/llm/sessions/${id}`, { method: "DELETE" }); } catch { /* */ }
+      }
+      setSessionHistory((prev) => prev.filter((s) => !toDelete.includes(s.id)));
+    }
+  }, []);
 
   /** Formatea una fecha relativa para el panel de historial */
   const formatSessionDate = (date: string | Date) => {
@@ -707,13 +765,13 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || isSending) return;
-
     const currentImageBase64 = imageBase64;
+    if ((!text && !currentImageBase64) || isSending) return;
+
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: text,
+      content: text || (currentImageBase64 ? "📷 Imagen" : ""),
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -906,8 +964,13 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={() => {
-                      setShowHistory((v) => !v);
-                      if (!showHistory) loadSessionHistory();
+                      const next = !showHistory;
+                      setShowHistory(next);
+                      if (next) {
+                        loadSessionHistory();
+                        setHistorySearch("");
+                        setEditingSessionId(null);
+                      }
                     }}
                     title="Historial de conversaciones"
                   >
@@ -970,6 +1033,9 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-primary" />
                       <span className="text-sm font-semibold">Historial</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {sessionHistory.length}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -985,45 +1051,104 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowHistory(false)}
+                        onClick={() => { setShowHistory(false); setHistorySearch(""); setEditingSessionId(null); }}
                       >
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
+                  {/* Búsqueda de sesiones */}
+                  {sessionHistory.length > 3 && (
+                    <div className="px-2 pt-2 shrink-0">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="text"
+                          value={historySearch}
+                          onChange={(e) => setHistorySearch(e.target.value)}
+                          placeholder="Buscar conversación..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-secondary border border-border rounded-lg outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
                     {sessionHistory.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-10">
                         No hay conversaciones guardadas
                       </p>
                     )}
-                    {sessionHistory.map((session) => (
-                      <button
+                    {sessionHistory
+                      .filter((s) => !historySearch || s.title.toLowerCase().includes(historySearch.toLowerCase()))
+                      .map((session) => (
+                      <div
                         key={session.id}
-                        onClick={() => { loadSession(session.id); setShowHistory(false); }}
+                        onClick={() => {
+                          if (editingSessionId !== session.id) {
+                            loadSession(session.id);
+                            setShowHistory(false);
+                            setHistorySearch("");
+                            setEditingSessionId(null);
+                          }
+                        }}
                         className={cn(
-                          "w-full text-left px-3 py-2.5 rounded-lg text-xs hover:bg-accent transition-colors group flex items-start justify-between gap-2",
+                          "w-full text-left px-3 py-2.5 rounded-lg text-xs hover:bg-accent transition-colors group flex items-start justify-between gap-2 cursor-pointer",
                           session.id === currentSessionId && "bg-accent"
                         )}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate leading-snug">{session.title}</p>
+                          {editingSessionId === session.id ? (
+                            <input
+                              type="text"
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") renameSession(session.id, editingTitle);
+                                if (e.key === "Escape") setEditingSessionId(null);
+                              }}
+                              onBlur={() => renameSession(session.id, editingTitle)}
+                              className="w-full text-xs font-medium bg-secondary border border-primary/50 rounded px-1.5 py-0.5 outline-none"
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <p className="font-medium truncate leading-snug">{session.title}</p>
+                          )}
                           <p className="text-muted-foreground mt-0.5">
                             {formatSessionDate(session.updatedAt)}
                           </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteSession(session.id);
-                          }}
-                          className="shrink-0 w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all rounded"
-                          title="Eliminar conversación"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </button>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingSessionId(session.id);
+                              setEditingTitle(session.title);
+                            }}
+                            className="w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-all rounded"
+                            title="Renombrar conversación"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSession(session.id);
+                            }}
+                            className="w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all rounded"
+                            title="Eliminar conversación"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
                     ))}
+                    {historySearch && sessionHistory.filter((s) => s.title.toLowerCase().includes(historySearch.toLowerCase())).length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-8">
+                        Sin resultados para &ldquo;{historySearch}&rdquo;
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               )}
