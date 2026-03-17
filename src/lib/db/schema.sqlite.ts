@@ -547,5 +547,42 @@ export const pageArchives = sqliteTable(
 export type PageArchive = typeof pageArchives.$inferSelect;
 export type NewPageArchive = typeof pageArchives.$inferInsert;
 
+// ─── LLM Chat Sessions ─────────────────────────────────────────────────────────
+export const llmChats = sqliteTable(
+  "llm_chats",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").default("default"),
+    title: text("title").notNull().default("Nueva conversación"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("idx_llm_chats_user_id").on(table.userId),
+    index("idx_llm_chats_updated_at").on(table.updatedAt),
+  ]
+);
+
+export const llmMessages = sqliteTable(
+  "llm_messages",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id").notNull().references(() => llmChats.id, { onDelete: "cascade" }),
+    role: text("role").notNull(), // 'user' | 'assistant'
+    content: text("content").notNull(),
+    reasoningContent: text("reasoning_content"),
+    isError: integer("is_error", { mode: "boolean" }).default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("idx_llm_messages_chat_id").on(table.chatId),
+  ]
+);
+
+export type LlmChat = typeof llmChats.$inferSelect;
+export type NewLlmChat = typeof llmChats.$inferInsert;
+export type LlmMessage = typeof llmMessages.$inferSelect;
+export type NewLlmMessage = typeof llmMessages.$inferInsert;
+
 // Evitar error TS de módulo sin usar
 export { real };
