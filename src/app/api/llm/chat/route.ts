@@ -14,12 +14,17 @@ interface ConversationMessage {
 interface ToolCall {
   id: string;
   type: "function";
-  function: { name: string; arguments: string };
+  // llama-server puede devolver arguments como string o como objeto ya parseado
+  function: { name: string; arguments: string | Record<string, unknown> };
 }
+
+type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 interface LlmMessage {
   role: string;
-  content: string | null;
+  content: string | ContentPart[] | null;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   reasoning_content?: string;
@@ -577,9 +582,14 @@ async function runLlmJob(
   llamaPort: string,
   userMessage: string,
   history: ConversationMessage[],
-  enableThinking = false
+  enableThinking = false,
+  imageBase64?: string
 ): Promise<void> {
   const llamaUrl = `http://127.0.0.1:${llamaPort}/v1/chat/completions`;
+  // Modo visión: cuando hay imagen adjunta, el modelo solo debe describir/analizar.
+  // No pasar herramientas — el modelo pequeño no puede razonar sobre imagen Y decidir
+  // cuándo no usar herramientas simultáneamente, lo que provoca tool calls alucinados.
+  const hasImage = !!imageBase64;
 
   try {
     const msgNorm = norm(userMessage);
@@ -589,6 +599,7 @@ async function runLlmJob(
     // ── Fast-path A: URL sola → guardar directamente ──────────────────────────
     // "https://astro.build" sin texto adicional → intención clara de guardar
     const messageIsJustUrl =
+      !hasImage &&
       urlMatch !== null &&
       userMessage.replace(urlMatch[0], "").replace(/[!?.,¡¿\s]/g, "").length < 8;
 
@@ -645,7 +656,7 @@ async function runLlmJob(
         /^\s*(save|add|bookmark)\s+\S/i.test(userMessage)
       );
     const wantsAddPrev =
-      wantsAdd && !urlMatch && hasRecentSearch &&
+      !hasImage && wantsAdd && !urlMatch && hasRecentSearch &&
       (
         /\b(todos?|esos?|estos?|los anteriores?|los de (arriba|antes))\b/i.test(msgNorm) ||
         /incluy|añadelos?|guardalos?|agrega(los?)?/i.test(msgNorm) ||
@@ -707,6 +718,157 @@ async function runLlmJob(
         reply += `\n⚠️ Ya estaban en tu biblioteca: ${skipped.join(", ")}`;
       jobs.set(jobId, { status: "done", content: reply });
       return;
+    }
+
+    // ── Modo visión: saltar guards de texto y pasar directo al LLM ───────────
+    // Cuando hay imagen, no tiene sentido evaluar intenciones de texto ni usar herramientas.
+    // El modelo describe la imagen. Cualquier acción (guardar, buscar) se hace en el siguiente turno.
+    if (hasImage) {
+      const visionSystemPrompt = `Eres Stacklume AI, asistente visual inteligente. El usuario ha adjuntado una imagen.
+
+INSTRUCCIONES DE VISIÓN:
+• Analiza la imagen con detalle: personas, objetos, colores, texto visible, contexto, escena
+• Responde directamente a lo que el usuario pregunta sobre la imagen
+• Sé descriptivo y preciso
+• Responde en español, texto claro y natural — sin asteriscos ni markdown
+• NO inventes URLs, NO guardes enlaces, NO uses herramientas
+• Si el usuario pide guardar algo, indícale que lo haga en el siguiente mensaje`;
+
+      const visionMessages: LlmMessage[] = [
+        { role: "system", content: visionSystemPrompt },
+        ...history
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .slice(-6)
+          .map((m) => ({ role: m.role as string, content: m.content })),
+        {
+          role: "user",
+          content: imageBase64
+            ? [
+                { type: "text" as const, text: userMessage.trim() || "Describe esta imagen" },
+                { type: "image_url" as const, image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+              ]
+            : userMessage,
+        },
+      ];
+
+      // VL non-thinking: temp=0.7, top_k desactivado, presence_penalty=1.5
+      // VL thinking:     temp=0.6, top_k=20, presence_penalty=0.0 (razonamiento preciso sobre imagen)
+      const visionParams = enableThinking
+        ? { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 0.0, max_tokens: 2048 }
+        : { temperature: 0.7, top_k:  0, top_p: 0.8,  min_p: 0, presence_penalty: 1.5, max_tokens: 1024 };
+
+      const resp = await fetch(llamaUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "local-model",
+          messages: visionMessages,
+          stream: false,
+          ...visionParams,
+          chat_template_kwargs: {
+            enable_thinking: enableThinking,
+            ...(enableThinking ? {} : { thinking_budget: 0 }),
+          },
+          ...(enableThinking ? { reasoning_format: "deepseek" } : {}),
+        }),
+        signal: AbortSignal.timeout(120_000),
+      });
+
+      if (!resp.ok) throw new Error(`LLM HTTP ${resp.status}`);
+      const data = (await resp.json()) as {
+        choices?: Array<{ message?: LlmMessage }>;
+        error?: string;
+      };
+      if (data.error) throw new Error(String(data.error));
+
+      const msg = data.choices?.[0]?.message;
+      const rawContent = Array.isArray(msg?.content)
+        ? (msg.content as ContentPart[]).filter((p) => p.type === "text").map((p) => (p as { type: "text"; text: string }).text).join("\n")
+        : (msg?.content ?? "");
+
+      const rawReasoning = msg?.reasoning_content?.trim();
+      let content = cleanLlmText(rawContent);
+      if (content.trim().length < 5)
+        content = "No pude analizar la imagen. Asegúrate de que el soporte de visión esté activo (mmproj descargado) y prueba con thinking activado.";
+
+      jobs.set(jobId, { status: "done", content, reasoningContent: rawReasoning || undefined });
+      return;
+    }
+
+    // ── Fast-path C: Recomendación sobre resultados recientes ─────────────────
+    // "cuál de esos me recomiendas?", "cuál es mejor?", "which one should I use?"
+    const isRecommendQuery =
+      !hasImage &&
+      hasRecentSearch &&
+      (
+        /\b(cual|cuales?)\b.{0,30}\b(recomiend|mejor(es)?|usar(ia)?|elegiria?|prefer(iria)?)\b/i.test(msgNorm) ||
+        /\b(cual|cuales?|which)\b.{0,20}\b(de|of)\b.{0,15}\b(esos?|estos?|ellos|ellas|them)\b/i.test(msgNorm) ||
+        /\b(which one|cual me recomiend|que me recomiend|cual(es)? son mejores?)\b/i.test(msgNorm) ||
+        /\b(que|cual).{0,20}(recomiend|sugieres?|aconsejas?)\b/i.test(msgNorm) ||
+        /\b(recommend|suggest|which (should|would))\b.{0,30}\b(use|choose|pick|start)\b/i.test(msgNorm)
+      );
+
+    if (isRecommendQuery && g.__llmLastSearch?.length) {
+      const items = g.__llmLastSearch
+        .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}${r.description ? "\n   " + r.description.slice(0, 120) : ""}`)
+        .join("\n\n");
+
+      const recSystemPrompt = `Eres Stacklume AI. El usuario pregunta cuál de estos recursos recomiendar.
+
+RECURSOS DISPONIBLES:
+${items}
+
+INSTRUCCIONES:
+- Recomienda 1 o 2 recursos específicos de la lista de arriba
+- Explica brevemente POR QUÉ los recomiendas (qué los hace especiales)
+- SOLO menciona URLs que estén en la lista de RECURSOS DISPONIBLES — NUNCA inventes URLs
+- Responde en 2-4 frases, directo y útil`;
+
+      const recMessages: LlmMessage[] = [
+        { role: "system", content: recSystemPrompt },
+        { role: "user", content: userMessage },
+      ];
+
+      const recResp = await fetch(llamaUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "local-model",
+          messages: recMessages,
+          stream: false,
+          temperature: 1.0,
+          top_k: 20,
+          top_p: 1.0,
+          min_p: 0,
+          presence_penalty: 2.0,
+          max_tokens: 512,
+          chat_template_kwargs: { enable_thinking: false },
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
+
+      if (recResp.ok) {
+        const recData = (await recResp.json()) as { choices?: Array<{ message?: LlmMessage }>; error?: string };
+        const recMsg = recData.choices?.[0]?.message;
+        const rawRec = Array.isArray(recMsg?.content)
+          ? (recMsg.content as ContentPart[]).filter((p) => p.type === "text").map((p) => (p as { type: "text"; text: string }).text).join("\n")
+          : (recMsg?.content ?? "");
+
+        let recContent = cleanLlmText(rawRec);
+        if (recContent.trim().length < 5)
+          recContent = `De los recursos anteriores, te recomendaría el primero: **${g.__llmLastSearch[0].title}** — ${g.__llmLastSearch[0].url}`;
+
+        // Anti-hallucination: remove any URL not in the allowed set
+        const allowedRecUrls = new Set(g.__llmLastSearch.map((r) => r.url));
+        recContent = recContent.replace(/https?:\/\/[^\s)>\]"]+/g, (url) => {
+          const clean = url.replace(/[.,;:!?]+$/, "");
+          return allowedRecUrls.has(clean) ? url : "";
+        });
+
+        jobs.set(jobId, { status: "done", content: recContent.trim() });
+        return;
+      }
+      // Si falla el LLM, caer al path normal
     }
 
     // ── Safety guard: Comandos destructivos masivos ───────────────────────────
@@ -852,14 +1014,23 @@ CÓMO ACTUAR:
 
     const cleanHistoryMsg = (content: string, role: string): string => {
       if (role !== "assistant") return content;
-      // Mantener URLs para resolución de referencias ("el primero", "ése")
-      // pero limpiar emojis de prefijo y colapsar espacios extra
-      const simplified = content
+      // Qwen3 best practice: excluir thinking content del historial multi-turno
+      const noThink = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+      // Mantener URLs para resolución de referencias pero limpiar emojis de prefijo
+      const simplified = noThink
         .replace(/^[📚✅⚠️🔍🕐📂⌨️🎨💡ℹ️🗑️]\s*/gm, "")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
       return simplified.slice(0, 600) + (simplified.length > 600 ? "…" : "");
     };
+
+    // Si hay imagen adjunta, usar formato multimodal (vision)
+    const userContent: string | ContentPart[] = imageBase64
+      ? [
+          { type: "text" as const, text: userMessage },
+          { type: "image_url" as const, image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+        ]
+      : userMessage;
 
     const messages: LlmMessage[] = [
       { role: "system", content: systemPrompt },
@@ -870,7 +1041,7 @@ CÓMO ACTUAR:
           role: m.role as string,
           content: cleanHistoryMsg(m.content, m.role),
         })),
-      { role: "user", content: userMessage },
+      { role: "user", content: userContent },
     ];
 
     const allowedToolUrls = new Set<string>();
@@ -878,12 +1049,12 @@ CÓMO ACTUAR:
     let terminalReasoningContent: string | undefined;
     const MAX_ROUNDS = 5;
 
-    // Parámetros de sampling según modo (fuente: qwen.readthedocs.io)
-    // Thinking:     temp=0.6, top_p=0.95 — más determinista para razonamiento
-    // Non-thinking: temp=0.7, top_p=0.8  — más variado para conversación
+    // Parámetros oficiales Qwen3.5-2B: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF
+    // Non-thinking: temp=1.0, top_k desactivado (0), top_p=1.0, presence_penalty=2.0
+    // Thinking:     temp=1.0, top_k=20,             top_p=0.95, presence_penalty=1.5
     const samplingParams = enableThinking
-      ? { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, max_tokens: 3000 }
-      : { temperature: 0.7, top_k: 20, top_p: 0.8,  min_p: 0, max_tokens: 768  };
+      ? { temperature: 1.0, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 1.5, max_tokens: 4096 }
+      : { temperature: 1.0, top_k:  0, top_p: 1.0,  min_p: 0, presence_penalty: 2.0, max_tokens: 1024 };
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const resp = await fetch(llamaUrl, {
@@ -898,12 +1069,15 @@ CÓMO ACTUAR:
           ...samplingParams,
           // Control de thinking per-request.
           // El servidor arranca con --reasoning auto, que respeta este parámetro.
-          // Thinking mode:     temp=0.6, top_p=0.95 + reasoning_format "deepseek"
-          // Non-thinking mode: temp=0.7, top_p=0.8
-          chat_template_kwargs: { enable_thinking: enableThinking },
+          // Thinking mode:     temp=1.0, top_p=0.95, presence_penalty=1.5 + reasoning_format "deepseek"
+          // Non-thinking mode: temp=1.0, top_p=1.0,  presence_penalty=2.0 + thinking_budget:0
+          chat_template_kwargs: {
+            enable_thinking: enableThinking,
+            ...(enableThinking ? {} : { thinking_budget: 0 }),
+          },
           ...(enableThinking ? { reasoning_format: "deepseek" } : {}),
         }),
-        signal: AbortSignal.timeout(90_000),
+        signal: AbortSignal.timeout(enableThinking ? 120_000 : 90_000),
       });
 
       if (!resp.ok) throw new Error(`LLM HTTP ${resp.status}`);
@@ -922,7 +1096,10 @@ CÓMO ACTUAR:
         const rawReasoning = msg?.reasoning_content?.trim();
         if (rawReasoning) terminalReasoningContent = rawReasoning;
 
-        let content = cleanLlmText(msg?.content ?? "");
+        const rawContent = Array.isArray(msg?.content)
+          ? (msg.content as ContentPart[]).filter((p) => p.type === "text").map((p) => (p as { type: "text"; text: string }).text).join("\n")
+          : (msg?.content ?? "");
+        let content = cleanLlmText(rawContent);
 
         // Si hay resultados de herramientas, combinar con el comentario del LLM
         if (formattedContent) {
@@ -996,10 +1173,18 @@ CÓMO ACTUAR:
         tool_calls: toolCalls,
       });
 
-      for (const tc of toolCalls) {
+      for (let tcIdx = 0; tcIdx < toolCalls.length; tcIdx++) {
+        const tc = toolCalls[tcIdx];
+        // Guard: llama-server puede omitir el nombre en algún tool_call
+        if (!tc.function?.name) continue;
+
         let args: Record<string, unknown> = {};
         try {
-          args = JSON.parse(tc.function.arguments ?? "{}");
+          // llama-server puede devolver arguments como string O como objeto ya parseado
+          const raw = tc.function.arguments;
+          args = typeof raw === "string"
+            ? JSON.parse(raw || "{}")
+            : (raw as Record<string, unknown>) ?? {};
         } catch {
           args = {};
         }
@@ -1031,10 +1216,9 @@ CÓMO ACTUAR:
 
           if (tc.function.name === "search_library") {
             if (parsed.results?.length) {
-              const list = parsed.results
-                .slice(0, 8)
-                .map((r, i) => `${i + 1}. ${r.title ?? r.url}\n   ${r.url}`)
-                .join("\n\n");
+              // Usar formatted directamente — incluye categoría [Cat] para cada enlace
+              const list = (parsed as { formatted?: string }).formatted
+                ?? parsed.results.slice(0, 8).map((r, i) => `${i + 1}. ${r.title ?? r.url}\n   ${r.url}`).join("\n\n");
               formattedContent = `📚 Encontré ${parsed.results.length} enlace${parsed.results.length === 1 ? "" : "s"}:\n\n${list}`;
             } else {
               formattedContent = `📚 ${parsed.message ?? "No encontré enlaces sobre ese tema."}\n💡 Prueba "busca [tema]" para buscar en internet.`;
@@ -1085,7 +1269,8 @@ CÓMO ACTUAR:
           }
         } catch { /* ignorar errores de parseo */ }
 
-        messages.push({ role: "tool", content: result, tool_call_id: tc.id });
+        // Fallback si el servidor no devolvió id (algunos builds de llama-server lo omiten)
+        messages.push({ role: "tool", content: result, tool_call_id: tc.id || `call_${round}_${tcIdx}` });
       }
     }
 
@@ -1128,6 +1313,7 @@ export async function POST(req: NextRequest) {
     history?: ConversationMessage[];
     llamaPort?: number;
     enableThinking?: boolean;
+    imageBase64?: string;
   };
 
   try {
@@ -1136,8 +1322,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   }
 
-  const { userMessage, history = [], llamaPort: clientPort, enableThinking = false } = body;
-  if (!userMessage?.trim())
+  const { userMessage, history = [], llamaPort: clientPort, enableThinking = false, imageBase64 } = body;
+  // Permitir userMessage vacío cuando hay imagen adjunta (el usuario solo pegó una imagen)
+  if (!userMessage?.trim() && !imageBase64)
     return NextResponse.json(
       { error: "userMessage es obligatorio" },
       { status: 400 }
@@ -1154,7 +1341,7 @@ export async function POST(req: NextRequest) {
 
   const jobId = crypto.randomUUID();
   jobs.set(jobId, { status: "pending" });
-  runLlmJob(jobId, resolvedPort, userMessage.trim(), history, enableThinking);
+  runLlmJob(jobId, resolvedPort, (userMessage ?? "").trim(), history, enableThinking, imageBase64);
   return NextResponse.json({ jobId });
 }
 
