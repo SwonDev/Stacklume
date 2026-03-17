@@ -802,17 +802,30 @@ async fn download_llm_model_impl(
         const MAX_SIZE: u64 = 20 * 1024 * 1024 * 1024; // 20 GB límite
         const MIN_SIZE: u64 = 10 * 1024 * 1024; // 10 MB mínimo
 
-        let agent = ureq::AgentBuilder::new().redirects(10).build();
+        let agent = ureq::AgentBuilder::new()
+            .redirects(10)
+            .timeout_connect(std::time::Duration::from_secs(30))
+            .timeout_read(std::time::Duration::from_secs(300))
+            .build();
         let mut req = agent.get(&url_clone);
+        // User-Agent requerido por CDNs de HuggingFace (cdn-lfs)
+        req = req.set("User-Agent", "Stacklume/0.3 (desktop; ureq)");
         // Enviar token de HuggingFace si está configurado (necesario para modelos gated)
         if let Some(ref token) = hf_token {
             if !token.is_empty() {
                 req = req.set("Authorization", &format!("Bearer {}", token));
             }
         }
+
+        // Emitir evento de progreso inicial para que el frontend sepa que empezó
+        let _ = app_clone.emit(
+            "llm:download-progress",
+            serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64 }),
+        );
+
         let response = req
             .call()
-            .map_err(|e| format!("Error de descarga: {}", e))?;
+            .map_err(|e| format!("Error de conexión a HuggingFace: {}", e))?;
 
         if response.status() != 200 {
             return Err(format!(
@@ -979,11 +992,16 @@ async fn download_mmproj(app: tauri::AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || -> Result<(), String> {
         const ESTIMATED_SIZE: u64 = 700_000_000; // ~668 MB
 
-        let agent = ureq::AgentBuilder::new().redirects(10).build();
+        let agent = ureq::AgentBuilder::new()
+            .redirects(10)
+            .timeout_connect(std::time::Duration::from_secs(30))
+            .timeout_read(std::time::Duration::from_secs(300))
+            .build();
         let response = agent
             .get(MMPROJ_URL)
+            .set("User-Agent", "Stacklume/0.3 (desktop; ureq)")
             .call()
-            .map_err(|e| format!("Error de descarga: {}", e))?;
+            .map_err(|e| format!("Error de conexión a HuggingFace: {}", e))?;
 
         if response.status() != 200 {
             return Err(format!("HTTP {}: error al descargar mmproj", response.status()));
