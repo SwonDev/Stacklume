@@ -712,6 +712,60 @@ async fn start_llama_server(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Resuelve la URL final de descarga siguiendo redirects de HuggingFace manualmente.
+/// HuggingFace responde 302 a cdn-lfs-*.hf.co. ureq no propaga headers como Authorization
+/// en redirects cross-domain, así que los seguimos manualmente.
+fn resolve_hf_redirect(url: &str, hf_token: Option<&str>) -> Result<String, String> {
+    let agent = ureq::AgentBuilder::new()
+        .redirects(0) // No seguir redirects automáticamente
+        .timeout_connect(std::time::Duration::from_secs(15))
+        .timeout_read(std::time::Duration::from_secs(15))
+        .build();
+
+    let mut current_url = url.to_string();
+    for _ in 0..10 {
+        let mut req = agent.get(&current_url);
+        req = req.set("User-Agent", "Stacklume/0.3 (desktop; ureq)");
+        if let Some(token) = hf_token {
+            if !token.is_empty() {
+                req = req.set("Authorization", &format!("Bearer {}", token));
+            }
+        }
+
+        match req.call() {
+            Ok(resp) => {
+                let status = resp.status();
+                if status == 200 {
+                    // URL final encontrada (no redirige más)
+                    return Ok(current_url);
+                } else if (301..=308).contains(&status) {
+                    // Redirect — extraer Location header
+                    if let Some(location) = resp.header("Location") {
+                        current_url = location.to_string();
+                        continue;
+                    }
+                    return Err(format!("Redirect HTTP {} sin header Location", status));
+                } else {
+                    return Err(format!("HTTP {} al resolver URL de descarga", status));
+                }
+            }
+            Err(ureq::Error::Status(status, resp)) => {
+                if (301..=308).contains(&status) {
+                    if let Some(location) = resp.header("Location") {
+                        current_url = location.to_string();
+                        continue;
+                    }
+                }
+                return Err(format!("HTTP {} al resolver URL de descarga", status));
+            }
+            Err(e) => {
+                return Err(format!("Error de conexión: {}", e));
+            }
+        }
+    }
+    Err("Demasiados redirects (>10)".to_string())
+}
+
 /// Descarga un modelo GGUF desde HuggingFace y arranca llama-server.
 /// Emite eventos "llm:download-progress" con el progreso de la descarga.
 #[tauri::command]
@@ -802,35 +856,39 @@ async fn download_llm_model_impl(
         const MAX_SIZE: u64 = 20 * 1024 * 1024 * 1024; // 20 GB límite
         const MIN_SIZE: u64 = 10 * 1024 * 1024; // 10 MB mínimo
 
-        let agent = ureq::AgentBuilder::new()
-            .redirects(10)
-            .timeout_connect(std::time::Duration::from_secs(30))
-            .timeout_read(std::time::Duration::from_secs(300))
-            .build();
-        let mut req = agent.get(&url_clone);
-        // User-Agent requerido por CDNs de HuggingFace (cdn-lfs)
-        req = req.set("User-Agent", "Stacklume/0.3 (desktop; ureq)");
-        // Enviar token de HuggingFace si está configurado (necesario para modelos gated)
-        if let Some(ref token) = hf_token {
-            if !token.is_empty() {
-                req = req.set("Authorization", &format!("Bearer {}", token));
-            }
-        }
-
-        // Emitir evento de progreso inicial para que el frontend sepa que empezó
+        // Emitir evento de progreso "connecting" para feedback inmediato al usuario
         let _ = app_clone.emit(
             "llm:download-progress",
-            serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64 }),
+            serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64, "phase": "connecting" }),
         );
 
-        let response = req
+        // Paso 1: resolver la URL final siguiendo redirects manualmente.
+        // HuggingFace usa 302 a cdn-lfs.huggingface.com. ureq no propaga headers
+        // en redirects cross-domain, así que resolvemos la URL final primero.
+        let final_url = resolve_hf_redirect(&url_clone, hf_token.as_deref())?;
+
+        let _ = app_clone.emit(
+            "llm:download-progress",
+            serde_json::json!({ "downloaded": 0_u64, "total": 0_u64, "percent": 0_u64, "phase": "downloading" }),
+        );
+
+        // Paso 2: descargar desde la URL final del CDN (sin redirects)
+        let agent = ureq::AgentBuilder::new()
+            .redirects(0) // No seguir más redirects — ya tenemos la URL final
+            .timeout_connect(std::time::Duration::from_secs(30))
+            .timeout_read(std::time::Duration::from_secs(120))
+            .build();
+        let response = agent
+            .get(&final_url)
+            .set("User-Agent", "Stacklume/0.3 (desktop; ureq)")
             .call()
-            .map_err(|e| format!("Error de conexión a HuggingFace: {}", e))?;
+            .map_err(|e| format!("Error descargando desde CDN: {}", e))?;
 
         if response.status() != 200 {
             return Err(format!(
-                "HTTP {}: error al descargar modelo",
-                response.status()
+                "HTTP {} al descargar modelo (URL: {})",
+                response.status(),
+                &final_url[..final_url.len().min(80)]
             ));
         }
 
