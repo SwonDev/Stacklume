@@ -213,6 +213,28 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .unwrap_or(4)
         .to_string();
 
+    // Detectar familia del modelo para auto-configurar parámetros del servidor
+    let model_filename = std::path::Path::new(&model_path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let family = detect_model_family(&model_filename);
+
+    // Parámetros de llama-server adaptados por familia de modelo.
+    // Los parámetros de sampling (temp, top_k, etc.) se envían per-request desde route.ts,
+    // pero ctx-size, n-predict, jinja y reasoning son configuraciones del servidor.
+    let (ctx_size, n_predict, use_jinja, reasoning_mode, default_temp, default_top_k, default_top_p) = match family {
+        "qwen3" => ("16384", "2048", true, "auto", "0.7", "20", "0.8"),
+        "qwen2" => ("8192",  "2048", true, "off",  "0.7", "20", "0.8"),
+        "llama3" => ("8192",  "2048", true, "off",  "0.6", "40", "0.9"),
+        "mistral" => ("8192", "2048", true, "off",  "0.7", "50", "0.9"),
+        "phi" =>    ("4096",  "1024", true, "off",  "0.7", "40", "0.9"),
+        "gemma" =>  ("8192",  "2048", true, "off",  "0.7", "40", "0.9"),
+        "deepseek" => ("16384","4096", true, "auto", "0.6", "20", "0.95"),
+        _ =>        ("4096",  "1024", true, "off",  "0.7", "40", "0.9"),
+    };
+
     let mut cmd = Command::new(&binary_path);
     cmd.env_clear()
         .arg("--model")
@@ -221,42 +243,24 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string())
-        // Contexto: 16384 tokens — suficiente para conversaciones largas con tool calling
-        // (historial de 10 msgs + tool results + system prompt fácilmente caben en 16k)
         .arg("--ctx-size")
-        .arg("16384")
-        // CPU only: 0 capas en GPU
+        .arg(ctx_size)
         .arg("-ngl")
         .arg("0")
-        // Threads dinámico según CPU del sistema
         .arg("--threads")
         .arg(&n_threads)
         .arg("--threads-batch")
         .arg(&n_threads)
-        // Máximo de tokens por respuesta
         .arg("--n-predict")
-        .arg("2048")
-        // Habilitar Jinja templating — OBLIGATORIO para tool calling (function calling)
-        // Sin este flag, llama-server ignora el campo "tools" en las peticiones.
-        .arg("--jinja")
-        // Modo razonamiento: "auto" respeta el parámetro per-request `chat_template_kwargs.enable_thinking`.
-        // Esto permite activar/desactivar el thinking desde el frontend sin reiniciar el servidor.
-        // "off" forzaría thinking=false globalmente e ignoraría las peticiones per-request.
-        .arg("--reasoning")
-        .arg("auto")
-        // Parámetros de sampling óptimos para Qwen3 (modo no-thinking) según documentación oficial.
-        // Fuente: https://qwen.readthedocs.io/en/latest/run_locally/llama.cpp.html
-        // NUNCA usar greedy (temp=0) con Qwen3 — causa bucles de repetición.
+        .arg(n_predict)
         .arg("--temp")
-        .arg("0.7")
+        .arg(default_temp)
         .arg("--top-k")
-        .arg("20")
+        .arg(default_top_k)
         .arg("--top-p")
-        .arg("0.8")
+        .arg(default_top_p)
         .arg("--min-p")
         .arg("0")
-        // Evitar corrupción de contexto en conversaciones largas multi-turno.
-        // Sin este flag, llama-server rota el contexto cuando se llena, corrompiendo tool calls.
         .arg("--no-context-shift")
         .arg("--log-disable")
         .stdout(Stdio::null())
@@ -273,6 +277,15 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .env("TEMP", std::env::var("TEMP").unwrap_or_default())
         .env("TMP", std::env::var("TMP").unwrap_or_default())
         .env("APPDATA", std::env::var("APPDATA").unwrap_or_default());
+
+    // Jinja templating: necesario para tool calling. La mayoría de modelos lo soportan.
+    if use_jinja {
+        cmd.arg("--jinja");
+    }
+
+    // Modo razonamiento: "auto" para modelos que soportan thinking (Qwen3, DeepSeek)
+    // "off" para el resto (evita errores en modelos sin soporte)
+    cmd.arg("--reasoning").arg(reasoning_mode);
 
     #[cfg(windows)]
     {

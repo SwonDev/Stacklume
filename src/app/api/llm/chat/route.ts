@@ -578,41 +578,51 @@ async function loadLibrarySummary(): Promise<string> {
 // El modelo razona autónomamente y decide qué herramientas usar (hasta 5 rondas).
 
 // Parámetros de sampling por familia de modelo
-const MODEL_PARAMS: Record<string, {
-  thinking: { temperature: number; top_k: number; top_p: number; min_p: number; presence_penalty: number; max_tokens: number };
-  nonThinking: { temperature: number; top_k: number; top_p: number; min_p: number; presence_penalty: number; max_tokens: number };
+interface SamplingParams {
+  temperature: number; top_k: number; top_p: number; min_p: number; presence_penalty: number; max_tokens: number;
+}
+interface FamilyParams {
+  thinking: SamplingParams;
+  nonThinking: SamplingParams;
+  visionThinking?: SamplingParams;
+  visionNonThinking?: SamplingParams;
   supportsTools: boolean;
   supportsThinking: boolean;
-}> = {
+  supportsVision: boolean;
+}
+const MODEL_PARAMS: Record<string, FamilyParams> = {
   qwen3: {
     thinking:    { temperature: 1.0, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 1.5, max_tokens: 4096 },
     nonThinking: { temperature: 1.0, top_k:  0, top_p: 1.0,  min_p: 0, presence_penalty: 2.0, max_tokens: 1024 },
-    supportsTools: true, supportsThinking: true,
+    // Parámetros oficiales Qwen3.5-2B VL (con mmproj)
+    visionThinking:    { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 0.0, max_tokens: 2048 },
+    visionNonThinking: { temperature: 0.7, top_k:  0, top_p: 0.8,  min_p: 0, presence_penalty: 1.5, max_tokens: 1024 },
+    supportsTools: true, supportsThinking: true, supportsVision: true,
   },
   qwen2: {
     thinking:    { temperature: 0.7, top_k: 20, top_p: 0.8, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
     nonThinking: { temperature: 0.7, top_k: 20, top_p: 0.8, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
-    supportsTools: true, supportsThinking: false,
+    supportsTools: true, supportsThinking: false, supportsVision: false,
   },
   llama3: {
     thinking:    { temperature: 0.6, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
     nonThinking: { temperature: 0.6, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
-    supportsTools: true, supportsThinking: false,
+    supportsTools: true, supportsThinking: false, supportsVision: false,
   },
   mistral: {
     thinking:    { temperature: 0.7, top_k: 50, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
     nonThinking: { temperature: 0.7, top_k: 50, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
-    supportsTools: true, supportsThinking: false,
+    supportsTools: true, supportsThinking: false, supportsVision: false,
   },
   deepseek: {
     thinking:    { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 0, max_tokens: 4096 },
     nonThinking: { temperature: 0.6, top_k:  0, top_p: 0.9,  min_p: 0, presence_penalty: 0, max_tokens: 1024 },
-    supportsTools: true, supportsThinking: true,
+    supportsTools: true, supportsThinking: true, supportsVision: false,
   },
   default: {
     thinking:    { temperature: 0.7, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 2048 },
     nonThinking: { temperature: 0.7, top_k: 40, top_p: 0.9, min_p: 0, presence_penalty: 0, max_tokens: 1024 },
-    supportsTools: false, supportsThinking: false,
+    supportsTools: false, supportsThinking: false, supportsVision: false,
   },
 };
 
@@ -770,6 +780,15 @@ async function runLlmJob(
     // Cuando hay imagen, no tiene sentido evaluar intenciones de texto ni usar herramientas.
     // El modelo describe la imagen. Cualquier acción (guardar, buscar) se hace en el siguiente turno.
     if (hasImage) {
+      // Guard: verificar que el modelo activo soporta visión
+      if (!mParams.supportsVision) {
+        jobs.set(jobId, {
+          status: "done",
+          content: "⚠️ El modelo actual no soporta análisis de imágenes. Cambia a un modelo con soporte de visión (como Qwen3.5) desde la gestión de modelos.",
+        });
+        return;
+      }
+
       const visionSystemPrompt = `Eres Stacklume AI, asistente visual inteligente. El usuario ha adjuntado una imagen.
 
 INSTRUCCIONES DE VISIÓN:
@@ -797,11 +816,10 @@ INSTRUCCIONES DE VISIÓN:
         },
       ];
 
-      // VL non-thinking: temp=0.7, top_k desactivado, presence_penalty=1.5
-      // VL thinking:     temp=0.6, top_k=20, presence_penalty=0.0 (razonamiento preciso sobre imagen)
-      const visionParams = enableThinking
-        ? { temperature: 0.6, top_k: 20, top_p: 0.95, min_p: 0, presence_penalty: 0.0, max_tokens: 2048 }
-        : { temperature: 0.7, top_k:  0, top_p: 0.8,  min_p: 0, presence_penalty: 1.5, max_tokens: 1024 };
+      // Parámetros de visión adaptados a la familia del modelo
+      const visionParams = effectiveThinking
+        ? (mParams.visionThinking ?? mParams.thinking)
+        : (mParams.visionNonThinking ?? mParams.nonThinking);
 
       const resp = await fetch(llamaUrl, {
         method: "POST",
@@ -813,9 +831,9 @@ INSTRUCCIONES DE VISIÓN:
           ...visionParams,
           chat_template_kwargs: {
             enable_thinking: effectiveThinking,
-            ...(enableThinking ? {} : { thinking_budget: 0 }),
+            ...(effectiveThinking ? {} : { thinking_budget: 0 }),
           },
-          ...(enableThinking ? { reasoning_format: "deepseek" } : {}),
+          ...(effectiveThinking ? { reasoning_format: "deepseek" } : {}),
         }),
         signal: AbortSignal.timeout(120_000),
       });
@@ -1108,8 +1126,8 @@ REGLAS CRÍTICAS:
         body: JSON.stringify({
           model: "local-model",
           messages,
-          tools: toolDefinitions,
-          tool_choice: "auto",
+          // Solo pasar tools si el modelo los soporta (modelos desconocidos → sin tools)
+          ...(mParams.supportsTools ? { tools: toolDefinitions, tool_choice: "auto" } : {}),
           stream: false,
           ...samplingParams,
           // Control de thinking per-request.

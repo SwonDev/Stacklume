@@ -184,8 +184,10 @@ export function ModelManagementDialog({
     setSwitching(filename);
     try {
       await tauriInvoke("switch_model", { filename });
-      onModelChanged();
+      // Primero actualizar la lista local (prefs ya guardadas en Rust)
       await loadModels();
+      // Luego notificar al panel de chat que el modelo cambió (pone status "starting")
+      onModelChanged();
     } catch (err) {
       console.error("Error al cambiar modelo:", err);
     } finally {
@@ -198,8 +200,8 @@ export function ModelManagementDialog({
     setDeleting(filename);
     try {
       await tauriInvoke("delete_model", { filename });
-      onModelChanged();
       await loadModels();
+      onModelChanged();
     } catch (err) {
       console.error("Error al eliminar modelo:", err);
     } finally {
@@ -218,10 +220,9 @@ export function ModelManagementDialog({
 
     try {
       await tauriInvoke("download_llm_model", { url, modelName });
-      onModelChanged();
       await loadModels();
-      // Volver a la pestaña de modelos descargados
       setSelectedRepo(null);
+      onModelChanged();
     } catch (err) {
       console.error("Error al descargar:", err);
     } finally {
