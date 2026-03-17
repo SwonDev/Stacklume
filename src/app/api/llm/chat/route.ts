@@ -904,20 +904,19 @@ STACKLUME: Dashboard de bookmarks con modos Bento/Kanban/Lista. 120+ widgets (no
 BIBLIOTECA DEL USUARIO:
 ${libraryText}${lastSearchCtx}
 
-HERRAMIENTAS — razona libremente y úsalas cuando tenga sentido:
-• search_library(query) — busca en la biblioteca del usuario por título, URL, categoría o etiqueta
-• web_search(query) — busca recursos en internet: documentación, tutoriales, proyectos, herramientas
-• save_link(url, title?) — guarda un enlace (requiere URL explícita que el usuario haya dado)
+HERRAMIENTAS — úsalas con criterio:
+• search_library(query) — busca en la biblioteca del usuario. Úsala PRIMERO para preguntas como "tienes algo de X?", "hay recursos de Y?", "mis links de Z", "algún enlace de X?"
+• web_search(query) — busca en internet. Solo cuando el usuario pida explícitamente buscar en la web, o cuando search_library no encuentre nada y el usuario quiera más opciones
+• save_link(url, title?) — guarda un enlace. SOLO cuando el usuario dé una URL explícita Y pida guardarla. NUNCA guardes automáticamente después de web_search
 • delete_link(url) — elimina un enlace (usa search_library antes si no tienes la URL exacta)
 • mark_favorite(url, favorite?) — favorite=true para marcar, false para desmarcar
 • move_to_category(url, category) — mueve un enlace a otra categoría
 
-CÓMO ACTUAR:
-• Eres un LLM inteligente — razona, interpreta el contexto y actúa de forma autónoma
-• Puedes encadenar herramientas (buscar → guardar, buscar → eliminar, etc.) si el contexto lo pide
+REGLAS CRÍTICAS:
+• "¿tienes algún enlace de X?", "tienes recursos de Y?", "hay algo de Z?" → usa SIEMPRE search_library PRIMERO
+• Si search_library no encuentra nada, di que no tienes y pregunta si quiere buscar en internet
+• NUNCA uses save_link automáticamente — solo cuando el usuario diga explícitamente "guarda esto", "añade esta URL", etc.
 • Cuando el usuario diga "el primero", "ése", "inclúyelos" → usa los RESULTADOS RECIENTES
-• Si la intención no está clara, pregunta brevemente en lugar de asumir
-• Puedes recomendar tecnologías, frameworks y herramientas por nombre — es útil
 • Responde en español, texto plano, directo y conversacional — sin asteriscos ni #
 • Solo usa URLs reales provenientes de herramientas o de la biblioteca — nunca inventes
 • Solo afirma haber ejecutado una acción si realmente llamaste la herramienta`;
@@ -927,7 +926,7 @@ CÓMO ACTUAR:
         type: "function" as const,
         function: {
           name: "search_library",
-          description: "Busca en la biblioteca del usuario. Úsala para: '¿qué links tengo de X?', 'muéstrame mis recursos de Y', 'tengo algo de Z?', 'mis favoritos', 'links de categoría X'.",
+          description: "Busca en la biblioteca del usuario. Úsala para: '¿tienes algún enlace de X?', '¿qué links tengo de Y?', 'muéstrame mis recursos de Z', 'tengo algo de X?', 'mis favoritos', 'links de categoría X', 'hay algo de Y?'. SIEMPRE primero para preguntas sobre la colección del usuario.",
           parameters: {
             type: "object",
             properties: {
@@ -941,7 +940,7 @@ CÓMO ACTUAR:
         type: "function" as const,
         function: {
           name: "web_search",
-          description: "Busca en internet. Úsala para: 'busca X', 'recomiéndame Y', 'encuentra Z en la web', 'documentación de X', 'mejores herramientas para Y'.",
+          description: "Busca recursos en internet. Úsala cuando: el usuario pida explícitamente 'busca X en internet', 'recomiéndame Y', 'encuentra Z en la web', 'documentación de X'. NO la uses para preguntas sobre la biblioteca del usuario ('tienes algo de X?', 'mis links de Y').",
           parameters: {
             type: "object",
             properties: {
@@ -955,7 +954,7 @@ CÓMO ACTUAR:
         type: "function" as const,
         function: {
           name: "save_link",
-          description: "Guarda un enlace en la biblioteca. Úsala cuando el usuario dé una URL explícita y pida guardarla. NO la uses si no hay URL.",
+          description: "Guarda un enlace en la biblioteca. SOLO cuando el usuario dé una URL explícita Y pida guardarla ('guarda https://...', 'añade este enlace'). NUNCA la uses automáticamente después de web_search. NUNCA si el usuario solo pregunta sobre recursos.",
           parameters: {
             type: "object",
             properties: {
