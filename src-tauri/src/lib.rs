@@ -879,13 +879,18 @@ async fn download_llm_model_impl(
     .await
     .map_err(|e| format!("Error interno en tarea de descarga: {}", e))??;
 
-    // Guardar ruta del modelo y arrancar llama-server
+    // Guardar ruta del modelo, preferencia y arrancar llama-server
     {
         let state = app.state::<LlamaState>();
         *state.model_path.lock().unwrap() =
             Some(model_path.to_string_lossy().to_string());
         *state.status.lock().unwrap() = "starting".to_string();
     }
+
+    // Guardar como modelo activo en models.json
+    let mut prefs = load_model_prefs(&app);
+    prefs.active_model = Some(model_name);
+    save_model_prefs(&app, &prefs);
 
     let app_clone = app.clone();
     std::thread::spawn(move || {
@@ -1029,6 +1034,258 @@ async fn download_mmproj(app: tauri::AppHandle) -> Result<(), String> {
     })
     .await
     .map_err(|e| format!("Error interno: {}", e))?
+}
+
+// ─── Gestión de modelos múltiples ─────────────────────────────────────────────
+
+/// Preferencias de modelos: qué modelo está activo + metadatos de cada modelo descargado.
+/// Se persiste en `%APPDATA%/com.stacklume.app/models.json`.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Default)]
+struct ModelPreferences {
+    /// Nombre del archivo .gguf seleccionado (e.g. "Qwen3.5-2B-Q4_K_M.gguf")
+    active_model: Option<String>,
+}
+
+fn model_prefs_path(app: &tauri::AppHandle) -> std::path::PathBuf {
+    let app_data = app.path().app_data_dir().unwrap_or_default();
+    app_data.join("models.json")
+}
+
+fn load_model_prefs(app: &tauri::AppHandle) -> ModelPreferences {
+    let path = model_prefs_path(app);
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_model_prefs(app: &tauri::AppHandle, prefs: &ModelPreferences) {
+    let path = model_prefs_path(app);
+    if let Ok(json) = serde_json::to_string_pretty(prefs) {
+        let _ = std::fs::write(&path, json);
+    }
+}
+
+/// Detecta la familia del modelo por su nombre de archivo para auto-configurar parámetros.
+fn detect_model_family(filename: &str) -> &'static str {
+    let lower = filename.to_lowercase();
+    if lower.contains("qwen3") { return "qwen3"; }
+    if lower.contains("qwen2") { return "qwen2"; }
+    if lower.contains("llama-3") || lower.contains("llama3") { return "llama3"; }
+    if lower.contains("mistral") || lower.contains("mixtral") { return "mistral"; }
+    if lower.contains("phi") { return "phi"; }
+    if lower.contains("gemma") { return "gemma"; }
+    if lower.contains("deepseek") { return "deepseek"; }
+    "default"
+}
+
+/// Extrae un nombre legible del nombre de archivo GGUF.
+/// "Qwen3.5-2B-Q4_K_M.gguf" → "Qwen 3.5 2B (Q4_K_M)"
+fn display_name_from_filename(filename: &str) -> String {
+    let name = filename.trim_end_matches(".gguf").trim_end_matches(".GGUF");
+    // Intentar extraer cuantización (último segmento con Q o IQ o FP)
+    let parts: Vec<&str> = name.rsplitn(2, '-').collect();
+    if parts.len() == 2 {
+        let quant = parts[0];
+        let base = parts[1].replace('_', " ").replace('-', " ");
+        if quant.starts_with('Q') || quant.starts_with("IQ") || quant.starts_with("FP") || quant.starts_with("F") {
+            return format!("{} ({})", base, quant);
+        }
+    }
+    name.replace('_', " ").replace('-', " ")
+}
+
+/// Lista todos los modelos .gguf descargados e indica cuál está activo.
+#[tauri::command]
+fn list_models(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| format!("{}", e))?;
+    let models_dir = app_data.join("models");
+    let prefs = load_model_prefs(&app);
+    let active = prefs.active_model.clone();
+
+    // También leer el modelo actualmente cargado en LlamaState como fallback
+    let state_model = app.state::<LlamaState>()
+        .model_path.lock().unwrap().clone()
+        .and_then(|p| std::path::Path::new(&p).file_name().map(|f| f.to_string_lossy().to_string()));
+
+    let active_filename = active.or(state_model);
+
+    let mut models = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&models_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let stem = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+
+            // Solo .gguf, excluyendo mmproj (proyector de visión)
+            if path.extension().and_then(|s| s.to_str()) != Some("gguf") { continue; }
+            if stem.contains("mmproj") { continue; }
+
+            let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            let family = detect_model_family(&filename);
+            let is_active = active_filename.as_deref() == Some(&filename);
+
+            models.push(serde_json::json!({
+                "filename": filename,
+                "displayName": display_name_from_filename(&filename),
+                "sizeBytes": size,
+                "family": family,
+                "isActive": is_active,
+                "supportsThinking": family == "qwen3" || family == "deepseek",
+                "supportsVision": family == "qwen3" && check_vision_status(app.clone()),
+            }));
+        }
+    }
+
+    // Ordenar: activo primero, luego por nombre
+    models.sort_by(|a, b| {
+        let a_active = a["isActive"].as_bool().unwrap_or(false);
+        let b_active = b["isActive"].as_bool().unwrap_or(false);
+        b_active.cmp(&a_active).then_with(||
+            a["displayName"].as_str().unwrap_or("").cmp(b["displayName"].as_str().unwrap_or(""))
+        )
+    });
+
+    Ok(serde_json::json!({
+        "models": models,
+        "activeModel": active_filename,
+    }))
+}
+
+/// Devuelve info del modelo activo (o null si no hay modelo cargado).
+#[tauri::command]
+fn get_active_model(app: tauri::AppHandle) -> serde_json::Value {
+    let state = app.state::<LlamaState>();
+    let model_path = state.model_path.lock().unwrap().clone();
+
+    match model_path {
+        Some(path) => {
+            let filename = std::path::Path::new(&path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            let family = detect_model_family(&filename);
+            serde_json::json!({
+                "filename": filename,
+                "displayName": display_name_from_filename(&filename),
+                "family": family,
+                "supportsThinking": family == "qwen3" || family == "deepseek",
+                "supportsVision": family == "qwen3" && check_vision_status(app.clone()),
+            })
+        }
+        None => serde_json::Value::Null,
+    }
+}
+
+/// Cambia el modelo activo: para llama-server, actualiza config, reinicia con el nuevo modelo.
+#[tauri::command]
+async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+    // Validar nombre
+    if filename.is_empty() || filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return Err("Nombre de modelo inválido".to_string());
+    }
+
+    let app_data = app.path().app_data_dir().map_err(|e| format!("{}", e))?;
+    let model_path = app_data.join("models").join(&filename);
+    if !model_path.exists() {
+        return Err(format!("Modelo no encontrado: {}", filename));
+    }
+
+    // Parar llama-server actual
+    #[cfg(not(dev))]
+    {
+        let state = app.state::<LlamaState>();
+        let child_opt = state.llama_child.lock().unwrap().take();
+        if let Some(mut child) = child_opt {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
+    // Actualizar estado
+    {
+        let state = app.state::<LlamaState>();
+        *state.model_path.lock().unwrap() = Some(model_path.to_string_lossy().to_string());
+        *state.status.lock().unwrap() = "starting".to_string();
+    }
+    let _ = app.emit("llm:status-changed", "starting");
+
+    // Guardar preferencia
+    let mut prefs = load_model_prefs(&app);
+    prefs.active_model = Some(filename);
+    save_model_prefs(&app, &prefs);
+
+    // Arrancar con el nuevo modelo
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        if let Err(e) = spawn_llama_server_blocking(&app_clone) {
+            eprintln!("[Stacklume] Error cambiando modelo: {}", e);
+            let msg = format!("error: {}", e);
+            *app_clone.state::<LlamaState>().status.lock().unwrap() = msg.clone();
+            let _ = app_clone.emit("llm:status-changed", msg);
+        }
+    });
+
+    Ok(())
+}
+
+/// Elimina un modelo .gguf descargado. Si era el activo, para llama-server.
+#[tauri::command]
+async fn delete_model(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+    // Validar nombre
+    if filename.is_empty() || filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return Err("Nombre de modelo inválido".to_string());
+    }
+    if !filename.to_lowercase().ends_with(".gguf") {
+        return Err("Solo se pueden eliminar archivos .gguf".to_string());
+    }
+    // No permitir eliminar mmproj
+    if filename.to_lowercase().contains("mmproj") {
+        return Err("El proyector de visión no se puede eliminar desde aquí".to_string());
+    }
+
+    let app_data = app.path().app_data_dir().map_err(|e| format!("{}", e))?;
+    let model_path = app_data.join("models").join(&filename);
+    if !model_path.exists() {
+        return Err("Modelo no encontrado".to_string());
+    }
+
+    // Si es el modelo activo, parar llama-server primero
+    let is_active = {
+        let state = app.state::<LlamaState>();
+        let current = state.model_path.lock().unwrap().clone();
+        current.as_deref() == Some(model_path.to_string_lossy().as_ref())
+    };
+
+    if is_active {
+        #[cfg(not(dev))]
+        {
+            let state = app.state::<LlamaState>();
+            let child_opt = state.llama_child.lock().unwrap().take();
+            if let Some(mut child) = child_opt {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+        let state = app.state::<LlamaState>();
+        *state.model_path.lock().unwrap() = None;
+        *state.status.lock().unwrap() = "no_model".to_string();
+        let _ = app.emit("llm:status-changed", "no_model");
+    }
+
+    // Eliminar archivo
+    std::fs::remove_file(&model_path)
+        .map_err(|e| format!("Error al eliminar: {}", e))?;
+
+    // Actualizar preferencias
+    let mut prefs = load_model_prefs(&app);
+    if prefs.active_model.as_deref() == Some(&filename) {
+        prefs.active_model = None;
+    }
+    save_model_prefs(&app, &prefs);
+
+    Ok(())
 }
 
 // ─── System Tray ──────────────────────────────────────────────────────────────
@@ -1382,28 +1639,29 @@ pub fn run() {
                             llama_exe.to_str().map(|s| s.to_string());
 
                         // Buscar modelo .gguf en app_data/models/
-                        // IMPORTANTE: excluir mmproj-*.gguf (proyector multimodal de visión)
-                        // para no confundirlo con el modelo de lenguaje principal.
+                        // Prioridad: 1) modelo guardado en models.json, 2) primer .gguf encontrado
                         let models_dir = app_data.join("models");
-                        let model_opt = std::fs::read_dir(&models_dir)
-                            .ok()
-                            .and_then(|entries| {
-                                entries.filter_map(|e| e.ok()).find_map(|entry| {
-                                    let p = entry.path();
-                                    let stem = p
-                                        .file_stem()
-                                        .and_then(|s| s.to_str())
-                                        .unwrap_or("");
-                                    // Solo seleccionar archivos .gguf que NO sean el proyector mmproj
-                                    if p.extension().and_then(|s| s.to_str()) == Some("gguf")
-                                        && !stem.contains("mmproj")
-                                    {
-                                        Some(p)
-                                    } else {
-                                        None
-                                    }
+                        let prefs = load_model_prefs(&app);
+                        let preferred = prefs.active_model.as_ref()
+                            .map(|name| models_dir.join(name))
+                            .filter(|p| p.exists());
+                        let model_opt = preferred.or_else(|| {
+                            std::fs::read_dir(&models_dir)
+                                .ok()
+                                .and_then(|entries| {
+                                    entries.filter_map(|e| e.ok()).find_map(|entry| {
+                                        let p = entry.path();
+                                        let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                                        if p.extension().and_then(|s| s.to_str()) == Some("gguf")
+                                            && !stem.contains("mmproj")
+                                        {
+                                            Some(p)
+                                        } else {
+                                            None
+                                        }
+                                    })
                                 })
-                            });
+                        });
 
                         if let Some(model) = &model_opt {
                             *llama_srv.model_path.lock().unwrap() =
@@ -1744,6 +2002,10 @@ pub fn run() {
             check_vision_status,
             stop_llama_server,
             download_mmproj,
+            list_models,
+            get_active_model,
+            switch_model,
+            delete_model,
         ])
         .run(tauri::generate_context!())
         .expect("Error al ejecutar Stacklume");
