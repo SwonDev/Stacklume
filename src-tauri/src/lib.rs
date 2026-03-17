@@ -1654,7 +1654,7 @@ pub fn run() {
                         // Buscar modelo .gguf en app_data/models/
                         // Prioridad: 1) modelo guardado en models.json, 2) primer .gguf encontrado
                         let models_dir = app_data.join("models");
-                        let prefs = load_model_prefs(&app);
+                        let prefs = load_model_prefs(app.handle());
                         let preferred = prefs.active_model.as_ref()
                             .map(|name| models_dir.join(name))
                             .filter(|p| p.exists());
