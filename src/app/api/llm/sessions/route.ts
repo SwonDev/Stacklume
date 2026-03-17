@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, generateId, withRetry } from "@/lib/db";
-import { llmChats, llmMessages } from "@/lib/db/schema";
-import { desc, eq, isNull, sql } from "drizzle-orm";
+import { llmChats } from "@/lib/db/schema";
+import { desc } from "drizzle-orm";
 
 // GET /api/llm/sessions — lista de chats ordenados por updatedAt desc
 export async function GET(req: NextRequest) {
