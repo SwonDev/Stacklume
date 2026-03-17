@@ -18,7 +18,8 @@ export async function GET(
       );
     }
 
-    const hfUrl = `https://huggingface.co/api/models/${decodedRepo}`;
+    // Usar endpoint /tree que incluye tamaños de archivo (siblings no los incluye)
+    const hfUrl = `https://huggingface.co/api/models/${decodedRepo}/tree/main`;
     const res = await fetch(hfUrl, { next: { revalidate: 300 } });
 
     if (!res.ok) {
@@ -28,14 +29,16 @@ export async function GET(
       );
     }
 
-    const data = (await res.json()) as {
-      siblings?: Array<{ rfilename: string; size?: number }>;
-    };
+    const data = (await res.json()) as Array<{
+      type: string;
+      path: string;
+      size?: number;
+    }>;
 
-    const files = (data.siblings ?? [])
-      .filter((f) => f.rfilename?.endsWith(".gguf") && !f.rfilename.includes("mmproj"))
+    const files = data
+      .filter((f) => f.type === "file" && f.path?.endsWith(".gguf") && !f.path.includes("mmproj"))
       .map((f) => {
-        const filename = f.rfilename;
+        const filename = f.path;
         const size = f.size ?? 0;
         // Extraer cuantización del nombre (Q4_K_M, Q5_K_S, Q8_0, etc.)
         const quantMatch = filename.match(/(Q\d[^.]*|IQ\d[^.]*|F\d+|FP\d+)/i);
