@@ -175,7 +175,9 @@ fn detect_gpu_layers(binary_path: &str, model_path: &str) -> String {
     use std::process::Command;
 
     // Buscar ggml-cuda.dll en el directorio del binario de llama-server
-    let has_cuda_backend = std::path::Path::new(binary_path)
+    // Strip \\?\ prefix que Tauri añade a rutas en producción (no resuelve con join())
+    let clean_path = binary_path.strip_prefix(r"\\?\").unwrap_or(binary_path);
+    let has_cuda_backend = std::path::Path::new(clean_path)
         .parent()
         .map(|dir| dir.join("ggml-cuda.dll").exists())
         .unwrap_or(false);
