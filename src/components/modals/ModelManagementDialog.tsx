@@ -63,17 +63,29 @@ interface DownloadProgress {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const tauriInvoke = async <T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
-  if (typeof window === "undefined" || !("__TAURI__" in window)) throw new Error("No Tauri");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (window as any).__TAURI__.core.invoke(cmd, args);
-};
+function tauriInvoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const internals = (window as unknown as Record<string, unknown>)
+    .__TAURI_INTERNALS__ as { invoke?: (cmd: string, args?: unknown) => Promise<T> } | undefined;
+  if (internals?.invoke) {
+    return internals.invoke(cmd, args);
+  }
+  return Promise.reject(new Error("Tauri no disponible"));
+}
 
-const tauriListen = async (event: string, handler: (payload: unknown) => void): Promise<() => void> => {
-  if (typeof window === "undefined" || !("__TAURI__" in window)) return () => {};
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (window as any).__TAURI__.event.listen(event, (e: any) => handler(e.payload));
-};
+function tauriListen(
+  event: string,
+  handler: (payload: unknown) => void
+): Promise<() => void> {
+  const internals = (window as unknown as Record<string, unknown>)
+    .__TAURI_INTERNALS__ as
+    | { event?: { listen?: (e: string, h: (evt: { payload: unknown }) => void) => Promise<() => void> } }
+    | undefined;
+  const listen = internals?.event?.listen;
+  if (typeof listen === "function") {
+    return listen(event, (evt) => handler(evt.payload));
+  }
+  return Promise.resolve(() => {});
+}
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
