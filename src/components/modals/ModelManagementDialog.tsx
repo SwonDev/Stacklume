@@ -104,14 +104,39 @@ interface FitResult {
   level: FitLevel;
   label: string;
   color: string;
-  detail: string; // "GPU 8GB" o "CPU 16GB RAM"
-  mode: "gpu" | "hybrid" | "cpu"; // cómo se ejecutaría
+  detail: string;
+  mode: "gpu" | "hybrid" | "cpu";
 }
 
-/** Determina compatibilidad considerando GPU (VRAM) y CPU (RAM) */
+/**
+ * Estima la memoria total necesaria para inferencia con llama.cpp.
+ * Basado en la fórmula de llmfit/oobabooga:
+ *   Total = model_weights + kv_cache + compute_buffer
+ * - model_weights ≈ file_size (ya incluye cuantización)
+ * - kv_cache ≈ ctx_size × hidden_dim × layers × 2 (K+V) × bytes_per_element
+ *   Para simplificar: ~0.5 MB por 1K tokens para modelos <3B,
+ *                     ~2 MB por 1K tokens para 7B, ~4 MB/1K para 13B+
+ * - compute_buffer: 256-512 MB fijo
+ * Ref: https://github.com/AlexsJones/llmfit
+ *      https://oobabooga.github.io/blog/posts/gguf-vram-formula/
+ */
+function estimateMemoryMb(fileSizeBytes: number, ctxSize = 8192): { totalMb: number; modelMb: number; kvCacheMb: number; overheadMb: number } {
+  const modelMb = fileSizeBytes / (1024 * 1024);
+  // Estimar parámetros del modelo basándose en el tamaño del archivo
+  // Q4_K_M ≈ 0.55 bytes/param, Q8_0 ≈ 1.1 bytes/param, FP16 ≈ 2 bytes/param
+  // Estimación conservadora: assume ~0.6 bytes/param (cuantización media)
+  const estimatedParamsB = fileSizeBytes / (0.6 * 1e9); // billones de parámetros
+  // KV cache: ~0.25 MB por 1K tokens por cada billón de parámetros (empírico)
+  const kvCacheMb = (ctxSize / 1024) * 0.25 * Math.max(estimatedParamsB, 0.5);
+  // Compute buffer: 256-512 MB según tamaño del modelo
+  const overheadMb = estimatedParamsB > 7 ? 512 : estimatedParamsB > 3 ? 384 : 256;
+  return { totalMb: modelMb + kvCacheMb + overheadMb, modelMb, kvCacheMb, overheadMb };
+}
+
+/** Determina compatibilidad con GPU (VRAM) y CPU (RAM) — prioriza GPU */
 function checkFit(fileSizeBytes: number, specs: SystemSpecs | null): FitResult {
-  const fileMb = fileSizeBytes / (1024 * 1024);
-  const neededMb = fileMb * 1.1 + 200; // modelo + overhead
+  const mem = estimateMemoryMb(fileSizeBytes);
+  const neededGb = (mem.totalMb / 1024).toFixed(1);
 
   if (!specs) return { level: "good", label: "", color: "", detail: "", mode: "cpu" };
 
@@ -119,24 +144,46 @@ function checkFit(fileSizeBytes: number, specs: SystemSpecs | null): FitResult {
   const ram = specs.ram.totalMb;
   const hasCuda = specs.gpu.hasCuda === true;
 
-  // Prioridad 1: GPU completa (mejor rendimiento)
-  if (hasCuda && vram > 0 && neededMb < vram * 0.85) {
-    const ratio = neededMb / vram;
-    if (ratio < 0.5) return { level: "perfect", label: "GPU — perfecto", color: "text-green-500", detail: `${(neededMb/1024).toFixed(1)}/${(vram/1024).toFixed(0)} GB VRAM`, mode: "gpu" };
-    return { level: "good", label: "GPU — funciona bien", color: "text-emerald-400", detail: `${(neededMb/1024).toFixed(1)}/${(vram/1024).toFixed(0)} GB VRAM`, mode: "gpu" };
+  // ── GPU completa (mejor rendimiento) ──
+  if (hasCuda && vram > 0) {
+    const gpuRatio = mem.totalMb / vram;
+    if (gpuRatio < 0.6) {
+      return { level: "perfect", label: "GPU — perfecto", color: "text-green-500",
+        detail: `~${neededGb} GB de ${Math.round(vram / 1024)} GB VRAM`, mode: "gpu" };
+    }
+    if (gpuRatio < 0.85) {
+      return { level: "good", label: "GPU — funciona bien", color: "text-emerald-400",
+        detail: `~${neededGb} GB de ${Math.round(vram / 1024)} GB VRAM`, mode: "gpu" };
+    }
+    if (gpuRatio < 1.0) {
+      return { level: "tight", label: "GPU — justo", color: "text-amber-400",
+        detail: `~${neededGb} GB de ${Math.round(vram / 1024)} GB VRAM`, mode: "gpu" };
+    }
   }
 
-  // Prioridad 2: Híbrido GPU+RAM (si hay VRAM parcial)
-  if (hasCuda && vram > 500 && neededMb < vram + ram * 0.6) {
-    return { level: "good", label: "GPU+CPU — funciona", color: "text-blue-400", detail: `${(vram/1024).toFixed(0)} GB VRAM + RAM`, mode: "hybrid" };
+  // ── Híbrido GPU+CPU (modelo parcialmente en VRAM) ──
+  if (hasCuda && vram > 1024 && mem.totalMb < vram + ram * 0.5) {
+    return { level: "good", label: "GPU+CPU — funciona", color: "text-blue-400",
+      detail: `~${neededGb} GB (${Math.round(vram / 1024)} VRAM + RAM)`, mode: "hybrid" };
   }
 
-  // Prioridad 3: CPU only (RAM del sistema)
-  const ramRatio = (fileMb * 1.2 + 500) / ram;
-  if (ramRatio < 0.5) return { level: "good", label: "CPU — funciona bien", color: "text-emerald-400", detail: `~${((fileMb*1.2+500)/1024).toFixed(1)} GB de ${(ram/1024).toFixed(0)} GB RAM`, mode: "cpu" };
-  if (ramRatio < 0.75) return { level: "good", label: "CPU — funciona", color: "text-yellow-400", detail: `~${((fileMb*1.2+500)/1024).toFixed(1)} GB de ${(ram/1024).toFixed(0)} GB RAM`, mode: "cpu" };
-  if (ramRatio < 0.95) return { level: "tight", label: "CPU — puede ir lento", color: "text-amber-400", detail: `~${((fileMb*1.2+500)/1024).toFixed(1)} GB de ${(ram/1024).toFixed(0)} GB RAM`, mode: "cpu" };
-  return { level: "no", label: "Memoria insuficiente", color: "text-red-400", detail: `Necesita ~${((fileMb*1.2+500)/1024).toFixed(1)} GB`, mode: "cpu" };
+  // ── CPU only (todo en RAM del sistema) ──
+  const cpuNeeded = mem.modelMb * 1.15 + mem.kvCacheMb + 512; // más overhead en CPU
+  const cpuRatio = cpuNeeded / ram;
+  if (cpuRatio < 0.4) {
+    return { level: "good", label: "CPU — funciona bien", color: "text-emerald-400",
+      detail: `~${(cpuNeeded / 1024).toFixed(1)} GB de ${Math.round(ram / 1024)} GB RAM`, mode: "cpu" };
+  }
+  if (cpuRatio < 0.65) {
+    return { level: "good", label: "CPU — funciona", color: "text-yellow-400",
+      detail: `~${(cpuNeeded / 1024).toFixed(1)} GB de ${Math.round(ram / 1024)} GB RAM`, mode: "cpu" };
+  }
+  if (cpuRatio < 0.85) {
+    return { level: "tight", label: "CPU — puede ir lento", color: "text-amber-400",
+      detail: `~${(cpuNeeded / 1024).toFixed(1)} GB de ${Math.round(ram / 1024)} GB RAM`, mode: "cpu" };
+  }
+  return { level: "no", label: "Memoria insuficiente", color: "text-red-400",
+    detail: `Necesita ~${(cpuNeeded / 1024).toFixed(1)} GB`, mode: "cpu" };
 }
 
 function formatSize(bytes: number): string {
