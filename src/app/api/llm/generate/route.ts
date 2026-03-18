@@ -31,12 +31,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "url y type son obligatorios" }, { status: 400 });
   }
 
-  const llamaPort = clientPort && clientPort > 0
+  // Buscar puerto LLM: 1) del cliente, 2) env LLAMA_PORT, 3) buscar en puertos comunes
+  let llamaPort = clientPort && clientPort > 0
     ? clientPort.toString()
-    : (process.env.LLAMA_PORT || "0");
+    : (process.env.LLAMA_PORT || "");
+
+  // Si no hay puerto, intentar encontrar llama-server escuchando en puertos recientes
+  if (!llamaPort || llamaPort === "0") {
+    // En producción Tauri, LLAMA_PORT siempre está seteado. En dev, el frontend
+    // debe pasar el puerto. Si ninguno funciona, probar los puertos más comunes.
+    for (const testPort of [8080, 8099]) {
+      try {
+        const probe = await fetch(`http://127.0.0.1:${testPort}/health`, { signal: AbortSignal.timeout(500) });
+        if (probe.ok) { llamaPort = String(testPort); break; }
+      } catch { /* */ }
+    }
+  }
 
   if (!llamaPort || llamaPort === "0") {
-    return NextResponse.json({ error: "LLM local no disponible" }, { status: 503 });
+    return NextResponse.json({ error: "LLM local no disponible. Abre el chat de IA primero." }, { status: 503 });
   }
 
   const llamaUrl = `http://127.0.0.1:${llamaPort}/v1/chat/completions`;
