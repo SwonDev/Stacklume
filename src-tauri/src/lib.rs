@@ -1416,7 +1416,7 @@ async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), Str
         return Err(format!("Modelo no encontrado: {}", filename));
     }
 
-    // Parar llama-server actual
+    // Parar llama-server actual y esperar a que libere el puerto
     #[cfg(not(dev))]
     {
         let state = app.state::<LlamaState>();
@@ -1424,12 +1424,16 @@ async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), Str
         if let Some(mut child) = child_opt {
             let _ = child.kill();
             let _ = child.wait();
+            // Esperar a que el SO libere el puerto TCP (TIME_WAIT)
+            std::thread::sleep(std::time::Duration::from_secs(2));
         }
     }
 
-    // Actualizar estado
+    // Asignar nuevo puerto para evitar conflictos con el anterior
     {
         let state = app.state::<LlamaState>();
+        let new_port = find_any_free_port();
+        *state.port.lock().unwrap() = new_port;
         *state.model_path.lock().unwrap() = Some(model_path.to_string_lossy().to_string());
         *state.status.lock().unwrap() = "starting".to_string();
     }
