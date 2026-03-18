@@ -23,6 +23,9 @@ import {
   Key,
   Eye,
   EyeOff,
+  Cpu,
+  MemoryStick,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -482,15 +485,22 @@ export function ModelManagementDialog({
                 {systemSpecs && (
                   <div className="mb-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border/50 shrink-0">
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
-                      <span title={systemSpecs.cpu.name}>
-                        💻 {systemSpecs.cpu.name.split(" ").slice(0, 3).join(" ")} ({systemSpecs.cpu.cores} hilos)
+                      <span className="flex items-center gap-1" title={systemSpecs.cpu.name}>
+                        <Cpu className="w-3 h-3 text-primary" />
+                        {systemSpecs.cpu.name.split(" ").slice(0, 4).join(" ")} ({systemSpecs.cpu.cores} hilos)
                       </span>
-                      <span>🧠 {(systemSpecs.ram.totalMb / 1024).toFixed(0)} GB RAM</span>
+                      <span className="flex items-center gap-1">
+                        <MemoryStick className="w-3 h-3 text-primary" />
+                        {(systemSpecs.ram.totalMb / 1024).toFixed(0)} GB RAM
+                      </span>
                       {systemSpecs.gpu.name && (
-                        <span title={systemSpecs.gpu.name} className={systemSpecs.gpu.hasCuda ? "text-green-400" : ""}>
-                          🎮 {systemSpecs.gpu.name.length > 30 ? systemSpecs.gpu.name.split(" ").slice(-3).join(" ") : systemSpecs.gpu.name}
-                          {systemSpecs.gpu.vramMb > 0 && ` ${(systemSpecs.gpu.vramMb / 1024).toFixed(0)} GB`}
-                          {systemSpecs.gpu.hasCuda && " CUDA"}
+                        <span className="flex items-center gap-1" title={systemSpecs.gpu.name}>
+                          <Monitor className="w-3 h-3 text-primary" />
+                          {systemSpecs.gpu.name}
+                          {systemSpecs.gpu.vramMb > 0 && ` ${Math.round(systemSpecs.gpu.vramMb / 1024)} GB`}
+                          {systemSpecs.gpu.hasCuda && (
+                            <span className="text-green-400 font-semibold">CUDA</span>
+                          )}
                         </span>
                       )}
                     </div>
