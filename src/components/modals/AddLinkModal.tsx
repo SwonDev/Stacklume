@@ -502,6 +502,18 @@ export function AddLinkModal() {
         }
       } catch { /* ignorar */ }
 
+      // Leer preferencia de thinking y familia del modelo
+      const thinkingEnabled = localStorage.getItem("stacklume-llm-thinking") === "true";
+      let modelFamily = "qwen3";
+      try {
+        const internals2 = (window as unknown as Record<string, unknown>)
+          .__TAURI_INTERNALS__ as { invoke?: (cmd: string) => Promise<{ family?: string } | null> } | undefined;
+        if (internals2?.invoke) {
+          const info = await internals2.invoke("get_active_model");
+          if (info?.family) modelFamily = info.family;
+        }
+      } catch { /* */ }
+
       const res = await fetch("/api/llm/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -511,6 +523,8 @@ export function AddLinkModal() {
           currentDescription: form.getValues("description"),
           type,
           llamaPort,
+          enableThinking: thinkingEnabled,
+          modelFamily,
         }),
       });
 

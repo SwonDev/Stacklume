@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
     currentDescription?: string;
     type: "title" | "description" | "tags";
     llamaPort?: number;
+    enableThinking?: boolean;
+    modelFamily?: string;
   };
 
   try {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   }
 
-  const { url, currentTitle, currentDescription, type, llamaPort: clientPort } = body;
+  const { url, currentTitle, currentDescription, type, llamaPort: clientPort, enableThinking = false, modelFamily = "qwen3" } = body;
   if (!url || !type) {
     return NextResponse.json({ error: "url y type son obligatorios" }, { status: 400 });
   }
@@ -69,6 +71,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
   }
 
+  // Thinking: solo para modelos que lo soportan (qwen3, deepseek)
+  const thinkingFamilies = ["qwen3", "deepseek"];
+  const useThinking = enableThinking && thinkingFamilies.includes(modelFamily);
+
   try {
     const resp = await fetch(llamaUrl, {
       method: "POST",
@@ -80,11 +86,18 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         stream: false,
-        temperature: 0.7,
-        max_tokens: 256,
-        chat_template_kwargs: { enable_thinking: false, thinking_budget: 0 },
+        // Con thinking: el modelo razona internamente antes de responder → mejor calidad
+        temperature: useThinking ? 1.0 : 0.7,
+        top_p: useThinking ? 0.95 : 0.9,
+        presence_penalty: useThinking ? 1.5 : 0,
+        max_tokens: useThinking ? 1024 : 256,
+        chat_template_kwargs: {
+          enable_thinking: useThinking,
+          ...(useThinking ? {} : { thinking_budget: 0 }),
+        },
+        ...(useThinking ? { reasoning_format: "deepseek" } : {}),
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(useThinking ? 60_000 : 30_000),
     });
 
     if (!resp.ok) {

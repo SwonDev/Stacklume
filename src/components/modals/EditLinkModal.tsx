@@ -129,10 +129,17 @@ export function EditLinkModal() {
           .__TAURI_INTERNALS__ as { invoke?: (cmd: string, args?: unknown) => Promise<number> } | undefined;
         if (internals?.invoke) llamaPort = await internals.invoke("get_llama_port");
       } catch { /* */ }
+      const thinkingEnabled = localStorage.getItem("stacklume-llm-thinking") === "true";
+      let modelFamily = "qwen3";
+      try {
+        const i2 = (window as unknown as Record<string, unknown>)
+          .__TAURI_INTERNALS__ as { invoke?: (cmd: string) => Promise<{ family?: string } | null> } | undefined;
+        if (i2?.invoke) { const info = await i2.invoke("get_active_model"); if (info?.family) modelFamily = info.family; }
+      } catch { /* */ }
       const res = await fetch("/api/llm/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, currentTitle: form.getValues("title"), currentDescription: form.getValues("description"), type, llamaPort }),
+        body: JSON.stringify({ url, currentTitle: form.getValues("title"), currentDescription: form.getValues("description"), type, llamaPort, enableThinking: thinkingEnabled, modelFamily }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
       const data = await res.json();
