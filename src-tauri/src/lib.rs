@@ -170,26 +170,13 @@ fn wait_for_llama_server(port: u16) -> bool {
 }
 
 /// Detecta cuántas GPU layers usar.
-/// IMPORTANTE: solo usa GPU si el binario de llama-server tiene un backend CUDA/Vulkan.
-/// El llama-server bundleado actualmente es CPU-only (ggml-cpu-*.dll).
-/// Si no hay backend GPU, SIEMPRE devolver "0" para evitar crash.
-fn detect_gpu_layers(model_path: &str) -> String {
+/// Solo usa GPU si ggml-cuda.dll existe junto al binario de llama-server.
+fn detect_gpu_layers(binary_path: &str, model_path: &str) -> String {
     use std::process::Command;
 
-    // Verificar si llama-server tiene backend CUDA/Vulkan bundleado
-    // Buscar ggml-cuda.dll o ggml-vulkan.dll junto al binario
-    let llama_dir = std::path::Path::new(model_path)
+    // Buscar ggml-cuda.dll en el directorio del binario de llama-server
+    let has_cuda_backend = std::path::Path::new(binary_path)
         .parent()
-        .and_then(|_| {
-            // El binario está en resources/llama/, no junto al modelo
-            // Intentar la ruta típica de instalación
-            let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
-            let p = std::path::PathBuf::from(&local).join("Stacklume").join("resources").join("llama");
-            if p.exists() { Some(p) } else { None }
-        });
-
-    let has_cuda_backend = llama_dir
-        .as_ref()
         .map(|dir| dir.join("ggml-cuda.dll").exists())
         .unwrap_or(false);
 
@@ -307,7 +294,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         // Si hay GPU NVIDIA con CUDA y suficiente VRAM, usar -ngl 99 (todas las capas en GPU).
         // Si no hay GPU o VRAM insuficiente, -ngl 0 (CPU only).
         .arg("-ngl")
-        .arg(&detect_gpu_layers(&model_path))
+        .arg(&detect_gpu_layers(&binary_path, &model_path))
         .arg("--threads")
         .arg(&n_threads)
         .arg("--threads-batch")
