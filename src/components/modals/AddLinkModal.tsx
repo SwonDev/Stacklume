@@ -20,6 +20,7 @@ import {
   X,
   Tags,
   Check,
+  Wand2,
 } from "lucide-react";
 import { useFormDraft, formatDraftTime } from "@/hooks/useFormDraft";
 import {
@@ -251,6 +252,7 @@ export function AddLinkModal() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [suggestedTags, setSuggestedTags] = useState<TagSuggestion[]>([]);
   const [selectedTagNames, setSelectedTagNames] = useState<Set<string>>(new Set());
+  const [aiGenerating, setAiGenerating] = useState<"title" | "description" | "tags" | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -478,6 +480,79 @@ export function AddLinkModal() {
     }
   };
 
+  // ─── Generación con IA ──────────────────────────────────────────────────────
+
+  const isDesktop = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  const generateWithAI = useCallback(async (type: "title" | "description" | "tags") => {
+    const url = form.getValues("url");
+    if (!url) {
+      toast.error("Introduce una URL primero");
+      return;
+    }
+    setAiGenerating(type);
+    try {
+      // Obtener puerto LLM desde Tauri
+      let llamaPort = 0;
+      try {
+        const internals = (window as unknown as Record<string, unknown>)
+          .__TAURI_INTERNALS__ as { invoke?: (cmd: string, args?: unknown) => Promise<number> } | undefined;
+        if (internals?.invoke) {
+          llamaPort = await internals.invoke("get_llama_port");
+        }
+      } catch { /* ignorar */ }
+
+      const res = await fetch("/api/llm/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          currentTitle: form.getValues("title"),
+          currentDescription: form.getValues("description"),
+          type,
+          llamaPort,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Error" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (type === "title" && data.result) {
+        form.setValue("title", data.result);
+      } else if (type === "description" && data.result) {
+        form.setValue("description", data.result);
+      } else if (type === "tags" && data.tags) {
+        // Añadir las etiquetas generadas como sugerencias
+        const tagColors = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#ec4899", "#06b6d4", "#84cc16"];
+        const newTags: TagSuggestion[] = (data.tags as string[]).map((name: string, i: number) => ({
+          name,
+          color: tagColors[i % tagColors.length],
+        }));
+        // Fusionar con sugerencias existentes (evitar duplicados)
+        setSuggestedTags((prev) => {
+          const existingNames = new Set(prev.map((t) => t.name.toLowerCase()));
+          const toAdd = newTags.filter((t) => !existingNames.has(t.name.toLowerCase()));
+          return [...prev, ...toAdd];
+        });
+        // Seleccionar todas las nuevas
+        setSelectedTagNames((prev) => {
+          const next = new Set(prev);
+          newTags.forEach((t) => next.add(t.name));
+          return next;
+        });
+        toast.success(`${(data.tags as string[]).length} etiquetas generadas`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al generar con IA");
+    } finally {
+      setAiGenerating(null);
+    }
+  }, [form]);
+
   const handleClose = () => {
     form.reset();
     setScrapedData(null);
@@ -669,6 +744,29 @@ export function AddLinkModal() {
               )}
             </AnimatePresence>
 
+            {/* AI Tag Generation (when no suggestions or desktop available) */}
+            {isDesktop && suggestedTags.length === 0 && form.getValues("url") && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Tags className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <span className="text-sm font-medium">Etiquetas</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => generateWithAI("tags")}
+                  disabled={aiGenerating !== null}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors border border-dashed border-border rounded-lg px-3 py-2 w-full hover:border-primary/50 disabled:opacity-40"
+                >
+                  {aiGenerating === "tags" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Wand2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>Generar etiquetas con IA</span>
+                </button>
+              </div>
+            )}
+
             {/* Suggested Tags */}
             <AnimatePresence>
               {suggestedTags.length > 0 && (
@@ -681,6 +779,22 @@ export function AddLinkModal() {
                   <div className="flex items-center gap-1.5">
                     <Tags className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                     <span className="text-sm font-medium">{t("addLink.suggestedTags")}</span>
+                    {isDesktop && (
+                      <button
+                        type="button"
+                        onClick={() => generateWithAI("tags")}
+                        disabled={aiGenerating !== null || !form.getValues("url")}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                        title="Generar más etiquetas con IA"
+                      >
+                        {aiGenerating === "tags" ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Wand2 className="w-3 h-3" />
+                        )}
+                        <span>IA</span>
+                      </button>
+                    )}
                     {selectedTagNames.size > 0 && (
                       <Badge variant="secondary" className="ml-auto text-xs py-0">
                         {selectedTagNames.size} {t("addLink.tagsSelected")}
@@ -726,7 +840,25 @@ export function AddLinkModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addLink.linkTitle")}</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>{t("addLink.linkTitle")}</FormLabel>
+                    {isDesktop && (
+                      <button
+                        type="button"
+                        onClick={() => generateWithAI("title")}
+                        disabled={aiGenerating !== null || !form.getValues("url")}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                        title="Generar título con IA"
+                      >
+                        {aiGenerating === "title" ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Wand2 className="w-3 h-3" />
+                        )}
+                        <span>IA</span>
+                      </button>
+                    )}
+                  </div>
                   <FormControl>
                     <Input placeholder={t("addLink.titlePlaceholder")} {...field} />
                   </FormControl>
@@ -741,7 +873,25 @@ export function AddLinkModal() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addLink.descriptionLabel")}</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>{t("addLink.descriptionLabel")}</FormLabel>
+                    {isDesktop && (
+                      <button
+                        type="button"
+                        onClick={() => generateWithAI("description")}
+                        disabled={aiGenerating !== null || !form.getValues("url")}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-40"
+                        title="Generar descripción con IA"
+                      >
+                        {aiGenerating === "description" ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Wand2 className="w-3 h-3" />
+                        )}
+                        <span>IA</span>
+                      </button>
+                    )}
+                  </div>
                   <FormControl>
                     <Textarea
                       placeholder={t("addLink.descriptionPlaceholder")}

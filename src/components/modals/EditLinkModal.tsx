@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen, StickyNote, Bell } from "lucide-react";
+import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen, StickyNote, Bell, Wand2 } from "lucide-react";
 import { TagSelector } from "@/components/ui/tag-selector";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { MultiCategorySelector } from "@/components/ui/multi-category-selector";
@@ -65,6 +65,7 @@ export function EditLinkModal() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState<"title" | "description" | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [isRead, setIsRead] = useState(false);
@@ -114,6 +115,34 @@ export function EditLinkModal() {
       }
     }
   }, [selectedLink, form, linkTags, linkCategories]);
+
+  const isDesktop = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  const generateWithAI = async (type: "title" | "description") => {
+    const url = form.getValues("url");
+    if (!url) return;
+    setAiGenerating(type);
+    try {
+      let llamaPort = 0;
+      try {
+        const internals = (window as unknown as Record<string, unknown>)
+          .__TAURI_INTERNALS__ as { invoke?: (cmd: string, args?: unknown) => Promise<number> } | undefined;
+        if (internals?.invoke) llamaPort = await internals.invoke("get_llama_port");
+      } catch { /* */ }
+      const res = await fetch("/api/llm/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, currentTitle: form.getValues("title"), currentDescription: form.getValues("description"), type, llamaPort }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
+      const data = await res.json();
+      if (data.result) form.setValue(type, data.result);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al generar con IA");
+    } finally {
+      setAiGenerating(null);
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (!selectedLink) return;
@@ -280,7 +309,16 @@ export function EditLinkModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addLink.linkTitle")}</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>{t("addLink.linkTitle")}</FormLabel>
+                    {isDesktop && (
+                      <button type="button" onClick={() => generateWithAI("title")} disabled={aiGenerating !== null}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-40" title="Generar título con IA">
+                        {aiGenerating === "title" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        <span>IA</span>
+                      </button>
+                    )}
+                  </div>
                   <FormControl>
                     <Input placeholder={t("addLink.titlePlaceholder")} {...field} />
                   </FormControl>
@@ -295,7 +333,16 @@ export function EditLinkModal() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addLink.descriptionLabel")}</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>{t("addLink.descriptionLabel")}</FormLabel>
+                    {isDesktop && (
+                      <button type="button" onClick={() => generateWithAI("description")} disabled={aiGenerating !== null}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-40" title="Generar descripción con IA">
+                        {aiGenerating === "description" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        <span>IA</span>
+                      </button>
+                    )}
+                  </div>
                   <FormControl>
                     <Textarea
                       placeholder={t("addLink.descriptionPlaceholder")}
