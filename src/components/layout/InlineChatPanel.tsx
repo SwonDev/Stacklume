@@ -20,6 +20,9 @@ import {
   MessageSquarePlus,
   Search,
   Pencil,
+  Copy,
+  ArrowDown,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -315,6 +318,17 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   const unlistenRef = useRef<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Resize del panel
+  const [panelWidth, setPanelWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("stacklume-chat-width");
+      if (saved) return Math.max(320, Math.min(Number(saved), 800));
+    }
+    return 384; // default sm:w-96 = 384px
+  });
+  const isResizing = useRef(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+
   // Cargar nombre del modelo activo
   const refreshActiveModel = useCallback(async () => {
     try {
@@ -342,6 +356,50 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Detectar si el usuario ha scrolleado arriba para mostrar botón de scroll
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 200);
+    };
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [llmStatus]);
+
+  // Resize handler
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startW = panelWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = startX - ev.clientX;
+      const newW = Math.max(320, Math.min(startW + delta, Math.min(800, window.innerWidth * 0.7)));
+      setPanelWidth(newW);
+    };
+    const onUp = () => {
+      isResizing.current = false;
+      localStorage.setItem("stacklume-chat-width", String(panelWidth));
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [panelWidth]);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const copyMessage = useCallback((content: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      // Feedback visual silencioso — no toast para no interrumpir
+    }).catch(() => {});
+  }, []);
 
   // Comprobar estado LLM cuando se abre el panel
   useEffect(() => {
@@ -1001,9 +1059,19 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-12 bottom-0 z-50 w-80 sm:w-96"
+            className="fixed right-0 top-0 bottom-0 z-50"
+            style={{ width: panelWidth }}
           >
-          <div className="absolute inset-0 flex flex-col border-l border-border shadow-2xl bg-card">
+          {/* Resize handle */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors group"
+            onMouseDown={startResize}
+          >
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical className="w-3 h-3 text-muted-foreground" />
+            </div>
+          </div>
+          <div className="absolute inset-0 ml-1.5 flex flex-col border-l border-border shadow-2xl bg-card">
             {/* Header */}
             <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -1414,6 +1482,16 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                                   content={msg.content}
                                   onLinkAdded={() => refreshAllData().catch(() => {})}
                                 />
+                                {/* Copiar mensaje */}
+                                {msg.role === "assistant" && !msg.isError && (
+                                  <button
+                                    onClick={() => copyMessage(msg.content)}
+                                    className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                                    title="Copiar respuesta"
+                                  >
+                                    <Copy className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -1422,6 +1500,17 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
+
+                  {/* Scroll to bottom */}
+                  {showScrollBtn && (
+                    <button
+                      onClick={scrollToBottom}
+                      className="absolute bottom-24 right-4 z-10 w-8 h-8 rounded-full bg-secondary border border-border shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      title="Ir al final"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                  )}
 
                   {/* Descarga mmproj (visión) */}
                   {!visionAvailable && !isDownloadingMmproj && (
