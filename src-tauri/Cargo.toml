@@ -1,6 +1,6 @@
 [package]
 name = "stacklume"
-version = "0.3.65"
+version = "0.3.66"
 edition = "2021"
 
 [lib]
@@ -27,6 +27,7 @@ windows-sys = { version = "0.59", features = [
   "Win32_Security",
   "Win32_System_IO",
   "Win32_System_JobObjects",
+  "Win32_System_SystemInformation",
   "Win32_System_Threading",
   "Win32_UI_Shell",
 ] }

@@ -87,6 +87,37 @@ function tauriListen(
   return Promise.resolve(() => {});
 }
 
+// ─── Hardware compatibility ──────────────────────────────────────────────────
+
+interface SystemSpecs {
+  cpu: { name: string; cores: number };
+  ram: { totalMb: number; availableMb: number };
+  gpu: { name: string; vramMb: number };
+}
+
+type FitLevel = "perfect" | "good" | "tight" | "no";
+
+/** Estima cuánta RAM necesita un modelo GGUF para inferencia CPU-only con llama.cpp */
+function estimateRamNeeded(fileSizeBytes: number): number {
+  // RAM = archivo del modelo + KV cache (~20% extra) + overhead llama.cpp (~500 MB)
+  const fileMb = fileSizeBytes / (1024 * 1024);
+  return fileMb * 1.2 + 500;
+}
+
+/** Determina si el hardware puede correr un modelo */
+function checkFit(fileSizeBytes: number, specs: SystemSpecs | null): { level: FitLevel; label: string; color: string; ramNeededMb: number } {
+  const ramNeeded = estimateRamNeeded(fileSizeBytes);
+  if (!specs) return { level: "good", label: "", color: "", ramNeededMb: ramNeeded };
+
+  const available = specs.ram.totalMb;
+  const ratio = ramNeeded / available;
+
+  if (ratio < 0.5) return { level: "perfect", label: "Funciona perfecto", color: "text-green-500", ramNeededMb: ramNeeded };
+  if (ratio < 0.75) return { level: "good", label: "Funciona bien", color: "text-emerald-400", ramNeededMb: ramNeeded };
+  if (ratio < 0.95) return { level: "tight", label: "Puede ir lento", color: "text-amber-400", ramNeededMb: ramNeeded };
+  return { level: "no", label: "RAM insuficiente", color: "text-red-400", ramNeededMb: ramNeeded };
+}
+
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const gb = bytes / (1024 * 1024 * 1024);
@@ -138,6 +169,9 @@ export function ModelManagementDialog({
   const [showToken, setShowToken] = useState(false);
   const [tokenSaved, setTokenSaved] = useState(false);
 
+  // Hardware specs
+  const [systemSpecs, setSystemSpecs] = useState<SystemSpecs | null>(null);
+
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cargar modelos descargados
@@ -156,8 +190,8 @@ export function ModelManagementDialog({
   useEffect(() => {
     if (open) {
       loadModels();
-      // Cargar token de HuggingFace
       tauriInvoke<string>("get_hf_token").then((t) => setHfToken(t || "")).catch(() => {});
+      tauriInvoke<SystemSpecs>("get_system_specs").then(setSystemSpecs).catch(() => {});
     }
   }, [open, loadModels]);
 
@@ -419,13 +453,30 @@ export function ModelManagementDialog({
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{selectedRepo}</p>
                     <p className="text-[10px] text-muted-foreground">
                       Selecciona una variante para descargar
                     </p>
                   </div>
                 </div>
+                {/* Banner de hardware */}
+                {systemSpecs && (
+                  <div className="mb-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border/50 shrink-0">
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                      <span title={systemSpecs.cpu.name}>
+                        💻 {systemSpecs.cpu.name.split(" ").slice(0, 3).join(" ")} ({systemSpecs.cpu.cores} hilos)
+                      </span>
+                      <span>🧠 {(systemSpecs.ram.totalMb / 1024).toFixed(0)} GB RAM</span>
+                      {systemSpecs.gpu.name && (
+                        <span title={systemSpecs.gpu.name}>
+                          🎮 {systemSpecs.gpu.name.split(" ").slice(-2).join(" ")}
+                          {systemSpecs.gpu.vramMb > 0 && ` ${(systemSpecs.gpu.vramMb / 1024).toFixed(0)}GB`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="flex-1 overflow-y-auto space-y-1.5">
                   {loadingFiles ? (
                     <div className="flex items-center justify-center py-12">
@@ -446,13 +497,26 @@ export function ModelManagementDialog({
                         >
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium truncate">{file.filename}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               <span className="text-[10px] text-muted-foreground">
                                 {formatSize(file.size)}
                               </span>
                               <span className="text-[10px] font-mono bg-secondary px-1 py-0.5 rounded text-muted-foreground">
                                 {file.quantization}
                               </span>
+                              {(() => {
+                                const fit = checkFit(file.size, systemSpecs);
+                                if (!fit.label) return null;
+                                return (
+                                  <span className={cn("text-[10px] font-medium", fit.color)} title={`Necesita ~${(fit.ramNeededMb / 1024).toFixed(1)} GB RAM`}>
+                                    {fit.level === "perfect" && "●"}
+                                    {fit.level === "good" && "●"}
+                                    {fit.level === "tight" && "●"}
+                                    {fit.level === "no" && "●"}
+                                    {" "}{fit.label}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {isDownloadingThis && downloadProgress && (
                               <div className="mt-1.5 space-y-0.5">
