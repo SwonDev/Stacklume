@@ -50,8 +50,103 @@ import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
+// ─── Detección de comandos de paquetes ────────────────────────────────────────
+
+interface CommandInfo {
+  packageName: string;
+  manager: string; // npm, pnpm, yarn, pip, brew, etc.
+  command: string; // el comando original completo
+  registryUrl: string; // URL del registro del paquete
+  icon: string; // emoji/label del gestor
+}
+
+/** Detecta si el input es un comando de instalación y extrae info del paquete */
+function detectCommand(input: string): CommandInfo | null {
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.startsWith("http://") || trimmed.startsWith("https://")) return null;
+
+  // npm install / npm i / npx
+  const npmMatch = trimmed.match(/^(?:npm\s+(?:install|i|add)|npx)\s+(?:-[gDSd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
+  if (npmMatch) {
+    const pkg = npmMatch[1];
+    return { packageName: pkg, manager: "npm", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "npm" };
+  }
+
+  // pnpm add / pnpm i / pnpm install / pnpm dlx
+  const pnpmMatch = trimmed.match(/^pnpm\s+(?:add|install|i|dlx)\s+(?:-[gDd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
+  if (pnpmMatch) {
+    const pkg = pnpmMatch[1];
+    return { packageName: pkg, manager: "pnpm", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "pnpm" };
+  }
+
+  // yarn add
+  const yarnMatch = trimmed.match(/^yarn\s+(?:add|global\s+add)\s+(?:-[gDd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
+  if (yarnMatch) {
+    const pkg = yarnMatch[1];
+    return { packageName: pkg, manager: "yarn", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "yarn" };
+  }
+
+  // bun add / bun i / bunx
+  const bunMatch = trimmed.match(/^(?:bun\s+(?:add|install|i)|bunx)\s+(?:-[gDd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
+  if (bunMatch) {
+    const pkg = bunMatch[1];
+    return { packageName: pkg, manager: "bun", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "bun" };
+  }
+
+  // pip install / pip3 install
+  const pipMatch = trimmed.match(/^pip3?\s+install\s+(?:-[UuI]\s+)*([a-zA-Z0-9_-]+)/i);
+  if (pipMatch) {
+    const pkg = pipMatch[1];
+    return { packageName: pkg, manager: "pip", command: trimmed, registryUrl: `https://pypi.org/project/${pkg}/`, icon: "pip" };
+  }
+
+  // brew install
+  const brewMatch = trimmed.match(/^brew\s+(?:install|cask\s+install)\s+([a-zA-Z0-9_@/-]+)/i);
+  if (brewMatch) {
+    const pkg = brewMatch[1];
+    return { packageName: pkg, manager: "brew", command: trimmed, registryUrl: `https://formulae.brew.sh/formula/${pkg}`, icon: "brew" };
+  }
+
+  // cargo install / cargo add
+  const cargoMatch = trimmed.match(/^cargo\s+(?:install|add)\s+([a-zA-Z0-9_-]+)/i);
+  if (cargoMatch) {
+    const pkg = cargoMatch[1];
+    return { packageName: pkg, manager: "cargo", command: trimmed, registryUrl: `https://crates.io/crates/${pkg}`, icon: "cargo" };
+  }
+
+  // go install
+  const goMatch = trimmed.match(/^go\s+install\s+(\S+)/i);
+  if (goMatch) {
+    const pkg = goMatch[1].replace(/@.*$/, "");
+    return { packageName: pkg.split("/").pop() || pkg, manager: "go", command: trimmed, registryUrl: `https://pkg.go.dev/${pkg}`, icon: "go" };
+  }
+
+  // gem install
+  const gemMatch = trimmed.match(/^gem\s+install\s+([a-zA-Z0-9_-]+)/i);
+  if (gemMatch) {
+    const pkg = gemMatch[1];
+    return { packageName: pkg, manager: "gem", command: trimmed, registryUrl: `https://rubygems.org/gems/${pkg}`, icon: "gem" };
+  }
+
+  // composer require
+  const composerMatch = trimmed.match(/^composer\s+require\s+([a-zA-Z0-9_/-]+)/i);
+  if (composerMatch) {
+    const pkg = composerMatch[1];
+    return { packageName: pkg, manager: "composer", command: trimmed, registryUrl: `https://packagist.org/packages/${pkg}`, icon: "php" };
+  }
+
+  // dotnet add package
+  const dotnetMatch = trimmed.match(/^dotnet\s+add\s+package\s+([a-zA-Z0-9_.]+)/i);
+  if (dotnetMatch) {
+    const pkg = dotnetMatch[1];
+    return { packageName: pkg, manager: "dotnet", command: trimmed, registryUrl: `https://www.nuget.org/packages/${pkg}`, icon: "dotnet" };
+  }
+
+  return null;
+}
+
 const formSchema = z.object({
-  url: z.string().url("Introduce una URL válida"),
+  url: z.string().min(1, "Introduce una URL o comando"),
   title: z.string().min(1, "El título es obligatorio"),
   description: z.string().optional(),
   categoryId: z.string().optional(),
@@ -253,6 +348,7 @@ export function AddLinkModal() {
   const [suggestedTags, setSuggestedTags] = useState<TagSuggestion[]>([]);
   const [selectedTagNames, setSelectedTagNames] = useState<Set<string>>(new Set());
   const [aiGenerating, setAiGenerating] = useState<"title" | "description" | "tags" | null>(null);
+  const [detectedCommand, setDetectedCommand] = useState<CommandInfo | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -296,6 +392,61 @@ export function AddLinkModal() {
     const scrapeUrl = async () => {
       if (!watchUrl) return;
 
+      // Detectar si es un comando de paquete (npm i, pip install, etc.)
+      const cmd = detectCommand(watchUrl);
+      if (cmd) {
+        setDetectedCommand(cmd);
+        setIsScraping(true);
+        try {
+          // Reemplazar el campo URL por la URL del registro
+          form.setValue("url", cmd.registryUrl);
+
+          // Scrapear info del paquete desde el registro
+          const response = await fetch("/api/scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+            credentials: "include",
+            body: JSON.stringify({ url: cmd.registryUrl }),
+          });
+
+          if (response.ok) {
+            const data: ScrapedData = await response.json();
+            setScrapedData(data);
+            if (!form.getValues("title")) {
+              form.setValue("title", data.title || cmd.packageName);
+            }
+            if (!form.getValues("description")) {
+              form.setValue("description",
+                data.description
+                  ? `${data.description}\n\n📋 ${cmd.command}`
+                  : `Paquete ${cmd.manager}: ${cmd.packageName}\n\n📋 ${cmd.command}`
+              );
+            }
+          } else {
+            // Si el scraping falla, usar info básica del comando
+            if (!form.getValues("title")) form.setValue("title", cmd.packageName);
+            if (!form.getValues("description")) form.setValue("description", `📋 ${cmd.command}`);
+          }
+
+          // Generar etiquetas del comando
+          const cmdTags: TagSuggestion[] = [
+            { name: "Comando", color: "#f59e0b" },
+            { name: cmd.manager.toUpperCase(), color: "#3b82f6" },
+            { name: "CLI", color: "#8b5cf6" },
+          ];
+          setSuggestedTags(cmdTags);
+          setSelectedTagNames(new Set(cmdTags.map((t) => t.name)));
+        } catch {
+          if (!form.getValues("title")) form.setValue("title", cmd.packageName);
+        } finally {
+          setIsScraping(false);
+        }
+        return; // No hacer scraping normal para comandos
+      }
+
+      setDetectedCommand(null);
+
+      // Validar que es una URL válida antes de scrapear
       try {
         new URL(watchUrl);
       } catch {
@@ -570,6 +721,7 @@ export function AddLinkModal() {
   const handleClose = () => {
     form.reset();
     setScrapedData(null);
+    setDetectedCommand(null);
     setSelectedCategoryIds([]);
     setSuggestedTags([]);
     setSelectedTagNames(new Set());
@@ -636,19 +788,27 @@ export function AddLinkModal() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* URL Field */}
+            {/* URL / Command Field */}
             <FormField
               control={form.control}
               name="url"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>URL / Comando</FormLabel>
+                    {detectedCommand && (
+                      <span className="text-[10px] font-medium text-primary flex items-center gap-1">
+                        <Code className="w-3 h-3" />
+                        {detectedCommand.manager} detectado
+                      </span>
+                    )}
+                  </div>
                   <FormControl>
                     <div className="relative">
                       <Input
-                        placeholder={t("addLink.urlPlaceholder")}
+                        placeholder="https://... o npm install paquete"
                         {...field}
-                        className="pr-10"
+                        className={cn("pr-10", detectedCommand && "font-mono text-xs")}
                       />
                       {isScraping && (
                         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary" />
