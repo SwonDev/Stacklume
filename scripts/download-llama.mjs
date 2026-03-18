@@ -123,8 +123,28 @@ async function main() {
   const tagName = release.tag_name;
   console.log(`  Versión encontrada: ${tagName}`);
 
-  // 2. Buscar el asset para Windows CPU x64
+  // 2. Buscar assets: preferir CUDA 12.4, fallback a CPU
   const assets = release.assets || [];
+
+  // Prioridad: CUDA 12.4 > CPU (para usar GPU NVIDIA)
+  const winCudaAsset = assets.find(
+    (a) =>
+      a.name.includes("win") &&
+      a.name.includes("cuda-12.4") &&
+      a.name.includes("x64") &&
+      a.name.endsWith(".zip") &&
+      !a.name.startsWith("cudart-")
+  );
+
+  // CUDA runtime DLLs (necesarias para que el backend CUDA funcione)
+  const cudartAsset = assets.find(
+    (a) =>
+      a.name.startsWith("cudart-") &&
+      a.name.includes("cuda-12.4") &&
+      a.name.includes("x64") &&
+      a.name.endsWith(".zip")
+  );
+
   const winCpuAsset = assets.find(
     (a) =>
       a.name.includes("win") &&
@@ -133,14 +153,25 @@ async function main() {
       a.name.endsWith(".zip")
   );
 
-  if (!winCpuAsset) {
+  // Usar CUDA si disponible, sino CPU
+  const mainAsset = winCudaAsset || winCpuAsset;
+
+  if (!mainAsset) {
     const names = assets.map((a) => a.name).join(", ");
     throw new Error(
-      `No se encontró asset win-cpu-x64.zip en el release ${tagName}.\nAssets disponibles: ${names}`
+      `No se encontró asset win x64 en el release ${tagName}.\nAssets: ${names}`
     );
   }
 
-  console.log(`  Asset: ${winCpuAsset.name} (${(winCpuAsset.size / 1024 / 1024).toFixed(1)} MB)`);
+  console.log(`  Asset principal: ${mainAsset.name} (${(mainAsset.size / 1024 / 1024).toFixed(1)} MB)`);
+  if (winCudaAsset) {
+    console.log(`  ✓ Build CUDA 12.4 detectado — se usará GPU NVIDIA`);
+    if (cudartAsset) {
+      console.log(`  CUDA Runtime: ${cudartAsset.name} (${(cudartAsset.size / 1024 / 1024).toFixed(1)} MB)`);
+    }
+  } else {
+    console.log(`  ⚠ Solo CPU disponible (sin CUDA)`);
+  }
 
   // 3. Preparar directorio destino
   if (existsSync(DEST_DIR) && FORCE) {
@@ -148,13 +179,12 @@ async function main() {
   }
   mkdirSync(DEST_DIR, { recursive: true });
 
-  // 4. Descargar el zip a un archivo temporal
+  // 4. Descargar y extraer el zip principal (CUDA o CPU)
   const zipPath = join(DEST_DIR, "_llama_tmp.zip");
   const writeStream = createWriteStream(zipPath);
-  console.log(`  Descargando desde: ${winCpuAsset.browser_download_url}`);
-  await downloadTo(winCpuAsset.browser_download_url, writeStream);
+  console.log(`  Descargando desde: ${mainAsset.browser_download_url}`);
+  await downloadTo(mainAsset.browser_download_url, writeStream);
 
-  // 5. Extraer todos los archivos del zip
   console.log("  Extrayendo archivos...");
   let extracted = 0;
   await new Promise((resolve, reject) => {
@@ -169,14 +199,29 @@ async function main() {
       .on("finish", resolve)
       .on("error", reject);
   });
-
   console.log(`  Archivos extraídos: ${extracted}`);
+  try { rmSync(zipPath, { force: true }); } catch { /* */ }
 
-  // 6. Limpiar zip temporal
-  try {
-    rmSync(zipPath, { force: true });
-  } catch {
-    // Ignorar errores de limpieza
+  // 5. Si hay CUDA, descargar también las DLLs de CUDA Runtime
+  if (cudartAsset) {
+    const cudartZip = join(DEST_DIR, "_cudart_tmp.zip");
+    const cudartStream = createWriteStream(cudartZip);
+    console.log(`  Descargando CUDA Runtime: ${cudartAsset.browser_download_url}`);
+    await downloadTo(cudartAsset.browser_download_url, cudartStream);
+
+    console.log("  Extrayendo CUDA Runtime...");
+    let cudartExtracted = 0;
+    await new Promise((resolve, reject) => {
+      createReadStream(cudartZip)
+        .pipe(Extract({ path: DEST_DIR }))
+        .on("entry", (entry) => {
+          if (entry.path.toLowerCase().endsWith(".dll")) cudartExtracted++;
+        })
+        .on("finish", resolve)
+        .on("error", reject);
+    });
+    console.log(`  CUDA Runtime DLLs extraídas: ${cudartExtracted}`);
+    try { rmSync(cudartZip, { force: true }); } catch { /* */ }
   }
 
   // 7. Verificar que llama-server.exe está ahí (puede estar en subdirectorio)
