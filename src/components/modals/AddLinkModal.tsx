@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -349,6 +349,7 @@ export function AddLinkModal() {
   const [selectedTagNames, setSelectedTagNames] = useState<Set<string>>(new Set());
   const [aiGenerating, setAiGenerating] = useState<"title" | "description" | "tags" | null>(null);
   const [detectedCommand, setDetectedCommand] = useState<CommandInfo | null>(null);
+  const commandResolvedUrlRef = useRef<string | null>(null); // Evita loop de scraping al setear URL del registro
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -392,6 +393,9 @@ export function AddLinkModal() {
     const scrapeUrl = async () => {
       if (!watchUrl) return;
 
+      // Si la URL fue seteada por la resolución de un comando, no re-scrapear
+      if (commandResolvedUrlRef.current === watchUrl) return;
+
       // Detectar si es un comando de paquete (npm i, pip install, etc.)
       const cmd = detectCommand(watchUrl);
       if (cmd) {
@@ -399,6 +403,7 @@ export function AddLinkModal() {
         setIsScraping(true);
         try {
           // Reemplazar el campo URL por la URL del registro
+          commandResolvedUrlRef.current = cmd.registryUrl;
           form.setValue("url", cmd.registryUrl);
 
           // Scrapear info del paquete desde el registro
@@ -722,6 +727,7 @@ export function AddLinkModal() {
     form.reset();
     setScrapedData(null);
     setDetectedCommand(null);
+    commandResolvedUrlRef.current = null;
     setSelectedCategoryIds([]);
     setSuggestedTags([]);
     setSelectedTagNames(new Set());
