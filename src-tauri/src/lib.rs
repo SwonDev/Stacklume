@@ -187,8 +187,14 @@ fn detect_gpu_layers(binary_path: &str, model_path: &str) -> String {
     }
 
     // Si hay backend CUDA, detectar VRAM y calcular layers
-    let vram_free_mb = Command::new("C:\\Windows\\System32\\nvidia-smi.exe")
-        .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
+    let mut nv_cmd = Command::new("C:\\Windows\\System32\\nvidia-smi.exe");
+    nv_cmd.args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        nv_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let vram_free_mb = nv_cmd
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -227,17 +233,22 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
 
     {
         let state = app.state::<LlamaState>();
+        // Strip \\?\ prefix que Tauri añade en producción — causa problemas con
+        // DLL loading de CUDA (ggml-cuda.dll busca cublas64_12.dll en el directorio
+        // del exe, pero con \\?\ prefix el directorio no se resuelve correctamente)
         binary_path = state
             .binary_path
             .lock()
             .unwrap()
             .clone()
+            .map(|p| p.strip_prefix(r"\\?\").unwrap_or(&p).to_string())
             .ok_or_else(|| "llama-server no disponible".to_string())?;
         model_path = state
             .model_path
             .lock()
             .unwrap()
             .clone()
+            .map(|p| p.strip_prefix(r"\\?\").unwrap_or(&p).to_string())
             .ok_or_else(|| "Modelo no configurado".to_string())?;
         port = *state.port.lock().unwrap();
     }
@@ -1257,16 +1268,24 @@ fn get_active_model(app: tauri::AppHandle) -> serde_json::Value {
     }
 }
 
+/// Helper: ejecuta un comando SIN ventana visible (CREATE_NO_WINDOW en Windows)
+fn silent_command(program: &str) -> std::process::Command {
+    let mut cmd = std::process::Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd
+}
+
 /// Detecta las especificaciones de hardware del sistema.
-/// Devuelve CPU, RAM total/disponible, GPU (nombre + VRAM real) y si CUDA está disponible.
 #[tauri::command]
 fn get_system_specs() -> serde_json::Value {
-    use std::process::Command;
-
     let (total_ram_mb, available_ram_mb) = get_ram_info();
 
     // CPU
-    let cpu_name = Command::new("wmic")
+    let cpu_name = silent_command("wmic")
         .args(["cpu", "get", "name", "/value"])
         .output()
         .ok()
@@ -1281,7 +1300,7 @@ fn get_system_specs() -> serde_json::Value {
     let mut gpu_vram_mb: u64 = 0;
     let mut has_cuda = false;
 
-    if let Ok(output) = Command::new("C:\\Windows\\System32\\nvidia-smi.exe")
+    if let Ok(output) = silent_command("C:\\Windows\\System32\\nvidia-smi.exe")
         .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
         .output()
     {
@@ -1307,7 +1326,7 @@ fn get_system_specs() -> serde_json::Value {
     // Fallback: PowerShell Get-CimInstance (funciona para AMD, Intel, y NVIDIA sin drivers CLI)
     // Devuelve VRAM real via AdapterRAM (qword) — wmic trunca a 4GB (uint32 overflow)
     if gpu_name.is_empty() {
-        let ps_output = Command::new("powershell")
+        let ps_output = silent_command("powershell")
             .args(["-NoProfile", "-Command",
                 "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | ForEach-Object { \"$($_.Name)|$($_.AdapterRAM)\" }"])
             .output()
