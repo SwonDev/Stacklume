@@ -176,7 +176,7 @@ fn detect_gpu_layers(model_path: &str) -> String {
     use std::process::Command;
 
     // Obtener VRAM libre via nvidia-smi
-    let vram_free_mb = Command::new("nvidia-smi")
+    let vram_free_mb = Command::new("C:\\Windows\\System32\\nvidia-smi.exe")
         .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
         .output()
         .ok()
@@ -1274,7 +1274,7 @@ fn get_system_specs() -> serde_json::Value {
     let mut gpu_vram_mb: u64 = 0;
     let mut has_cuda = false;
 
-    if let Ok(output) = Command::new("nvidia-smi")
+    if let Ok(output) = Command::new("C:\\Windows\\System32\\nvidia-smi.exe")
         .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
         .output()
     {
