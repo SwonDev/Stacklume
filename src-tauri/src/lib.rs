@@ -169,13 +169,35 @@ fn wait_for_llama_server(port: u16) -> bool {
     false
 }
 
-/// Detecta cuántas GPU layers usar basándose en la VRAM disponible.
-/// Si hay GPU NVIDIA con CUDA y la VRAM cabe el modelo, usa todas las capas (99).
-/// Si la VRAM es parcial, usa capas proporcionales. Si no hay GPU, usa CPU (0).
+/// Detecta cuántas GPU layers usar.
+/// IMPORTANTE: solo usa GPU si el binario de llama-server tiene un backend CUDA/Vulkan.
+/// El llama-server bundleado actualmente es CPU-only (ggml-cpu-*.dll).
+/// Si no hay backend GPU, SIEMPRE devolver "0" para evitar crash.
 fn detect_gpu_layers(model_path: &str) -> String {
     use std::process::Command;
 
-    // Obtener VRAM libre via nvidia-smi
+    // Verificar si llama-server tiene backend CUDA/Vulkan bundleado
+    // Buscar ggml-cuda.dll o ggml-vulkan.dll junto al binario
+    let llama_dir = std::path::Path::new(model_path)
+        .parent()
+        .and_then(|_| {
+            // El binario está en resources/llama/, no junto al modelo
+            // Intentar la ruta típica de instalación
+            let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+            let p = std::path::PathBuf::from(&local).join("Stacklume").join("resources").join("llama");
+            if p.exists() { Some(p) } else { None }
+        });
+
+    let has_cuda_backend = llama_dir
+        .as_ref()
+        .map(|dir| dir.join("ggml-cuda.dll").exists())
+        .unwrap_or(false);
+
+    if !has_cuda_backend {
+        return "0".to_string(); // CPU-only binary → no GPU offload
+    }
+
+    // Si hay backend CUDA, detectar VRAM y calcular layers
     let vram_free_mb = Command::new("C:\\Windows\\System32\\nvidia-smi.exe")
         .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
         .output()
@@ -186,26 +208,22 @@ fn detect_gpu_layers(model_path: &str) -> String {
         .unwrap_or(0);
 
     if vram_free_mb == 0 {
-        return "0".to_string(); // No GPU / no nvidia-smi → CPU only
+        return "0".to_string();
     }
 
-    // Tamaño del modelo en MB
     let model_size_mb = std::fs::metadata(model_path)
         .map(|m| m.len() / (1024 * 1024))
         .unwrap_or(0);
-
-    // El modelo necesita ~110% del tamaño del archivo en VRAM (model + KV cache parcial)
-    let needed_mb = (model_size_mb as f64 * 1.1) as u64 + 200; // +200 MB overhead
+    let needed_mb = (model_size_mb as f64 * 1.1) as u64 + 200;
 
     if vram_free_mb >= needed_mb {
-        "99".to_string() // Todas las capas en GPU — rendimiento máximo
+        "99".to_string()
     } else if vram_free_mb > 500 {
-        // Offload parcial: proporción de capas según VRAM disponible
         let ratio = vram_free_mb as f64 / needed_mb as f64;
-        let layers = (ratio * 40.0).max(1.0).min(40.0) as u32; // 40 capas típicas
+        let layers = (ratio * 40.0).max(1.0).min(40.0) as u32;
         layers.to_string()
     } else {
-        "0".to_string() // VRAM insuficiente → CPU only
+        "0".to_string()
     }
 }
 
