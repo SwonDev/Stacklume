@@ -26,6 +26,9 @@ import {
   Cpu,
   MemoryStick,
   Monitor,
+  Brain,
+  Wrench,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -354,21 +357,22 @@ export function ModelManagementDialog({
     setDownloadError(null);
     setDownloadProgress({ downloaded: 0, total: 0, percent: 0, phase: "connecting" });
 
-    let receivedBytes = false;
+    let receivedAnyEvent = false;
     const unlisten = await tauriListen("llm:download-progress", (payload) => {
       const p = payload as DownloadProgress;
-      if (p.downloaded > 0) receivedBytes = true;
+      receivedAnyEvent = true;
       setDownloadProgress(p);
     });
 
-    // Timeout frontend: si después de 90s no llegan bytes, asumir error de conexión
+    // No timeout rígido — curl tiene sus propios timeouts (connect 30s, retry 3x).
+    // Solo mostrar warning si no llega NINGÚN evento en 3 minutos (curl ni arrancó).
     const timeoutId = setTimeout(() => {
-      if (!receivedBytes) {
-        setDownloadError("Timeout: no se recibieron datos en 90 segundos. Verifica tu conexión a Internet o prueba más tarde.");
+      if (!receivedAnyEvent) {
+        setDownloadError("No se pudo iniciar la descarga. Verifica que tienes conexión a Internet.");
         setDownloading(null);
         setDownloadProgress(null);
       }
-    }, 90_000);
+    }, 180_000);
 
     try {
       await tauriInvoke("download_llm_model", { url, modelName, expectedSize: expectedSize || 0 });
@@ -462,11 +466,25 @@ export function ModelManagementDialog({
                           {model.family}
                         </span>
                         {model.supportsThinking && (
-                          <span className="text-[10px] text-muted-foreground">🧠</span>
+                          <span className="flex items-center gap-0.5 text-[10px] text-primary" title="Razonamiento">
+                            <Brain className="w-3 h-3" />
+                          </span>
                         )}
                         {model.supportsVision && (
-                          <span className="text-[10px] text-muted-foreground">👁</span>
+                          <span className="flex items-center gap-0.5 text-[10px] text-primary" title="Visión">
+                            <Eye className="w-3 h-3" />
+                          </span>
                         )}
+                        {/* Tools: modelos con soporte de function calling */}
+                        {(model.family === "qwen3" || model.family === "llama3" || model.family === "mistral") && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-primary" title="Herramientas (tools)">
+                            <Wrench className="w-3 h-3" />
+                          </span>
+                        )}
+                        {/* Chat: todos los modelos de texto */}
+                        <span className="flex items-center gap-0.5 text-[10px] text-primary" title="Chat">
+                          <MessageSquare className="w-3 h-3" />
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -704,7 +722,7 @@ export function ModelManagementDialog({
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{result.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className="text-[10px] text-muted-foreground">
                               {result.author}
                             </span>
@@ -713,6 +731,19 @@ export function ModelManagementDialog({
                             </span>
                             <span className="text-[10px] text-muted-foreground">
                               ♥ {formatNumber(result.likes)}
+                            </span>
+                            {/* Capacidades del modelo basadas en tags de HuggingFace */}
+                            <span className="flex items-center gap-1 ml-auto">
+                              <span title="Chat"><MessageSquare className="w-2.5 h-2.5 text-primary" /></span>
+                              {(result.tags.includes("conversational") || result.name.toLowerCase().includes("chat") || result.name.toLowerCase().includes("instruct")) && (
+                                <span title="Herramientas"><Wrench className="w-2.5 h-2.5 text-primary" /></span>
+                              )}
+                              {(result.name.toLowerCase().includes("vision") || result.name.toLowerCase().includes("vl") || result.name.toLowerCase().includes("multimodal")) && (
+                                <span title="Visión"><Eye className="w-2.5 h-2.5 text-primary" /></span>
+                              )}
+                              {(result.name.toLowerCase().includes("qwen3") || result.name.toLowerCase().includes("deepseek")) && (
+                                <span title="Razonamiento"><Brain className="w-2.5 h-2.5 text-primary" /></span>
+                              )}
                             </span>
                           </div>
                         </div>
