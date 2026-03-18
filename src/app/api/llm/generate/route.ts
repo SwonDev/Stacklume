@@ -66,29 +66,27 @@ export async function POST(req: NextRequest) {
 
   switch (type) {
     case "title":
-      systemPrompt = "Responde SOLO con un título corto. Sin comillas, sin explicaciones, sin razonamiento. Máximo 60 caracteres.";
-      userPrompt = `Título para:\n${context}`;
+      systemPrompt = "Output ONLY a short title. No quotes, no explanation, no reasoning, no bullet points. Maximum 60 characters. Just the title text.";
+      userPrompt = `Generate a title for this link:\n${context}`;
       break;
 
     case "description":
-      systemPrompt = "Responde SOLO con una descripción breve. Sin comillas, sin explicaciones, sin razonamiento. Máximo 150 caracteres.";
-      userPrompt = `Descripción para:\n${context}`;
+      systemPrompt = "Output ONLY a brief description. No quotes, no explanation, no reasoning, no bullet points. Maximum 150 characters. Just the description text.";
+      userPrompt = `Generate a description for this link:\n${context}`;
       break;
 
     case "tags":
-      systemPrompt = "Responde SOLO con etiquetas separadas por comas. Sin explicaciones. Ejemplo: React, Tutorial, Frontend";
-      userPrompt = `Etiquetas para:\n${context}`;
+      systemPrompt = "Output ONLY comma-separated tags. No explanation. Example output: React, Tutorial, Frontend";
+      userPrompt = `Generate tags for this link:\n${context}`;
       break;
 
     default:
       return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
   }
 
-  // Thinking habilitado si el modelo lo soporta — el modelo razona internamente
-  // para generar mejor contenido, pero la respuesta final debe ser limpia.
-  const thinkingFamilies = ["qwen3", "deepseek"];
-  const useThinking = enableThinking && thinkingFamilies.includes(modelFamily);
-
+  // Thinking DESACTIVADO para generación de campos cortos.
+  // Qwen3 con thinking mezcla razonamiento en content ("Wait, let me...").
+  // Para tareas de 1 línea, non-thinking produce resultados limpios y rápidos.
   try {
     const resp = await fetch(llamaUrl, {
       method: "POST",
@@ -100,17 +98,13 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         stream: false,
-        temperature: useThinking ? 1.0 : 0.7,
-        top_p: useThinking ? 0.95 : 0.9,
-        presence_penalty: useThinking ? 1.5 : 0,
-        max_tokens: useThinking ? 1024 : 256,
-        chat_template_kwargs: {
-          enable_thinking: useThinking,
-          ...(useThinking ? {} : { thinking_budget: 0 }),
-        },
-        ...(useThinking ? { reasoning_format: "deepseek" } : {}),
+        temperature: 1.0,
+        top_p: 1.0,
+        presence_penalty: 2.0,
+        max_tokens: 200,
+        chat_template_kwargs: { enable_thinking: false, thinking_budget: 0 },
       }),
-      signal: AbortSignal.timeout(useThinking ? 60_000 : 30_000),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!resp.ok) {
