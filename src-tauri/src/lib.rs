@@ -174,16 +174,15 @@ fn wait_for_llama_server(port: u16) -> bool {
 fn detect_gpu_layers(binary_path: &str, model_path: &str) -> String {
     use std::process::Command;
 
-    // Buscar ggml-cuda.dll en el directorio del binario de llama-server
-    // Strip \\?\ prefix que Tauri añade a rutas en producción (no resuelve con join())
+    // Buscar backend GPU junto al binario de llama-server
     let clean_path = binary_path.strip_prefix(r"\\?\").unwrap_or(binary_path);
-    let has_cuda_backend = std::path::Path::new(clean_path)
-        .parent()
-        .map(|dir| dir.join("ggml-cuda.dll").exists())
-        .unwrap_or(false);
+    let llama_dir = std::path::Path::new(clean_path).parent();
 
-    if !has_cuda_backend {
-        return "0".to_string(); // CPU-only binary → no GPU offload
+    let has_cuda = llama_dir.map(|d| d.join("ggml-cuda.dll").exists()).unwrap_or(false);
+    let has_vulkan = llama_dir.map(|d| d.join("ggml-vulkan.dll").exists()).unwrap_or(false);
+
+    if !has_cuda && !has_vulkan {
+        return "0".to_string(); // CPU-only binary
     }
 
     // Si hay backend CUDA, detectar VRAM y calcular layers
@@ -223,9 +222,19 @@ fn detect_gpu_layers(binary_path: &str, model_path: &str) -> String {
 }
 
 /// Arranca llama-server de forma síncrona (llamar desde un hilo background).
-/// Funciona en dev y prod. En dev no guarda el handle del proceso hijo.
 fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     use std::process::{Command, Stdio};
+
+    // Log de LLM para diagnóstico (se limpia al arrancar)
+    let llm_log_path = app.path().app_data_dir().unwrap_or_default().join("llm.log");
+    let _ = std::fs::write(&llm_log_path, ""); // Limpiar al inicio
+    let llm_log = |msg: &str| {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&llm_log_path) {
+            let ts = chrono_lite();
+            let _ = writeln!(f, "[{}] {}", ts, msg);
+        }
+    };
 
     let binary_path;
     let model_path;
@@ -256,6 +265,12 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     if port == 0 {
         return Err("Puerto llama-server no asignado".to_string());
     }
+
+    let ngl = detect_gpu_layers(&binary_path, &model_path);
+    llm_log(&format!("binary: {}", binary_path));
+    llm_log(&format!("model: {}", model_path));
+    llm_log(&format!("port: {}", port));
+    llm_log(&format!("ngl: {} ({})", ngl, if ngl == "0" { "CPU" } else { "GPU" }));
 
     // Detectar proyector multimodal (mmproj) para soporte de visión.
     // Si mmproj-F16.gguf existe en el mismo directorio que el modelo,
@@ -307,7 +322,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         // Si hay GPU NVIDIA con CUDA y suficiente VRAM, usar -ngl 99 (todas las capas en GPU).
         // Si no hay GPU o VRAM insuficiente, -ngl 0 (CPU only).
         .arg("-ngl")
-        .arg(&detect_gpu_layers(&binary_path, &model_path))
+        .arg(&ngl)
         .arg("--threads")
         .arg(&n_threads)
         .arg("--threads-batch")
@@ -359,9 +374,11 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         cmd.arg("--mmproj").arg(mp);
     }
 
+    llm_log("Spawning llama-server...");
     match cmd.spawn() {
         Ok(child) => {
             let pid = child.id();
+            llm_log(&format!("llama-server spawned: PID {}", pid));
 
             #[cfg(windows)]
             {
@@ -371,18 +388,19 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
 
-            // En producción guardamos el handle para matarlo al cerrar la app.
-            // En dev el proceso se gestiona por el SO al cerrar tauri dev.
             #[cfg(not(dev))]
             {
                 *app.state::<LlamaState>().llama_child.lock().unwrap() = Some(child);
             }
 
-            // Health check polling — bloquea el hilo hasta que llama-server esté listo
+            // Health check polling
+            llm_log("Health check polling...");
             if wait_for_llama_server(port) {
+                llm_log("llama-server READY");
                 *app.state::<LlamaState>().status.lock().unwrap() = "ready".to_string();
                 let _ = app.emit("llm:status-changed", "ready");
             } else {
+                llm_log("TIMEOUT: llama-server no respondió en 90s");
                 let msg = "error: llama-server no respondió en 90s — intenta reiniciar".to_string();
                 *app.state::<LlamaState>().status.lock().unwrap() = msg.clone();
                 let _ = app.emit("llm:status-changed", msg.clone());
@@ -390,6 +408,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
             }
         }
         Err(e) => {
+            llm_log(&format!("SPAWN ERROR: {}", e));
             *app.state::<LlamaState>().status.lock().unwrap() = "error".to_string();
             let _ = app.emit("llm:status-changed", format!("error: {}", e));
             return Err(e.to_string());
