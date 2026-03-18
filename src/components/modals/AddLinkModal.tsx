@@ -406,47 +406,54 @@ export function AddLinkModal() {
           commandResolvedUrlRef.current = cmd.registryUrl;
           form.setValue("url", cmd.registryUrl);
 
-          // Scrapear info del paquete desde el registro
-          const response = await fetch("/api/scrape", {
+          // Obtener info del paquete via API del registro (npm, PyPI, crates.io, etc.)
+          const response = await fetch("/api/package-info", {
             method: "POST",
-            headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
-            credentials: "include",
-            body: JSON.stringify({ url: cmd.registryUrl }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ packageName: cmd.packageName, manager: cmd.manager }),
           });
 
           if (response.ok) {
-            const data: ScrapedData = await response.json();
-            setScrapedData(data);
-            if (!form.getValues("title")) {
-              form.setValue("title", data.title || cmd.packageName);
-            }
-            if (!form.getValues("description")) {
-              form.setValue("description",
-                data.description
-                  ? `${data.description}\n\n📋 ${cmd.command}`
-                  : `Paquete ${cmd.manager}: ${cmd.packageName}\n\n📋 ${cmd.command}`
-              );
-            }
-          } else {
-            // Si el scraping falla, usar info básica del comando
-            if (!form.getValues("title")) form.setValue("title", cmd.packageName);
-            if (!form.getValues("description")) form.setValue("description", `📋 ${cmd.command}`);
-          }
+            const data = await response.json() as {
+              title: string; description: string; homepage: string; keywords: string[];
+            };
+            form.setValue("title", data.title || cmd.packageName);
+            form.setValue("description",
+              data.description
+                ? `${data.description}\n\nComando: ${cmd.command}`
+                : `Comando: ${cmd.command}`
+            );
 
-          // Generar etiquetas del comando
-          const cmdTags: TagSuggestion[] = [
-            { name: "Comando", color: "#f59e0b" },
-            { name: cmd.manager.toUpperCase(), color: "#3b82f6" },
-            { name: "CLI", color: "#8b5cf6" },
-          ];
-          setSuggestedTags(cmdTags);
-          setSelectedTagNames(new Set(cmdTags.map((t) => t.name)));
+            // Generar etiquetas combinando keywords del paquete + tipo de comando
+            const cmdTags: TagSuggestion[] = [
+              { name: "Comando", color: "#f59e0b" },
+              { name: cmd.manager.toUpperCase(), color: "#3b82f6" },
+            ];
+            // Añadir keywords del registro como etiquetas (máx 3)
+            for (const kw of data.keywords.slice(0, 3)) {
+              if (kw.length > 1 && kw.length < 25) {
+                cmdTags.push({ name: kw, color: "#10b981" });
+              }
+            }
+            setSuggestedTags(cmdTags);
+            setSelectedTagNames(new Set(cmdTags.map((t) => t.name)));
+          } else {
+            form.setValue("title", cmd.packageName);
+            form.setValue("description", `Comando: ${cmd.command}`);
+            const cmdTags: TagSuggestion[] = [
+              { name: "Comando", color: "#f59e0b" },
+              { name: cmd.manager.toUpperCase(), color: "#3b82f6" },
+            ];
+            setSuggestedTags(cmdTags);
+            setSelectedTagNames(new Set(cmdTags.map((t) => t.name)));
+          }
         } catch {
-          if (!form.getValues("title")) form.setValue("title", cmd.packageName);
+          form.setValue("title", cmd.packageName);
+          form.setValue("description", `Comando: ${cmd.command}`);
         } finally {
           setIsScraping(false);
         }
-        return; // No hacer scraping normal para comandos
+        return;
       }
 
       setDetectedCommand(null);
