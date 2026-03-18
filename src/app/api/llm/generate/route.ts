@@ -121,20 +121,36 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await resp.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
+      choices?: Array<{ message?: { content?: string; reasoning_content?: string } }>;
     };
 
-    let result = data.choices?.[0]?.message?.content?.trim() ?? "";
+    const msg = data.choices?.[0]?.message;
+    let result = msg?.content?.trim() ?? "";
 
     // Limpiar artefactos del LLM
     result = result
       .replace(/<think>[\s\S]*?<\/think>/g, "")
-      .replace(/^["']|["']$/g, "") // Quitar comillas envolventes
-      .replace(/^\*\*|\*\*$/g, "") // Quitar negritas
+      .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "")
+      .replace(/^["'`]|["'`]$/g, "")
+      .replace(/^\*\*|\*\*$/g, "")
+      .replace(/^#+\s*/gm, "")
       .trim();
 
+    // Si el contenido está vacío pero hay reasoning_content, intentar extraer de ahí
+    if (!result && msg?.reasoning_content) {
+      // A veces el modelo pone la respuesta dentro del bloque de razonamiento
+      const lastLine = msg.reasoning_content.trim().split("\n").pop()?.trim() ?? "";
+      if (lastLine.length > 5 && lastLine.length < 300) {
+        result = lastLine;
+      }
+    }
+
+    // Fallback: devolver un resultado genérico en vez de error 500
     if (!result) {
-      return NextResponse.json({ error: "El modelo no generó contenido" }, { status: 500 });
+      if (type === "tags") {
+        return NextResponse.json({ tags: ["General"] });
+      }
+      return NextResponse.json({ result: type === "title" ? url.split("/").pop() || url : "Sin descripción disponible" });
     }
 
     // Para tags, devolver como array
