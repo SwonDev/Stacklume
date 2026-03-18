@@ -66,25 +66,26 @@ export async function POST(req: NextRequest) {
 
   switch (type) {
     case "title":
-      systemPrompt = "Eres un experto en SEO y copywriting. Genera un título conciso y descriptivo para un enlace web. Responde SOLO con el título, sin comillas, sin explicaciones, sin formato adicional. Máximo 80 caracteres.";
-      userPrompt = `Genera un título para este enlace:\n${context}`;
+      systemPrompt = "Responde SOLO con un título corto. Sin comillas, sin explicaciones, sin razonamiento. Máximo 60 caracteres.";
+      userPrompt = `Título para:\n${context}`;
       break;
 
     case "description":
-      systemPrompt = "Eres un experto en redacción web. Genera una descripción breve y útil para un enlace. Responde SOLO con la descripción, sin comillas, sin formato adicional. Máximo 200 caracteres. Describe qué es la página y para qué sirve.";
-      userPrompt = `Genera una descripción para este enlace:\n${context}`;
+      systemPrompt = "Responde SOLO con una descripción breve. Sin comillas, sin explicaciones, sin razonamiento. Máximo 150 caracteres.";
+      userPrompt = `Descripción para:\n${context}`;
       break;
 
     case "tags":
-      systemPrompt = "Eres un experto en categorización de contenido web. Genera entre 2 y 5 etiquetas relevantes para clasificar este enlace. Responde SOLO con las etiquetas separadas por comas, sin explicaciones. Ejemplo: Desarrollo Web, React, Tutorial";
-      userPrompt = `Genera etiquetas para este enlace:\n${context}`;
+      systemPrompt = "Responde SOLO con etiquetas separadas por comas. Sin explicaciones. Ejemplo: React, Tutorial, Frontend";
+      userPrompt = `Etiquetas para:\n${context}`;
       break;
 
     default:
       return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
   }
 
-  // Thinking: solo para modelos que lo soportan (qwen3, deepseek)
+  // Thinking habilitado si el modelo lo soporta — el modelo razona internamente
+  // para generar mejor contenido, pero la respuesta final debe ser limpia.
   const thinkingFamilies = ["qwen3", "deepseek"];
   const useThinking = enableThinking && thinkingFamilies.includes(modelFamily);
 
@@ -99,7 +100,6 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         stream: false,
-        // Con thinking: el modelo razona internamente antes de responder → mejor calidad
         temperature: useThinking ? 1.0 : 0.7,
         top_p: useThinking ? 0.95 : 0.9,
         presence_penalty: useThinking ? 1.5 : 0,
@@ -127,14 +127,37 @@ export async function POST(req: NextRequest) {
     const msg = data.choices?.[0]?.message;
     let result = msg?.content?.trim() ?? "";
 
-    // Limpiar artefactos del LLM
+    // Limpiar artefactos del LLM — thinking leaks, markdown, etc.
     result = result
       .replace(/<think>[\s\S]*?<\/think>/g, "")
       .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "")
+      // Eliminar líneas de razonamiento interno
+      .replace(/^[\s*-]*(?:Wait|Let me|Hmm|Ok|Okay|So,?\s|Now|I (?:need|should|think|see|will|can)|The user|Looking at|First|Actually|Let's|Maybe|Perhaps|Alright|Since|Because|Given|Based on|Here|This)[^\n]*$/gim, "")
       .replace(/^["'`]|["'`]$/g, "")
-      .replace(/^\*\*|\*\*$/g, "")
-      .replace(/^#+\s*/gm, "")
+      .replace(/^\*\*(.+)\*\*$/gm, "$1") // **bold** → bold
+      .replace(/^\*\s+/gm, "") // bullet points
+      .replace(/^#+\s*/gm, "")  // headers markdown
+      .replace(/\n{2,}/g, "\n")
       .trim();
+
+    // Si el resultado todavía parece razonamiento (muy largo o tiene múltiples líneas con puntuación),
+    // tomar solo la última línea limpia como respuesta final
+    if (result.length > 200 && type !== "description") {
+      const lines = result.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+      if (lines.length > 0) {
+        result = lines[lines.length - 1]; // Última línea = respuesta final
+      }
+    }
+
+    // Para título: tomar solo la primera línea
+    if (type === "title") {
+      result = result.split("\n")[0]?.trim() ?? result;
+      if (result.length > 80) result = result.slice(0, 77) + "...";
+    }
+    // Para descripción: limitar a 200 chars
+    if (type === "description" && result.length > 200) {
+      result = result.slice(0, 197) + "...";
+    }
 
     // Si el contenido está vacío pero hay reasoning_content, intentar extraer de ahí
     if (!result && msg?.reasoning_content) {
