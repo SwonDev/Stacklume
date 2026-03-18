@@ -92,30 +92,48 @@ function tauriListen(
 interface SystemSpecs {
   cpu: { name: string; cores: number };
   ram: { totalMb: number; availableMb: number };
-  gpu: { name: string; vramMb: number };
+  gpu: { name: string; vramMb: number; hasCuda?: boolean };
 }
 
 type FitLevel = "perfect" | "good" | "tight" | "no";
 
-/** Estima cuánta RAM necesita un modelo GGUF para inferencia CPU-only con llama.cpp */
-function estimateRamNeeded(fileSizeBytes: number): number {
-  // RAM = archivo del modelo + KV cache (~20% extra) + overhead llama.cpp (~500 MB)
-  const fileMb = fileSizeBytes / (1024 * 1024);
-  return fileMb * 1.2 + 500;
+interface FitResult {
+  level: FitLevel;
+  label: string;
+  color: string;
+  detail: string; // "GPU 8GB" o "CPU 16GB RAM"
+  mode: "gpu" | "hybrid" | "cpu"; // cómo se ejecutaría
 }
 
-/** Determina si el hardware puede correr un modelo */
-function checkFit(fileSizeBytes: number, specs: SystemSpecs | null): { level: FitLevel; label: string; color: string; ramNeededMb: number } {
-  const ramNeeded = estimateRamNeeded(fileSizeBytes);
-  if (!specs) return { level: "good", label: "", color: "", ramNeededMb: ramNeeded };
+/** Determina compatibilidad considerando GPU (VRAM) y CPU (RAM) */
+function checkFit(fileSizeBytes: number, specs: SystemSpecs | null): FitResult {
+  const fileMb = fileSizeBytes / (1024 * 1024);
+  const neededMb = fileMb * 1.1 + 200; // modelo + overhead
 
-  const available = specs.ram.totalMb;
-  const ratio = ramNeeded / available;
+  if (!specs) return { level: "good", label: "", color: "", detail: "", mode: "cpu" };
 
-  if (ratio < 0.5) return { level: "perfect", label: "Funciona perfecto", color: "text-green-500", ramNeededMb: ramNeeded };
-  if (ratio < 0.75) return { level: "good", label: "Funciona bien", color: "text-emerald-400", ramNeededMb: ramNeeded };
-  if (ratio < 0.95) return { level: "tight", label: "Puede ir lento", color: "text-amber-400", ramNeededMb: ramNeeded };
-  return { level: "no", label: "RAM insuficiente", color: "text-red-400", ramNeededMb: ramNeeded };
+  const vram = specs.gpu.vramMb;
+  const ram = specs.ram.totalMb;
+  const hasCuda = specs.gpu.hasCuda === true;
+
+  // Prioridad 1: GPU completa (mejor rendimiento)
+  if (hasCuda && vram > 0 && neededMb < vram * 0.85) {
+    const ratio = neededMb / vram;
+    if (ratio < 0.5) return { level: "perfect", label: "GPU — perfecto", color: "text-green-500", detail: `${(neededMb/1024).toFixed(1)}/${(vram/1024).toFixed(0)} GB VRAM`, mode: "gpu" };
+    return { level: "good", label: "GPU — funciona bien", color: "text-emerald-400", detail: `${(neededMb/1024).toFixed(1)}/${(vram/1024).toFixed(0)} GB VRAM`, mode: "gpu" };
+  }
+
+  // Prioridad 2: Híbrido GPU+RAM (si hay VRAM parcial)
+  if (hasCuda && vram > 500 && neededMb < vram + ram * 0.6) {
+    return { level: "good", label: "GPU+CPU — funciona", color: "text-blue-400", detail: `${(vram/1024).toFixed(0)} GB VRAM + RAM`, mode: "hybrid" };
+  }
+
+  // Prioridad 3: CPU only (RAM del sistema)
+  const ramRatio = (fileMb * 1.2 + 500) / ram;
+  if (ramRatio < 0.5) return { level: "good", label: "CPU — funciona bien", color: "text-emerald-400", detail: `~${((fileMb*1.2+500)/1024).toFixed(1)} GB de ${(ram/1024).toFixed(0)} GB RAM`, mode: "cpu" };
+  if (ramRatio < 0.75) return { level: "good", label: "CPU — funciona", color: "text-yellow-400", detail: `~${((fileMb*1.2+500)/1024).toFixed(1)} GB de ${(ram/1024).toFixed(0)} GB RAM`, mode: "cpu" };
+  if (ramRatio < 0.95) return { level: "tight", label: "CPU — puede ir lento", color: "text-amber-400", detail: `~${((fileMb*1.2+500)/1024).toFixed(1)} GB de ${(ram/1024).toFixed(0)} GB RAM`, mode: "cpu" };
+  return { level: "no", label: "Memoria insuficiente", color: "text-red-400", detail: `Necesita ~${((fileMb*1.2+500)/1024).toFixed(1)} GB`, mode: "cpu" };
 }
 
 function formatSize(bytes: number): string {
@@ -463,15 +481,16 @@ export function ModelManagementDialog({
                 {/* Banner de hardware */}
                 {systemSpecs && (
                   <div className="mb-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border/50 shrink-0">
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                       <span title={systemSpecs.cpu.name}>
                         💻 {systemSpecs.cpu.name.split(" ").slice(0, 3).join(" ")} ({systemSpecs.cpu.cores} hilos)
                       </span>
                       <span>🧠 {(systemSpecs.ram.totalMb / 1024).toFixed(0)} GB RAM</span>
                       {systemSpecs.gpu.name && (
-                        <span title={systemSpecs.gpu.name}>
-                          🎮 {systemSpecs.gpu.name.split(" ").slice(-2).join(" ")}
-                          {systemSpecs.gpu.vramMb > 0 && ` ${(systemSpecs.gpu.vramMb / 1024).toFixed(0)}GB`}
+                        <span title={systemSpecs.gpu.name} className={systemSpecs.gpu.hasCuda ? "text-green-400" : ""}>
+                          🎮 {systemSpecs.gpu.name.length > 30 ? systemSpecs.gpu.name.split(" ").slice(-3).join(" ") : systemSpecs.gpu.name}
+                          {systemSpecs.gpu.vramMb > 0 && ` ${(systemSpecs.gpu.vramMb / 1024).toFixed(0)} GB`}
+                          {systemSpecs.gpu.hasCuda && " CUDA"}
                         </span>
                       )}
                     </div>
@@ -508,12 +527,8 @@ export function ModelManagementDialog({
                                 const fit = checkFit(file.size, systemSpecs);
                                 if (!fit.label) return null;
                                 return (
-                                  <span className={cn("text-[10px] font-medium", fit.color)} title={`Necesita ~${(fit.ramNeededMb / 1024).toFixed(1)} GB RAM`}>
-                                    {fit.level === "perfect" && "●"}
-                                    {fit.level === "good" && "●"}
-                                    {fit.level === "tight" && "●"}
-                                    {fit.level === "no" && "●"}
-                                    {" "}{fit.label}
+                                  <span className={cn("text-[10px] font-medium", fit.color)} title={fit.detail}>
+                                    ● {fit.label}
                                   </span>
                                 );
                               })()}
