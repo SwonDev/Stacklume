@@ -169,6 +169,46 @@ fn wait_for_llama_server(port: u16) -> bool {
     false
 }
 
+/// Detecta cuántas GPU layers usar basándose en la VRAM disponible.
+/// Si hay GPU NVIDIA con CUDA y la VRAM cabe el modelo, usa todas las capas (99).
+/// Si la VRAM es parcial, usa capas proporcionales. Si no hay GPU, usa CPU (0).
+fn detect_gpu_layers(model_path: &str) -> String {
+    use std::process::Command;
+
+    // Obtener VRAM libre via nvidia-smi
+    let vram_free_mb = Command::new("nvidia-smi")
+        .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.lines().next().and_then(|l| l.trim().parse::<u64>().ok()))
+        .unwrap_or(0);
+
+    if vram_free_mb == 0 {
+        return "0".to_string(); // No GPU / no nvidia-smi → CPU only
+    }
+
+    // Tamaño del modelo en MB
+    let model_size_mb = std::fs::metadata(model_path)
+        .map(|m| m.len() / (1024 * 1024))
+        .unwrap_or(0);
+
+    // El modelo necesita ~110% del tamaño del archivo en VRAM (model + KV cache parcial)
+    let needed_mb = (model_size_mb as f64 * 1.1) as u64 + 200; // +200 MB overhead
+
+    if vram_free_mb >= needed_mb {
+        "99".to_string() // Todas las capas en GPU — rendimiento máximo
+    } else if vram_free_mb > 500 {
+        // Offload parcial: proporción de capas según VRAM disponible
+        let ratio = vram_free_mb as f64 / needed_mb as f64;
+        let layers = (ratio * 40.0).max(1.0).min(40.0) as u32; // 40 capas típicas
+        layers.to_string()
+    } else {
+        "0".to_string() // VRAM insuficiente → CPU only
+    }
+}
+
 /// Arranca llama-server de forma síncrona (llamar desde un hilo background).
 /// Funciona en dev y prod. En dev no guarda el handle del proceso hijo.
 fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
@@ -245,8 +285,11 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg(port.to_string())
         .arg("--ctx-size")
         .arg(ctx_size)
+        // GPU offloading: auto-detectar VRAM disponible.
+        // Si hay GPU NVIDIA con CUDA y suficiente VRAM, usar -ngl 99 (todas las capas en GPU).
+        // Si no hay GPU o VRAM insuficiente, -ngl 0 (CPU only).
         .arg("-ngl")
-        .arg("0")
+        .arg(&detect_gpu_layers(&model_path))
         .arg("--threads")
         .arg(&n_threads)
         .arg("--threads-batch")
@@ -1208,70 +1251,81 @@ fn get_active_model(app: tauri::AppHandle) -> serde_json::Value {
 }
 
 /// Detecta las especificaciones de hardware del sistema.
-/// Devuelve CPU, RAM total/disponible, y GPU (si hay) para compatibilidad de modelos.
+/// Devuelve CPU, RAM total/disponible, GPU (nombre + VRAM real) y si CUDA está disponible.
 #[tauri::command]
 fn get_system_specs() -> serde_json::Value {
     use std::process::Command;
 
-    // RAM total y disponible via Windows API
     let (total_ram_mb, available_ram_mb) = get_ram_info();
 
-    // CPU via wmic
+    // CPU
     let cpu_name = Command::new("wmic")
         .args(["cpu", "get", "name", "/value"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| {
-            s.lines()
-                .find(|l| l.starts_with("Name="))
-                .map(|l| l.trim_start_matches("Name=").trim().to_string())
-                .unwrap_or_default()
-        })
+        .and_then(|s| s.lines().find(|l| l.starts_with("Name=")).map(|l| l.trim_start_matches("Name=").trim().to_string()))
         .unwrap_or_default();
 
-    let cpu_cores = std::thread::available_parallelism()
-        .map(|n| n.get() as u32)
-        .unwrap_or(4);
+    let cpu_cores = std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4);
 
-    // GPU via wmic (nombre + VRAM)
-    let gpu_output = Command::new("wmic")
-        .args(["path", "win32_videocontroller", "get", "name,adapterram", "/value"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .unwrap_or_default();
-
+    // GPU: intentar nvidia-smi primero (da VRAM real, no el cap de 4GB de wmic)
     let mut gpu_name = String::new();
     let mut gpu_vram_mb: u64 = 0;
-    for line in gpu_output.lines() {
-        let trimmed = line.trim();
-        if let Some(name) = trimmed.strip_prefix("Name=") {
-            if !name.is_empty() && (gpu_name.is_empty() || name.contains("NVIDIA") || name.contains("AMD") || name.contains("Arc")) {
-                gpu_name = name.to_string();
+    let mut has_cuda = false;
+
+    if let Ok(output) = Command::new("nvidia-smi")
+        .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        .output()
+    {
+        if output.status.success() {
+            if let Ok(text) = String::from_utf8(output.stdout) {
+                // Formato: "NVIDIA GeForce RTX 4070, 12282"
+                for line in text.lines() {
+                    let parts: Vec<&str> = line.splitn(2, ',').collect();
+                    if parts.len() == 2 {
+                        let name = parts[0].trim();
+                        let vram: u64 = parts[1].trim().parse().unwrap_or(0);
+                        if vram > gpu_vram_mb {
+                            gpu_name = name.to_string();
+                            gpu_vram_mb = vram; // nvidia-smi devuelve MB directamente
+                            has_cuda = true;
+                        }
+                    }
+                }
             }
         }
-        if let Some(ram_str) = trimmed.strip_prefix("AdapterRAM=") {
-            if let Ok(ram) = ram_str.parse::<u64>() {
-                let mb = ram / (1024 * 1024);
-                if mb > gpu_vram_mb { gpu_vram_mb = mb; }
+    }
+
+    // Fallback: wmic (funciona para AMD, Intel, o si nvidia-smi no está)
+    if gpu_name.is_empty() {
+        let gpu_output = Command::new("wmic")
+            .args(["path", "win32_videocontroller", "get", "name,adapterram", "/value"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default();
+
+        for line in gpu_output.lines() {
+            let trimmed = line.trim();
+            if let Some(name) = trimmed.strip_prefix("Name=") {
+                if !name.is_empty() && (gpu_name.is_empty() || name.contains("NVIDIA") || name.contains("AMD") || name.contains("Arc")) {
+                    gpu_name = name.to_string();
+                }
+            }
+            if let Some(ram_str) = trimmed.strip_prefix("AdapterRAM=") {
+                if let Ok(ram) = ram_str.parse::<u64>() {
+                    let mb = ram / (1024 * 1024);
+                    if mb > gpu_vram_mb { gpu_vram_mb = mb; }
+                }
             }
         }
     }
 
     serde_json::json!({
-        "cpu": {
-            "name": cpu_name,
-            "cores": cpu_cores,
-        },
-        "ram": {
-            "totalMb": total_ram_mb,
-            "availableMb": available_ram_mb,
-        },
-        "gpu": {
-            "name": gpu_name,
-            "vramMb": gpu_vram_mb,
-        }
+        "cpu": { "name": cpu_name, "cores": cpu_cores },
+        "ram": { "totalMb": total_ram_mb, "availableMb": available_ram_mb },
+        "gpu": { "name": gpu_name, "vramMb": gpu_vram_mb, "hasCuda": has_cuda }
     })
 }
 
