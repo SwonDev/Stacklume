@@ -1207,6 +1207,98 @@ fn get_active_model(app: tauri::AppHandle) -> serde_json::Value {
     }
 }
 
+/// Detecta las especificaciones de hardware del sistema.
+/// Devuelve CPU, RAM total/disponible, y GPU (si hay) para compatibilidad de modelos.
+#[tauri::command]
+fn get_system_specs() -> serde_json::Value {
+    use std::process::Command;
+
+    // RAM total y disponible via Windows API
+    let (total_ram_mb, available_ram_mb) = get_ram_info();
+
+    // CPU via wmic
+    let cpu_name = Command::new("wmic")
+        .args(["cpu", "get", "name", "/value"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Name="))
+                .map(|l| l.trim_start_matches("Name=").trim().to_string())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+
+    let cpu_cores = std::thread::available_parallelism()
+        .map(|n| n.get() as u32)
+        .unwrap_or(4);
+
+    // GPU via wmic (nombre + VRAM)
+    let gpu_output = Command::new("wmic")
+        .args(["path", "win32_videocontroller", "get", "name,adapterram", "/value"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_default();
+
+    let mut gpu_name = String::new();
+    let mut gpu_vram_mb: u64 = 0;
+    for line in gpu_output.lines() {
+        let trimmed = line.trim();
+        if let Some(name) = trimmed.strip_prefix("Name=") {
+            if !name.is_empty() && (gpu_name.is_empty() || name.contains("NVIDIA") || name.contains("AMD") || name.contains("Arc")) {
+                gpu_name = name.to_string();
+            }
+        }
+        if let Some(ram_str) = trimmed.strip_prefix("AdapterRAM=") {
+            if let Ok(ram) = ram_str.parse::<u64>() {
+                let mb = ram / (1024 * 1024);
+                if mb > gpu_vram_mb { gpu_vram_mb = mb; }
+            }
+        }
+    }
+
+    serde_json::json!({
+        "cpu": {
+            "name": cpu_name,
+            "cores": cpu_cores,
+        },
+        "ram": {
+            "totalMb": total_ram_mb,
+            "availableMb": available_ram_mb,
+        },
+        "gpu": {
+            "name": gpu_name,
+            "vramMb": gpu_vram_mb,
+        }
+    })
+}
+
+/// Obtiene RAM total y disponible usando Windows API (GlobalMemoryStatusEx)
+#[cfg(windows)]
+fn get_ram_info() -> (u64, u64) {
+    use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    let mut mem = MEMORYSTATUSEX {
+        dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
+        dwMemoryLoad: 0,
+        ullTotalPhys: 0,
+        ullAvailPhys: 0,
+        ullTotalPageFile: 0,
+        ullAvailPageFile: 0,
+        ullTotalVirtual: 0,
+        ullAvailVirtual: 0,
+        ullAvailExtendedVirtual: 0,
+    };
+    unsafe { GlobalMemoryStatusEx(&mut mem); }
+    (mem.ullTotalPhys / (1024 * 1024), mem.ullAvailPhys / (1024 * 1024))
+}
+
+#[cfg(not(windows))]
+fn get_ram_info() -> (u64, u64) {
+    (0, 0)
+}
+
 /// Cambia el modelo activo: para llama-server, actualiza config, reinicia con el nuevo modelo.
 #[tauri::command]
 async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), String> {
@@ -2048,6 +2140,7 @@ pub fn run() {
             download_mmproj,
             list_models,
             get_active_model,
+            get_system_specs,
             switch_model,
             delete_model,
             get_hf_token,
