@@ -1297,26 +1297,30 @@ fn get_system_specs() -> serde_json::Value {
         }
     }
 
-    // Fallback: wmic (funciona para AMD, Intel, o si nvidia-smi no está)
+    // Fallback: PowerShell Get-CimInstance (funciona para AMD, Intel, y NVIDIA sin drivers CLI)
+    // Devuelve VRAM real via AdapterRAM (qword) — wmic trunca a 4GB (uint32 overflow)
     if gpu_name.is_empty() {
-        let gpu_output = Command::new("wmic")
-            .args(["path", "win32_videocontroller", "get", "name,adapterram", "/value"])
+        let ps_output = Command::new("powershell")
+            .args(["-NoProfile", "-Command",
+                "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | ForEach-Object { \"$($_.Name)|$($_.AdapterRAM)\" }"])
             .output()
             .ok()
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
 
-        for line in gpu_output.lines() {
+        for line in ps_output.lines() {
             let trimmed = line.trim();
-            if let Some(name) = trimmed.strip_prefix("Name=") {
-                if !name.is_empty() && (gpu_name.is_empty() || name.contains("NVIDIA") || name.contains("AMD") || name.contains("Arc")) {
+            if trimmed.is_empty() { continue; }
+            let parts: Vec<&str> = trimmed.splitn(2, '|').collect();
+            if parts.len() == 2 {
+                let name = parts[0].trim();
+                let vram: u64 = parts[1].trim().parse().unwrap_or(0) / (1024 * 1024);
+                // Preferir GPU dedicada (NVIDIA, AMD Radeon, Intel Arc) sobre integrada
+                let is_dedicated = name.contains("NVIDIA") || name.contains("Radeon RX") || name.contains("Arc A");
+                let current_is_dedicated = gpu_name.contains("NVIDIA") || gpu_name.contains("Radeon RX") || gpu_name.contains("Arc A");
+                if gpu_name.is_empty() || (is_dedicated && !current_is_dedicated) || (is_dedicated && vram > gpu_vram_mb) {
                     gpu_name = name.to_string();
-                }
-            }
-            if let Some(ram_str) = trimmed.strip_prefix("AdapterRAM=") {
-                if let Ok(ram) = ram_str.parse::<u64>() {
-                    let mb = ram / (1024 * 1024);
-                    if mb > gpu_vram_mb { gpu_vram_mb = mb; }
+                    gpu_vram_mb = vram;
                 }
             }
         }
