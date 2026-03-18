@@ -69,10 +69,14 @@ function detectCommand(input: string): CommandInfo | null {
   function extractPkg(cmd: string, prefixRe: RegExp): string | null {
     const m = cmd.match(prefixRe);
     if (!m) return null;
-    // Después del comando, buscar el nombre del paquete (skip flags como -g, -D)
     const rest = cmd.slice(m[0].length).trim();
     const parts = rest.split(/\s+/).filter(p => !p.startsWith("-"));
-    return parts[0]?.replace(/@[^/]*$/, "") || null; // quitar @version al final
+    let pkg = parts[0] || null;
+    if (!pkg) return null;
+    // Quitar @version al final (ej: streamdown@1.0.0 → streamdown, @types/node@20 → @types/node)
+    // Pero NO quitar @scope (ej: @coss debe quedarse como @coss)
+    pkg = pkg.replace(/@(\d[\w.-]*|latest|next|canary|beta|alpha|rc)$/i, "");
+    return pkg || null;
   }
 
   // npm install / npm i / npx
