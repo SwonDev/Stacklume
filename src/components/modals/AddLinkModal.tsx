@@ -65,32 +65,38 @@ function detectCommand(input: string): CommandInfo | null {
   const trimmed = input.trim();
   if (!trimmed || trimmed.startsWith("http://") || trimmed.startsWith("https://")) return null;
 
+  // Helper: extraer nombre de paquete del comando (soporta @scope/name y name)
+  function extractPkg(cmd: string, prefixRe: RegExp): string | null {
+    const m = cmd.match(prefixRe);
+    if (!m) return null;
+    // Después del comando, buscar el nombre del paquete (skip flags como -g, -D)
+    const rest = cmd.slice(m[0].length).trim();
+    const parts = rest.split(/\s+/).filter(p => !p.startsWith("-"));
+    return parts[0]?.replace(/@[^/]*$/, "") || null; // quitar @version al final
+  }
+
   // npm install / npm i / npx
-  const npmMatch = trimmed.match(/^(?:npm\s+(?:install|i|add)|npx)\s+(?:-[gDSd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
-  if (npmMatch) {
-    const pkg = npmMatch[1];
-    return { packageName: pkg, manager: "npm", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "npm" };
+  const npmPkg = extractPkg(trimmed, /^(?:npm\s+(?:install|i|add)|npx)\s+/i);
+  if (npmPkg) {
+    return { packageName: npmPkg, manager: "npm", command: trimmed, registryUrl: `https://www.npmjs.com/package/${npmPkg}`, icon: "npm" };
   }
 
   // pnpm add / pnpm i / pnpm install / pnpm dlx
-  const pnpmMatch = trimmed.match(/^pnpm\s+(?:add|install|i|dlx)\s+(?:-[gDd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
-  if (pnpmMatch) {
-    const pkg = pnpmMatch[1];
-    return { packageName: pkg, manager: "pnpm", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "pnpm" };
+  const pnpmPkg = extractPkg(trimmed, /^pnpm\s+(?:add|install|i|dlx)\s+/i);
+  if (pnpmPkg) {
+    return { packageName: pnpmPkg, manager: "pnpm", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pnpmPkg}`, icon: "pnpm" };
   }
 
   // yarn add
-  const yarnMatch = trimmed.match(/^yarn\s+(?:add|global\s+add)\s+(?:-[gDd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
-  if (yarnMatch) {
-    const pkg = yarnMatch[1];
-    return { packageName: pkg, manager: "yarn", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "yarn" };
+  const yarnPkg = extractPkg(trimmed, /^yarn\s+(?:add|global\s+add)\s+/i);
+  if (yarnPkg) {
+    return { packageName: yarnPkg, manager: "yarn", command: trimmed, registryUrl: `https://www.npmjs.com/package/${yarnPkg}`, icon: "yarn" };
   }
 
   // bun add / bun i / bunx
-  const bunMatch = trimmed.match(/^(?:bun\s+(?:add|install|i)|bunx)\s+(?:-[gDd]\s+)*(@?[\w./-]+)(?:@\S+)?/i);
-  if (bunMatch) {
-    const pkg = bunMatch[1];
-    return { packageName: pkg, manager: "bun", command: trimmed, registryUrl: `https://www.npmjs.com/package/${pkg}`, icon: "bun" };
+  const bunPkg = extractPkg(trimmed, /^(?:bun\s+(?:add|install|i)|bunx)\s+/i);
+  if (bunPkg) {
+    return { packageName: bunPkg, manager: "bun", command: trimmed, registryUrl: `https://www.npmjs.com/package/${bunPkg}`, icon: "bun" };
   }
 
   // pip install / pip3 install
