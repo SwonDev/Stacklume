@@ -323,10 +323,19 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     llm_log(&format!("port: {} | ngl: {} ({}) | ctx: {}", port, ngl, if ngl == "0" { "CPU" } else { "GPU" }, effective_ctx));
 
     // Detectar proyector multimodal (mmproj) para soporte de visión
-    let mmproj_path: Option<std::path::PathBuf> = std::path::Path::new(&model_path)
-        .parent()
-        .map(|d| d.join("mmproj-F16.gguf"))
-        .filter(|p| p.exists());
+    // Solo usar mmproj si el modelo activo es compatible (Qwen3.5-2B).
+    // El mmproj-F16.gguf descargado es específico del 2B — cargarlo con
+    // otro modelo (4B, 0.8B) causa crash silencioso de llama-server.
+    let model_filename_lower = std::path::Path::new(&model_path)
+        .file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+    let mmproj_path: Option<std::path::PathBuf> = if model_filename_lower.contains("2b") {
+        std::path::Path::new(&model_path)
+            .parent()
+            .map(|d| d.join("mmproj-F16.gguf"))
+            .filter(|p| p.exists())
+    } else {
+        None
+    };
 
     let mut cmd = Command::new(&binary_path);
     cmd.arg("--model").arg(&model_path)
