@@ -371,8 +371,11 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE | ABOVE_NORMAL_PRIORITY
-        cmd.creation_flags(0x08000000 | 0x04000000 | 0x00008000);
+        // CREATE_NO_WINDOW (0x08000000) — sin ventana de consola
+        // NO usar CREATE_DEFAULT_ERROR_MODE (0x04000000) — causa dialog modal invisible
+        // que bloquea el proceso si hay un warning de DLL.
+        // ABOVE_NORMAL_PRIORITY (0x00008000) — prioridad alta para inferencia
+        cmd.creation_flags(0x08000000 | 0x00008000);
     }
 
     // Matar CUALQUIER llama-server previo antes de spawnar (evitar duplicados)
