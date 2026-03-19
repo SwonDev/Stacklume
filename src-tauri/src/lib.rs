@@ -371,11 +371,14 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW (0x08000000) — sin ventana de consola
-        // NO usar CREATE_DEFAULT_ERROR_MODE (0x04000000) — causa dialog modal invisible
-        // que bloquea el proceso si hay un warning de DLL.
-        // ABOVE_NORMAL_PRIORITY (0x00008000) — prioridad alta para inferencia
-        cmd.creation_flags(0x08000000 | 0x00008000);
+        if ngl == "0" {
+            cmd.creation_flags(0x08000000 | 0x00008000); // CREATE_NO_WINDOW + HIGH PRIORITY
+        } else {
+            // GPU CUDA: CREATE_NO_WINDOW impide inicialización de CUDA en Rust Command.
+            // Crear con ventana pero minimizada (SW_SHOWMINNOACTIVE = 7 via raw_attribute no disponible).
+            // Workaround: DETACHED_PROCESS (0x08) crea proceso sin heredar consola del padre.
+            cmd.creation_flags(0x00000008 | 0x00008000); // DETACHED_PROCESS + HIGH PRIORITY
+        }
     }
 
     // Matar CUALQUIER llama-server previo antes de spawnar (evitar duplicados)
@@ -392,8 +395,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         Ok(mut child) => {
             let pid = child.id();
             llm_log(&format!("llama-server spawned: PID {}", pid));
-
-
 
             #[cfg(windows)]
             {
