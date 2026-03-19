@@ -1618,21 +1618,14 @@ pub fn run() {
             // CUDA necesita una consola para inicializar. Tauri es GUI subsystem
             // (sin consola). AllocConsole crea una UNA VEZ al inicio — todos los
             // llama-server spawneados después la heredan.
+            // CUDA necesita consola. AllocConsole la crea una vez.
+            // NO ocultar con ShowWindow — eso impide que CUDA inicialice.
+            // En dev aparece una ventana vacía; en producción la ocultaremos
+            // con un approach diferente una vez confirmado que funciona.
             #[cfg(windows)]
             {
                 use windows_sys::Win32::System::Console::AllocConsole;
                 unsafe { let _ = AllocConsole(); }
-                // Ocultar la ventana de consola inmediatamente
-                use windows_sys::Win32::System::Console::GetConsoleWindow;
-                use windows_sys::Win32::UI::Shell::*;
-                let hwnd = unsafe { GetConsoleWindow() };
-                if hwnd != std::ptr::null_mut() {
-                    // SW_HIDE = 0
-                    unsafe {
-                        use windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow;
-                        ShowWindow(hwnd, 0);
-                    }
-                }
             }
 
             // Crear system tray (dev y prod)
