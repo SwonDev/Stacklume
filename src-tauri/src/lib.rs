@@ -315,26 +315,8 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         _ =>        ("4096",  "1024", true, "off",  "0.7", "40", "0.9"),
     };
 
-    // Ajustar ctx-size si VRAM es limitada (modelo grande + contexto grande = OOM CUDA)
-    let effective_ctx = if ngl != "0" {
-        let model_mb = std::fs::metadata(&model_path).map(|m| m.len() / (1024 * 1024)).unwrap_or(0);
-        let vram_free = silent_command("C:\\Windows\\System32\\nvidia-smi.exe")
-            .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
-            .output().ok()
-            .filter(|o| o.status.success())
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .and_then(|s| s.lines().next().and_then(|l| l.trim().parse::<u64>().ok()))
-            .unwrap_or(0);
-        if vram_free > 0 && model_mb * 100 / vram_free > 60 {
-            "4096"
-        } else if vram_free > 0 && model_mb * 100 / vram_free > 40 {
-            "8192"
-        } else {
-            ctx_size
-        }
-    } else {
-        ctx_size
-    };
+    // Usar ctx-size de la familia directamente (llama.cpp ajusta automáticamente si no cabe)
+    let effective_ctx = ctx_size;
 
     llm_log(&format!("binary: {}", binary_path));
     llm_log(&format!("model: {}", model_path));

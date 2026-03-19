@@ -127,8 +127,16 @@ async function main() {
   // 2. Buscar assets: preferir CUDA 12.4, fallback a CPU
   const assets = release.assets || [];
 
-  // Prioridad: CUDA 12.4 > CPU (para usar GPU NVIDIA)
+  // Prioridad: CUDA 13.1 > CUDA 12.4 > CPU (para usar GPU NVIDIA)
+  // CUDA 13.1 es compatible con drivers más recientes (NVIDIA 595+)
   const winCudaAsset = assets.find(
+    (a) =>
+      a.name.includes("win") &&
+      a.name.includes("cuda-13.1") &&
+      a.name.includes("x64") &&
+      a.name.endsWith(".zip") &&
+      !a.name.startsWith("cudart-")
+  ) || assets.find(
     (a) =>
       a.name.includes("win") &&
       a.name.includes("cuda-12.4") &&
@@ -137,11 +145,12 @@ async function main() {
       !a.name.startsWith("cudart-")
   );
 
-  // CUDA runtime DLLs (necesarias para que el backend CUDA funcione)
+  // CUDA runtime DLLs — misma versión que el build principal
+  const cudaVer = winCudaAsset?.name.includes("13.1") ? "13.1" : "12.4";
   const cudartAsset = assets.find(
     (a) =>
       a.name.startsWith("cudart-") &&
-      a.name.includes("cuda-12.4") &&
+      a.name.includes(`cuda-${cudaVer}`) &&
       a.name.includes("x64") &&
       a.name.endsWith(".zip")
   );
