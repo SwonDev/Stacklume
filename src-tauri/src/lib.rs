@@ -157,9 +157,8 @@ fn find_any_free_port() -> u16 {
 /// Espera hasta que llama-server responda al health check (máx 30 s)
 fn wait_for_llama_server(port: u16) -> bool {
     let url = format!("http://127.0.0.1:{}/health", port);
-    // 180 × 500ms = 90 segundos. Con Qwen3.5-2B + mmproj (~2 GB en total),
-    // la carga del modelo puede superar fácilmente los 30s en discos lentos.
-    for _ in 0..180 {
+    // 240 × 500ms = 120 segundos. Modelos 4B+ con CUDA pueden tardar 30-60s.
+    for _ in 0..240 {
         match ureq::get(&url).call() {
             Ok(resp) if resp.status() < 500 => return true,
             _ => {}
@@ -270,7 +269,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     llm_log(&format!("binary: {}", binary_path));
     llm_log(&format!("model: {}", model_path));
     llm_log(&format!("port: {}", port));
-    llm_log(&format!("ngl: {} (CPU — CUDA incompatible con CREATE_NO_WINDOW)", ngl));
+    llm_log(&format!("ngl: {} ({})", ngl, if ngl == "0" { "CPU" } else { "GPU CUDA" }));
 
     // Detectar proyector multimodal (mmproj) para soporte de visión.
     // Si mmproj-F16.gguf existe en el mismo directorio que el modelo,
@@ -337,8 +336,16 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("0")
         .arg("--no-context-shift")
         .arg("--log-disable")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdout(Stdio::null());
+
+    // Capturar stderr de llama-server en un archivo para diagnóstico
+    let stderr_path = app.path().app_data_dir().unwrap_or_default().join("llama-stderr.log");
+    let _ = std::fs::write(&stderr_path, ""); // limpiar
+    if let Ok(stderr_file) = std::fs::File::create(&stderr_path) {
+        cmd.stderr(Stdio::from(stderr_file));
+    } else {
+        cmd.stderr(Stdio::null());
+    }
 
     // Jinja templating: necesario para tool calling. La mayoría de modelos lo soportan.
     if use_jinja {
@@ -399,8 +406,8 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
                 *app.state::<LlamaState>().status.lock().unwrap() = "ready".to_string();
                 let _ = app.emit("llm:status-changed", "ready");
             } else {
-                llm_log("TIMEOUT: llama-server no respondió en 90s");
-                let msg = "error: llama-server no respondió en 90s — intenta reiniciar".to_string();
+                llm_log("TIMEOUT: llama-server no respondió en 120s");
+                let msg = "error: llama-server no respondió en 120s — prueba un modelo más pequeño".to_string();
                 *app.state::<LlamaState>().status.lock().unwrap() = msg.clone();
                 let _ = app.emit("llm:status-changed", msg.clone());
                 return Err(msg);
