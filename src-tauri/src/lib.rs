@@ -266,10 +266,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     }
 
     let ngl = detect_gpu_layers(&binary_path, &model_path);
-    llm_log(&format!("binary: {}", binary_path));
-    llm_log(&format!("model: {}", model_path));
-    llm_log(&format!("port: {}", port));
-    llm_log(&format!("ngl: {} ({})", ngl, if ngl == "0" { "CPU" } else { "GPU CUDA" }));
 
     // Detectar proyector multimodal (mmproj) para soporte de visión.
     // Si mmproj-F16.gguf existe en el mismo directorio que el modelo,
@@ -307,8 +303,32 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         _ =>        ("4096",  "1024", true, "off",  "0.7", "40", "0.9"),
     };
 
+    // Ajustar ctx-size si VRAM es limitada (modelo grande + contexto grande = OOM CUDA)
+    let effective_ctx = if ngl != "0" {
+        let model_mb = std::fs::metadata(&model_path).map(|m| m.len() / (1024 * 1024)).unwrap_or(0);
+        let vram_free = silent_command("C:\\Windows\\System32\\nvidia-smi.exe")
+            .args(["--query-gpu=memory.free", "--format=csv,noheader,nounits"])
+            .output().ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|s| s.lines().next().and_then(|l| l.trim().parse::<u64>().ok()))
+            .unwrap_or(0);
+        if vram_free > 0 && model_mb * 100 / vram_free > 60 {
+            "4096"
+        } else if vram_free > 0 && model_mb * 100 / vram_free > 40 {
+            "8192"
+        } else {
+            ctx_size
+        }
+    } else {
+        ctx_size
+    };
+
+    llm_log(&format!("binary: {}", binary_path));
+    llm_log(&format!("model: {}", model_path));
+    llm_log(&format!("port: {} | ngl: {} ({}) | ctx: {}", port, ngl, if ngl == "0" { "CPU" } else { "GPU" }, effective_ctx));
+
     let mut cmd = Command::new(&binary_path);
-    // NO usar env_clear() — CUDA necesita PATH, CUDA_PATH, y variables del driver NVIDIA
     // que se pierden al limpiar el entorno. Heredar todo del proceso padre.
     cmd.arg("--model")
         .arg(&model_path)
@@ -317,7 +337,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("--port")
         .arg(port.to_string())
         .arg("--ctx-size")
-        .arg(ctx_size)
+        .arg(effective_ctx)
         .arg("-ngl")
         .arg(&ngl)
         .arg("--threads")
@@ -336,16 +356,8 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("0")
         .arg("--no-context-shift")
         .arg("--log-disable")
-        .stdout(Stdio::null());
-
-    // Capturar stderr de llama-server en un archivo para diagnóstico
-    let stderr_path = app.path().app_data_dir().unwrap_or_default().join("llama-stderr.log");
-    let _ = std::fs::write(&stderr_path, ""); // limpiar
-    if let Ok(stderr_file) = std::fs::File::create(&stderr_path) {
-        cmd.stderr(Stdio::from(stderr_file));
-    } else {
-        cmd.stderr(Stdio::null());
-    }
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped()); // Capturar stderr para diagnóstico
 
     // Jinja templating: necesario para tool calling. La mayoría de modelos lo soportan.
     if use_jinja {
@@ -381,9 +393,25 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
 
     llm_log("Spawning llama-server...");
     match cmd.spawn() {
-        Ok(child) => {
+        Ok(mut child) => {
             let pid = child.id();
             llm_log(&format!("llama-server spawned: PID {}", pid));
+
+            // Capturar stderr en hilo para diagnóstico
+            let stderr_log_path = app.path().app_data_dir().unwrap_or_default().join("llama-stderr.log");
+            let _ = std::fs::write(&stderr_log_path, "");
+            if let Some(stderr) = child.stderr.take() {
+                let log_path = stderr_log_path.clone();
+                std::thread::spawn(move || {
+                    use std::io::{BufRead, BufReader, Write};
+                    let reader = BufReader::new(stderr);
+                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+                        for line in reader.lines().map_while(Result::ok) {
+                            let _ = writeln!(f, "{}", line);
+                        }
+                    }
+                });
+            }
 
 
             #[cfg(windows)]
