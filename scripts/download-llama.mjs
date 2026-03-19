@@ -25,9 +25,10 @@ const LLAMA_EXE = join(DEST_DIR, "llama-server.exe");
 
 const FORCE = process.argv.includes("--force");
 
-// GitHub API: último release de llama.cpp
+// GitHub API: release b8303 de llama.cpp — verificado que funciona con CREATE_NO_WINDOW + CUDA.
+// b8405+ se cuelga con CREATE_NO_WINDOW por un cambio en la inicialización de backends.
 const API_URL =
-  "https://api.github.com/repos/ggerganov/llama.cpp/releases/latest";
+  "https://api.github.com/repos/ggerganov/llama.cpp/releases/tags/b8303";
 
 /**
  * Realiza una petición HTTPS y devuelve el body como string.
