@@ -157,8 +157,8 @@ fn find_any_free_port() -> u16 {
 /// Espera hasta que llama-server responda al health check (máx 30 s)
 fn wait_for_llama_server(port: u16) -> bool {
     let url = format!("http://127.0.0.1:{}/health", port);
-    // 240 × 500ms = 120 segundos. Modelos 4B+ con CUDA pueden tardar 30-60s.
-    for _ in 0..240 {
+    // 360 × 500ms = 180 segundos (3 min). Modelos 4B+ en CPU pueden tardar 60-90s.
+    for _ in 0..360 {
         match ureq::get(&url).call() {
             Ok(resp) if resp.status() < 500 => return true,
             _ => {}
@@ -321,50 +321,38 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     llm_log(&format!("model: {}", model_path));
     llm_log(&format!("port: {} | ngl: {} ({}) | ctx: {}", port, ngl, if ngl == "0" { "CPU" } else { "GPU" }, effective_ctx));
 
-    // Construir la línea de comandos completa para lanzar via cmd.exe /c
-    // Esto es necesario porque CUDA necesita un subsistema de consola para
-    // inicializar el contexto de cómputo. Tauri es una app GUI sin consola,
-    // y CREATE_NO_WINDOW en cmd.exe crea una consola interna que CUDA puede usar.
-    // Ollama hace lo mismo internamente (los runners de Go lanzan vía shell).
-    let stderr_path = app.path().app_data_dir().unwrap_or_default().join("llama-stderr.log");
-    let _ = std::fs::write(&stderr_path, ""); // limpiar
-
-    let mut args_str = format!(
-        "\"{}\" --model \"{}\" --host 127.0.0.1 --port {} --ctx-size {} -ngl {} --threads {} --threads-batch {} --n-predict {} --temp {} --top-k {} --top-p {} --min-p 0 --no-context-shift --log-disable",
-        binary_path, model_path, port, effective_ctx, ngl, n_threads, n_threads,
-        n_predict, default_temp, default_top_k, default_top_p
-    );
-
-    // Jinja templating
-    if use_jinja {
-        args_str.push_str(" --jinja");
-    }
-    // Modo razonamiento
-    args_str.push_str(&format!(" --reasoning {}", reasoning_mode));
-
-    // Activar soporte de visión si hay proyector multimodal disponible
+    // Detectar proyector multimodal (mmproj) para soporte de visión
     let mmproj_path: Option<std::path::PathBuf> = std::path::Path::new(&model_path)
         .parent()
         .map(|d| d.join("mmproj-F16.gguf"))
         .filter(|p| p.exists());
-    if let Some(ref mp) = mmproj_path {
-        args_str.push_str(&format!(" --mmproj \"{}\"", mp.display()));
-    }
 
-    // Redirigir stderr al archivo de diagnóstico
-    args_str.push_str(&format!(" 2>\"{}\"", stderr_path.display()));
-
-    llm_log(&format!("cmd: cmd.exe /c {}", &args_str[..args_str.len().min(200)]));
-
-    let mut cmd = Command::new("cmd.exe");
-    cmd.arg("/c")
-        .arg(&args_str)
+    let mut cmd = Command::new(&binary_path);
+    cmd.arg("--model").arg(&model_path)
+        .arg("--host").arg("127.0.0.1")
+        .arg("--port").arg(port.to_string())
+        .arg("--ctx-size").arg(effective_ctx)
+        .arg("-ngl").arg(&ngl)
+        .arg("--threads").arg(&n_threads)
+        .arg("--threads-batch").arg(&n_threads)
+        .arg("--n-predict").arg(n_predict)
+        .arg("--temp").arg(default_temp)
+        .arg("--top-k").arg(default_top_k)
+        .arg("--top-p").arg(default_top_p)
+        .arg("--min-p").arg("0")
+        .arg("--no-context-shift")
+        .arg("--log-disable")
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+
+    if use_jinja { cmd.arg("--jinja"); }
+    cmd.arg("--reasoning").arg(reasoning_mode);
+    if let Some(ref mp) = mmproj_path { cmd.arg("--mmproj").arg(mp); }
 
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW | CREATE_DEFAULT_ERROR_MODE | ABOVE_NORMAL_PRIORITY
         cmd.creation_flags(0x08000000 | 0x04000000 | 0x00008000);
     }
 
