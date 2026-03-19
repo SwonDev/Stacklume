@@ -1398,6 +1398,14 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
                   <p className="text-sm text-muted-foreground text-center">
                     {t("llmChat.starting")}
                   </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={() => setShowModelDialog(true)}
+                  >
+                    Cambiar modelo
+                  </Button>
                 </div>
               )}
 
