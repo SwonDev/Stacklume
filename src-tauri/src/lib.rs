@@ -378,18 +378,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
-    // CRÍTICO: Tauri es GUI subsystem (sin consola). CREATE_NO_WINDOW se comporta
-    // diferente en GUI apps — los procesos hijos no pueden inicializar CUDA.
-    // Solución: AllocConsole → spawn → FreeConsole. Esto crea una consola temporal
-    // que el hijo hereda, permitiendo que CUDA inicialice correctamente.
-    #[cfg(windows)]
-    {
-        use windows_sys::Win32::System::Console::{AllocConsole, FreeConsole};
-        unsafe {
-            let _ = AllocConsole();
-        }
-    }
-
     llm_log("Spawning llama-server...");
     match cmd.spawn() {
         Ok(mut child) => {
@@ -416,13 +404,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
             llm_log("Health check polling...");
             let health_ok = wait_for_llama_server(port);
 
-            // Liberar la consola temporal DESPUÉS del health check
-            #[cfg(windows)]
-            {
-                use windows_sys::Win32::System::Console::FreeConsole;
-                unsafe { let _ = FreeConsole(); }
-            }
-
             if health_ok {
                 llm_log("llama-server READY");
                 *app.state::<LlamaState>().status.lock().unwrap() = "ready".to_string();
@@ -436,8 +417,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
             }
         }
         Err(e) => {
-            #[cfg(windows)]
-            { use windows_sys::Win32::System::Console::FreeConsole; unsafe { let _ = FreeConsole(); } }
             llm_log(&format!("SPAWN ERROR: {}", e));
             *app.state::<LlamaState>().status.lock().unwrap() = "error".to_string();
             let _ = app.emit("llm:status-changed", format!("error: {}", e));
@@ -1636,6 +1615,26 @@ pub fn run() {
             llama_job: Mutex::new(0),
         })
         .setup(|app| {
+            // CUDA necesita una consola para inicializar. Tauri es GUI subsystem
+            // (sin consola). AllocConsole crea una UNA VEZ al inicio — todos los
+            // llama-server spawneados después la heredan.
+            #[cfg(windows)]
+            {
+                use windows_sys::Win32::System::Console::AllocConsole;
+                unsafe { let _ = AllocConsole(); }
+                // Ocultar la ventana de consola inmediatamente
+                use windows_sys::Win32::System::Console::GetConsoleWindow;
+                use windows_sys::Win32::UI::Shell::*;
+                let hwnd = unsafe { GetConsoleWindow() };
+                if hwnd != std::ptr::null_mut() {
+                    // SW_HIDE = 0
+                    unsafe {
+                        use windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow;
+                        ShowWindow(hwnd, 0);
+                    }
+                }
+            }
+
             // Crear system tray (dev y prod)
             setup_tray(app)?;
 
