@@ -343,8 +343,17 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("--min-p").arg("0")
         .arg("--no-context-shift")
         .arg("--log-disable")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    // CRÍTICO: establecer current_dir al directorio de llama-server para que
+    // Windows cargue NUESTRAS DLLs de CUDA bundleadas (no las del CUDA Toolkit del sistema).
+    // Windows busca DLLs en: 1) directorio del exe, 2) current directory, 3) System32, 4) PATH.
+    // Con current_dir apuntando al directorio del exe, nuestras DLLs tienen máxima prioridad.
+    if let Some(llama_dir) = std::path::Path::new(&binary_path).parent() {
+        cmd.current_dir(llama_dir);
+        llm_log(&format!("current_dir: {}", llama_dir.display()));
+    }
 
     if use_jinja { cmd.arg("--jinja"); }
     cmd.arg("--reasoning").arg(reasoning_mode);
@@ -353,14 +362,11 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        if ngl == "0" {
-            cmd.creation_flags(0x08000000 | 0x00008000); // CREATE_NO_WINDOW + HIGH PRIORITY
-        } else {
-            // GPU CUDA: CREATE_NO_WINDOW impide inicialización de CUDA en Rust Command.
-            // Crear con ventana pero minimizada (SW_SHOWMINNOACTIVE = 7 via raw_attribute no disponible).
-            // Workaround: DETACHED_PROCESS (0x08) crea proceso sin heredar consola del padre.
-            cmd.creation_flags(0x00000008 | 0x00008000); // DETACHED_PROCESS + HIGH PRIORITY
-        }
+        // Tauri es GUI subsystem → procesos hijos no pueden inicializar CUDA sin consola.
+        // AllocConsole crea una consola temporal, pero CREATE_NO_WINDOW la bloquea.
+        // Solución: solo ABOVE_NORMAL_PRIORITY. La consola se oculta porque
+        // stdout/stderr van a Stdio::null(). No aparece ventana visible.
+        cmd.creation_flags(0x00008000); // ABOVE_NORMAL_PRIORITY_CLASS
     }
 
     // Matar CUALQUIER llama-server previo antes de spawnar (evitar duplicados)
@@ -372,11 +378,26 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
+    // CRÍTICO: Tauri es GUI subsystem (sin consola). CREATE_NO_WINDOW se comporta
+    // diferente en GUI apps — los procesos hijos no pueden inicializar CUDA.
+    // Solución: AllocConsole → spawn → FreeConsole. Esto crea una consola temporal
+    // que el hijo hereda, permitiendo que CUDA inicialice correctamente.
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Console::{AllocConsole, FreeConsole};
+        unsafe {
+            let _ = AllocConsole();
+        }
+    }
+
     llm_log("Spawning llama-server...");
     match cmd.spawn() {
         Ok(mut child) => {
             let pid = child.id();
             llm_log(&format!("llama-server spawned: PID {}", pid));
+
+            // NO liberar la consola todavía — el hijo la necesita durante la carga del modelo.
+            // Se liberará después del health check.
 
             #[cfg(windows)]
             {
@@ -393,7 +414,16 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
 
             // Health check polling
             llm_log("Health check polling...");
-            if wait_for_llama_server(port) {
+            let health_ok = wait_for_llama_server(port);
+
+            // Liberar la consola temporal DESPUÉS del health check
+            #[cfg(windows)]
+            {
+                use windows_sys::Win32::System::Console::FreeConsole;
+                unsafe { let _ = FreeConsole(); }
+            }
+
+            if health_ok {
                 llm_log("llama-server READY");
                 *app.state::<LlamaState>().status.lock().unwrap() = "ready".to_string();
                 let _ = app.emit("llm:status-changed", "ready");
@@ -406,6 +436,8 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
             }
         }
         Err(e) => {
+            #[cfg(windows)]
+            { use windows_sys::Win32::System::Console::FreeConsole; unsafe { let _ = FreeConsole(); } }
             llm_log(&format!("SPAWN ERROR: {}", e));
             *app.state::<LlamaState>().status.lock().unwrap() = "error".to_string();
             let _ = app.emit("llm:status-changed", format!("error: {}", e));
