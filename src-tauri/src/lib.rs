@@ -343,8 +343,8 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("--min-p").arg("0")
         .arg("--no-context-shift")
         .arg("--log-disable")
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
     // CRÍTICO: establecer current_dir al directorio de llama-server para que
     // Windows cargue NUESTRAS DLLs de CUDA bundleadas (no las del CUDA Toolkit del sistema).
@@ -378,34 +378,51 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
-    // CUDA necesita consola en GUI apps. AllocConsole justo antes del spawn,
-    // FreeConsole justo después. El proceso hijo hereda la consola durante el spawn.
-    #[cfg(windows)]
+    // Spawnar llama-server via un .bat wrapper que crea su propia consola.
+    // Tauri es GUI app sin consola → CUDA falla con Stdio::null/inherit/piped.
+    // Un .bat siempre crea su propia consola de forma nativa.
+    let wrapper_path = app.path().app_data_dir().unwrap_or_default().join("_llama_run.bat");
     {
-        use windows_sys::Win32::System::Console::{AllocConsole, FreeConsole, GetConsoleWindow};
-        unsafe {
-            // Liberar consola anterior si existe (de un spawn previo)
-            let _ = FreeConsole();
-            // Crear nueva consola
-            let _ = AllocConsole();
-            // Ocultar la ventana de consola DESPUÉS de crearla pero ANTES del spawn
-            let hwnd = GetConsoleWindow();
-            if !hwnd.is_null() {
-                use windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow;
-                ShowWindow(hwnd, 6); // SW_MINIMIZE = 6 (no SW_HIDE=0 que bloquea CUDA)
-            }
-        }
+        let mut bat_content = format!(
+            "@echo off\r\n\"{binary}\" --model \"{model}\" --host 127.0.0.1 --port {port} --ctx-size {ctx} -ngl {ngl} --threads {threads} --threads-batch {threads} --n-predict {predict} --temp {temp} --top-k {topk} --top-p {topp} --min-p 0 --no-context-shift --log-disable",
+            binary = binary_path,
+            model = model_path,
+            port = port,
+            ctx = effective_ctx,
+            ngl = ngl,
+            threads = n_threads,
+            predict = n_predict,
+            temp = default_temp,
+            topk = default_top_k,
+            topp = default_top_p,
+        );
+        if use_jinja { bat_content.push_str(" --jinja"); }
+        bat_content.push_str(&format!(" --reasoning {}", reasoning_mode));
+        if let Some(ref mp) = mmproj_path { bat_content.push_str(&format!(" --mmproj \"{}\"", mp.display())); }
+        bat_content.push_str("\r\n");
+        let _ = std::fs::write(&wrapper_path, &bat_content);
+        llm_log(&format!("wrapper: {}", wrapper_path.display()));
     }
 
-    llm_log("Spawning llama-server...");
+    let mut cmd = Command::new("cmd.exe");
+    cmd.arg("/c").arg(&wrapper_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    if let Some(llama_dir) = std::path::Path::new(&binary_path).parent() {
+        cmd.current_dir(llama_dir);
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000 | 0x00008000); // CREATE_NO_WINDOW + ABOVE_NORMAL
+    }
+
+    llm_log("Spawning llama-server via wrapper...");
     match cmd.spawn() {
         Ok(mut child) => {
             let pid = child.id();
-            llm_log(&format!("llama-server spawned: PID {}", pid));
-
-            // Liberar consola temporal — el hijo ya la heredó al spawn
-            #[cfg(windows)]
-            { use windows_sys::Win32::System::Console::FreeConsole; unsafe { let _ = FreeConsole(); } }
+            llm_log(&format!("wrapper spawned: PID {}", pid));
 
             #[cfg(windows)]
             {
@@ -1478,6 +1495,7 @@ async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), Str
     #[cfg(dev)]
     {
         let _ = silent_command("taskkill").args(["/f", "/im", "llama-server.exe"]).output();
+        // También matar el wrapper bat si existe
     }
     // Esperar a que el proceso anterior muera y libere GPU + puerto
     std::thread::sleep(std::time::Duration::from_secs(2));
