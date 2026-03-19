@@ -378,14 +378,34 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
+    // CUDA necesita consola en GUI apps. AllocConsole justo antes del spawn,
+    // FreeConsole justo después. El proceso hijo hereda la consola durante el spawn.
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Console::{AllocConsole, FreeConsole, GetConsoleWindow};
+        unsafe {
+            // Liberar consola anterior si existe (de un spawn previo)
+            let _ = FreeConsole();
+            // Crear nueva consola
+            let _ = AllocConsole();
+            // Ocultar la ventana de consola DESPUÉS de crearla pero ANTES del spawn
+            let hwnd = GetConsoleWindow();
+            if !hwnd.is_null() {
+                use windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow;
+                ShowWindow(hwnd, 6); // SW_MINIMIZE = 6 (no SW_HIDE=0 que bloquea CUDA)
+            }
+        }
+    }
+
     llm_log("Spawning llama-server...");
     match cmd.spawn() {
         Ok(mut child) => {
             let pid = child.id();
             llm_log(&format!("llama-server spawned: PID {}", pid));
 
-            // NO liberar la consola todavía — el hijo la necesita durante la carga del modelo.
-            // Se liberará después del health check.
+            // Liberar consola temporal — el hijo ya la heredó al spawn
+            #[cfg(windows)]
+            { use windows_sys::Win32::System::Console::FreeConsole; unsafe { let _ = FreeConsole(); } }
 
             #[cfg(windows)]
             {
@@ -1618,15 +1638,7 @@ pub fn run() {
             // CUDA necesita una consola para inicializar. Tauri es GUI subsystem
             // (sin consola). AllocConsole crea una UNA VEZ al inicio — todos los
             // llama-server spawneados después la heredan.
-            // CUDA necesita consola. AllocConsole la crea una vez.
-            // NO ocultar con ShowWindow — eso impide que CUDA inicialice.
-            // En dev aparece una ventana vacía; en producción la ocultaremos
-            // con un approach diferente una vez confirmado que funciona.
-            #[cfg(windows)]
-            {
-                use windows_sys::Win32::System::Console::AllocConsole;
-                unsafe { let _ = AllocConsole(); }
-            }
+            // AllocConsole removido del setup — se hace en spawn_llama_server_blocking
 
             // Crear system tray (dev y prod)
             setup_tray(app)?;
