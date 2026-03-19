@@ -1446,7 +1446,7 @@ async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), Str
         return Err(format!("Modelo no encontrado: {}", filename));
     }
 
-    // Parar llama-server actual y esperar a que libere el puerto
+    // Parar llama-server actual
     #[cfg(not(dev))]
     {
         let state = app.state::<LlamaState>();
@@ -1454,10 +1454,15 @@ async fn switch_model(app: tauri::AppHandle, filename: String) -> Result<(), Str
         if let Some(mut child) = child_opt {
             let _ = child.kill();
             let _ = child.wait();
-            // Esperar a que el SO libere el puerto TCP (TIME_WAIT)
-            std::thread::sleep(std::time::Duration::from_secs(2));
         }
     }
+    // En dev mode no tenemos el child handle, así que matamos por nombre
+    #[cfg(dev)]
+    {
+        let _ = silent_command("taskkill").args(["/f", "/im", "llama-server.exe"]).output();
+    }
+    // Esperar a que el proceso anterior muera y libere GPU + puerto
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     // Asignar nuevo puerto para evitar conflictos con el anterior
     {
