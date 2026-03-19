@@ -366,7 +366,15 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        if ngl != "0" {
+            // GPU (CUDA): NO usar creation_flags. CREATE_NO_WINDOW impide que CUDA
+            // inicialice el contexto gráfico → crash silencioso. Sin flags, el proceso
+            // hereda el contexto del padre. stdout/stderr están en Stdio::null() así que
+            // no aparece ventana visible. Verificado: funciona con RTX 4060 + CUDA 12.4.
+            // No llamar a cmd.creation_flags() — dejar el default de Windows.
+        } else {
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW (seguro para CPU)
+        }
     }
 
     // Activar soporte de visión si hay proyector multimodal disponible
@@ -379,6 +387,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         Ok(child) => {
             let pid = child.id();
             llm_log(&format!("llama-server spawned: PID {}", pid));
+
 
             #[cfg(windows)]
             {
