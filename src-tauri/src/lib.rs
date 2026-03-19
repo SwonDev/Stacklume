@@ -270,7 +270,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     llm_log(&format!("binary: {}", binary_path));
     llm_log(&format!("model: {}", model_path));
     llm_log(&format!("port: {}", port));
-    llm_log(&format!("ngl: {} ({})", ngl, if ngl == "0" { "CPU" } else { "GPU" }));
+    llm_log(&format!("ngl: {} (CPU — CUDA incompatible con CREATE_NO_WINDOW)", ngl));
 
     // Detectar proyector multimodal (mmproj) para soporte de visión.
     // Si mmproj-F16.gguf existe en el mismo directorio que el modelo,
@@ -309,8 +309,9 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     };
 
     let mut cmd = Command::new(&binary_path);
-    cmd.env_clear()
-        .arg("--model")
+    // NO usar env_clear() — CUDA necesita PATH, CUDA_PATH, y variables del driver NVIDIA
+    // que se pierden al limpiar el entorno. Heredar todo del proceso padre.
+    cmd.arg("--model")
         .arg(&model_path)
         .arg("--host")
         .arg("127.0.0.1")
@@ -318,9 +319,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg(port.to_string())
         .arg("--ctx-size")
         .arg(ctx_size)
-        // GPU offloading: auto-detectar VRAM disponible.
-        // Si hay GPU NVIDIA con CUDA y suficiente VRAM, usar -ngl 99 (todas las capas en GPU).
-        // Si no hay GPU o VRAM insuficiente, -ngl 0 (CPU only).
         .arg("-ngl")
         .arg(&ngl)
         .arg("--threads")
@@ -340,19 +338,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("--no-context-shift")
         .arg("--log-disable")
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .env(
-            "SystemRoot",
-            std::env::var("SystemRoot").unwrap_or_default(),
-        )
-        .env(
-            "SystemDrive",
-            std::env::var("SystemDrive").unwrap_or_default(),
-        )
-        .env("PATH", std::env::var("PATH").unwrap_or_default())
-        .env("TEMP", std::env::var("TEMP").unwrap_or_default())
-        .env("TMP", std::env::var("TMP").unwrap_or_default())
-        .env("APPDATA", std::env::var("APPDATA").unwrap_or_default());
+        .stderr(Stdio::null());
 
     // Jinja templating: necesario para tool calling. La mayoría de modelos lo soportan.
     if use_jinja {
@@ -366,15 +352,10 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        if ngl != "0" {
-            // GPU (CUDA): NO usar creation_flags. CREATE_NO_WINDOW impide que CUDA
-            // inicialice el contexto gráfico → crash silencioso. Sin flags, el proceso
-            // hereda el contexto del padre. stdout/stderr están en Stdio::null() así que
-            // no aparece ventana visible. Verificado: funciona con RTX 4060 + CUDA 12.4.
-            // No llamar a cmd.creation_flags() — dejar el default de Windows.
-        } else {
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW (seguro para CPU)
-        }
+        // Mismo approach que Ollama: CREATE_NO_WINDOW + CREATE_DEFAULT_ERROR_MODE + ABOVE_NORMAL_PRIORITY
+        // CREATE_DEFAULT_ERROR_MODE (0x04000000): muestra error si falta DLL de CUDA
+        // ABOVE_NORMAL_PRIORITY_CLASS (0x00008000): prioridad alta para inferencia
+        cmd.creation_flags(0x08000000 | 0x04000000 | 0x00008000);
     }
 
     // Activar soporte de visión si hay proyector multimodal disponible
