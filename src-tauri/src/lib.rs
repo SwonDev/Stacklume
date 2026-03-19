@@ -382,6 +382,15 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         cmd.arg("--mmproj").arg(mp);
     }
 
+    // Matar CUALQUIER llama-server previo antes de spawnar (evitar duplicados)
+    #[cfg(windows)]
+    {
+        let _ = silent_command("taskkill")
+            .args(["/f", "/im", "llama-server.exe"])
+            .output();
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+
     llm_log("Spawning llama-server...");
     match cmd.spawn() {
         Ok(child) => {
