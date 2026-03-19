@@ -356,8 +356,16 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         .arg("0")
         .arg("--no-context-shift")
         .arg("--log-disable")
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped()); // Capturar stderr para diagnóstico
+        .stdout(Stdio::null());
+
+    // Redirigir stderr a archivo para diagnóstico (no piped — evita deadlock)
+    {
+        let stderr_path = app.path().app_data_dir().unwrap_or_default().join("llama-stderr.log");
+        match std::fs::File::create(&stderr_path) {
+            Ok(f) => { cmd.stderr(f); }
+            Err(_) => { cmd.stderr(Stdio::null()); }
+        }
+    }
 
     // Jinja templating: necesario para tool calling. La mayoría de modelos lo soportan.
     if use_jinja {
@@ -397,21 +405,6 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
             let pid = child.id();
             llm_log(&format!("llama-server spawned: PID {}", pid));
 
-            // Capturar stderr en hilo para diagnóstico
-            let stderr_log_path = app.path().app_data_dir().unwrap_or_default().join("llama-stderr.log");
-            let _ = std::fs::write(&stderr_log_path, "");
-            if let Some(stderr) = child.stderr.take() {
-                let log_path = stderr_log_path.clone();
-                std::thread::spawn(move || {
-                    use std::io::{BufRead, BufReader, Write};
-                    let reader = BufReader::new(stderr);
-                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
-                        for line in reader.lines().map_while(Result::ok) {
-                            let _ = writeln!(f, "{}", line);
-                        }
-                    }
-                });
-            }
 
 
             #[cfg(windows)]
