@@ -437,24 +437,8 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
                 *app.state::<LlamaState>().llama_child.lock().unwrap() = Some(child);
             }
 
-            // Verificar si el proceso sigue vivo después de 3 segundos
+            // Esperar a que llama-server arranque (el wrapper cmd.exe lo lanza)
             std::thread::sleep(std::time::Duration::from_secs(3));
-            let alive_check = silent_command("tasklist")
-                .args(["/fi", &format!("PID eq {}", pid), "/nh"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .unwrap_or_default();
-            let is_alive = alive_check.contains("llama-server");
-            llm_log(&format!("Process alive after 3s: {} ({})", is_alive, alive_check.trim().chars().take(80).collect::<String>()));
-
-            if !is_alive {
-                llm_log("ERROR: llama-server murió inmediatamente después del spawn");
-                let msg = "error: llama-server crasheó al cargar el modelo".to_string();
-                *app.state::<LlamaState>().status.lock().unwrap() = msg.clone();
-                let _ = app.emit("llm:status-changed", msg.clone());
-                return Err(msg);
-            }
 
             // Health check polling
             llm_log("Health check polling...");
