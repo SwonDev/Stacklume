@@ -170,18 +170,21 @@ fn wait_for_llama_server(port: u16) -> bool {
 
 /// Detecta cuántas GPU layers usar.
 /// Solo usa GPU si ggml-cuda.dll existe junto al binario de llama-server.
-fn detect_gpu_layers(binary_path: &str, model_path: &str) -> String {
+fn detect_gpu_layers(binary_path: &str, model_path: &str, llm_log: &dyn Fn(&str)) -> String {
     use std::process::Command;
 
-    // Buscar backend GPU junto al binario de llama-server
     let clean_path = binary_path.strip_prefix(r"\\?\").unwrap_or(binary_path);
     let llama_dir = std::path::Path::new(clean_path).parent();
-
-    let has_cuda = llama_dir.map(|d| d.join("ggml-cuda.dll").exists()).unwrap_or(false);
+    let cuda_path = llama_dir.map(|d| d.join("ggml-cuda.dll"));
+    let has_cuda = cuda_path.as_ref().map(|p| p.exists()).unwrap_or(false);
     let has_vulkan = llama_dir.map(|d| d.join("ggml-vulkan.dll").exists()).unwrap_or(false);
 
+    llm_log(&format!("detect_gpu: binary={} dir={:?} cuda={} vulkan={}",
+        clean_path, llama_dir.map(|d| d.display().to_string()), has_cuda, has_vulkan));
+
     if !has_cuda && !has_vulkan {
-        return "0".to_string(); // CPU-only binary
+        llm_log("detect_gpu: no GPU backend found → ngl 0");
+        return "0".to_string();
     }
 
     // Si hay backend CUDA, detectar VRAM y calcular layers
@@ -265,7 +268,7 @@ fn spawn_llama_server_blocking(app: &tauri::AppHandle) -> Result<(), String> {
         return Err("Puerto llama-server no asignado".to_string());
     }
 
-    let ngl = detect_gpu_layers(&binary_path, &model_path);
+    let ngl = detect_gpu_layers(&binary_path, &model_path, &llm_log);
 
 
     // Detectar número de CPUs lógicos para --threads (mínimo 2, máximo 8)
