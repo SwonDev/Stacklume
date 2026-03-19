@@ -154,14 +154,30 @@ fn find_any_free_port() -> u16 {
     7881
 }
 
-/// Espera hasta que llama-server responda al health check (máx 30 s)
+/// Espera hasta que llama-server responda al health check.
+/// Usa TCP raw + HTTP manual en vez de ureq (que tiene problemas en producción).
 fn wait_for_llama_server(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{}/health", port);
-    // 360 × 500ms = 180 segundos (3 min). Modelos 4B+ en CPU pueden tardar 60-90s.
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+
+    let addr = format!("127.0.0.1:{}", port);
+    // 360 × 500ms = 180 segundos (3 min)
     for _ in 0..360 {
-        match ureq::get(&url).call() {
-            Ok(resp) if resp.status() < 500 => return true,
-            _ => {}
+        if let Ok(mut stream) = TcpStream::connect_timeout(
+            &addr.parse().unwrap(),
+            std::time::Duration::from_secs(2),
+        ) {
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+            let req = format!("GET /health HTTP/1.0\r\nHost: 127.0.0.1:{}\r\n\r\n", port);
+            if stream.write_all(req.as_bytes()).is_ok() {
+                let mut buf = [0u8; 512];
+                if let Ok(n) = stream.read(&mut buf) {
+                    let resp = String::from_utf8_lossy(&buf[..n]);
+                    if resp.contains("200") || resp.contains("ok") {
+                        return true;
+                    }
+                }
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
