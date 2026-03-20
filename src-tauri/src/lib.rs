@@ -510,7 +510,7 @@ fn log(path: &std::path::Path, msg: &str) {
 /// No usa tauri-plugin-updater (evita ACL plugin:updater|check).
 /// Funciona desde cualquier versión de la app que tenga este comando.
 #[tauri::command]
-async fn download_and_run_update(url: String) -> Result<(), String> {
+async fn download_and_run_update(app: tauri::AppHandle, url: String) -> Result<(), String> {
     // Validar URL con parsing estricto — previene path traversal y esquemas maliciosos
     let parsed = url::Url::parse(&url).map_err(|e| format!("URL mal formada: {}", e))?;
 
@@ -542,14 +542,20 @@ async fn download_and_run_update(url: String) -> Result<(), String> {
     // Límite de descarga: 1 GB (el instalador con CUDA DLLs puede superar 500 MB)
     const MAX_DOWNLOAD_SIZE: u64 = 1024 * 1024 * 1024;
     // Tamaño mínimo esperado: un instalador NSIS válido siempre supera 1 MB.
-    // Sirve para detectar si se descargó una página HTML de redirect en lugar del .exe.
     const MIN_INSTALLER_SIZE: u64 = 1024 * 1024;
 
-    // Descargar via curl (más robusto que ureq para archivos grandes)
+    // Descargar via curl con progreso — spawn + monitoreo del archivo por tamaño.
+    // curl -# escribe progreso a stderr pero CREATE_NO_WINDOW lo suprime.
+    // Alternativa: poll del tamaño del archivo cada segundo.
+    let app_clone = app.clone();
     tokio::task::spawn_blocking(move || {
+        // Borrar archivo previo si existe
+        let _ = std::fs::remove_file(&installer_path_clone);
+
         let mut cmd = std::process::Command::new("C:\\Windows\\System32\\curl.exe");
         cmd.arg("-L").arg("--fail")
             .arg("--connect-timeout").arg("30")
+            .arg("--max-time").arg("600") // 10 min máximo
             .arg("-o").arg(installer_path_clone.to_string_lossy().as_ref())
             .arg("-s")
             .arg("--user-agent").arg("Stacklume/0.3 (desktop)")
@@ -557,16 +563,41 @@ async fn download_and_run_update(url: String) -> Result<(), String> {
         #[cfg(windows)]
         { use std::os::windows::process::CommandExt; cmd.creation_flags(0x08000000); }
 
-        let status = cmd.output().map_err(|e| format!("Error ejecutando curl: {}", e))?;
-        if !status.status.success() {
-            return Err("Error al descargar el instalador".to_string());
+        // Spawn curl (no bloquear con output())
+        let mut child = cmd.spawn().map_err(|e| format!("Error ejecutando curl: {}", e))?;
+
+        // Monitor de progreso: poll tamaño del archivo cada 2 segundos
+        // Estimación: instalador ~625 MB (con CUDA DLLs)
+        const ESTIMATED_SIZE: u64 = 650_000_000;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if !status.success() {
+                        return Err("Error al descargar el instalador (curl falló)".to_string());
+                    }
+                    break; // curl terminó exitosamente
+                }
+                Ok(None) => {
+                    // curl aún corriendo — emitir progreso
+                    let file_size = std::fs::metadata(&installer_path_clone).map(|m| m.len()).unwrap_or(0);
+                    let percent = std::cmp::min((file_size as f64 / ESTIMATED_SIZE as f64 * 100.0) as u64, 99);
+                    let _ = app_clone.emit("update:progress", percent);
+                }
+                Err(e) => {
+                    return Err(format!("Error monitoreando curl: {}", e));
+                }
+            }
         }
+
+        // Emitir 100%
+        let _ = app_clone.emit("update:progress", 100u64);
 
         // Verificar tamaño
         let file_size = std::fs::metadata(&installer_path_clone).map(|m| m.len()).unwrap_or(0);
         if file_size < MIN_INSTALLER_SIZE {
             let _ = std::fs::remove_file(&installer_path_clone);
-            return Err(format!("Instalador inválido: {} bytes", file_size));
+            return Err(format!("Instalador inválido: {} bytes (descarga incompleta?)", file_size));
         }
 
         // Verificar no excede el máximo
