@@ -91,7 +91,9 @@ async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPl
   try {
     // Twitter/X - use FxTwitter → vxTwitter → Syndication fallback
     if (detection.platform === 'twitter' && extractTweetId(url)) {
+      log.debug({ url, tweetId: extractTweetId(url) }, "Scraping tweet");
       const tweet = await scrapeTweet(url);
+      log.debug({ hasTweet: !!tweet, text: tweet?.text?.slice(0, 50) }, "Tweet result");
       if (tweet) {
         // Construir descripción rica con el texto del tweet + URLs mencionadas
         let description = tweet.text;
@@ -637,13 +639,11 @@ export async function POST(request: NextRequest) {
     log.debug({ url }, "Scraping HTML for metadata");
     const htmlResult = await scrapeWithFetch(validUrl, detection);
 
-    // Merge results: platform API data takes priority, but use HTML for missing fields
+    // Merge results: platform API data takes priority for everything
     const result: ScrapeResult = {
-      // Use platform title if available, otherwise HTML title
       title: platformResult?.title || htmlResult.title || validUrl.hostname,
-      // IMPORTANT: Use HTML description as it's more reliable than oEmbed
-      description: htmlResult.description || platformResult?.description || null,
-      // Use platform image if available (usually better quality)
+      // Para tweets y plataformas con API dedicada, su descripción es más rica que el HTML
+      description: platformResult?.description || htmlResult.description || null,
       imageUrl: platformResult?.imageUrl || htmlResult.imageUrl || null,
       faviconUrl: platformResult?.faviconUrl || htmlResult.faviconUrl || `${validUrl.origin}/favicon.ico`,
       siteName: platformResult?.siteName || htmlResult.siteName || null,
