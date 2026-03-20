@@ -539,68 +539,51 @@ async fn download_and_run_update(url: String) -> Result<(), String> {
     let installer_path = std::env::temp_dir().join("StacklumeUpdate.exe");
     let installer_path_clone = installer_path.clone();
 
-    // Límite de descarga: 500 MB (más que suficiente para el instalador NSIS)
-    const MAX_DOWNLOAD_SIZE: u64 = 500 * 1024 * 1024;
+    // Límite de descarga: 1 GB (el instalador con CUDA DLLs puede superar 500 MB)
+    const MAX_DOWNLOAD_SIZE: u64 = 1024 * 1024 * 1024;
     // Tamaño mínimo esperado: un instalador NSIS válido siempre supera 1 MB.
     // Sirve para detectar si se descargó una página HTML de redirect en lugar del .exe.
     const MIN_INSTALLER_SIZE: u64 = 1024 * 1024;
 
-    // ureq es sincrónico — ejecutar en hilo blocking para no bloquear el runtime async
+    // Descargar via curl (más robusto que ureq para archivos grandes)
     tokio::task::spawn_blocking(move || {
-        // Dejar que ureq siga los redirects automáticamente (GitHub → CDN es estándar).
-        // La URL inicial ya fue validada contra nuestro repo; los redirects de GitHub
-        // siempre van a objects.githubusercontent.com, que es su CDN oficial.
-        let agent = ureq::AgentBuilder::new()
-            .redirects(5)
-            .build();
+        let mut cmd = std::process::Command::new("C:\\Windows\\System32\\curl.exe");
+        cmd.arg("-L").arg("--fail")
+            .arg("--connect-timeout").arg("30")
+            .arg("-o").arg(installer_path_clone.to_string_lossy().as_ref())
+            .arg("-s")
+            .arg("--user-agent").arg("Stacklume/0.3 (desktop)")
+            .arg(&url);
+        #[cfg(windows)]
+        { use std::os::windows::process::CommandExt; cmd.creation_flags(0x08000000); }
 
-        let response = agent.get(&url).call()
-            .map_err(|e| format!("Error de descarga: {}", e))?;
-
-        // Verificar que la respuesta final es 200 OK (no 3xx, 4xx, 5xx)
-        let status = response.status();
-        if status != 200 {
-            return Err(format!("Error HTTP {} al descargar el instalador", status));
+        let status = cmd.output().map_err(|e| format!("Error ejecutando curl: {}", e))?;
+        if !status.status.success() {
+            return Err("Error al descargar el instalador".to_string());
         }
 
-        // Verificar Content-Length si está disponible
-        if let Some(len_str) = response.header("Content-Length") {
-            if let Ok(len) = len_str.parse::<u64>() {
-                if len > MAX_DOWNLOAD_SIZE {
-                    return Err(format!("Archivo demasiado grande: {} bytes (máx {} MB)", len, MAX_DOWNLOAD_SIZE / 1024 / 1024));
-                }
-                if len < MIN_INSTALLER_SIZE {
-                    return Err(format!("Archivo demasiado pequeño: {} bytes — posible error de descarga", len));
-                }
-            }
-        }
-
-        let mut file = std::fs::File::create(&installer_path_clone)
-            .map_err(|e| format!("Error creando archivo temporal: {}", e))?;
-
-        // Leer con límite de tamaño para prevenir DoS por archivos enormes
-        let mut reader = response.into_reader();
-        let mut limited_reader = reader.by_ref().take(MAX_DOWNLOAD_SIZE);
-        let bytes_written = std::io::copy(&mut limited_reader, &mut file)
-            .map_err(|e| format!("Error guardando instalador: {}", e))?;
-
-        if bytes_written >= MAX_DOWNLOAD_SIZE {
+        // Verificar tamaño
+        let file_size = std::fs::metadata(&installer_path_clone).map(|m| m.len()).unwrap_or(0);
+        if file_size < MIN_INSTALLER_SIZE {
             let _ = std::fs::remove_file(&installer_path_clone);
-            return Err("Descarga excede el tamaño máximo permitido".to_string());
+            return Err(format!("Instalador inválido: {} bytes", file_size));
         }
 
-        // Verificar tamaño mínimo del archivo descargado
-        if bytes_written < MIN_INSTALLER_SIZE {
+        // Verificar no excede el máximo
+        if file_size > MAX_DOWNLOAD_SIZE {
             let _ = std::fs::remove_file(&installer_path_clone);
-            return Err(format!(
-                "Instalador inválido: solo {} bytes descargados (mínimo esperado: {} MB). \
-                 Puede ser una página de error en lugar del archivo.",
-                bytes_written,
-                MIN_INSTALLER_SIZE / 1024 / 1024
-            ));
+            return Err("Instalador demasiado grande".to_string());
         }
 
-        drop(file);
+        // Matar llama-server ANTES del instalador — sus DLLs de CUDA bloquean la escritura.
+        {
+            let mut kill_cmd = std::process::Command::new("taskkill");
+            kill_cmd.args(["/f", "/im", "llama-server.exe"]);
+            #[cfg(windows)]
+            { use std::os::windows::process::CommandExt; kill_cmd.creation_flags(0x08000000); }
+            let _ = kill_cmd.output();
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
 
         // Spawn directo del instalador. Los hooks NSIS usan "taskkill /F /IM stacklume.exe"
         // SIN la bandera /T, por lo que no matan al instalador aunque sea hijo de la app.
