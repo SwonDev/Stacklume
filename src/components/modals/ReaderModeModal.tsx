@@ -22,6 +22,7 @@ interface PageArchive {
   linkId: string;
   title?: string;
   textContent?: string;
+  htmlContent?: string;
   archivedAt: string;
   wordCount: number;
   size: number;
@@ -298,18 +299,25 @@ export function ReaderModeModal({
                   {archive.title}
                 </h2>
               )}
-              <div className={fontSizeClasses[fontSize]}>
-                {paragraphs.map((paragraph, i) => (
-                  <p key={i} className="mb-4 text-foreground/85">
-                    {paragraph}
-                  </p>
-                ))}
-                {paragraphs.length === 0 && (
-                  <p className="text-muted-foreground italic">
-                    No se pudo extraer el contenido de esta página. Prueba a abrirla en el navegador.
-                  </p>
-                )}
-              </div>
+              {archive.htmlContent ? (
+                <div
+                  className={`reader-prose ${fontSizeClasses[fontSize]}`}
+                  dangerouslySetInnerHTML={{ __html: archive.htmlContent }}
+                />
+              ) : (
+                <div className={fontSizeClasses[fontSize]}>
+                  {paragraphs.map((paragraph, i) => (
+                    <p key={i} className="mb-4 text-foreground/85">
+                      {paragraph}
+                    </p>
+                  ))}
+                  {paragraphs.length === 0 && (
+                    <p className="text-muted-foreground italic">
+                      No se pudo extraer el contenido de esta página. Prueba a abrirla en el navegador.
+                    </p>
+                  )}
+                </div>
+              )}
             </article>
           )}
         </div>

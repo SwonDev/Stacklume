@@ -91,6 +91,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (validatedData.contentType !== undefined) updateData.contentType = validatedData.contentType;
     if (validatedData.platformColor !== undefined) updateData.platformColor = validatedData.platformColor;
     if (validatedData.isRead !== undefined) updateData.isRead = validatedData.isRead;
+    if (validatedData.readingStatus !== undefined) updateData.readingStatus = validatedData.readingStatus;
     if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
     if (validatedData.reminderAt !== undefined) updateData.reminderAt = validatedData.reminderAt;
     if (validatedData.installCommands !== undefined)

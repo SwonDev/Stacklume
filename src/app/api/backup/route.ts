@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   createBackup,
-  listBackups,
+  listBackupsMeta,
   validateBackupData,
 } from "@/lib/backup/backup-service";
 import { db, generateId } from "@/lib/db";
@@ -15,25 +15,14 @@ function getUserId(): string {
 
 /**
  * GET /api/backup - List all backups for the current user
+ * Uses lightweight query that excludes the heavy backupData JSON blob
  */
 export async function GET() {
   try {
     const userId = getUserId();
-    const backups = await listBackups(userId);
+    const backups = await listBackupsMeta(userId);
 
-    // Return backups without the full data (just metadata)
-    const backupList = backups.map(({ backupData, ...meta }) => ({
-      ...meta,
-      itemCount: {
-        links: (backupData as BackupData)?.data?.links?.length || 0,
-        categories: (backupData as BackupData)?.data?.categories?.length || 0,
-        tags: (backupData as BackupData)?.data?.tags?.length || 0,
-        widgets: (backupData as BackupData)?.data?.widgets?.length || 0,
-        projects: (backupData as BackupData)?.data?.projects?.length || 0,
-      },
-    }));
-
-    return NextResponse.json(backupList);
+    return NextResponse.json(backups);
   } catch (error) {
     console.error("Error listing backups:", error);
     return NextResponse.json(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown, Share2 } from "lucide-react";
+import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown, Share2, Inbox, BookOpen, CheckCheck } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -337,6 +337,7 @@ interface CollapsedSections {
   projects: boolean;
   categories: boolean;
   tags: boolean;
+  reading: boolean;
 }
 
 export function Sidebar() {
@@ -380,11 +381,11 @@ export function Sidebar() {
         try {
           return JSON.parse(saved);
         } catch {
-          return { projects: false, categories: false, tags: false };
+          return { projects: false, categories: false, tags: false, reading: false };
         }
       }
     }
-    return { projects: false, categories: false, tags: false };
+    return { projects: false, categories: false, tags: false, reading: false };
   });
 
   // Persist collapsed state to localStorage
@@ -398,6 +399,12 @@ export function Sidebar() {
 
   const favoriteCount = useMemo(() => links.filter((l: Link) => l.isFavorite).length, [links]);
   const recentCount = Math.min(links.length, 10);
+
+  const readingStatusCounts = useMemo(() => ({
+    inbox: links.filter((l: Link) => !l.deletedAt && (l.readingStatus ?? "inbox") === "inbox").length,
+    reading: links.filter((l: Link) => !l.deletedAt && (l.readingStatus ?? "inbox") === "reading").length,
+    done: links.filter((l: Link) => !l.deletedAt && (l.readingStatus ?? "inbox") === "done").length,
+  }), [links]);
 
   const categoryLinkCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -442,6 +449,11 @@ export function Sidebar() {
 
   const handleRecentClick = () => {
     useLayoutStore.getState().setActiveFilter({ type: "recent", label: t("sidebar.recent") });
+    useLayoutStore.getState().setSidebarOpen(false);
+  };
+
+  const handleReadingStatusClick = (status: "inbox" | "reading" | "done", label: string) => {
+    useLayoutStore.getState().setActiveFilter({ type: "readingStatus", id: status, label });
     useLayoutStore.getState().setSidebarOpen(false);
   };
 
@@ -573,6 +585,38 @@ export function Sidebar() {
                 onClick={handleRecentClick}
               />
             </div>
+
+            <Separator className="my-4 bg-sidebar-border" />
+
+            {/* Reading Status */}
+            <CollapsibleSection
+              title={t("sidebar.reading")}
+              isCollapsed={collapsedSections.reading}
+              onToggle={() => toggleSection("reading")}
+              count={readingStatusCounts.inbox + readingStatusCounts.reading}
+            >
+              <NavItem
+                icon={<Inbox className="h-4 w-4" />}
+                label={t("sidebar.readingInbox")}
+                count={readingStatusCounts.inbox}
+                isActive={activeFilter.type === "readingStatus" && activeFilter.id === "inbox"}
+                onClick={() => handleReadingStatusClick("inbox", t("sidebar.readingInbox"))}
+              />
+              <NavItem
+                icon={<BookOpen className="h-4 w-4" />}
+                label={t("sidebar.readingInProgress")}
+                count={readingStatusCounts.reading}
+                isActive={activeFilter.type === "readingStatus" && activeFilter.id === "reading"}
+                onClick={() => handleReadingStatusClick("reading", t("sidebar.readingInProgress"))}
+              />
+              <NavItem
+                icon={<CheckCheck className="h-4 w-4" />}
+                label={t("sidebar.readingDone")}
+                count={readingStatusCounts.done}
+                isActive={activeFilter.type === "readingStatus" && activeFilter.id === "done"}
+                onClick={() => handleReadingStatusClick("done", t("sidebar.readingDone"))}
+              />
+            </CollapsibleSection>
 
             <Separator className="my-4 bg-sidebar-border" />
 

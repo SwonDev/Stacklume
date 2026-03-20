@@ -229,11 +229,32 @@ export async function createBackup(options: CreateBackupOptions): Promise<UserBa
 }
 
 /**
- * Lists all backups for a user
+ * Lists all backups for a user.
+ * Includes backupData for item count calculation in the API layer.
+ * For a lightweight listing without the heavy JSON blob, use listBackupsMeta().
  */
 export async function listBackups(userId: string): Promise<UserBackup[]> {
   return db
     .select()
+    .from(userBackups)
+    .where(eq(userBackups.userId, userId))
+    .orderBy(desc(userBackups.createdAt));
+}
+
+/**
+ * Lists backup metadata without loading the heavy backupData JSON blob.
+ * Use this for listing backups in the UI where only metadata is needed.
+ */
+export async function listBackupsMeta(userId: string) {
+  return db
+    .select({
+      id: userBackups.id,
+      userId: userBackups.userId,
+      filename: userBackups.filename,
+      size: userBackups.size,
+      backupType: userBackups.backupType,
+      createdAt: userBackups.createdAt,
+    })
     .from(userBackups)
     .where(eq(userBackups.userId, userId))
     .orderBy(desc(userBackups.createdAt));

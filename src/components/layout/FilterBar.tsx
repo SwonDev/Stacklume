@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Star, Clock, FolderOpen, Tag, Filter } from "lucide-react";
+import { X, Star, Clock, FolderOpen, Tag, Filter, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLayoutStore } from "@/stores/layout-store";
@@ -12,6 +12,7 @@ const filterIcons = {
   recent: Clock,
   category: FolderOpen,
   tag: Tag,
+  readingStatus: BookOpen,
   all: Filter,
 };
 

@@ -106,6 +106,10 @@ export function ListView({ className }: ListViewProps) {
     if (activeFilter.type === "favorites") {
       result = result.filter((link: Link) => link.isFavorite);
     }
+    if (activeFilter.type === "readingStatus" && activeFilter.id) {
+      const statusId = activeFilter.id;
+      result = result.filter((link: Link) => (link.readingStatus ?? "inbox") === statusId);
+    }
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(

@@ -569,6 +569,16 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
       sql: `CREATE INDEX IF NOT EXISTS idx_llm_messages_chat_id ON llm_messages(chat_id)`,
       description: "idx_llm_messages_chat_id",
     },
+    // Page Archives — columna html_content para vista de lectura
+    {
+      sql: `ALTER TABLE page_archives ADD COLUMN html_content TEXT`,
+      description: "page_archives.html_content",
+    },
+    // Categorías anidadas
+    {
+      sql: `ALTER TABLE categories ADD COLUMN parent_category_id TEXT`,
+      description: "categories.parent_category_id",
+    },
   ];
 
   for (const migration of migrations) {

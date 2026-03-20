@@ -7,6 +7,91 @@ import { validateUrlForSSRF } from "@/lib/security/ssrf-protection";
 
 const log = createModuleLogger("api/archives");
 
+/**
+ * Extrae HTML limpio del contenido de una página para la vista de lectura.
+ * Intenta encontrar el contenido principal (<article>, <main>, o <body>),
+ * elimina elementos no deseados y conserva la estructura semántica.
+ */
+function extractCleanHtml(rawHtml: string): string {
+  // Eliminar bloques que nunca aportan contenido de lectura
+  let cleaned = rawHtml
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi, "")
+    .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "")
+    .replace(/<aside\b[^>]*>[\s\S]*?<\/aside>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, "")
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, "")
+    // Eliminar comentarios HTML
+    .replace(/<!--[\s\S]*?-->/g, "")
+    // Eliminar atributos peligrosos (on*, style, class, data-*)
+    .replace(/\s(on\w+|style|class|data-[\w-]+)="[^"]*"/gi, "")
+    .replace(/\s(on\w+|style|class|data-[\w-]+)='[^']*'/gi, "");
+
+  // Intentar extraer el contenido principal: <article> > <main> > <body>
+  const articleMatch = cleaned.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i);
+  if (articleMatch) {
+    cleaned = articleMatch[1];
+  } else {
+    const mainMatch = cleaned.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+    if (mainMatch) {
+      cleaned = mainMatch[1];
+    } else {
+      // Último recurso: extraer el body
+      const bodyMatch = cleaned.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch) {
+        cleaned = bodyMatch[1];
+      }
+    }
+  }
+
+  // Conservar solo tags semánticos seguros para la vista de lectura
+  const allowedTags = new Set([
+    "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li", "blockquote", "pre", "code",
+    "strong", "b", "em", "i", "a", "br", "hr",
+    "figure", "figcaption", "img", "table", "thead",
+    "tbody", "tr", "th", "td", "sup", "sub", "mark",
+    "del", "ins", "abbr", "time", "details", "summary",
+  ]);
+
+  // Eliminar tags no permitidos pero conservar su contenido
+  cleaned = cleaned.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*\/?>/g, (match, tagName: string) => {
+    const tag = tagName.toLowerCase();
+    if (allowedTags.has(tag)) {
+      // Para <a>, conservar solo href; para <img>, conservar src y alt
+      if (tag === "a") {
+        const hrefMatch = match.match(/href="([^"]*)"/i) || match.match(/href='([^']*)'/i);
+        if (match.startsWith("</")) return "</a>";
+        return hrefMatch ? `<a href="${hrefMatch[1]}" target="_blank" rel="noopener noreferrer">` : "<a>";
+      }
+      if (tag === "img") {
+        const srcMatch = match.match(/src="([^"]*)"/i) || match.match(/src='([^']*)'/i);
+        const altMatch = match.match(/alt="([^"]*)"/i) || match.match(/alt='([^']*)'/i);
+        if (!srcMatch) return "";
+        return `<img src="${srcMatch[1]}" alt="${altMatch?.[1] ?? ""}" loading="lazy" />`;
+      }
+      // Para el resto, devolver tag limpio sin atributos
+      if (match.startsWith("</")) return `</${tag}>`;
+      if (match.endsWith("/>")) return `<${tag} />`;
+      return `<${tag}>`;
+    }
+    // Tag no permitido: eliminar pero conservar contenido
+    return "";
+  });
+
+  // Limpiar espacios excesivos entre tags
+  cleaned = cleaned
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 1_000_000); // máximo ~1 MB de HTML
+
+  return cleaned;
+}
+
 // GET — lista archivos del usuario, con filtro opcional por linkId
 export async function GET(request: NextRequest) {
   if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") return NextResponse.json([]);
@@ -95,16 +180,11 @@ export async function POST(request: NextRequest) {
       ? titleMatch[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()
       : null;
 
+    // ── Extraer HTML limpio para vista de lectura ──
+    const htmlContent = extractCleanHtml(html);
+
     // Extraer texto plano preservando estructura de párrafos
-    const textContent = html
-      // Eliminar bloques completos que no aportan contenido
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi, "")
-      .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
-      .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "")
-      .replace(/<aside\b[^>]*>[\s\S]*?<\/aside>/gi, "")
-      .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "")
+    const textContent = htmlContent
       // Convertir elementos de bloque en dobles saltos de línea ANTES de quitar tags
       .replace(/<\/?(p|div|h[1-6]|li|br|tr|blockquote|article|section|pre|hr)[^>]*>/gi, "\n\n")
       // Quitar todos los tags restantes
@@ -126,7 +206,9 @@ export async function POST(request: NextRequest) {
       .slice(0, 500_000); // máximo 500 KB de texto
 
     const wordCount = textContent.split(/\s+/).filter(Boolean).length;
-    const size = Buffer.byteLength(textContent, "utf8");
+    const sizeText = Buffer.byteLength(textContent, "utf8");
+    const sizeHtml = Buffer.byteLength(htmlContent, "utf8");
+    const size = sizeText + sizeHtml;
     const now = new Date();
 
     const [created] = await withRetry(
@@ -138,6 +220,7 @@ export async function POST(request: NextRequest) {
             linkId,
             title: pageTitle ?? undefined,
             textContent,
+            htmlContent: htmlContent || undefined,
             archivedAt: now,
             wordCount,
             size,

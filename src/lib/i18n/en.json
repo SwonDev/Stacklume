@@ -1952,6 +1952,7 @@
   "richLink.addFavorite": "Add to favorites",
   "richLink.edit": "Edit",
   "richLink.removeFavorite": "Remove from favorites",
+  "richLink.waybackMachine": "View on Wayback Machine",
   "rssFeed.add": "Add",
   "rssFeed.addFeed": "Add Feed",
   "rssFeed.addFeedDescription": "Add an RSS feed URL to get started",
@@ -3062,5 +3063,16 @@
   "llmChat.noBinaryDesc": "llama-server is not included in this installation. Please reinstall the latest version of Stacklume.",
   "llmChat.starting": "Starting the model, please wait...",
   "llmChat.enterToSend": "Enter to send · Shift+Enter new line",
-  "header.llmChat": "Local AI Assistant"
+  "header.llmChat": "Local AI Assistant",
+  "sidebar.reading": "Reading",
+  "sidebar.readingInbox": "Inbox",
+  "sidebar.readingInProgress": "Reading",
+  "sidebar.readingDone": "Done",
+  "editLink.readingStatus": "Reading status",
+  "editLink.readingInbox": "Inbox",
+  "editLink.readingInProgress": "Reading",
+  "editLink.readingDone": "Done",
+  "richLink.statusReading": "Reading",
+  "richLink.statusDone": "Done",
+  "richLink.hasNotes": "Has notes"
 }

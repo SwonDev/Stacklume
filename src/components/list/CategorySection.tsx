@@ -11,6 +11,7 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { openExternalUrl } from "@/lib/desktop";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -107,10 +108,12 @@ export function CategorySectionContent({
     return (linkId: string) => tagMap.get(linkId) || [];
   }, [linkTags]);
 
-  // Open all links in new tabs
+  // Open all links in the default browser (with staggered delay)
   const handleOpenAll = useCallback(() => {
-    links.forEach((link) => {
-      window.open(link.url, "_blank", "noopener,noreferrer");
+    links.forEach((link, index) => {
+      setTimeout(() => {
+        openExternalUrl(link.url);
+      }, index * 100);
     });
   }, [links]);
 

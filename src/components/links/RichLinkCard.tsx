@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
@@ -20,8 +20,13 @@ import {
   Globe,
   Pencil,
   Check,
+  Archive,
+  StickyNote,
+  BookOpenText,
 } from "lucide-react";
+import { ReaderModeModal } from "@/components/modals/ReaderModeModal";
 import { cn } from "@/lib/utils";
+import { openExternalUrl } from "@/lib/desktop";
 import { useTranslation } from "@/lib/i18n";
 import {
   Tooltip,
@@ -114,6 +119,13 @@ export const RichLinkCard = memo(function RichLinkCard({
   const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
   const isSelecting = useMultiSelect((state) => state.isSelecting);
   const isItemSelected = useMultiSelect((state) => state.isSelected(link.id));
+  const [readerOpen, setReaderOpen] = useState(false);
+
+  const handleOpenReader = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setReaderOpen(true);
+  }, []);
 
   // thumbnailSize="none" hides all images; other values scale the preview
   const effectiveShowImage = thumbnailSize !== "none" && showImage;
@@ -298,10 +310,77 @@ export const RichLinkCard = memo(function RichLinkCard({
                     <span className="truncate">{link.author}</span>
                   </>
                 )}
+                {/* Reading status indicator */}
+                {link.readingStatus === "reading" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>{t("richLink.statusReading")}</TooltipContent>
+                  </Tooltip>
+                )}
+                {link.readingStatus === "done" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>{t("richLink.statusDone")}</TooltipContent>
+                  </Tooltip>
+                )}
+                {/* Notes indicator */}
+                {link.notes && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex-shrink-0">
+                        <StickyNote className="w-3 h-3 text-muted-foreground/60" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("richLink.hasNotes")}</TooltipContent>
+                  </Tooltip>
+                )}
+                <div className="ml-auto flex items-center gap-1 opacity-0 group-hover/link:opacity-100 transition-opacity">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleOpenReader}
+                        aria-label="Vista de lectura"
+                        className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                      >
+                        <BookOpenText className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Vista de lectura</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openExternalUrl(`https://web.archive.org/web/*/${link.url}`);
+                        }}
+                        aria-label={t("richLink.waybackMachine")}
+                        className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                      >
+                        <Archive className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("richLink.waybackMachine")}</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
             </div>
           </div>
         </div>
+        <ReaderModeModal
+          open={readerOpen}
+          onOpenChange={setReaderOpen}
+          linkId={link.id}
+          linkUrl={link.url}
+          linkTitle={link.title}
+        />
       </motion.a>
     );
   }
@@ -440,6 +519,34 @@ export const RichLinkCard = memo(function RichLinkCard({
           <span className="text-xs text-muted-foreground truncate">
             {hostname}
           </span>
+          {/* Reading status indicator */}
+          {link.readingStatus === "reading" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent>{t("richLink.statusReading")}</TooltipContent>
+            </Tooltip>
+          )}
+          {link.readingStatus === "done" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 flex-shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent>{t("richLink.statusDone")}</TooltipContent>
+            </Tooltip>
+          )}
+          {/* Notes indicator */}
+          {link.notes && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex-shrink-0">
+                  <StickyNote className="w-3 h-3 text-muted-foreground/60" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t("richLink.hasNotes")}</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
@@ -447,8 +554,47 @@ export const RichLinkCard = memo(function RichLinkCard({
       {isEditMode ? (
         <Pencil className="w-4 h-4 text-primary opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0 mt-2" />
       ) : (
-        <ExternalLink className="w-4 h-4 text-muted-foreground/40 opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0 mt-2" />
+        <div className="flex items-center gap-1 opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0 mt-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleOpenReader}
+                aria-label="Vista de lectura"
+                className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              >
+                <BookOpenText className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Vista de lectura</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openExternalUrl(`https://web.archive.org/web/*/${link.url}`);
+                }}
+                aria-label={t("richLink.waybackMachine")}
+                className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              >
+                <Archive className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t("richLink.waybackMachine")}</TooltipContent>
+          </Tooltip>
+          <ExternalLink className="w-4 h-4 text-muted-foreground/40" />
+        </div>
       )}
+      <ReaderModeModal
+        open={readerOpen}
+        onOpenChange={setReaderOpen}
+        linkId={link.id}
+        linkUrl={link.url}
+        linkTitle={link.title}
+      />
     </motion.a>
   );
 });
