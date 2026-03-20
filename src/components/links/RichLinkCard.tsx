@@ -31,6 +31,37 @@ import {
 import type { Link } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
+/** Genera un gradiente determinístico + icono cuando la imagen del enlace falla o no existe */
+function generateFallbackStyle(url: string, title: string) {
+  // Hash simple de la URL para generar colores consistentes
+  let hash = 0;
+  const str = url + title;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue1 = Math.abs(hash % 360);
+  const hue2 = (hue1 + 40 + (Math.abs(hash >> 8) % 60)) % 360;
+  return {
+    background: `linear-gradient(135deg, oklch(0.35 0.12 ${hue1}), oklch(0.25 0.08 ${hue2}))`,
+  };
+}
+
+/** Icono de fallback según contentType */
+function FallbackIcon({ contentType, className }: { contentType: string; className?: string }) {
+  const iconClass = cn("text-white/40", className);
+  switch (contentType) {
+    case "video": return <Play className={iconClass} />;
+    case "game": return <Gamepad2 className={iconClass} />;
+    case "music": return <Music className={iconClass} />;
+    case "code": return <Code className={iconClass} />;
+    case "article": return <FileText className={iconClass} />;
+    case "image": return <ImageIcon className={iconClass} />;
+    case "tool": return <Wrench className={iconClass} />;
+    case "shop": return <ShoppingCart className={iconClass} />;
+    default: return <Globe className={iconClass} />;
+  }
+}
+
 interface RichLinkCardProps {
   link: Link;
   isEditMode?: boolean;
@@ -154,6 +185,14 @@ export const RichLinkCard = memo(function RichLinkCard({
         {/* Large Image Preview */}
         {effectiveShowImage && link.imageUrl && (
           <div className={cn("relative w-full overflow-hidden bg-secondary", thumbnailHeightClass)}>
+            {/* Fallback: gradiente + icono (oculto hasta que la imagen falle) */}
+            <div
+              className="absolute inset-0 flex items-center justify-center hidden"
+              data-fallback
+              style={generateFallbackStyle(link.url, link.title)}
+            >
+              <FallbackIcon contentType={contentType} className="w-10 h-10" />
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={link.imageUrl}
@@ -161,7 +200,10 @@ export const RichLinkCard = memo(function RichLinkCard({
               className="w-full h-full object-cover transition-transform group-hover/link:scale-105"
               loading="lazy"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
+                e.currentTarget.style.display = "none";
+                // Mostrar el fallback de gradiente
+                const fallback = e.currentTarget.parentElement?.querySelector("[data-fallback]") as HTMLElement;
+                if (fallback) fallback.classList.remove("hidden");
               }}
             />
             {/* Play button overlay for videos */}
@@ -295,7 +337,10 @@ export const RichLinkCard = memo(function RichLinkCard({
         </div>
       )}
       {/* Thumbnail or Favicon */}
-      <div className="flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center w-10 h-10">
+      <div
+        className="flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center w-10 h-10"
+        style={!link.imageUrl && !link.faviconUrl ? generateFallbackStyle(link.url, link.title) : undefined}
+      >
         {effectiveShowImage && link.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -304,8 +349,15 @@ export const RichLinkCard = memo(function RichLinkCard({
             className="w-full h-full object-cover"
             loading="lazy"
             onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              e.currentTarget.style.display = "none";
+              // Aplicar gradiente al contenedor
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const style = generateFallbackStyle(link.url, link.title);
+                Object.assign(parent.style, style);
+              }
+              // Mostrar el icono fallback
+              e.currentTarget.parentElement?.querySelector("[data-icon-fallback]")?.classList.remove("hidden");
             }}
           />
         ) : null}
@@ -317,15 +369,25 @@ export const RichLinkCard = memo(function RichLinkCard({
             className="w-5 h-5"
             loading="lazy"
             onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              e.currentTarget.style.display = "none";
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const style = generateFallbackStyle(link.url, link.title);
+                Object.assign(parent.style, style);
+              }
+              e.currentTarget.parentElement?.querySelector("[data-icon-fallback]")?.classList.remove("hidden");
             }}
           />
         ) : null}
-        <ContentIcon className={cn(
-          "w-4 h-4 text-muted-foreground",
-          ((effectiveShowImage && link.imageUrl) || link.faviconUrl) && "hidden"
-        )} />
+        <ContentIcon
+          data-icon-fallback=""
+          className={cn(
+            "w-4 h-4",
+            ((effectiveShowImage && link.imageUrl) || link.faviconUrl)
+              ? "hidden text-white/60"
+              : "text-white/60"
+          )}
+        />
       </div>
 
       {/* Content */}
