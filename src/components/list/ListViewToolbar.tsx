@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Search,
   SortAsc,
@@ -14,6 +14,7 @@ import {
   Star,
   X,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
@@ -48,6 +49,7 @@ import { TagBadge } from "@/components/ui/tag-badge";
 import { useListViewStore, type SortBy, type SortOrder, type CategorySortBy } from "@/stores/list-view-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
+import { AutoClassifyDialog } from "@/components/modals/AutoClassifyDialog";
 import type { Category, Tag as TagType } from "@/lib/db/schema";
 
 // Mapa de colores para las categorías (hex estático — Tailwind no incluye clases dinámicas)
@@ -121,6 +123,7 @@ export function ListViewToolbar({
   const setCategorySortOrder = useListViewStore((state) => state.setCategorySortOrder);
   const setShowEmptyCategories = useListViewStore((state) => state.setShowEmptyCategories);
   const setShowUncategorized = useListViewStore((state) => state.setShowUncategorized);
+  const [classifyOpen, setClassifyOpen] = useState(false);
   const collapseAll = useListViewStore((state) => state.collapseAll);
   const expandAll = useListViewStore((state) => state.expandAll);
 
@@ -481,6 +484,26 @@ export function ListViewToolbar({
             </TooltipTrigger>
             <TooltipContent side="top"><p>{t("listView.expandAll")}</p></TooltipContent>
           </Tooltip>
+
+          {/* Autoclasificar con IA */}
+          {typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 gap-1.5"
+                  onClick={() => setClassifyOpen(true)}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-xs">Autoclasificar</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top"><p>Clasificar enlaces con IA</p></TooltipContent>
+            </Tooltip>
+          )}
+
+          <AutoClassifyDialog open={classifyOpen} onClose={() => setClassifyOpen(false)} />
 
           <div className="h-4 w-px bg-border" />
 
