@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
   Search,
   SortAsc,
@@ -124,8 +124,48 @@ export function ListViewToolbar({
   const setShowEmptyCategories = useListViewStore((state) => state.setShowEmptyCategories);
   const setShowUncategorized = useListViewStore((state) => state.setShowUncategorized);
   const [classifyOpen, setClassifyOpen] = useState(false);
+  const [classifyJobId, setClassifyJobId] = useState<string | null>(null);
+  const [classifyProposal, setClassifyProposal] = useState<unknown>(null);
+  const classifyPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const collapseAll = useListViewStore((state) => state.collapseAll);
   const expandAll = useListViewStore((state) => state.expandAll);
+
+  // Background polling para clasificación
+  const handleClassifyJobStarted = useCallback((jobId: string) => {
+    setClassifyJobId(jobId);
+    setClassifyProposal(null);
+  }, []);
+
+  useEffect(() => {
+    // Solo polling cuando el dialog está cerrado y hay un job pendiente
+    if (!classifyJobId || classifyOpen) {
+      if (classifyPollingRef.current) clearInterval(classifyPollingRef.current);
+      return;
+    }
+    classifyPollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/llm/classify?jobId=${classifyJobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+        if (job.status === "analyzed" && job.proposal) {
+          if (classifyPollingRef.current) clearInterval(classifyPollingRef.current);
+          setClassifyProposal(job.proposal);
+          const { toast } = await import("sonner");
+          toast.success("Clasificación completada", {
+            description: `${job.proposal.changes.length} cambios propuestos`,
+            action: { label: "Revisar", onClick: () => setClassifyOpen(true) },
+            duration: 15000,
+          });
+        } else if (job.status === "error") {
+          if (classifyPollingRef.current) clearInterval(classifyPollingRef.current);
+          setClassifyJobId(null);
+          const { toast } = await import("sonner");
+          toast.error("Error en clasificación", { description: job.error });
+        }
+      } catch { /* retry */ }
+    }, 2000);
+    return () => { if (classifyPollingRef.current) clearInterval(classifyPollingRef.current); };
+  }, [classifyJobId, classifyOpen]);
 
   // IDs activos para multi-selección
   const activeCategoryIds = useMemo((): string[] => {
@@ -492,18 +532,35 @@ export function ListViewToolbar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 gap-1.5"
+                  className={cn("h-7 px-2 gap-1.5", classifyJobId && !classifyProposal && "text-primary")}
                   onClick={() => setClassifyOpen(true)}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline text-xs">Autoclasificar</span>
+                  {classifyJobId && !classifyProposal ? (
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                  ) : classifyProposal ? (
+                    <Sparkles className="w-3.5 h-3.5 text-green-500" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span className="hidden sm:inline text-xs">
+                    {classifyJobId && !classifyProposal ? "Analizando..." : classifyProposal ? "Ver propuesta" : "Autoclasificar"}
+                  </span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top"><p>Clasificar enlaces con IA</p></TooltipContent>
+              <TooltipContent side="top">
+                <p>{classifyJobId && !classifyProposal ? "Clasificación en curso..." : classifyProposal ? "Hay una propuesta lista para revisar" : "Clasificar enlaces con IA"}</p>
+              </TooltipContent>
             </Tooltip>
           )}
 
-          <AutoClassifyDialog open={classifyOpen} onClose={() => setClassifyOpen(false)} />
+          <AutoClassifyDialog
+            open={classifyOpen}
+            onClose={() => setClassifyOpen(false)}
+            onJobStarted={handleClassifyJobStarted}
+            pendingJobId={classifyJobId}
+            pendingProposal={classifyProposal}
+            onApplied={() => { setClassifyJobId(null); setClassifyProposal(null); }}
+          />
 
           <div className="h-4 w-px bg-border" />
 
