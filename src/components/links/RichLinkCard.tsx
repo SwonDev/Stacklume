@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useMemo, useState, useCallback } from "react";
-import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useLinksStore } from "@/stores/links-store";
@@ -241,6 +240,8 @@ export const RichLinkCard = memo(function RichLinkCard({
     }
   }, [link.url]);
 
+  const fallbackStyle = useMemo(() => generateFallbackStyle(link.url, link.title), [link.url, link.title]);
+
   const contentType = (link.contentType as ContentType) || "website";
   const ContentIcon = contentTypeIcons[contentType] || Globe;
   const platformColor = link.platformColor || "#6B7280";
@@ -352,20 +353,20 @@ export const RichLinkCard = memo(function RichLinkCard({
     return (
       <ContextMenu>
       <ContextMenuTrigger asChild>
-      <motion.a
+      <a
         href={(isEditMode || isSelecting) ? undefined : link.url}
         target={linkTarget}
         rel={(isEditMode || isSelecting) ? undefined : "noopener noreferrer"}
         onClick={handleClick}
         className={cn(
-          "group/link block rounded-xl overflow-hidden transition-all relative",
+          "group/link block rounded-xl overflow-hidden transition-all duration-200 relative",
+          "hover:shadow-lg hover:-translate-y-0.5",
           isSelecting && "cursor-pointer",
           isSelecting && isItemSelected && "ring-2 ring-primary",
           isEditMode
             ? "cursor-pointer ring-2 ring-transparent hover:ring-primary/50"
-            : !isSelecting && "hover:shadow-lg"
+            : ""
         )}
-        whileHover={{ scale: (isEditMode || isSelecting) ? 1.02 : 1.01 }}
       >
         {isSelecting && SelectionCheckbox}
         {/* Large Image Preview */}
@@ -375,7 +376,7 @@ export const RichLinkCard = memo(function RichLinkCard({
             <div
               className="absolute inset-0 flex items-center justify-center hidden"
               data-fallback
-              style={generateFallbackStyle(link.url, link.title)}
+              style={fallbackStyle}
             >
               <FallbackIcon contentType={contentType} className="w-10 h-10" />
             </div>
@@ -385,6 +386,7 @@ export const RichLinkCard = memo(function RichLinkCard({
               alt={link.title}
               className="w-full h-full object-cover transition-transform group-hover/link:scale-105"
               loading="lazy"
+              decoding="async"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
                 // Mostrar el fallback de gradiente
@@ -462,6 +464,7 @@ export const RichLinkCard = memo(function RichLinkCard({
                 alt=""
                 className="w-4 h-4 mt-0.5 rounded-sm flex-shrink-0"
                 loading="lazy"
+                decoding="async"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
@@ -597,7 +600,7 @@ export const RichLinkCard = memo(function RichLinkCard({
             linkTitle={link.title}
           />
         )}
-      </motion.a>
+      </a>
       </ContextMenuTrigger>
       {linkContextMenu}
       </ContextMenu>
@@ -608,21 +611,20 @@ export const RichLinkCard = memo(function RichLinkCard({
   return (
     <ContextMenu>
     <ContextMenuTrigger asChild>
-    <motion.a
+    <a
       href={(isEditMode || isSelecting) ? undefined : link.url}
       target={linkTarget}
       rel={(isEditMode || isSelecting) ? undefined : "noopener noreferrer"}
       onClick={handleClick}
       className={cn(
-        "group/link flex w-full rounded-lg transition-colors relative",
+        "group/link flex w-full rounded-lg transition-all duration-200 relative",
         isSelecting ? "gap-2 p-2 pl-6" : "gap-2 p-2",
         isSelecting && "cursor-pointer",
         isSelecting && isItemSelected && "bg-primary/10 ring-1 ring-primary",
         isEditMode
-          ? "hover:bg-primary/10 cursor-pointer border border-transparent hover:border-primary/30"
-          : !isSelecting && "hover:bg-secondary/50"
+          ? "hover:bg-primary/10 cursor-pointer border border-transparent hover:border-primary/30 hover:scale-[1.02]"
+          : !isSelecting && "hover:bg-secondary/50 hover:translate-x-0.5"
       )}
-      whileHover={{ x: (isEditMode || isSelecting) ? 0 : 2, scale: (isEditMode || isSelecting) ? 1.02 : 1 }}
     >
       {isSelecting && (
         <div
@@ -639,7 +641,7 @@ export const RichLinkCard = memo(function RichLinkCard({
       {/* Thumbnail or Favicon */}
       <div
         className="flex-shrink-0 rounded-md overflow-hidden bg-secondary flex items-center justify-center w-10 h-10"
-        style={!link.imageUrl && !link.faviconUrl ? generateFallbackStyle(link.url, link.title) : undefined}
+        style={!link.imageUrl && !link.faviconUrl ? fallbackStyle : undefined}
       >
         {effectiveShowImage && link.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -648,13 +650,13 @@ export const RichLinkCard = memo(function RichLinkCard({
             alt=""
             className="w-full h-full object-cover"
             loading="lazy"
+            decoding="async"
             onError={(e) => {
               e.currentTarget.style.display = "none";
               // Aplicar gradiente al contenedor
               const parent = e.currentTarget.parentElement;
               if (parent) {
-                const style = generateFallbackStyle(link.url, link.title);
-                Object.assign(parent.style, style);
+                Object.assign(parent.style, fallbackStyle);
               }
               // Mostrar el icono fallback
               e.currentTarget.parentElement?.querySelector("[data-icon-fallback]")?.classList.remove("hidden");
@@ -668,12 +670,12 @@ export const RichLinkCard = memo(function RichLinkCard({
             alt=""
             className="w-5 h-5"
             loading="lazy"
+            decoding="async"
             onError={(e) => {
               e.currentTarget.style.display = "none";
               const parent = e.currentTarget.parentElement;
               if (parent) {
-                const style = generateFallbackStyle(link.url, link.title);
-                Object.assign(parent.style, style);
+                Object.assign(parent.style, fallbackStyle);
               }
               e.currentTarget.parentElement?.querySelector("[data-icon-fallback]")?.classList.remove("hidden");
             }}
@@ -850,7 +852,7 @@ export const RichLinkCard = memo(function RichLinkCard({
         linkUrl={link.url}
         linkTitle={link.title}
       />
-    </motion.a>
+    </a>
     </ContextMenuTrigger>
     {linkContextMenu}
     </ContextMenu>

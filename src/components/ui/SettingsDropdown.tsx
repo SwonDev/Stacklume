@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, ExternalLink, Trash2, MessageSquare, Zap, Volume2, VolumeX,
   ArrowUpDown, Eye, EyeOff, Copy, RefreshCw, BookOpen, CheckCircle2,
   AlertCircle, Loader2, Cloud, HardDrive, Plug, ArrowUpCircle, HelpCircle,
-  Activity, Download, Upload, List, Keyboard, Bot, Tags, Layers, Inbox,
+  Activity, Download, Upload, List, Keyboard, Bot, Tags, Layers, Inbox, KanbanSquare,
 } from "lucide-react";
 import { isTauriWebView, getServerPort } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
@@ -499,7 +499,7 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
               <div className="space-y-1">
                 {([
                   { value: "bento",  labelKey: "settings.bentoGrid", descKey: "settings.bentoDesc",  Icon: LayoutGrid },
-                  { value: "kanban", labelKey: "settings.kanban",    descKey: "settings.kanbanDesc", Icon: LayoutGrid },
+                  { value: "kanban", labelKey: "settings.kanban",    descKey: "settings.kanbanDesc", Icon: KanbanSquare },
                   { value: "list",   labelKey: "settings.list",      descKey: "settings.listDesc",   Icon: List       },
                 ] as const).map(({ value, labelKey, descKey, Icon }) => (
                   <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -167,13 +167,16 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
     })
   );
 
-  // Filter widgets based on search term and global filters (using project-filtered widgets)
+  // Defer search term to avoid blocking drag interactions while typing
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  // Filter widgets based on deferred search term and global filters (using project-filtered widgets)
   const filteredWidgets = useMemo(() => {
     let result = projectWidgets;
 
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    // Apply search filter (uses deferred value for non-blocking UI)
+    if (deferredSearchTerm.trim()) {
+      const term = deferredSearchTerm.toLowerCase();
       result = result.filter(
         (w) =>
           w.title.toLowerCase().includes(term) ||
@@ -188,7 +191,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
     }
 
     return result;
-  }, [projectWidgets, searchTerm, globalFilter]);
+  }, [projectWidgets, deferredSearchTerm, globalFilter]);
 
   // Get widgets for a specific column, sorted by kanbanOrder
   const getWidgetsForColumn = useCallback(
@@ -310,7 +313,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
   // Calculate total widgets count
   const totalWidgets = widgets.length;
   const filteredCount = filteredWidgets.length;
-  const hasFilters = searchTerm.trim() !== "" || globalFilter.length > 0;
+  const hasFilters = deferredSearchTerm.trim() !== "" || globalFilter.length > 0;
 
   // Get unique widget types present in the widgets collection
   const availableWidgetTypes = useMemo(() => {
@@ -321,6 +324,10 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
       )
     );
   }, [widgets]);
+
+  // Memoize column IDs for SortableContext to avoid new array references
+  const columnIds = useMemo(() => columns.map((c) => c.id), [columns]);
+  const canDeleteColumns = columns.length > 1;
 
   // Check if all columns are collapsed
   const allColumnsCollapsed = columns.every((c) => c.isCollapsed);
@@ -633,15 +640,19 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
           <ScrollArea className="flex-1">
             <div className="flex gap-4 p-4 h-full min-h-[500px]">
               <SortableContext
-                items={columns.map((c) => c.id)}
+                items={columnIds}
                 strategy={horizontalListSortingStrategy}
               >
-                {columns.map((column) => (
+                {columns.map((column, index) => (
                   <KanbanColumn
                     key={column.id}
                     column={column}
                     widgets={widgetsByColumn[column.id] || []}
                     onAddWidget={openAddWidgetModal}
+                    isFirst={index === 0}
+                    isLast={index === columns.length - 1}
+                    canDelete={canDeleteColumns}
+                    allColumns={columns}
                   />
                 ))}
               </SortableContext>

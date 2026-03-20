@@ -138,7 +138,6 @@ export default function Home() {
           data-sticker-container
         >
           <div
-            key={viewMode}
             className="min-h-full w-full animate-in fade-in duration-150"
           >
             {viewMode === "kanban" ? (
