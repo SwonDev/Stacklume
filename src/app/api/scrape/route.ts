@@ -6,6 +6,7 @@ import { createModuleLogger } from "@/lib/logger";
 import { scrapeCache } from "@/lib/cache";
 import { scrapeUrlSchema, validateRequest } from "@/lib/validations";
 import { extractInstallCommands } from "@/lib/install-extractor";
+import { scrapeTweet, extractTweetId } from "@/lib/twitter-scraper";
 
 // Create a module-specific logger
 const log = createModuleLogger("api/scrape");
@@ -88,6 +89,33 @@ async function getYouTubeThumbnail(videoId: string): Promise<string> {
 // Platform-specific scrapers using APIs (no browser needed)
 async function scrapeWithAPIs(url: string, detection: ReturnType<typeof detectPlatform>): Promise<Partial<ScrapeResult> | null> {
   try {
+    // Twitter/X - use FxTwitter → vxTwitter → Syndication fallback
+    if (detection.platform === 'twitter' && extractTweetId(url)) {
+      const tweet = await scrapeTweet(url);
+      if (tweet) {
+        // Construir descripción rica con el texto del tweet + URLs mencionadas
+        let description = tweet.text;
+        if (tweet.mentionedUrls.length > 0) {
+          description += "\n\nEnlaces mencionados:\n" + tweet.mentionedUrls.join("\n");
+        }
+
+        return {
+          title: `@${tweet.authorHandle}: ${tweet.text.slice(0, 80)}${tweet.text.length > 80 ? "..." : ""}`,
+          description,
+          imageUrl: tweet.mediaUrls[0] ?? tweet.authorAvatar ?? null,
+          faviconUrl: "https://abs.twimg.com/favicons/twitter.3.ico",
+          siteName: "X (Twitter)",
+          author: `@${tweet.authorHandle} (${tweet.authorName})`,
+          platform: "twitter",
+          contentType: tweet.mediaUrls.length > 0 ? "image" : "article",
+          platformLabel: "Tweet",
+          platformColor: "#000000",
+          platformIcon: "twitter",
+          installCommands: [],
+        };
+      }
+    }
+
     // YouTube - use oEmbed API
     if (detection.platform === 'youtube' && detection.id) {
       const oEmbedUrl = detection.oEmbedUrl;
