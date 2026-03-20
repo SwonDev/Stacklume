@@ -85,12 +85,17 @@ export default function Home() {
           linkCategoriesRes.ok ? linkCategoriesRes.json() : null,
         ]);
 
-        // Apply all data in a single batch to minimize re-renders
-        if (linksData) store.setLinks(linksData);
-        if (categoriesData) store.setCategories(categoriesData);
-        if (tagsData) store.setTags(tagsData);
-        if (linkTagsData) store.setLinkTags(linkTagsData);
-        if (linkCategoriesData) store.setLinkCategories(linkCategoriesData);
+        // Actualización atómica — un solo set() para evitar 5 re-renders intermedios
+        const patch: Record<string, unknown> = {};
+        if (Array.isArray(linksData)) patch.links = linksData;
+        if (Array.isArray(categoriesData)) patch.categories = categoriesData;
+        if (Array.isArray(tagsData)) patch.tags = tagsData;
+        if (Array.isArray(linkCategoriesData)) patch.linkCategories = linkCategoriesData;
+        if (Object.keys(patch).length > 0) {
+          useLinksStore.setState(patch);
+        }
+        // setLinkTags construye los índices internos, debe llamarse por separado
+        if (Array.isArray(linkTagsData)) store.setLinkTags(linkTagsData);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -132,17 +137,22 @@ export default function Home() {
           aria-busy={isLoading}
           data-sticker-container
         >
-          {viewMode === "kanban" ? (
-            <Suspense fallback={null}>
-              <KanbanBoard className="min-h-full w-full" />
-            </Suspense>
-          ) : viewMode === "list" ? (
-            <Suspense fallback={null}>
-              <ListView className="min-h-full w-full" />
-            </Suspense>
-          ) : (
-            <BentoGrid className="min-h-full w-full" />
-          )}
+          <div
+            key={viewMode}
+            className="min-h-full w-full animate-in fade-in duration-150"
+          >
+            {viewMode === "kanban" ? (
+              <Suspense fallback={null}>
+                <KanbanBoard className="min-h-full w-full" />
+              </Suspense>
+            ) : viewMode === "list" ? (
+              <Suspense fallback={null}>
+                <ListView className="min-h-full w-full" />
+              </Suspense>
+            ) : (
+              <BentoGrid className="min-h-full w-full" />
+            )}
+          </div>
         </div>
         {/* Sticker layer for placed stickers - only render when ready */}
         {isAppReady && <StickerLayer />}

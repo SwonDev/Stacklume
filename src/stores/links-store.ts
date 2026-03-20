@@ -4,6 +4,13 @@ import { normalizeUrlForComparison } from "@/lib/url-utils";
 import { openExternalUrl } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
+// --- Cachés internas a nivel de módulo (fuera del state de Zustand) ---
+// Índices linkId→tagId[] y tagId→linkId[] construidos en setLinkTags
+let _linkToTagsIndex = new Map<string, string[]>();
+let _tagToLinksIndex = new Map<string, string[]>();
+// Set de URLs normalizadas, invalidado cuando links cambia
+let _normalizedUrlSet: Set<string> | null = null;
+
 interface LinksState {
   // Links data
   links: Link[];
@@ -102,18 +109,20 @@ interface LinksState {
 export const useLinksStore = create<LinksState>((set, get) => ({
   // Links
   links: [],
-  setLinks: (links) => set({ links }),
-  addLink: (link) => set((state) => ({ links: [link, ...state.links] })),
+  setLinks: (links) => { _normalizedUrlSet = null; set({ links }); },
+  addLink: (link) => { _normalizedUrlSet = null; set((state) => ({ links: [link, ...state.links] })); },
   updateLink: (id, updates) =>
     set((state) => ({
       links: state.links.map((link) =>
         link.id === id ? { ...link, ...updates } : link
       ),
     })),
-  removeLink: (id) =>
+  removeLink: (id) => {
+    _normalizedUrlSet = null;
     set((state) => ({
       links: state.links.filter((link) => link.id !== id),
-    })),
+    }));
+  },
 
   reorderLinks: async (orderedIds, categoryId) => {
     // Optimistic update - only update order for links in this category
@@ -300,7 +309,23 @@ export const useLinksStore = create<LinksState>((set, get) => ({
 
   // Link-Tag associations
   linkTags: [],
-  setLinkTags: (linkTags) => set({ linkTags }),
+  setLinkTags: (linkTags) => {
+    // Construir índices linkId→tagId[] y tagId→linkId[] para lookups O(1)
+    const newLinkToTags = new Map<string, string[]>();
+    const newTagToLinks = new Map<string, string[]>();
+    for (const lt of linkTags) {
+      let arr = newLinkToTags.get(lt.linkId);
+      if (!arr) { arr = []; newLinkToTags.set(lt.linkId, arr); }
+      arr.push(lt.tagId);
+
+      let arr2 = newTagToLinks.get(lt.tagId);
+      if (!arr2) { arr2 = []; newTagToLinks.set(lt.tagId, arr2); }
+      arr2.push(lt.linkId);
+    }
+    _linkToTagsIndex = newLinkToTags;
+    _tagToLinksIndex = newTagToLinks;
+    set({ linkTags });
+  },
   addLinkTag: (linkId, tagId) =>
     set((state) => ({
       linkTags: [...state.linkTags, { linkId, tagId }],
@@ -316,22 +341,22 @@ export const useLinksStore = create<LinksState>((set, get) => ({
   linkCategories: [],
   setLinkCategories: (linkCategories) => set({ linkCategories }),
 
-  // Helper to get tags for a specific link
+  // Helper to get tags for a specific link (uses precomputed index)
   getTagsForLink: (linkId) => {
     const state = get();
-    const tagIds = state.linkTags
-      .filter((lt) => lt.linkId === linkId)
-      .map((lt) => lt.tagId);
-    return state.tags.filter((tag) => tagIds.includes(tag.id));
+    const ids = _linkToTagsIndex.get(linkId);
+    if (!ids || ids.length === 0) return [];
+    const idSet = new Set(ids);
+    return state.tags.filter((tag) => idSet.has(tag.id));
   },
 
-  // Helper to get links for a specific tag
+  // Helper to get links for a specific tag (uses precomputed index)
   getLinksForTag: (tagId) => {
     const state = get();
-    const linkIds = state.linkTags
-      .filter((lt) => lt.tagId === tagId)
-      .map((lt) => lt.linkId);
-    return state.links.filter((link) => linkIds.includes(link.id));
+    const ids = _tagToLinksIndex.get(tagId);
+    if (!ids || ids.length === 0) return [];
+    const idSet = new Set(ids);
+    return state.links.filter((link) => idSet.has(link.id));
   },
 
   // Bulk actions
@@ -406,7 +431,11 @@ export const useLinksStore = create<LinksState>((set, get) => ({
   isDuplicateUrl: (url) => {
     const state = get();
     const normalizedInput = normalizeUrlForComparison(url);
-    return state.links.some((link) => normalizeUrlForComparison(link.url) === normalizedInput);
+    // Construir Set de URLs normalizadas bajo demanda (evita re-normalizar todo el array cada vez)
+    if (!_normalizedUrlSet) {
+      _normalizedUrlSet = new Set(state.links.map((link) => normalizeUrlForComparison(link.url)));
+    }
+    return _normalizedUrlSet.has(normalizedInput);
   },
 
   getDuplicatesForUrl: (url) => {

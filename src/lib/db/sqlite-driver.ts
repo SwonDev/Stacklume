@@ -14,6 +14,7 @@ export type SQLiteDatabase = ReturnType<typeof drizzle<typeof schema>>;
 // accesible desde cualquier chunk/módulo de Turbopack (evita el problema de
 // instancias múltiples del módulo cuando Turbopack genera chunks separados).
 const SQLITE_GLOBAL_KEY = "__stacklume_sqlite_db__";
+const SQLITE_CLIENT_KEY = "__stacklume_sqlite_client__";
 
 /** Accede al singleton de DB desde globalThis (cross-chunk safe). */
 export function getDbSingleton(): SQLiteDatabase | null {
@@ -26,6 +27,19 @@ export function getDbSingleton(): SQLiteDatabase | null {
 
 function setDbSingleton(db: SQLiteDatabase): void {
   (globalThis as Record<string, unknown>)[SQLITE_GLOBAL_KEY] = db;
+}
+
+/** Accede al cliente raw libsql (para SQL directo como FTS5). */
+export function getRawClient(): ReturnType<typeof createClient> | null {
+  return (
+    ((globalThis as Record<string, unknown>)[SQLITE_CLIENT_KEY] as
+      | ReturnType<typeof createClient>
+      | undefined) ?? null
+  );
+}
+
+function setRawClient(client: ReturnType<typeof createClient>): void {
+  (globalThis as Record<string, unknown>)[SQLITE_CLIENT_KEY] = client;
 }
 
 // Alias de compatibilidad para el código que lo importa directamente.
@@ -50,12 +64,35 @@ export async function getSQLiteDb(): Promise<SQLiteDatabase> {
 
   // Guardar en globalThis ANTES de initializeSQLiteTables por si hay llamadas concurrentes
   setDbSingleton(db);
+  setRawClient(client);
   _sqliteDb = db;
+
+  // Activar WAL mode para mejor concurrencia y rendimiento de escritura.
+  // busy_timeout evita SQLITE_BUSY inmediato cuando hay escrituras concurrentes.
+  await client.execute("PRAGMA journal_mode=WAL");
+  await client.execute("PRAGMA busy_timeout=5000");
 
   // Crear las tablas si no existen
   await initializeSQLiteTables(client);
   // Aplicar migraciones incrementales (columnas nuevas en upgrades)
   await runSQLiteMigrations(client);
+
+  // Poblar índice FTS5 si está vacío (primera vez o upgrade)
+  try {
+    const ftsCount = await client.execute("SELECT count(*) AS c FROM links_fts");
+    const count = Number(ftsCount.rows?.[0]?.c ?? 0);
+    if (count === 0) {
+      const result = await client.execute(
+        `INSERT INTO links_fts(link_id, title, description, summary, url, site_name)
+         SELECT id, COALESCE(title, ''), COALESCE(description, ''), COALESCE(summary, ''), COALESCE(url, ''), COALESCE(site_name, '')
+         FROM links
+         WHERE deleted_at IS NULL`
+      );
+      console.log(`[SQLite FTS5] Índice poblado: ${result.rowsAffected ?? 0} enlaces`);
+    }
+  } catch (e) {
+    console.warn("[SQLite FTS5] No se pudo poblar el índice:", e);
+  }
 
   console.log("[SQLite] Inicializado:", rawPath);
   return db;
@@ -144,7 +181,8 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       health_status TEXT,
       is_read INTEGER DEFAULT 0,
       notes TEXT,
-      reminder_at INTEGER
+      reminder_at INTEGER,
+      summary TEXT
     )`,
     `CREATE INDEX IF NOT EXISTS idx_links_user_id ON links(user_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url) WHERE deleted_at IS NULL`,
@@ -578,6 +616,25 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
     {
       sql: `ALTER TABLE categories ADD COLUMN parent_category_id TEXT`,
       description: "categories.parent_category_id",
+    },
+    // Resumen generado por IA
+    {
+      sql: `ALTER TABLE links ADD COLUMN summary TEXT`,
+      description: "links.summary",
+    },
+    // FTS5 — Búsqueda full-text para enlaces
+    {
+      sql: `CREATE VIRTUAL TABLE IF NOT EXISTS links_fts USING fts5(
+        link_id UNINDEXED,
+        title,
+        description,
+        summary,
+        url,
+        site_name,
+        content='',
+        tokenize='unicode61'
+      )`,
+      description: "links_fts virtual table (FTS5)",
     },
   ];
 

@@ -24,6 +24,7 @@ const EditWidgetModal = lazy(() => import("@/components/modals/EditWidgetModal")
 const AddTagModal = lazy(() => import("@/components/modals/AddTagModal").then((m) => ({ default: m.AddTagModal })));
 const ManageCategoriesModal = lazy(() => import("@/components/modals/ManageCategoriesModal").then((m) => ({ default: m.ManageCategoriesModal })));
 const ManageTagsModal = lazy(() => import("@/components/modals/ManageTagsModal").then((m) => ({ default: m.ManageTagsModal })));
+const KeyboardShortcutsModal = lazy(() => import("@/components/modals/KeyboardShortcutsModal").then((m) => ({ default: m.KeyboardShortcutsModal })));
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -133,6 +134,7 @@ export function AppShell({ children }: AppShellProps) {
           <AddTagModal />
           <ManageCategoriesModal />
           <ManageTagsModal />
+          <KeyboardShortcutsModal />
         </Suspense>
       )}
 

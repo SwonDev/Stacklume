@@ -157,25 +157,37 @@ export async function GET(request: NextRequest) {
       conditions.push(inArray(links.id, linkIds));
     }
 
-    // Handle simple search (for full-text search, use /api/links/search)
-    // This is a lightweight filter, not full search
+    // Handle simple search — usa FTS5 en SQLite si disponible
     if (search) {
-      const searchPattern = `%${search}%`;
-      // ilike es solo PostgreSQL; en SQLite usamos like (case-insensitive por defecto para ASCII)
+      let ftsIds: string[] | null = null;
       if (getCurrentDatabaseType() === "sqlite") {
-        conditions.push(
-          or(
-            like(links.title, searchPattern),
-            like(links.description, searchPattern)
-          )!
-        );
+        try {
+          const { searchLinksFts } = await import("@/lib/db/fts");
+          const ids = await searchLinksFts(search, 200);
+          if (ids.length > 0) ftsIds = ids;
+        } catch { /* FTS5 no disponible */ }
+      }
+
+      if (ftsIds) {
+        conditions.push(inArray(links.id, ftsIds));
       } else {
-        conditions.push(
-          or(
-            ilike(links.title, searchPattern),
-            ilike(links.description, searchPattern)
-          )!
-        );
+        const searchPattern = `%${search}%`;
+        // ilike es solo PostgreSQL; en SQLite usamos like (case-insensitive por defecto para ASCII)
+        if (getCurrentDatabaseType() === "sqlite") {
+          conditions.push(
+            or(
+              like(links.title, searchPattern),
+              like(links.description, searchPattern)
+            )!
+          );
+        } else {
+          conditions.push(
+            or(
+              ilike(links.title, searchPattern),
+              ilike(links.description, searchPattern)
+            )!
+          );
+        }
       }
     }
 
@@ -328,6 +340,13 @@ export async function POST(request: NextRequest) {
       } catch {
         // No crítico — el enlace se creó correctamente
       }
+    }
+
+    // Indexar en FTS5 (solo SQLite, no bloquea)
+    if (getCurrentDatabaseType() === "sqlite") {
+      import("@/lib/db/fts").then(({ upsertLinkFts }) =>
+        upsertLinkFts(created).catch(() => {})
+      ).catch(() => {});
     }
 
     log.info({ linkId: created.id, url: created.url }, "Link created successfully");

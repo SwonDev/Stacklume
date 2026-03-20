@@ -190,6 +190,8 @@ export const links = pgTable(
     reviewAt: timestamp("review_at", { withTimezone: true }), // Para repetición espaciada
     // DevKit — comandos de instalación extraídos del HTML al guardar el enlace
     installCommands: text("install_commands"), // JSON string: string[]
+    // Resumen generado por IA (2-3 oraciones)
+    summary: text("summary"),
   },
   (table) => ({
     userIdIdx: index("idx_links_user_id").on(table.userId),

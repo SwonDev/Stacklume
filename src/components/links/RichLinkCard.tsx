@@ -2,8 +2,11 @@
 
 import { memo, useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useLinksStore } from "@/stores/links-store";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import {
   Star,
   ExternalLink,
@@ -23,8 +26,15 @@ import {
   Archive,
   StickyNote,
   BookOpenText,
+  Copy,
+  Trash2,
+  FolderInput,
+  BookMarked,
+  Inbox,
+  BookOpenCheck,
 } from "lucide-react";
 import { ReaderModeModal } from "@/components/modals/ReaderModeModal";
+import { showConfirm } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { openExternalUrl } from "@/lib/desktop";
 import { useTranslation } from "@/lib/i18n";
@@ -33,6 +43,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import type { Link } from "@/lib/db/schema";
 import type { ContentType } from "@/lib/platform-detection";
 
@@ -72,6 +92,7 @@ interface RichLinkCardProps {
   isEditMode?: boolean;
   onEdit?: () => void;
   onToggleFavorite?: () => void;
+  onDelete?: () => void;
   variant?: "default" | "compact" | "large";
   showImage?: boolean;
 }
@@ -111,6 +132,7 @@ export const RichLinkCard = memo(function RichLinkCard({
   isEditMode = false,
   onEdit,
   onToggleFavorite,
+  onDelete,
   variant = "default",
   showImage = true,
 }: RichLinkCardProps) {
@@ -119,6 +141,7 @@ export const RichLinkCard = memo(function RichLinkCard({
   const linkClickBehavior = useSettingsStore((state) => state.linkClickBehavior);
   const isSelecting = useMultiSelect((state) => state.isSelecting);
   const isItemSelected = useMultiSelect((state) => state.isSelected(link.id));
+  const categories = useLinksStore((state) => state.categories);
   const [readerOpen, setReaderOpen] = useState(false);
 
   const handleOpenReader = useCallback((e: React.MouseEvent) => {
@@ -126,6 +149,81 @@ export const RichLinkCard = memo(function RichLinkCard({
     e.stopPropagation();
     setReaderOpen(true);
   }, []);
+
+  const handleCopyUrl = useCallback(() => {
+    navigator.clipboard.writeText(link.url).then(() => {
+      toast.success(t("richLink.copyUrlSuccess"));
+    });
+  }, [link.url, t]);
+
+  const handleCopyMarkdown = useCallback(() => {
+    navigator.clipboard.writeText(`[${link.title}](${link.url})`).then(() => {
+      toast.success(t("richLink.copyMarkdownSuccess"));
+    });
+  }, [link.title, link.url, t]);
+
+  const handleUpdateReadingStatus = useCallback(async (status: string) => {
+    try {
+      const res = await fetch(`/api/links/${link.id}/reading-status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+        credentials: "include",
+        body: JSON.stringify({ readingStatus: status }),
+      });
+      if (!res.ok) throw new Error();
+      useLinksStore.getState().updateLink(link.id, { readingStatus: status } as Partial<Link>);
+      toast.success(t("richLink.readingStatusUpdated"));
+      await useLinksStore.getState().refreshAllData();
+    } catch {
+      toast.error(t("richLink.readingStatusError"));
+    }
+  }, [link.id, t]);
+
+  const handleMoveToCategory = useCallback(async (categoryId: string | null) => {
+    try {
+      const res = await fetch(`/api/links/${link.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+        credentials: "include",
+        body: JSON.stringify({ categoryId }),
+      });
+      if (!res.ok) throw new Error();
+      const catName = categoryId
+        ? categories.find((c) => c.id === categoryId)?.name ?? ""
+        : t("richLink.noCategory");
+      useLinksStore.getState().updateLink(link.id, { categoryId } as Partial<Link>);
+      toast.success(t("richLink.movedToCategory", { category: catName }));
+      await useLinksStore.getState().refreshAllData();
+    } catch {
+      toast.error(t("richLink.moveCategoryError"));
+    }
+  }, [link.id, categories, t]);
+
+  const handleDeleteLink = useCallback(async () => {
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    const confirmed = await showConfirm({
+      title: t("richLink.delete"),
+      description: t("editLink.deleteLinkDesc"),
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`/api/links/${link.id}`, {
+        method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      useLinksStore.getState().removeLink(link.id);
+      toast.success(t("richLink.deleteSuccess"));
+      await useLinksStore.getState().refreshAllData();
+    } catch {
+      toast.error(t("richLink.deleteError"));
+    }
+  }, [link.id, onDelete, t]);
 
   // thumbnailSize="none" hides all images; other values scale the preview
   const effectiveShowImage = thumbnailSize !== "none" && showImage;
@@ -173,11 +271,87 @@ export const RichLinkCard = memo(function RichLinkCard({
     </div>
   );
 
+  // Shared context menu content for both variants
+  const linkContextMenu = (
+    <ContextMenuContent>
+      <ContextMenuItem onClick={handleCopyUrl}>
+        <Copy className="w-4 h-4" />
+        {t("richLink.copyUrl")}
+      </ContextMenuItem>
+      <ContextMenuItem onClick={handleCopyMarkdown}>
+        <FileText className="w-4 h-4" />
+        {t("richLink.copyMarkdown")}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={() => openExternalUrl(`https://web.archive.org/web/*/${link.url}`)}>
+        <Archive className="w-4 h-4" />
+        {t("richLink.openWayback")}
+      </ContextMenuItem>
+      <ContextMenuItem onClick={() => setReaderOpen(true)}>
+        <BookOpenText className="w-4 h-4" />
+        {t("richLink.readerView")}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={() => onToggleFavorite?.()}>
+        <Star className={cn("w-4 h-4", link.isFavorite && "text-yellow-500 fill-yellow-500")} />
+        {link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
+      </ContextMenuItem>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <BookMarked className="w-4 h-4" />
+          {t("richLink.readingStatus")}
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuItem onClick={() => handleUpdateReadingStatus("inbox")}>
+            <Inbox className={cn("w-4 h-4", (!link.readingStatus || link.readingStatus === "inbox") && "text-primary")} />
+            {t("richLink.readingInbox")}
+            {(!link.readingStatus || link.readingStatus === "inbox") && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleUpdateReadingStatus("reading")}>
+            <BookOpen className={cn("w-4 h-4", link.readingStatus === "reading" && "text-amber-500")} />
+            {t("richLink.readingReading")}
+            {link.readingStatus === "reading" && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleUpdateReadingStatus("done")}>
+            <BookOpenCheck className={cn("w-4 h-4", link.readingStatus === "done" && "text-green-500")} />
+            {t("richLink.readingDone")}
+            {link.readingStatus === "done" && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <FolderInput className="w-4 h-4" />
+          {t("richLink.moveToCategory")}
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuItem onClick={() => handleMoveToCategory(null)}>
+            {t("richLink.noCategory")}
+            {!link.categoryId && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+          {categories.filter((c) => !c.deletedAt).map((cat) => (
+            <ContextMenuItem key={cat.id} onClick={() => handleMoveToCategory(cat.id)}>
+              {cat.name}
+              {link.categoryId === cat.id && <Check className="w-3 h-3 ml-auto" />}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSeparator />
+      <ContextMenuItem variant="destructive" onClick={handleDeleteLink}>
+        <Trash2 className="w-4 h-4" />
+        {t("richLink.delete")}
+      </ContextMenuItem>
+    </ContextMenuContent>
+  );
+
   // Determine if we should show a large image preview
   const hasRichPreview = link.imageUrl && ["video", "game", "music"].includes(contentType);
 
   if (variant === "large" || hasRichPreview) {
     return (
+      <ContextMenu>
+      <ContextMenuTrigger asChild>
       <motion.a
         href={(isEditMode || isSelecting) ? undefined : link.url}
         target={linkTarget}
@@ -302,6 +476,12 @@ export const RichLinkCard = memo(function RichLinkCard({
                   {link.description}
                 </p>
               )}
+              {/* Resumen generado por IA */}
+              {link.summary && (
+                <p className="text-[11px] text-muted-foreground/70 italic line-clamp-3 mt-1.5 leading-relaxed">
+                  {link.summary}
+                </p>
+              )}
               <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                 <span className="truncate">{hostname}</span>
                 {link.author && (
@@ -369,24 +549,65 @@ export const RichLinkCard = memo(function RichLinkCard({
                     </TooltipTrigger>
                     <TooltipContent>{t("richLink.waybackMachine")}</TooltipContent>
                   </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleCopyUrl();
+                        }}
+                        aria-label={t("richLink.copyUrl")}
+                        className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("richLink.copyUrl")}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleCopyMarkdown();
+                        }}
+                        aria-label={t("richLink.copyMarkdown")}
+                        className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("richLink.copyMarkdown")}</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <ReaderModeModal
-          open={readerOpen}
-          onOpenChange={setReaderOpen}
-          linkId={link.id}
-          linkUrl={link.url}
-          linkTitle={link.title}
-        />
+        {readerOpen && (
+          <ReaderModeModal
+            open={readerOpen}
+            onOpenChange={setReaderOpen}
+            linkId={link.id}
+            linkUrl={link.url}
+            linkTitle={link.title}
+          />
+        )}
       </motion.a>
+      </ContextMenuTrigger>
+      {linkContextMenu}
+      </ContextMenu>
     );
   }
 
   // Default/Compact variant
   return (
+    <ContextMenu>
+    <ContextMenuTrigger asChild>
     <motion.a
       href={(isEditMode || isSelecting) ? undefined : link.url}
       target={linkTarget}
@@ -585,6 +806,40 @@ export const RichLinkCard = memo(function RichLinkCard({
             </TooltipTrigger>
             <TooltipContent>{t("richLink.waybackMachine")}</TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCopyUrl();
+                }}
+                aria-label={t("richLink.copyUrl")}
+                className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              >
+                <Copy className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t("richLink.copyUrl")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCopyMarkdown();
+                }}
+                aria-label={t("richLink.copyMarkdown")}
+                className="p-0.5 rounded-sm transition-all hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              >
+                <FileText className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-primary transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{t("richLink.copyMarkdown")}</TooltipContent>
+          </Tooltip>
           <ExternalLink className="w-4 h-4 text-muted-foreground/40" />
         </div>
       )}
@@ -596,6 +851,9 @@ export const RichLinkCard = memo(function RichLinkCard({
         linkTitle={link.title}
       />
     </motion.a>
+    </ContextMenuTrigger>
+    {linkContextMenu}
+    </ContextMenu>
   );
 });
 
