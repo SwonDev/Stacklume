@@ -551,12 +551,19 @@ async fn download_and_run_update(app: tauri::AppHandle, url: String) -> Result<(
     tokio::task::spawn_blocking(move || {
         // Borrar archivo previo si existe
         let _ = std::fs::remove_file(&installer_path_clone);
+        let out_path = installer_path_clone.to_string_lossy().to_string();
 
+        // Descargar con reintentos y resume automático.
+        // --retry 5 + -C - = si curl falla a mitad, reintenta continuando desde donde quedó.
+        // --retry-delay 3 = espera 3s entre reintentos.
+        // Sin --max-time (la descarga puede tardar >10 min con conexiones lentas).
         let mut cmd = std::process::Command::new("C:\\Windows\\System32\\curl.exe");
         cmd.arg("-L").arg("--fail")
             .arg("--connect-timeout").arg("30")
-            .arg("--max-time").arg("600") // 10 min máximo
-            .arg("-o").arg(installer_path_clone.to_string_lossy().as_ref())
+            .arg("--retry").arg("5")
+            .arg("--retry-delay").arg("3")
+            .arg("-C").arg("-") // Resume descargas parciales
+            .arg("-o").arg(&out_path)
             .arg("-s")
             .arg("--user-agent").arg("Stacklume/0.3 (desktop)")
             .arg(&url);
@@ -574,7 +581,12 @@ async fn download_and_run_update(app: tauri::AppHandle, url: String) -> Result<(
             match child.try_wait() {
                 Ok(Some(status)) => {
                     if !status.success() {
-                        return Err("Error al descargar el instalador (curl falló)".to_string());
+                        let file_size = std::fs::metadata(&installer_path_clone).map(|m| m.len()).unwrap_or(0);
+                        return Err(format!(
+                            "Descarga falló (código {}). Descargados: {:.0} MB. Verifica tu conexión a internet.",
+                            status.code().unwrap_or(-1),
+                            file_size as f64 / 1_048_576.0
+                        ));
                     }
                     break; // curl terminó exitosamente
                 }
