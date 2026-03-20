@@ -239,8 +239,8 @@ function suggestTagsForLink(scrapedData: ScrapedData, url: string): TagSuggestio
   const platformMap: Record<string, [string, string][]> = {
     youtube:       [["YouTube", "red"]],
     github:        [["GitHub", "slate"], ["Open Source", "blue"]],
-    twitter:       [["Twitter", "sky"]],
-    x:             [["Twitter", "sky"]],
+    twitter:       [["X (Twitter)", "sky"], ["Tweet", "blue"]],
+    x:             [["X (Twitter)", "sky"], ["Tweet", "blue"]],
     reddit:        [["Reddit", "orange"]],
     stackoverflow: [["Stack Overflow", "orange"]],
     medium:        [["Medium", "gray"]],
