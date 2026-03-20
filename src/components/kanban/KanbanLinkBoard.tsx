@@ -35,6 +35,7 @@ import {
   BookOpenCheck,
   FolderOpen,
   Tag as TagIcon,
+  GripVertical,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -72,42 +73,58 @@ const KanbanLinkColumn = memo(function KanbanLinkColumn({
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
-    <div
-      className={cn(
-        "flex-shrink-0 w-[300px] flex flex-col rounded-lg border border-border/50 bg-secondary/20 overflow-hidden",
-        isOver && "ring-2 ring-primary/50 bg-primary/5"
-      )}
-    >
-      {/* Column header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/50 bg-card/30 flex-shrink-0">
-        {column.color && (
-          <span
+    <div className="flex flex-col h-full min-w-[300px] max-w-[350px] flex-shrink-0">
+      {/* Column header — matches widget kanban style */}
+      <div
+        className="flex items-center justify-between px-3 py-2.5 rounded-t-lg bg-card/50 backdrop-blur-sm transition-colors"
+        style={{
+          borderTop: `3px solid ${column.color}`,
+          boxShadow: `0 -2px 10px ${column.color}30`,
+        }}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Color dot */}
+          <div
             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
             style={{ backgroundColor: column.color }}
           />
-        )}
-        {column.icon}
-        <h3 className="text-sm font-medium truncate flex-1">{column.title}</h3>
-        <Badge
-          variant="secondary"
-          className="h-5 min-w-5 px-1.5 text-[10px] font-medium"
-        >
-          {links.length}
-        </Badge>
+          {column.icon}
+          {/* Title */}
+          <h3 className="font-semibold text-sm truncate">{column.title}</h3>
+          {/* Count badge */}
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-secondary/80 text-muted-foreground">
+            {links.length}
+          </span>
+        </div>
       </div>
 
-      {/* Column content */}
+      {/* Column content — droppable area */}
       <div
         ref={setNodeRef}
-        className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-[100px] scrollbar-thin"
+        className={cn(
+          "flex-1 rounded-b-lg border border-t-0 bg-secondary/10 transition-all min-h-[200px] overflow-y-auto p-2 space-y-1.5 scrollbar-thin",
+          isOver && "bg-primary/5 border-primary/30 shadow-inner"
+        )}
+        style={{
+          borderColor: isOver ? `${column.color}50` : undefined,
+        }}
       >
         <SortableContext
           items={links.map((l) => l.id)}
           strategy={verticalListSortingStrategy}
         >
           {links.length === 0 ? (
-            <div className="flex items-center justify-center h-20 text-xs text-muted-foreground/60">
-              {t("kanbanLinkBoard.noLinks")}
+            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center mb-2"
+                style={{ backgroundColor: `${column.color}20` }}
+              >
+                <GripVertical className="w-5 h-5" style={{ color: column.color }} />
+              </div>
+              <p className="text-sm">{t("kanbanLinkBoard.noLinks")}</p>
+              <p className="text-xs mt-1 text-muted-foreground/60">
+                {t("kanbanLinkBoard.dragLinksHere")}
+              </p>
             </div>
           ) : (
             links.map((link) => (
@@ -420,26 +437,45 @@ export function KanbanLinkBoard({ groupBy }: KanbanLinkBoardProps) {
       <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 flex-shrink-0 bg-card/30 backdrop-blur-sm">
         {/* Search */}
         <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className={cn(
+            "absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5",
+            hasSearch ? "text-primary" : "text-muted-foreground"
+          )} />
           <Input
             type="text"
             placeholder={t("kanbanLinkBoard.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-8 pl-8 pr-8 text-sm bg-secondary/30 border-primary/20 focus:border-primary/50"
+            className={cn(
+              "h-8 pl-8 text-sm bg-secondary/30 border-primary/20 focus:border-primary/50",
+              hasSearch ? "pr-16 border-primary/40" : "pr-8"
+            )}
           />
           {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <Badge
+                variant="secondary"
+                className="h-5 px-1.5 text-[10px] font-medium bg-primary/10 text-primary"
+              >
+                {totalLinks}
+              </Badge>
+              <button
+                onClick={() => setSearchTerm("")}
+                className="p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
           )}
         </div>
 
         {/* Stats */}
-        <span className="text-xs text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">
+        <span className={cn(
+          "text-xs px-2 py-0.5 rounded-full",
+          hasSearch
+            ? "text-primary bg-primary/10 font-medium"
+            : "text-muted-foreground bg-secondary/50"
+        )}>
           {hasSearch
             ? t("kanbanLinkBoard.filteredCount", {
                 filtered: totalLinks,

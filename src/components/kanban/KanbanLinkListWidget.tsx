@@ -4,6 +4,7 @@ import { useMemo, memo } from "react";
 import { Star, Clock, FolderOpen, ExternalLink, Tag as TagIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLinksStore } from "@/stores/links-store";
+import { useTranslation } from "@/lib/i18n";
 import type { Widget } from "@/types/widget";
 import type { Link, Category } from "@/lib/db/schema";
 
@@ -59,6 +60,7 @@ const LinkItem = memo(function LinkItem({ title, url, faviconUrl, isFavorite }: 
 });
 
 export const KanbanLinkListWidget = memo(function KanbanLinkListWidget({ widget }: KanbanLinkListWidgetProps) {
+  const { t } = useTranslation();
   const { links, categories, getLinksForTag } = useLinksStore();
 
   const { icon, items, isEmpty } = useMemo(() => {
@@ -124,7 +126,7 @@ export const KanbanLinkListWidget = memo(function KanbanLinkListWidget({ widget 
           <div className="w-8 h-8 rounded-full bg-secondary/50 flex items-center justify-center mb-2">
             <FolderOpen className="w-4 h-4 text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground">Sin categorías</p>
+          <p className="text-xs text-muted-foreground">{t("kanban.noCategories")}</p>
         </div>
       );
     }
@@ -156,7 +158,7 @@ export const KanbanLinkListWidget = memo(function KanbanLinkListWidget({ widget 
         <div className="w-8 h-8 rounded-full bg-secondary/50 flex items-center justify-center mb-2">
           {icon}
         </div>
-        <p className="text-xs text-muted-foreground">Sin enlaces</p>
+        <p className="text-xs text-muted-foreground">{t("kanban.noLinks")}</p>
       </div>
     );
   }

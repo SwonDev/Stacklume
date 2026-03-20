@@ -45,6 +45,9 @@ interface KanbanState {
   showCompactCards: boolean;
   showWipWarnings: boolean;
 
+  // Pending column assignment for new widgets added via column "+" button
+  pendingKanbanColumnId: string | null;
+
   // Modal states
   isAddColumnModalOpen: boolean;
   isEditColumnModalOpen: boolean;
@@ -75,6 +78,7 @@ interface KanbanState {
   clearGlobalFilter: () => void;
   toggleCompactCards: () => void;
   toggleWipWarnings: () => void;
+  setPendingKanbanColumnId: (id: string | null) => void;
 
   // Modal actions
   openAddColumnModal: () => void;
@@ -105,6 +109,7 @@ export const useKanbanStore = create<KanbanState>()(
       globalFilter: [],
       showCompactCards: false,
       showWipWarnings: true,
+      pendingKanbanColumnId: null,
 
       // Modal states
       isAddColumnModalOpen: false,
@@ -290,6 +295,8 @@ export const useKanbanStore = create<KanbanState>()(
 
       toggleWipWarnings: () =>
         set((state) => ({ showWipWarnings: !state.showWipWarnings })),
+
+      setPendingKanbanColumnId: (id) => set({ pendingKanbanColumnId: id }),
 
       // Modal actions
       openAddColumnModal: () => set({ isAddColumnModalOpen: true }),

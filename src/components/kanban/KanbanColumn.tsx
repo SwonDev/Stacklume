@@ -66,7 +66,7 @@ import { useTranslation } from "@/lib/i18n";
 interface KanbanColumnProps {
   column: KanbanColumnType;
   widgets: Widget[];
-  onAddWidget?: () => void;
+  onAddWidget?: (columnId: string) => void;
   isFirst: boolean;
   isLast: boolean;
   canDelete: boolean;
@@ -120,6 +120,7 @@ export const KanbanColumn = memo(function KanbanColumn({ column, widgets, onAddW
   const toggleColumnCollapse = useKanbanStore((s) => s.toggleColumnCollapse);
   const setColumnWipLimit = useKanbanStore((s) => s.setColumnWipLimit);
   const showWipWarnings = useKanbanStore((s) => s.showWipWarnings);
+  const showCompactCards = useKanbanStore((s) => s.showCompactCards);
 
   // WIP status
   const { isOverLimit, isNearLimit, limitPercentage } = useColumnWipStatus(
@@ -197,7 +198,7 @@ export const KanbanColumn = memo(function KanbanColumn({ column, widgets, onAddW
             className="flex-1 flex items-center justify-center"
             style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
           >
-            <span className="font-semibold text-sm transform rotate-180">
+            <span className="font-semibold text-sm">
               {column.title}
             </span>
           </div>
@@ -347,7 +348,7 @@ export const KanbanColumn = memo(function KanbanColumn({ column, widgets, onAddW
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                  onClick={onAddWidget}
+                  onClick={() => onAddWidget?.(column.id)}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -557,7 +558,7 @@ export const KanbanColumn = memo(function KanbanColumn({ column, widgets, onAddW
                 </div>
               ) : (
                 widgets.map((widget) => (
-                  <KanbanCard key={widget.id} widget={widget} columns={allColumns} />
+                  <KanbanCard key={widget.id} widget={widget} columns={allColumns} showCompactCards={showCompactCards} />
                 ))
               )}
             </div>
