@@ -89,9 +89,10 @@ interface KanbanCardProps {
   widget: Widget;
   isDragging?: boolean;
   columns?: KanbanColumnType[];
+  showCompactCards?: boolean;
 }
 
-export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns: columnsProp }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns: columnsProp, showCompactCards }: KanbanCardProps) {
   const { t } = useTranslation();
   const {
     attributes,
@@ -124,7 +125,7 @@ export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isResizing ? "none" : transition,
-    height: `${currentHeight}px`,
+    height: showCompactCards ? "auto" : `${currentHeight}px`,
     willChange: "transform" as const,
   };
 
@@ -333,7 +334,12 @@ export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns
         "hover:shadow-md"
       )}
     >
-      <CardHeader className="!py-2 !px-3 !pb-1.5 !gap-0 flex-row items-center justify-between space-y-0 border-b border-border/50 flex-shrink-0">
+      <CardHeader className={cn(
+        "!gap-0 flex-row items-center justify-between space-y-0 flex-shrink-0",
+        showCompactCards
+          ? "!py-1 !px-2 !pb-1"
+          : "!py-2 !px-3 !pb-1.5 border-b border-border/50"
+      )}>
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Drag handle - always visible in kanban mode */}
           <div
@@ -343,7 +349,7 @@ export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns
           >
             <GripVertical className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
           </div>
-          <CardTitle className="text-sm font-medium truncate">
+          <CardTitle className={cn("font-medium truncate", showCompactCards ? "text-xs" : "text-sm")}>
             {widget.title}
           </CardTitle>
         </div>
@@ -486,23 +492,27 @@ export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-2 overflow-hidden min-h-0">
-        <div className="h-full w-full overflow-auto scrollbar-thin">
-          {renderWidgetContent()}
-        </div>
-      </CardContent>
+      {!showCompactCards && (
+        <CardContent className="flex-1 p-2 overflow-hidden min-h-0">
+          <div className="h-full w-full overflow-auto scrollbar-thin">
+            {renderWidgetContent()}
+          </div>
+        </CardContent>
+      )}
 
-      {/* Resize handle - visible in edit mode or on hover */}
-      <div
-        className={cn(
-          "flex-shrink-0 h-3 flex items-center justify-center cursor-ns-resize border-t border-border/50 bg-secondary/30 hover:bg-primary/20 transition-colors",
-          isEditMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        )}
-        onMouseDown={handleResizeStart}
-        onTouchStart={handleResizeStart}
-      >
-        <GripHorizontal className="w-4 h-4 text-muted-foreground" />
-      </div>
+      {/* Resize handle - visible in edit mode or on hover, hidden in compact mode */}
+      {!showCompactCards && (
+        <div
+          className={cn(
+            "flex-shrink-0 h-3 flex items-center justify-center cursor-ns-resize border-t border-border/50 bg-secondary/30 hover:bg-primary/20 transition-colors",
+            isEditMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+          onMouseDown={handleResizeStart}
+          onTouchStart={handleResizeStart}
+        >
+          <GripHorizontal className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
     </Card>
   );
 });

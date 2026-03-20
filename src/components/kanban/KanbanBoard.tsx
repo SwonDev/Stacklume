@@ -112,6 +112,8 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
   const toggleWipWarnings = useKanbanStore((state) => state.toggleWipWarnings);
   const collapseAllColumns = useKanbanStore((state) => state.collapseAllColumns);
   const expandAllColumns = useKanbanStore((state) => state.expandAllColumns);
+  const pendingKanbanColumnId = useKanbanStore((state) => state.pendingKanbanColumnId);
+  const setPendingKanbanColumnId = useKanbanStore((state) => state.setPendingKanbanColumnId);
 
   const columns = useSortedColumns();
 
@@ -119,7 +121,17 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
 
   // Link kanban mode state
   const [kanbanMode, setKanbanMode] = useState<"widgets" | "links">("widgets");
-  const [linkGroupBy, setLinkGroupBy] = useState<"category" | "tag" | "readingStatus">("category");
+  const [linkGroupBy, setLinkGroupBy] = useState<"category" | "tag" | "readingStatus">(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('stacklume-kanban-link-groupby') as "category" | "tag" | "readingStatus") || 'category';
+    }
+    return 'category';
+  });
+
+  // Persist linkGroupBy to localStorage
+  useEffect(() => {
+    localStorage.setItem('stacklume-kanban-link-groupby', linkGroupBy);
+  }, [linkGroupBy]);
 
   // Ref for search input to enable keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -168,6 +180,32 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
     }
   }, [widgetsInitialized, widgets, columns, updateWidget]);
 
+  // Track previous widget count to detect newly added widgets
+  const prevWidgetCountRef = useRef(widgets.length);
+  useEffect(() => {
+    if (pendingKanbanColumnId && widgets.length > prevWidgetCountRef.current) {
+      // A new widget was added while a column "+" was pending — assign it
+      const newWidget = widgets[widgets.length - 1];
+      if (newWidget && newWidget.kanbanColumnId !== pendingKanbanColumnId) {
+        updateWidget(newWidget.id, {
+          kanbanColumnId: pendingKanbanColumnId,
+          kanbanOrder: 0,
+        });
+      }
+      setPendingKanbanColumnId(null);
+    }
+    prevWidgetCountRef.current = widgets.length;
+  }, [widgets.length, pendingKanbanColumnId, widgets, updateWidget, setPendingKanbanColumnId]);
+
+  // Wrapper to open add widget modal with pending column assignment
+  const handleAddWidgetToColumn = useCallback(
+    (columnId: string) => {
+      setPendingKanbanColumnId(columnId);
+      openAddWidgetModal();
+    },
+    [setPendingKanbanColumnId, openAddWidgetModal]
+  );
+
   // DnD sensors configuration
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -209,11 +247,20 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
   // Get widgets for a specific column, sorted by kanbanOrder
   const getWidgetsForColumn = useCallback(
     (columnId: string): Widget[] => {
-      return filteredWidgets
-        .filter((w) => w.kanbanColumnId === columnId)
-        .sort((a, b) => (a.kanbanOrder ?? 0) - (b.kanbanOrder ?? 0));
+      let columnWidgets = filteredWidgets
+        .filter((w) => w.kanbanColumnId === columnId);
+
+      // Apply per-column type filter if set
+      const column = columns.find((c) => c.id === columnId);
+      if (column?.filterByType?.length) {
+        columnWidgets = columnWidgets.filter((w) =>
+          column.filterByType!.includes(w.type as WidgetType)
+        );
+      }
+
+      return columnWidgets.sort((a, b) => (a.kanbanOrder ?? 0) - (b.kanbanOrder ?? 0));
     },
-    [filteredWidgets]
+    [filteredWidgets, columns]
   );
 
   // Find which column a widget belongs to
@@ -721,7 +768,7 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
                     key={column.id}
                     column={column}
                     widgets={widgetsByColumn[column.id] || []}
-                    onAddWidget={openAddWidgetModal}
+                    onAddWidget={handleAddWidgetToColumn}
                     isFirst={index === 0}
                     isLast={index === columns.length - 1}
                     canDelete={canDeleteColumns}

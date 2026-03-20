@@ -3177,5 +3177,11 @@
   "kanbanLinkCard.openUrl": "Open link",
   "kanbanLinkCard.addedFavorite": "Added to favorites",
   "kanbanLinkCard.removedFavorite": "Removed from favorites",
-  "kanbanLinkCard.favoriteError": "Error toggling favorite"
+  "kanbanLinkCard.favoriteError": "Error toggling favorite",
+  "kanbanLinkBoard.dragLinksHere": "Drag links here",
+  "kanbanLinkCard.statusInbox": "Inbox",
+  "kanbanLinkCard.statusReading": "Reading",
+  "kanbanLinkCard.statusDone": "Read",
+  "kanban.noCategories": "No categories",
+  "kanban.noLinks": "No links"
 }

@@ -3177,5 +3177,11 @@
   "kanbanLinkCard.openUrl": "Abrir enlace",
   "kanbanLinkCard.addedFavorite": "Añadido a favoritos",
   "kanbanLinkCard.removedFavorite": "Eliminado de favoritos",
-  "kanbanLinkCard.favoriteError": "Error al cambiar favorito"
+  "kanbanLinkCard.favoriteError": "Error al cambiar favorito",
+  "kanbanLinkBoard.dragLinksHere": "Arrastra enlaces aquí",
+  "kanbanLinkCard.statusInbox": "Bandeja de entrada",
+  "kanbanLinkCard.statusReading": "Leyendo",
+  "kanbanLinkCard.statusDone": "Leído",
+  "kanban.noCategories": "Sin categorías",
+  "kanban.noLinks": "Sin enlaces"
 }

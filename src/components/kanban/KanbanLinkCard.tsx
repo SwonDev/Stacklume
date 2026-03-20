@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useCallback } from "react";
+import { memo, useMemo, useCallback, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
@@ -29,6 +29,11 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { openExternalUrl } from "@/lib/desktop";
 import { useTranslation } from "@/lib/i18n";
@@ -91,6 +96,17 @@ export const KanbanLinkCard = memo(function KanbanLinkCard({
         return "bg-blue-500";
     }
   }, [link.readingStatus]);
+
+  const readingStatusLabel = useMemo(() => {
+    switch (link.readingStatus) {
+      case "reading":
+        return t("kanbanLinkCard.statusReading");
+      case "done":
+        return t("kanbanLinkCard.statusDone");
+      default:
+        return t("kanbanLinkCard.statusInbox");
+    }
+  }, [link.readingStatus, t]);
 
   const handleOpenUrl = useCallback(
     (e: React.MouseEvent) => {
@@ -197,6 +213,7 @@ export const KanbanLinkCard = memo(function KanbanLinkCard({
     [link.id, categories, t]
   );
 
+  const [imgError, setImgError] = useState(false);
   const isActive = isDragging || isSortableDragging;
 
   return (
@@ -223,7 +240,7 @@ export const KanbanLinkCard = memo(function KanbanLinkCard({
 
           {/* Favicon */}
           <div className="flex-shrink-0 mt-0.5">
-            {link.faviconUrl ? (
+            {!imgError && link.faviconUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={link.faviconUrl}
@@ -231,30 +248,28 @@ export const KanbanLinkCard = memo(function KanbanLinkCard({
                 className="w-4 h-4 rounded-sm"
                 loading="lazy"
                 decoding="async"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  e.currentTarget.nextElementSibling?.classList.remove("hidden");
-                }}
+                onError={() => setImgError(true)}
               />
-            ) : null}
-            <Globe
-              className={cn(
-                "w-4 h-4 text-muted-foreground/50",
-                link.faviconUrl && "hidden"
-              )}
-            />
+            ) : (
+              <Globe className="w-4 h-4 text-muted-foreground/50" />
+            )}
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               {/* Reading status dot */}
-              <span
-                className={cn(
-                  "w-1.5 h-1.5 rounded-full flex-shrink-0",
-                  readingStatusColor
-                )}
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                      readingStatusColor
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="top"><p>{readingStatusLabel}</p></TooltipContent>
+              </Tooltip>
               <h4 className="text-sm font-medium truncate leading-tight">
                 {link.title || hostname}
               </h4>
