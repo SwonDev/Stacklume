@@ -71,6 +71,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useTranslation } from "@/lib/i18n";
+import { KanbanLinkBoard } from "./KanbanLinkBoard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Link2, Puzzle } from "lucide-react";
 
 interface KanbanBoardProps {
   className?: string;
@@ -107,6 +116,10 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
   const columns = useSortedColumns();
 
   const [activeWidget, setActiveWidget] = useState<Widget | null>(null);
+
+  // Link kanban mode state
+  const [kanbanMode, setKanbanMode] = useState<"widgets" | "links">("widgets");
+  const [linkGroupBy, setLinkGroupBy] = useState<"category" | "tag" | "readingStatus">("category");
 
   // Ref for search input to enable keyboard shortcuts
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -341,11 +354,66 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
     }
   };
 
+  // Mode toggle bar (shared across all states)
+  const modeToggleBar = (
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 flex-shrink-0 bg-card/30 backdrop-blur-sm">
+      <div className="flex items-center rounded-lg border border-border/50 p-0.5">
+        <Button
+          variant={kanbanMode === "widgets" ? "default" : "ghost"}
+          size="sm"
+          className="h-7 px-3 text-xs gap-1.5"
+          onClick={() => setKanbanMode("widgets")}
+        >
+          <Puzzle className="w-3.5 h-3.5" />
+          {t("kanbanBoard.modeWidgets")}
+        </Button>
+        <Button
+          variant={kanbanMode === "links" ? "default" : "ghost"}
+          size="sm"
+          className="h-7 px-3 text-xs gap-1.5"
+          onClick={() => setKanbanMode("links")}
+        >
+          <Link2 className="w-3.5 h-3.5" />
+          {t("kanbanBoard.modeLinks")}
+        </Button>
+      </div>
+      {kanbanMode === "links" && (
+        <Select
+          value={linkGroupBy}
+          onValueChange={(v) => setLinkGroupBy(v as "category" | "tag" | "readingStatus")}
+        >
+          <SelectTrigger className="h-7 w-auto min-w-[160px] text-xs border-primary/20">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="category">{t("kanbanBoard.groupByCategory")}</SelectItem>
+            <SelectItem value="tag">{t("kanbanBoard.groupByTag")}</SelectItem>
+            <SelectItem value="readingStatus">{t("kanbanBoard.groupByStatus")}</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+
+  // Link kanban mode — render independently
+  if (kanbanMode === "links") {
+    return (
+      <div className={cn("h-full w-full flex flex-col", className)}>
+        {modeToggleBar}
+        <KanbanLinkBoard groupBy={linkGroupBy} />
+      </div>
+    );
+  }
+
+  // Widget kanban mode — existing code below
   if (!widgetsInitialized) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-pulse text-muted-foreground">
-          {t("kanbanBoard.loadingWidgets")}
+      <div className={cn("h-full w-full flex flex-col", className)}>
+        {modeToggleBar}
+        <div className="flex items-center justify-center flex-1">
+          <div className="animate-pulse text-muted-foreground">
+            {t("kanbanBoard.loadingWidgets")}
+          </div>
         </div>
       </div>
     );
@@ -354,25 +422,28 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
   if (widgets.length === 0) {
     return (
       <>
-        <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
-          <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">{t("kanbanBoard.noWidgetsTitle")}</h3>
-            <p className="text-sm text-muted-foreground max-w-md">
-              {t("kanbanBoard.noWidgetsDesc")}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={openManageColumnsModal}>
-              <Columns3 className="w-4 h-4 mr-2" />
-              {t("kanbanBoard.manageColumns")}
-            </Button>
-            <Button onClick={openAddWidgetModal}>
-              <Plus className="w-4 h-4 mr-2" />
-              {t("kanbanBoard.addWidget")}
-            </Button>
+        <div className={cn("h-full w-full flex flex-col", className)}>
+          {modeToggleBar}
+          <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center p-8">
+            <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">{t("kanbanBoard.noWidgetsTitle")}</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                {t("kanbanBoard.noWidgetsDesc")}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={openManageColumnsModal}>
+                <Columns3 className="w-4 h-4 mr-2" />
+                {t("kanbanBoard.manageColumns")}
+              </Button>
+              <Button onClick={openAddWidgetModal}>
+                <Plus className="w-4 h-4 mr-2" />
+                {t("kanbanBoard.addWidget")}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -394,7 +465,9 @@ export function KanbanBoard({ className }: KanbanBoardProps) {
         onDragEnd={handleDragEnd}
       >
         <div className={cn("h-full w-full flex flex-col", className)}>
-          {/* Toolbar */}
+          {/* Mode Toggle */}
+          {modeToggleBar}
+          {/* Widget Kanban Toolbar */}
           <div className="flex flex-col gap-2 px-4 py-2 border-b border-border/50 flex-shrink-0 bg-card/30 backdrop-blur-sm">
             {/* Top Row */}
             <div className="flex items-center justify-between">
