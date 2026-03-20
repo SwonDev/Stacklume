@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { Star, Clock, FolderOpen, ExternalLink, Tag as TagIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLinksStore } from "@/stores/links-store";
 import type { Widget } from "@/types/widget";
 import type { Link, Category } from "@/lib/db/schema";
-import { motion } from "motion/react";
 
 interface KanbanLinkListWidgetProps {
   widget: Widget;
@@ -19,7 +18,8 @@ interface LinkItemProps {
   isFavorite?: boolean;
 }
 
-function LinkItem({ title, url, faviconUrl, isFavorite }: LinkItemProps) {
+// Memoized link item — uses CSS transform instead of JS-driven motion animation
+const LinkItem = memo(function LinkItem({ title, url, faviconUrl, isFavorite }: LinkItemProps) {
   const hostname = useMemo(() => {
     try {
       return new URL(url).hostname.replace("www.", "");
@@ -29,12 +29,11 @@ function LinkItem({ title, url, faviconUrl, isFavorite }: LinkItemProps) {
   }, [url]);
 
   return (
-    <motion.a
+    <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group/link flex w-full gap-2 p-1.5 rounded-lg hover:bg-secondary/50 transition-colors"
-      whileHover={{ x: 2 }}
+      className="group/link flex w-full gap-2 p-1.5 rounded-lg hover:bg-secondary/50 transition-all duration-150 hover:translate-x-0.5"
     >
       <div className="flex-shrink-0 w-6 h-6 rounded-md overflow-hidden bg-secondary flex items-center justify-center">
         {faviconUrl ? (
@@ -55,11 +54,11 @@ function LinkItem({ title, url, faviconUrl, isFavorite }: LinkItemProps) {
         </div>
         <p className="text-[10px] text-muted-foreground/60 truncate">{hostname}</p>
       </div>
-    </motion.a>
+    </a>
   );
-}
+});
 
-export function KanbanLinkListWidget({ widget }: KanbanLinkListWidgetProps) {
+export const KanbanLinkListWidget = memo(function KanbanLinkListWidget({ widget }: KanbanLinkListWidgetProps) {
   const { links, categories, getLinksForTag } = useLinksStore();
 
   const { icon, items, isEmpty } = useMemo(() => {
@@ -135,17 +134,16 @@ export function KanbanLinkListWidget({ widget }: KanbanLinkListWidgetProps) {
         {categories.map((category: Category) => {
           const count = links.filter((l: Link) => l.categoryId === category.id).length;
           return (
-            <motion.div
+            <div
               key={category.id}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
-              whileHover={{ x: 2 }}
+              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-all duration-150 hover:translate-x-0.5"
             >
               <FolderOpen className="w-3.5 h-3.5 text-primary flex-shrink-0" />
               <span className="flex-1 text-xs truncate">{category.name}</span>
               <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
                 {count}
               </Badge>
-            </motion.div>
+            </div>
           );
         })}
       </div>
@@ -176,4 +174,4 @@ export function KanbanLinkListWidget({ widget }: KanbanLinkListWidgetProps) {
       ))}
     </div>
   );
-}
+});

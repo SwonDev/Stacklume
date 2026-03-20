@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useDeferredValue } from "react";
 import { motion } from "motion/react";
 import { Link2Off, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,7 @@ export function ListView({ className }: ListViewProps) {
   const showUncategorized = useListViewStore((state) => state.showUncategorized);
   const uncategorizedPosition = useListViewStore((state) => state.uncategorizedPosition);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
+  const deferredSearch = useDeferredValue(searchQuery);
 
   // Drag state
   const [activeLinkId, setActiveLinkId] = useState<string | null>(null);
@@ -111,10 +112,10 @@ export function ListView({ className }: ListViewProps) {
       const statusId = activeFilter.id;
       result = result.filter((link: Link) => (link.readingStatus ?? "inbox") === statusId);
     }
-    if (searchQuery.trim()) {
+    if (deferredSearch.trim()) {
       result = fuzzySearch(
         result,
-        searchQuery,
+        deferredSearch,
         (link: Link) => [
           link.title,
           link.url,
@@ -138,7 +139,7 @@ export function ListView({ className }: ListViewProps) {
     });
 
     return result;
-  }, [links, activeFilter, searchQuery, linkTags, sortBy, sortOrder]);
+  }, [links, activeFilter, deferredSearch, linkTags, sortBy, sortOrder]);
 
   // Group links by category
   const linksByCategory = useMemo(() => {

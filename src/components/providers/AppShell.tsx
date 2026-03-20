@@ -12,6 +12,8 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { isTauriWebView, openExternalUrl } from "@/lib/desktop";
 import { TrayIconUpdater } from "./TrayIconUpdater";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useLinksStore } from "@/stores/links-store";
+import { useWidgetStore } from "@/stores/widget-store";
 import { useTranslation } from "@/lib/i18n";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -38,6 +40,16 @@ export function AppShell({ children }: AppShellProps) {
   const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
   const sidebarAlwaysVisible = useSettingsStore((state) => state.sidebarAlwaysVisible);
+
+  // Modal open states — only mount heavy modal components when needed
+  const isAddLinkModalOpen = useLinksStore((state) => state.isAddLinkModalOpen);
+  const isEditLinkModalOpen = useLinksStore((state) => state.isEditLinkModalOpen);
+  const isAddCategoryModalOpen = useLinksStore((state) => state.isAddCategoryModalOpen);
+  const isAddTagModalOpen = useLinksStore((state) => state.isAddTagModalOpen);
+  const isManageCategoriesModalOpen = useLinksStore((state) => state.isManageCategoriesModalOpen);
+  const isManageTagsModalOpen = useLinksStore((state) => state.isManageTagsModalOpen);
+  const isAddWidgetModalOpen = useWidgetStore((state) => state.isAddWidgetModalOpen);
+  const isEditWidgetModalOpen = useWidgetStore((state) => state.isEditWidgetModalOpen);
 
   // Check if current route is an auth route (no shell needed)
   const isAuthRoute = AUTH_ROUTES.some(route => pathname?.startsWith(route));
@@ -123,19 +135,19 @@ export function AppShell({ children }: AppShellProps) {
         {children}
       </main>
 
-      {/* Modals - lazy loaded + render after mount */}
+      {/* Modals - lazy loaded + only mounted when open */}
       {mounted && (
-        <Suspense fallback={null}>
-          <AddLinkModal />
-          <AddCategoryModal />
-          <EditLinkModal />
-          <AddWidgetModal />
-          <EditWidgetModal />
-          <AddTagModal />
-          <ManageCategoriesModal />
-          <ManageTagsModal />
-          <KeyboardShortcutsModal />
-        </Suspense>
+        <>
+          {isAddLinkModalOpen && <Suspense fallback={null}><AddLinkModal /></Suspense>}
+          {isAddCategoryModalOpen && <Suspense fallback={null}><AddCategoryModal /></Suspense>}
+          {isEditLinkModalOpen && <Suspense fallback={null}><EditLinkModal /></Suspense>}
+          {isAddWidgetModalOpen && <Suspense fallback={null}><AddWidgetModal /></Suspense>}
+          {isEditWidgetModalOpen && <Suspense fallback={null}><EditWidgetModal /></Suspense>}
+          {isAddTagModalOpen && <Suspense fallback={null}><AddTagModal /></Suspense>}
+          {isManageCategoriesModalOpen && <Suspense fallback={null}><ManageCategoriesModal /></Suspense>}
+          {isManageTagsModalOpen && <Suspense fallback={null}><ManageTagsModal /></Suspense>}
+          <Suspense fallback={null}><KeyboardShortcutsModal /></Suspense>
+        </>
       )}
 
       {/* UX Components - render after mount */}

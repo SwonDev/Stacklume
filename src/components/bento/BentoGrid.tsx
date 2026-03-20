@@ -76,7 +76,9 @@ export function BentoGrid({ className }: BentoGridProps) {
 
   // Ancho del contenedor del grid. Se mide con useLayoutEffect (síncrono antes del paint)
   // para garantizar que Responsive nunca renderice con un ancho incorrecto.
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth - 280 : 1200
+  );
   const containerDivRef = useRef<HTMLDivElement>(null);
 
   // Medir el ancho real antes de que el navegador pinte, y cada vez que cambie.
@@ -172,27 +174,43 @@ export function BentoGrid({ className }: BentoGridProps) {
     });
   }, [widgets, currentProjectId]);
 
+  // Pre-cache link sets to avoid re-filtering per widget inside filteredWidgets
+  const widgetLinkSets = useMemo(() => {
+    const favLinks = links.filter((l: Link) => l.isFavorite);
+    const recentLinks = [...links]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 20);
+    const tagLinkMap = new Map<string, string[]>();
+    for (const lt of linkTags) {
+      const arr = tagLinkMap.get(lt.tagId) || [];
+      arr.push(lt.linkId);
+      tagLinkMap.set(lt.tagId, arr);
+    }
+    // Pre-build a Set of link IDs per tag for O(1) lookups
+    const tagLinkIdSets = new Map<string, Set<string>>();
+    for (const [tagId, ids] of tagLinkMap) {
+      tagLinkIdSets.set(tagId, new Set(ids));
+    }
+    return { favLinks, recentLinks, tagLinkMap, tagLinkIdSets };
+  }, [links, linkTags]);
+
   // Filter widgets based on active filter and search query
   const filteredWidgets = useMemo(() => {
-    // Helper to get links for a widget
+    // Helper to get links for a widget — uses pre-cached sets
     const getWidgetLinks = (widget: Widget): Link[] => {
       if (widget.type === "favorites") {
-        return links.filter((l: Link) => l.isFavorite);
+        return widgetLinkSets.favLinks;
       }
       if (widget.type === "recent") {
-        return [...links]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, 10);
+        return widgetLinkSets.recentLinks.slice(0, 10);
       }
       if (widget.type === "category" && widget.categoryId) {
         return links.filter((l: Link) => l.categoryId === widget.categoryId);
       }
       if (widget.type === "tag" && widget.tagId) {
-        // Get links for tag directly using linkTags data (avoid store function)
-        const tagLinkIds = linkTags
-          .filter((lt: { linkId: string; tagId: string }) => lt.tagId === widget.tagId)
-          .map((lt: { linkId: string; tagId: string }) => lt.linkId);
-        return links.filter((l: Link) => tagLinkIds.includes(l.id));
+        const idSet = widgetLinkSets.tagLinkIdSets.get(widget.tagId);
+        if (!idSet || idSet.size === 0) return [];
+        return links.filter((l: Link) => idSet.has(l.id));
       }
       return [];
     };
@@ -248,14 +266,12 @@ export function BentoGrid({ className }: BentoGridProps) {
       });
     } else if (activeFilter.type === "tag" && activeFilter.id) {
       // Show only: the specific tag widget, or widgets with links that have that tag
-      const tagLinkIds = linkTags
-        .filter((lt: { linkId: string; tagId: string }) => lt.tagId === activeFilter.id)
-        .map((lt: { linkId: string; tagId: string }) => lt.linkId);
+      const tagIdSet = widgetLinkSets.tagLinkIdSets.get(activeFilter.id);
 
       filtered = projectWidgets.filter((widget: Widget) => {
         if (widget.type === "tag" && widget.tagId === activeFilter.id) return true;
         const widgetLinks = getWidgetLinks(widget);
-        return widgetLinks.some((link: Link) => tagLinkIds.includes(link.id));
+        return widgetLinks.some((link: Link) => tagIdSet?.has(link.id));
       });
     } else if (activeFilter.type === "readingStatus" && activeFilter.id) {
       // Show only widgets that have links with the matching reading status
@@ -272,7 +288,7 @@ export function BentoGrid({ className }: BentoGridProps) {
     }
 
     return filtered;
-  }, [projectWidgets, activeFilter, deferredSearchQuery, links, linkTags]);
+  }, [projectWidgets, activeFilter, deferredSearchQuery, links, widgetLinkSets]);
 
   // Generate responsive layouts for all breakpoints
   const layouts = useMemo(() => {

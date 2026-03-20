@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useCallback, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import {
   ChevronRight,
   Folder,
@@ -264,64 +264,62 @@ export function CategorySectionContent({
 
       {/* Links list — hidden in overlay to keep it compact */}
       {!isOverlay && (
-        <AnimatePresence initial={false}>
-          {!isCollapsed && (
-            <motion.div
-              id={`category-content-${categoryId}`}
-              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.15, ease: [0.4, 0, 0.2, 1] }}
-              className="overflow-hidden will-change-[height,opacity]"
+        <div
+          id={`category-content-${categoryId}`}
+          className="overflow-hidden"
+          style={{
+            maxHeight: isCollapsed ? 0 : 2000,
+            opacity: isCollapsed ? 0 : 1,
+            transition: reduceMotion ? "none" : "max-height 0.2s ease-out, opacity 0.15s ease-out",
+            willChange: "max-height, opacity",
+          }}
+        >
+          <div className="border-t border-border/50">
+            <SortableContext
+              items={visibleLinks.map((l) => l.id)}
+              strategy={verticalListSortingStrategy}
             >
-              <div className="border-t border-border/50">
-                <SortableContext
-                  items={visibleLinks.map((l) => l.id)}
-                  strategy={verticalListSortingStrategy}
+              {visibleLinks.map((link) => (
+                <SortableLinkListItem
+                  key={link.id}
+                  link={link}
+                  linkTagIds={getLinkTagIds(link.id)}
+                />
+              ))}
+            </SortableContext>
+
+            {/* Show more / show all buttons for large categories */}
+            {hasMore && (
+              <div className="flex items-center justify-center gap-3 py-2.5 border-t border-border/30">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShowMore}
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
-                  {visibleLinks.map((link) => (
-                    <SortableLinkListItem
-                      key={link.id}
-                      link={link}
-                      linkTagIds={getLinkTagIds(link.id)}
-                    />
-                  ))}
-                </SortableContext>
-
-                {/* Show more / show all buttons for large categories */}
-                {hasMore && (
-                  <div className="flex items-center justify-center gap-3 py-2.5 border-t border-border/30">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleShowMore}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {t("categorySection.showMore", { count: Math.min(LINKS_PAGE_SIZE, remainingCount) })}
-                    </Button>
-                    {remainingCount > LINKS_PAGE_SIZE && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleShowAll}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        {t("categorySection.showAll", { count: links.length })}
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {/* Drop zone indicator for empty categories during drag */}
-                {links.length === 0 && isDragActiveOverThis && (
-                  <div className="flex items-center justify-center py-6 text-sm text-primary/70">
-                    {t("categorySection.dropToMove")}
-                  </div>
+                  {t("categorySection.showMore", { count: Math.min(LINKS_PAGE_SIZE, remainingCount) })}
+                </Button>
+                {remainingCount > LINKS_PAGE_SIZE && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleShowAll}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {t("categorySection.showAll", { count: links.length })}
+                  </Button>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+
+            {/* Drop zone indicator for empty categories during drag */}
+            {links.length === 0 && isDragActiveOverThis && (
+              <div className="flex items-center justify-center py-6 text-sm text-primary/70">
+                {t("categorySection.dropToMove")}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Drop indicator on collapsed categories */}

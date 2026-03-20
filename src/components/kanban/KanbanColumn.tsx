@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo, useCallback } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -57,7 +58,6 @@ import { useState } from "react";
 import {
   useKanbanStore,
   COLUMN_COLOR_PRESETS,
-  useSortedColumns,
   useColumnWipStatus,
 } from "@/stores/kanban-store";
 import { toast } from "sonner";
@@ -67,6 +67,10 @@ interface KanbanColumnProps {
   column: KanbanColumnType;
   widgets: Widget[];
   onAddWidget?: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+  canDelete: boolean;
+  allColumns: KanbanColumnType[];
 }
 
 // Helper to get widget type distribution
@@ -91,7 +95,7 @@ function getWidgetTypeDistribution(widgets: Widget[]) {
 // WIP Limit options (values only, labels are i18n'd at render time)
 const WIP_LIMIT_VALUES = [undefined, 3, 5, 8, 10, 15] as const;
 
-export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps) {
+export const KanbanColumn = memo(function KanbanColumn({ column, widgets, onAddWidget, isFirst, isLast, canDelete, allColumns }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: {
@@ -104,26 +108,18 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStats, setShowStats] = useState(false);
 
-  // Calculate widget type distribution
-  const typeDistribution = getWidgetTypeDistribution(widgets);
+  // Memoize widget type distribution
+  const typeDistribution = useMemo(() => getWidgetTypeDistribution(widgets), [widgets]);
 
-  const {
-    openEditColumnModal,
-    removeColumn,
-    updateColumn,
-    moveColumnLeft,
-    moveColumnRight,
-    columns,
-    toggleColumnCollapse,
-    setColumnWipLimit,
-    showWipWarnings,
-  } = useKanbanStore();
-
-  const sortedColumns = useSortedColumns();
-  const columnIndex = sortedColumns.findIndex((c) => c.id === column.id);
-  const isFirst = columnIndex === 0;
-  const isLast = columnIndex === sortedColumns.length - 1;
-  const canDelete = columns.length > 1;
+  // Use fine-grained selectors instead of destructuring the entire store
+  const openEditColumnModal = useKanbanStore((s) => s.openEditColumnModal);
+  const removeColumn = useKanbanStore((s) => s.removeColumn);
+  const updateColumn = useKanbanStore((s) => s.updateColumn);
+  const moveColumnLeft = useKanbanStore((s) => s.moveColumnLeft);
+  const moveColumnRight = useKanbanStore((s) => s.moveColumnRight);
+  const toggleColumnCollapse = useKanbanStore((s) => s.toggleColumnCollapse);
+  const setColumnWipLimit = useKanbanStore((s) => s.setColumnWipLimit);
+  const showWipWarnings = useKanbanStore((s) => s.showWipWarnings);
 
   // WIP status
   const { isOverLimit, isNearLimit, limitPercentage } = useColumnWipStatus(
@@ -132,13 +128,14 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
   );
   const showWipWarning = showWipWarnings && (isOverLimit || isNearLimit);
 
-  const widgetIds = widgets.map((w) => w.id);
+  // Memoize widget IDs array to prevent SortableContext from re-rendering children
+  const widgetIds = useMemo(() => widgets.map((w) => w.id), [widgets]);
 
-  const handleEdit = () => {
+  const handleEdit = useCallback(() => {
     openEditColumnModal(column);
-  };
+  }, [openEditColumnModal, column]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!canDelete) {
       toast.error(t("kanban.cannotDeleteLast"));
       return;
@@ -146,37 +143,37 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
     removeColumn(column.id);
     toast.success(t("kanban.columnDeleted"));
     setShowDeleteDialog(false);
-  };
+  }, [canDelete, removeColumn, column.id, t]);
 
-  const handleColorChange = (color: string) => {
+  const handleColorChange = useCallback((color: string) => {
     updateColumn(column.id, { color });
     toast.success(t("kanban.colorUpdated"));
-  };
+  }, [updateColumn, column.id, t]);
 
-  const handleMoveLeft = () => {
+  const handleMoveLeft = useCallback(() => {
     if (!isFirst) {
       moveColumnLeft(column.id);
     }
-  };
+  }, [isFirst, moveColumnLeft, column.id]);
 
-  const handleMoveRight = () => {
+  const handleMoveRight = useCallback(() => {
     if (!isLast) {
       moveColumnRight(column.id);
     }
-  };
+  }, [isLast, moveColumnRight, column.id]);
 
-  const handleToggleCollapse = () => {
+  const handleToggleCollapse = useCallback(() => {
     toggleColumnCollapse(column.id);
-  };
+  }, [toggleColumnCollapse, column.id]);
 
-  const handleSetWipLimit = (limit: number | undefined) => {
+  const handleSetWipLimit = useCallback((limit: number | undefined) => {
     setColumnWipLimit(column.id, limit);
     if (limit) {
       toast.success(t("kanban.wipSet", { count: limit }));
     } else {
       toast.success(t("kanban.wipRemoved"));
     }
-  };
+  }, [setColumnWipLimit, column.id, t]);
 
   // Collapsed view
   if (column.isCollapsed) {
@@ -560,7 +557,7 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
                 </div>
               ) : (
                 widgets.map((widget) => (
-                  <KanbanCard key={widget.id} widget={widget} />
+                  <KanbanCard key={widget.id} widget={widget} columns={allColumns} />
                 ))
               )}
             </div>
@@ -587,4 +584,4 @@ export function KanbanColumn({ column, widgets, onAddWidget }: KanbanColumnProps
       </AlertDialog>
     </div>
   );
-}
+});

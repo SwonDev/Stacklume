@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo, memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +38,7 @@ import {
 } from "@/types/widget";
 import { useWidgetStore } from "@/stores/widget-store";
 import { useLayoutStore } from "@/stores/layout-store";
-import { useSortedColumns } from "@/stores/kanban-store";
+import type { KanbanColumn as KanbanColumnType } from "@/stores/kanban-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTranslation } from "@/lib/i18n";
@@ -88,9 +88,10 @@ import { KanbanLinkListWidget } from "./KanbanLinkListWidget";
 interface KanbanCardProps {
   widget: Widget;
   isDragging?: boolean;
+  columns?: KanbanColumnType[];
 }
 
-export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns: columnsProp }: KanbanCardProps) {
   const { t } = useTranslation();
   const {
     attributes,
@@ -112,7 +113,8 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
   const updateWidget = useWidgetStore((state) => state.updateWidget);
   const duplicateWidget = useWidgetStore((state) => state.duplicateWidget);
   const isEditMode = useLayoutStore((state) => state.isEditMode);
-  const columns = useSortedColumns();
+  // Use columns from prop (passed by parent) to avoid per-card store subscription
+  const columns = columnsProp ?? [];
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -123,6 +125,7 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
     transform: CSS.Transform.toString(transform),
     transition: isResizing ? "none" : transition,
     height: `${currentHeight}px`,
+    willChange: "transform" as const,
   };
 
   // Handle resize start
@@ -215,13 +218,13 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
     }
   }, [widget.id, duplicateWidget, t]);
 
-  // Size presets
-  const SIZE_PRESETS = [
+  // Memoize size presets to avoid recreation on every render
+  const SIZE_PRESETS = useMemo(() => [
     { label: t("kanbanCard.sizeSmall"), height: MIN_KANBAN_HEIGHT },
     { label: t("kanbanCard.sizeMedium"), height: 280 },
     { label: t("kanbanCard.sizeLarge"), height: 400 },
     { label: t("kanbanCard.sizeMax"), height: MAX_KANBAN_HEIGHT },
-  ];
+  ], [t]);
 
   const renderWidgetContent = () => {
     // Render each widget type
@@ -502,4 +505,4 @@ export function KanbanCard({ widget, isDragging }: KanbanCardProps) {
       </div>
     </Card>
   );
-}
+});
