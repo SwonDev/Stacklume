@@ -148,9 +148,18 @@ export function UpdateChecker() {
 
     setState({ phase: "downloading", progress: 0 });
 
+    // Listener de progreso desde Rust
+    let unlistenProgress: (() => void) | null = null;
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlistenProgress = await listen<number>("update:progress", (event) => {
+        setState(prev => prev.phase === "downloading" ? { phase: "downloading", progress: event.payload } : prev);
+      });
+    } catch { /* listen no disponible */ }
+
     try {
       // Usa el comando Rust propio (no plugin:updater) — no requiere ACL especial.
-      // ureq descarga el instalador a %TEMP%\StacklumeUpdate.exe y lo ejecuta.
+      // curl descarga el instalador a %TEMP%\StacklumeUpdate.exe y lo ejecuta.
       // El hook NSIS del instalador cerrará Stacklume automáticamente.
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("download_and_run_update", { url: installerUrl });
@@ -170,6 +179,8 @@ export function UpdateChecker() {
       } catch {
         setState({ phase: "error", message: errMsg });
       }
+    } finally {
+      unlistenProgress?.();
     }
   }, [state, t]);
 
