@@ -860,6 +860,7 @@ export function AddLinkModal() {
                         src={scrapedData.imageUrl}
                         alt=""
                         className="w-full aspect-video object-cover"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
                       />
                       {/* Play button overlay for videos */}
                       {scrapedData.contentType === "video" && (
@@ -911,6 +912,7 @@ export function AddLinkModal() {
                           src={scrapedData.imageUrl}
                           alt=""
                           className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       )}
                       <div className="min-w-0 flex-1">
