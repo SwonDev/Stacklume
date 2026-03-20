@@ -444,11 +444,11 @@ This rule applies to any non-standard or partially-supported browser API (e.g., 
 **Rule:** Increment `STATIC_CACHE_NAME` and `API_CACHE_NAME` in `public/sw.js` in every release that includes JavaScript changes.
 
 ```javascript
-const STATIC_CACHE_NAME = "stacklume-static-v9";  // ← bump on each JS-changing release
-const API_CACHE_NAME    = "stacklume-api-v9";      // ← bump on each JS-changing release
+const STATIC_CACHE_NAME = "stacklume-static-v12";  // ← bump on each JS-changing release
+const API_CACHE_NAME    = "stacklume-api-v12";      // ← bump on each JS-changing release
 ```
 
-Current version: `v9`.
+Current version: `v12`.
 
 ## Security
 
