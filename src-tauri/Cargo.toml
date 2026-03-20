@@ -36,7 +36,7 @@ windows-sys = { version = "0.59", features = [
 
 [profile.release]
 panic = "abort"
-codegen-units = 1
-lto = true
+codegen-units = 16  # Compilación paralela (antes: 1 = muy lento)
+lto = "thin"        # LTO ligero (antes: true/fat = 2-3x más lento)
 opt-level = "s"
 strip = true
