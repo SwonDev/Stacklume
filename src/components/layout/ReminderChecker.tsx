@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useLinksStore } from "@/stores/links-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { openExternalUrl } from "@/lib/desktop";
 
 const NOTIFIED_KEY = "stacklume-notified-reminders";
@@ -52,6 +53,25 @@ function showNativeNotification(title: string, body: string, url: string): void 
   }
 }
 
+/** Limpia el campo reminderAt vía API y actualiza el store local. */
+async function clearReminder(linkId: string): Promise<void> {
+  try {
+    await fetch(`/api/links/${linkId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...getCsrfHeaders(),
+      },
+      credentials: "include",
+      body: JSON.stringify({ reminderAt: null }),
+    });
+    useLinksStore.getState().updateLink(linkId, { reminderAt: null });
+  } catch {
+    // Fallo silencioso — el recordatorio ya fue mostrado y está en localStorage
+    console.log("[ReminderChecker] Error al limpiar reminderAt para", linkId);
+  }
+}
+
 export function ReminderChecker() {
   const links = useLinksStore((s) => s.links);
   // Ref mutable — se inicializa lazy desde localStorage
@@ -82,7 +102,7 @@ export function ReminderChecker() {
           toast.info(`Recordatorio: ${link.title}`, {
             description,
             action: {
-              label: "Abrir",
+              label: "Ver",
               onClick: () => openExternalUrl(link.url),
             },
             duration: 10000,
@@ -92,6 +112,9 @@ export function ReminderChecker() {
           if (hasPermission) {
             showNativeNotification(link.title, description, link.url);
           }
+
+          // Limpiar el campo reminderAt en la BD para que no se repita
+          clearReminder(link.id);
         }
       }
 

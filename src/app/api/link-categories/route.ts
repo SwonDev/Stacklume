@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, linkCategories, withRetry } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
+import { z } from "zod";
+import { validateRequest } from "@/lib/validations";
+
+// Zod schema for link-categories POST body
+const linkCategoriesSchema = z.object({
+  linkId: z.string().uuid("linkId debe ser un UUID válido"),
+  categoryIds: z.array(z.string().uuid("Cada categoryId debe ser un UUID válido")).optional(),
+  categoryId: z.string().uuid("categoryId debe ser un UUID válido").optional(),
+}).refine(
+  (data) => (data.categoryIds && data.categoryIds.length > 0) || data.categoryId,
+  { message: "categoryIds o categoryId son obligatorios" }
+);
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,18 +37,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { linkId, categoryIds, categoryId } = body;
 
-    if (!linkId) {
-      return NextResponse.json({ error: "linkId es obligatorio" }, { status: 400 });
+    // Validate request body with Zod
+    const validation = validateRequest(linkCategoriesSchema, body);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.errors.join(", ") }, { status: 400 });
     }
+
+    const { linkId, categoryIds, categoryId } = validation.data;
 
     // Support both array (categoryIds) and single (categoryId) for backwards compat
     const ids: string[] = categoryIds ?? (categoryId ? [categoryId] : []);
-
-    if (ids.length === 0) {
-      return NextResponse.json({ error: "categoryIds o categoryId son obligatorios" }, { status: 400 });
-    }
 
     // Delete existing associations for this link and replace with new ones
     await withRetry(

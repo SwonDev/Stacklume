@@ -249,6 +249,13 @@ export function BentoGrid({ className }: BentoGridProps) {
         const widgetLinks = getWidgetLinks(widget);
         return widgetLinks.some((link: Link) => tagLinkIds.includes(link.id));
       });
+    } else if (activeFilter.type === "readingStatus" && activeFilter.id) {
+      // Show only widgets that have links with the matching reading status
+      const statusId = activeFilter.id;
+      filtered = projectWidgets.filter((widget: Widget) => {
+        const widgetLinks = getWidgetLinks(widget);
+        return widgetLinks.some((link: Link) => (link.readingStatus ?? "inbox") === statusId);
+      });
     }
 
     // Apply search filter on top of the type filter

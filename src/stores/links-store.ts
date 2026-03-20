@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Link, Category, Tag } from "@/lib/db/schema";
 import { normalizeUrlForComparison } from "@/lib/url-utils";
+import { openExternalUrl } from "@/lib/desktop";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 
 interface LinksState {
@@ -335,10 +336,10 @@ export const useLinksStore = create<LinksState>((set, get) => ({
 
   // Bulk actions
   openAllLinks: (links) => {
-    // Open links in new tabs (with slight delay to avoid popup blockers)
+    // Open links with staggered delay (uses Tauri open_url in desktop, window.open in web)
     links.forEach((link, index) => {
       setTimeout(() => {
-        window.open(link.url, '_blank', 'noopener,noreferrer');
+        openExternalUrl(link.url);
       }, index * 100); // 100ms delay between each
     });
   },

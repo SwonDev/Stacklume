@@ -1807,3 +1807,113 @@
     background-color: Mark !important;
   }
 }
+
+/* ── Reader Prose — tipografía para vista de lectura ── */
+.reader-prose {
+  color: var(--foreground);
+}
+.reader-prose p {
+  margin-bottom: 1em;
+  color: oklch(from var(--foreground) l c h / 0.85);
+}
+.reader-prose h1,
+.reader-prose h2,
+.reader-prose h3,
+.reader-prose h4,
+.reader-prose h5,
+.reader-prose h6 {
+  font-weight: 700;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: var(--foreground);
+}
+.reader-prose h1 { font-size: 1.5em; }
+.reader-prose h2 { font-size: 1.3em; }
+.reader-prose h3 { font-size: 1.15em; }
+.reader-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.reader-prose a:hover {
+  opacity: 0.8;
+}
+.reader-prose ul,
+.reader-prose ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+.reader-prose ul { list-style-type: disc; }
+.reader-prose ol { list-style-type: decimal; }
+.reader-prose li {
+  margin-bottom: 0.35em;
+}
+.reader-prose blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: oklch(from var(--foreground) l c h / 0.7);
+  font-style: italic;
+}
+.reader-prose pre {
+  background: var(--muted);
+  padding: 0.75em 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  margin: 1em 0;
+  font-size: 0.875em;
+}
+.reader-prose code {
+  background: var(--muted);
+  padding: 0.15em 0.35em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+}
+.reader-prose pre code {
+  background: none;
+  padding: 0;
+}
+.reader-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5em;
+  margin: 1em 0;
+}
+.reader-prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.reader-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.9em;
+}
+.reader-prose th,
+.reader-prose td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.reader-prose th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.reader-prose strong,
+.reader-prose b {
+  font-weight: 600;
+}
+.reader-prose em,
+.reader-prose i {
+  font-style: italic;
+}
+.reader-prose figure {
+  margin: 1em 0;
+}
+.reader-prose figcaption {
+  text-align: center;
+  font-size: 0.85em;
+  color: oklch(from var(--foreground) l c h / 0.6);
+  margin-top: 0.5em;
+}

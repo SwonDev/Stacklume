@@ -118,6 +118,7 @@ export const categories = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    parentCategoryId: text("parent_category_id"), // For nested categories
   },
   (table) => [
     index("idx_categories_name").on(table.name),
@@ -534,6 +535,7 @@ export const pageArchives = sqliteTable(
     linkId: text("link_id").notNull().references(() => links.id, { onDelete: "cascade" }),
     title: text("title"),
     textContent: text("text_content"),
+    htmlContent: text("html_content"), // HTML limpio para vista de lectura
     archivedAt: integer("archived_at", { mode: "timestamp_ms" }).notNull(),
     wordCount: integer("word_count").notNull().default(0),
     size: integer("size").notNull().default(0),

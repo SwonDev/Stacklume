@@ -121,6 +121,7 @@ export const updateLinkSchema = z.object({
   contentType: z.string().max(30, 'Content type must be 30 characters or less').nullable().optional(),
   platformColor: z.string().max(20, 'Platform color must be 20 characters or less').nullable().optional(),
   isRead: z.boolean().optional(),
+  readingStatus: z.enum(["inbox", "reading", "done"]).optional(),
   notes: z.string().nullable().optional(),
   reminderAt: isoDateSchema.nullable().optional(),
   installCommands: z.array(z.string().max(300)).max(20).nullable().optional(),
@@ -142,6 +143,7 @@ export const createCategorySchema = z.object({
   icon: z.string().max(50, 'Icon name must be 50 characters or less').optional(),
   color: z.string().max(20, 'Color must be 20 characters or less').optional(),
   order: z.number().int('Order must be an integer').default(0),
+  parentCategoryId: z.string().nullable().optional(),
 });
 
 // Update category request body
@@ -151,6 +153,7 @@ export const updateCategorySchema = z.object({
   icon: z.string().max(50, 'Icon name must be 50 characters or less').nullable().optional(),
   color: z.string().max(20, 'Color must be 20 characters or less').nullable().optional(),
   order: z.number().int('Order must be an integer').optional(),
+  parentCategoryId: z.string().nullable().optional(),
 });
 
 // Category ID param

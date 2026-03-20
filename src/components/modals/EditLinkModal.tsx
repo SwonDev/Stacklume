@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen, StickyNote, Bell, Wand2 } from "lucide-react";
+import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen, StickyNote, Bell, Wand2, Inbox, CheckCheck } from "lucide-react";
 import { TagSelector } from "@/components/ui/tag-selector";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { MultiCategorySelector } from "@/components/ui/multi-category-selector";
@@ -39,7 +39,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useLinksStore } from "@/stores/links-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
@@ -68,7 +74,7 @@ export function EditLinkModal() {
   const [aiGenerating, setAiGenerating] = useState<"title" | "description" | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [isRead, setIsRead] = useState(false);
+  const [readingStatus, setReadingStatus] = useState<string>("inbox");
   const [notes, setNotes] = useState("");
   const [reminderAt, setReminderAt] = useState<string | null>(null);
 
@@ -104,7 +110,7 @@ export function EditLinkModal() {
         .map((lc: { linkId: string; categoryId: string }) => lc.categoryId);
       setSelectedCategoryIds(currentCategoryIds.length > 0 ? currentCategoryIds : (selectedLink.categoryId ? [selectedLink.categoryId] : []));
       // Load personal tracking fields
-      setIsRead(selectedLink.isRead ?? false);
+      setReadingStatus(selectedLink.readingStatus ?? "inbox");
       setNotes(selectedLink.notes || "");
       if (selectedLink.reminderAt) {
         const d = new Date(selectedLink.reminderAt);
@@ -166,7 +172,8 @@ export function EditLinkModal() {
         body: JSON.stringify({
           ...values,
           categoryId: selectedCategoryIds[0] || values.categoryId || null,
-          isRead,
+          isRead: readingStatus === "done",
+          readingStatus,
           notes: notes || null,
           reminderAt: reminderAt ? new Date(reminderAt).toISOString() : null,
         }),
@@ -274,7 +281,7 @@ export function EditLinkModal() {
     form.reset();
     setSelectedTagIds([]);
     setSelectedCategoryIds([]);
-    setIsRead(false);
+    setReadingStatus("inbox");
     setNotes("");
     setReminderAt(null);
     useLinksStore.getState().closeEditLinkModal();
@@ -428,17 +435,37 @@ export function EditLinkModal() {
               )}
             />
 
-            {/* Mark as Read */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="isRead"
-                checked={isRead}
-                onCheckedChange={(v) => setIsRead(Boolean(v))}
-              />
-              <label htmlFor="isRead" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+            {/* Reading Status */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-muted-foreground" />
-                {t("editLink.markAsRead")}
+                {t("editLink.readingStatus")}
               </label>
+              <Select value={readingStatus} onValueChange={setReadingStatus}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inbox">
+                    <span className="flex items-center gap-2">
+                      <Inbox className="w-3.5 h-3.5 text-blue-500" />
+                      {t("editLink.readingInbox")}
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="reading">
+                    <span className="flex items-center gap-2">
+                      <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+                      {t("editLink.readingInProgress")}
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="done">
+                    <span className="flex items-center gap-2">
+                      <CheckCheck className="w-3.5 h-3.5 text-green-500" />
+                      {t("editLink.readingDone")}
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Personal Notes */}

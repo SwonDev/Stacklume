@@ -138,6 +138,7 @@ export const categories = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
     deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete timestamp
+    parentCategoryId: uuid("parent_category_id"), // For nested categories
   },
   (table) => ({
     nameIdx: index("idx_categories_name").on(table.name),
@@ -608,6 +609,7 @@ export const pageArchives = pgTable(
     linkId: uuid("link_id").notNull().references(() => links.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 500 }),
     textContent: text("text_content"),
+    htmlContent: text("html_content"), // HTML limpio para vista de lectura
     archivedAt: timestamp("archived_at", { withTimezone: true }).defaultNow().notNull().$defaultFn(() => new Date()),
     wordCount: integer("word_count").default(0).notNull(),
     size: integer("size").default(0).notNull(), // bytes

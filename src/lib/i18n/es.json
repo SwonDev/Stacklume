@@ -1952,6 +1952,7 @@
   "richLink.addFavorite": "Añadir a favoritos",
   "richLink.edit": "Editar",
   "richLink.removeFavorite": "Quitar de favoritos",
+  "richLink.waybackMachine": "Ver en Wayback Machine",
   "rssFeed.add": "Añadir",
   "rssFeed.addFeed": "Añadir Feed",
   "rssFeed.addFeedDescription": "Añade una URL de feed RSS para comenzar",
@@ -3062,5 +3063,16 @@
   "llmChat.noBinaryDesc": "llama-server no está incluido en esta instalación. Vuelve a instalar la última versión de Stacklume.",
   "llmChat.starting": "Iniciando el modelo, espera un momento...",
   "llmChat.enterToSend": "Enter para enviar · Shift+Enter nueva línea",
-  "header.llmChat": "Asistente IA local"
+  "header.llmChat": "Asistente IA local",
+  "sidebar.reading": "Lectura",
+  "sidebar.readingInbox": "Bandeja de entrada",
+  "sidebar.readingInProgress": "Leyendo",
+  "sidebar.readingDone": "Leídos",
+  "editLink.readingStatus": "Estado de lectura",
+  "editLink.readingInbox": "Bandeja de entrada",
+  "editLink.readingInProgress": "Leyendo",
+  "editLink.readingDone": "Leído",
+  "richLink.statusReading": "Leyendo",
+  "richLink.statusDone": "Leído",
+  "richLink.hasNotes": "Tiene notas"
 }

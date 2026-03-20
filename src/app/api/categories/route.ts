@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
       description: validatedData.description || null,
       icon: validatedData.icon || "folder",
       color: validatedData.color || "gold",
+      parentCategoryId: validatedData.parentCategoryId || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -149,6 +150,7 @@ export async function PATCH(request: NextRequest) {
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
     if (validatedData.icon !== undefined) updateData.icon = validatedData.icon;
     if (validatedData.color !== undefined) updateData.color = validatedData.color;
+    if (validatedData.parentCategoryId !== undefined) updateData.parentCategoryId = validatedData.parentCategoryId;
 
     const [updated] = await withRetry(
       () => db.update(categories).set(updateData).where(eq(categories.id, id)).returning(),
