@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db, links, withRetry, getCurrentDatabaseType } from "@/lib/db";
+import { eq } from "drizzle-orm";
 
 /**
  * POST /api/llm/generate
  * Genera título, descripción o etiquetas para un enlace usando el LLM local.
- * Body: { url: string, currentTitle?: string, currentDescription?: string, type: "title" | "description" | "tags", llamaPort?: number }
+ * Body: { url: string, currentTitle?: string, currentDescription?: string, type: "title" | "description" | "tags" | "summary", llamaPort?: number }
  */
 export async function POST(req: NextRequest) {
   if (process.env.DESKTOP_MODE !== "true") {
@@ -14,10 +16,11 @@ export async function POST(req: NextRequest) {
     url: string;
     currentTitle?: string;
     currentDescription?: string;
-    type: "title" | "description" | "tags";
+    type: "title" | "description" | "tags" | "summary";
     llamaPort?: number;
     enableThinking?: boolean;
     modelFamily?: string;
+    linkId?: string;
   };
 
   try {
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   }
 
-  const { url, currentTitle, currentDescription, type, llamaPort: clientPort, enableThinking = false, modelFamily = "qwen3" } = body;
+  const { url, currentTitle, currentDescription, type, llamaPort: clientPort, enableThinking = false, modelFamily = "qwen3", linkId } = body;
   if (!url || !type) {
     return NextResponse.json({ error: "url y type son obligatorios" }, { status: 400 });
   }
@@ -78,6 +81,11 @@ export async function POST(req: NextRequest) {
     case "tags":
       systemPrompt = "Output ONLY comma-separated tags. No explanation. Example output: React, Tutorial, Frontend";
       userPrompt = `Generate tags for this link:\n${context}`;
+      break;
+
+    case "summary":
+      systemPrompt = "Output ONLY a concise summary in 2-3 sentences. Describe what this webpage is about and why someone might want to visit it. No quotes, no explanation, no reasoning, no bullet points. Write in the same language as the title/description.";
+      userPrompt = `Summarize this webpage:\n${context}`;
       break;
 
     default:
@@ -177,6 +185,30 @@ export async function POST(req: NextRequest) {
         .map((t: string) => t.replace(/^[-•*\d.)\s]+/, "").trim())
         .filter((t: string) => t.length > 0 && t.length < 50);
       return NextResponse.json({ tags });
+    }
+
+    // Para summary: persistir en la BD y actualizar FTS5
+    if (type === "summary" && linkId && result) {
+      try {
+        await withRetry(
+          () => db.update(links).set({ summary: result, updatedAt: new Date() }).where(eq(links.id, linkId)),
+          { operationName: "update link summary" }
+        );
+        // Actualizar índice FTS5 (solo SQLite)
+        if (getCurrentDatabaseType() === "sqlite") {
+          try {
+            const { upsertLinkFts } = await import("@/lib/db/fts");
+            const linkRow = await db.select().from(links).where(eq(links.id, linkId)).limit(1);
+            if (linkRow[0]) {
+              await upsertLinkFts(linkRow[0]);
+            }
+          } catch {
+            // FTS update no es crítico
+          }
+        }
+      } catch {
+        // No bloquear la respuesta si falla el update
+      }
     }
 
     return NextResponse.json({ result });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, links, withRetry } from "@/lib/db";
+import { db, links, withRetry, getCurrentDatabaseType } from "@/lib/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { updateLinkSchema, validateRequest } from "@/lib/validations";
@@ -84,7 +84,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (validatedData.isFavorite !== undefined) updateData.isFavorite = validatedData.isFavorite;
     if (validatedData.siteName !== undefined) updateData.siteName = validatedData.siteName;
     if (validatedData.author !== undefined) updateData.author = validatedData.author;
-    if (validatedData.publishedAt !== undefined) updateData.publishedAt = validatedData.publishedAt;
+    if (validatedData.publishedAt !== undefined) {
+      updateData.publishedAt = validatedData.publishedAt ? new Date(validatedData.publishedAt) : null;
+    }
     if (validatedData.source !== undefined) updateData.source = validatedData.source;
     if (validatedData.sourceId !== undefined) updateData.sourceId = validatedData.sourceId;
     if (validatedData.platform !== undefined) updateData.platform = validatedData.platform;
@@ -93,9 +95,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (validatedData.isRead !== undefined) updateData.isRead = validatedData.isRead;
     if (validatedData.readingStatus !== undefined) updateData.readingStatus = validatedData.readingStatus;
     if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
-    if (validatedData.reminderAt !== undefined) updateData.reminderAt = validatedData.reminderAt;
+    if (validatedData.reminderAt !== undefined) {
+      updateData.reminderAt = validatedData.reminderAt ? new Date(validatedData.reminderAt) : null;
+    }
     if (validatedData.installCommands !== undefined)
       updateData.installCommands = validatedData.installCommands ? JSON.stringify(validatedData.installCommands) : null;
+    if (validatedData.summary !== undefined) updateData.summary = validatedData.summary;
 
     const [updated] = await withRetry(
       () => db.update(links).set(updateData).where(eq(links.id, id)).returning(),
@@ -107,6 +112,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         { error: "Enlace no encontrado" },
         { status: 404 }
       );
+    }
+
+    // Actualizar índice FTS5 (solo SQLite, no bloquea)
+    if (getCurrentDatabaseType() === "sqlite") {
+      import("@/lib/db/fts").then(({ upsertLinkFts }) =>
+        upsertLinkFts(updated).catch(() => {})
+      ).catch(() => {});
     }
 
     return NextResponse.json(updated);
@@ -144,6 +156,13 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         { error: "Enlace no encontrado" },
         { status: 404 }
       );
+    }
+
+    // Eliminar del índice FTS5 (solo SQLite, no bloquea)
+    if (getCurrentDatabaseType() === "sqlite") {
+      import("@/lib/db/fts").then(({ deleteLinkFts }) =>
+        deleteLinkFts(id).catch(() => {})
+      ).catch(() => {});
     }
 
     return NextResponse.json({ success: true });

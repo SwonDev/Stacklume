@@ -33,6 +33,7 @@ import { ImportExportModal } from "@/components/modals/ImportExportModal";
 import { DuplicatesModal } from "@/components/modals/DuplicatesModal";
 import { HealthCheckModal } from "@/components/modals/HealthCheckModal";
 import { ClassificationRulesModal } from "@/components/modals/ClassificationRulesModal";
+import { TrashModal } from "@/components/modals/TrashModal";
 import { InlineChatPanel } from "@/components/layout/InlineChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SessionLauncherWidget } from "@/components/widgets/SessionLauncherWidget";
@@ -80,6 +81,7 @@ export function Header() {
   const [showClassificationRules, setShowClassificationRules] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
   const [showReadingQueue, setShowReadingQueue] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const [showLlmChat, setShowLlmChat] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileSearchValue, setMobileSearchValue] = useState(searchQuery);
@@ -465,6 +467,7 @@ export function Header() {
             onOpenClassificationRules={() => setShowClassificationRules(true)}
             onOpenSessions={() => setShowSessions(true)}
             onOpenReadingQueue={() => setShowReadingQueue(true)}
+            onOpenTrash={() => setShowTrash(true)}
           />
         </div>
       </div>
@@ -481,6 +484,7 @@ export function Header() {
       <DuplicatesModal open={showDuplicates} onOpenChange={setShowDuplicates} />
       <HealthCheckModal open={showHealthCheck} onOpenChange={setShowHealthCheck} />
       <ClassificationRulesModal open={showClassificationRules} onOpenChange={setShowClassificationRules} />
+      <TrashModal open={showTrash} onOpenChange={setShowTrash} />
 
       {/* Desktop-only: Sesiones de links */}
       <Dialog open={showSessions} onOpenChange={setShowSessions}>

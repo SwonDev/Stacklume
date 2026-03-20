@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown, Share2, Inbox, BookOpen, CheckCheck } from "lucide-react";
+import { X, Star, Clock, FolderOpen, Plus, Tag as TagIcon, Home, Settings, ChevronDown, Share2, Inbox, BookOpen, CheckCheck, Trash2, Search, Save, Trash } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useLayoutStore } from "@/stores/layout-store";
 import { useLinksStore } from "@/stores/links-store";
 import { useProjectsStore } from "@/stores/projects-store";
@@ -15,9 +18,11 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { AddProjectModal, EditProjectModal } from "@/components/projects/ProjectDialog";
 import { ShareCollectionDialog } from "@/components/modals/ShareCollectionDialog";
+import { TrashModal } from "@/components/modals/TrashModal";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
 import { useElectron } from "@/hooks/useElectron";
-import type { Link, Category, Tag } from "@/lib/db/schema";
+import type { Link, Category, Tag, SavedSearch } from "@/lib/db/schema";
 import dynamic from "next/dynamic";
 
 const spinningCoinImport = () => import("./SpinningCoinLogo").then((m) => ({ default: m.SpinningCoinLogo }));
@@ -338,13 +343,13 @@ interface CollapsedSections {
   categories: boolean;
   tags: boolean;
   reading: boolean;
+  savedSearches: boolean;
 }
 
 export function Sidebar() {
   const sidebarOpen = useLayoutStore((state) => state.sidebarOpen);
   const sidebarAlwaysVisible = useSettingsStore((state) => state.sidebarAlwaysVisible);
   const sidebarDensity = useSettingsStore((state) => state.sidebarDensity);
-  const activeFilter = useLayoutStore((state) => state.activeFilter);
   const categories = useLinksStore((state) => state.categories);
   const links = useLinksStore((state) => state.links);
   const tags = useLinksStore((state) => state.tags);
@@ -352,6 +357,20 @@ export function Sidebar() {
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const { t } = useTranslation();
   const { isDesktop } = useElectron();
+
+  // Trash modal state
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
+
+  // Fetch trash count on mount and when sidebar opens
+  useEffect(() => {
+    if (sidebarOpen || sidebarAlwaysVisible) {
+      fetch("/api/trash", { headers: getCsrfHeaders(), credentials: "include" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.totals?.total != null) setTrashCount(data.totals.total); })
+        .catch(() => {});
+    }
+  }, [sidebarOpen, sidebarAlwaysVisible]);
 
   // Share dialog state
   const [shareDialogState, setShareDialogState] = useState<{
@@ -369,6 +388,99 @@ export function Sidebar() {
     setShareDialogState({ open: true, type: "tag", referenceId: tag.id, name: tag.name });
   }, []);
 
+  // Saved searches state
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [showSaveSearchDialog, setShowSaveSearchDialog] = useState(false);
+  const [saveSearchName, setSaveSearchName] = useState("");
+  const [isSavingSearch, setIsSavingSearch] = useState(false);
+  const searchQuery = useLayoutStore((state) => state.searchQuery);
+  const activeFilter = useLayoutStore((state) => state.activeFilter);
+
+  // Fetch saved searches on mount and when sidebar opens
+  useEffect(() => {
+    if (sidebarOpen || sidebarAlwaysVisible) {
+      fetch("/api/saved-searches", { headers: getCsrfHeaders(), credentials: "include" })
+        .then((r) => r.ok ? r.json() : [])
+        .then((data: SavedSearch[]) => { if (Array.isArray(data)) setSavedSearches(data); })
+        .catch(() => {});
+    }
+  }, [sidebarOpen, sidebarAlwaysVisible]);
+
+  const handleSaveSearch = useCallback(async () => {
+    if (!saveSearchName.trim()) return;
+    setIsSavingSearch(true);
+    try {
+      const currentQuery = useLayoutStore.getState().searchQuery;
+      const currentFilter = useLayoutStore.getState().activeFilter;
+      const filters: Record<string, unknown> = {};
+      if (currentFilter.type !== "all") {
+        filters.filterType = currentFilter.type;
+        if (currentFilter.id) filters.filterId = currentFilter.id;
+        if (currentFilter.ids) filters.filterIds = currentFilter.ids;
+        if (currentFilter.label) filters.filterLabel = currentFilter.label;
+      }
+
+      const res = await fetch("/api/saved-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+        credentials: "include",
+        body: JSON.stringify({
+          name: saveSearchName.trim(),
+          query: currentQuery || " ", // API requires non-empty query
+          filters: Object.keys(filters).length > 0 ? filters : null,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setSavedSearches((prev) => [...prev, created]);
+        setShowSaveSearchDialog(false);
+        setSaveSearchName("");
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setIsSavingSearch(false);
+    }
+  }, [saveSearchName]);
+
+  const handleDeleteSavedSearch = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/saved-searches?id=${id}`, {
+        method: "DELETE",
+        headers: getCsrfHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+      }
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  const handleApplySavedSearch = useCallback((search: SavedSearch) => {
+    const query = search.query?.trim() === " " ? "" : (search.query ?? "");
+    useLayoutStore.getState().setSearchQuery(query);
+
+    const filters = search.filters as Record<string, unknown> | null;
+    if (filters?.filterType) {
+      useLayoutStore.getState().setActiveFilter({
+        type: filters.filterType as "all" | "favorites" | "recent" | "category" | "tag" | "readingStatus",
+        id: filters.filterId as string | undefined,
+        ids: filters.filterIds as string[] | undefined,
+        label: filters.filterLabel as string | undefined,
+      });
+    } else if (query) {
+      // Si solo tiene query sin filtro, limpiar filtro activo
+      useLayoutStore.getState().setActiveFilter({ type: "all" });
+    }
+
+    useLayoutStore.getState().setSidebarOpen(false);
+  }, []);
+
+  // Determinar si hay una búsqueda/filtro activo que se puede guardar
+  const hasActiveSearch = searchQuery.trim().length > 0 || activeFilter.type !== "all";
+
   // Drag state for categories and tags
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [activeTagId, setActiveTagId] = useState<string | null>(null);
@@ -381,11 +493,11 @@ export function Sidebar() {
         try {
           return JSON.parse(saved);
         } catch {
-          return { projects: false, categories: false, tags: false, reading: false };
+          return { projects: false, categories: false, tags: false, reading: false, savedSearches: false };
         }
       }
     }
-    return { projects: false, categories: false, tags: false, reading: false };
+    return { projects: false, categories: false, tags: false, reading: false, savedSearches: false };
   });
 
   // Persist collapsed state to localStorage
@@ -620,6 +732,59 @@ export function Sidebar() {
 
             <Separator className="my-4 bg-sidebar-border" />
 
+            {/* Saved Searches */}
+            <CollapsibleSection
+              title={t("sidebar.savedSearches")}
+              isCollapsed={collapsedSections.savedSearches}
+              onToggle={() => toggleSection("savedSearches")}
+              count={savedSearches.length}
+              actions={
+                hasActiveSearch ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+                        aria-label={t("sidebar.saveCurrentSearch")}
+                        onClick={() => {
+                          setSaveSearchName("");
+                          setShowSaveSearchDialog(true);
+                        }}
+                      >
+                        <Save className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>{t("sidebar.saveCurrentSearch")}</p></TooltipContent>
+                  </Tooltip>
+                ) : undefined
+              }
+            >
+              {savedSearches.map((search) => (
+                <div key={search.id} className="group/saved relative">
+                  <NavItem
+                    icon={<Search className="h-4 w-4" />}
+                    label={search.name}
+                    onClick={() => handleApplySavedSearch(search)}
+                  />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteSavedSearch(search.id); }}
+                    aria-label={t("sidebar.deleteSavedSearch")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover/saved:opacity-100 transition-opacity text-sidebar-foreground/40 hover:text-destructive hover:bg-sidebar-accent"
+                  >
+                    <Trash className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {savedSearches.length === 0 && (
+                <p className="px-3 py-2 text-xs text-sidebar-foreground/40">
+                  {t("sidebar.noSavedSearches")}
+                </p>
+              )}
+            </CollapsibleSection>
+
+            <Separator className="my-4 bg-sidebar-border" />
+
             {/* Projects */}
             <ProjectList
               isCollapsed={collapsedSections.projects}
@@ -827,7 +992,16 @@ export function Sidebar() {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-sidebar-border px-4 py-3">
+          <div className="border-t border-sidebar-border px-3 py-3 space-y-2">
+            <NavItem
+              icon={<Trash2 className="h-4 w-4" />}
+              label={t("sidebar.trash")}
+              count={trashCount > 0 ? trashCount : undefined}
+              onClick={() => {
+                setShowTrash(true);
+                useLayoutStore.getState().setSidebarOpen(false);
+              }}
+            />
             <p className="text-xs text-sidebar-foreground/40 text-center">
               {t("sidebar.savedLinks", { count: links.length })}
             </p>
@@ -839,6 +1013,18 @@ export function Sidebar() {
       <AddProjectModal />
       <EditProjectModal />
 
+      {/* Trash Modal */}
+      <TrashModal open={showTrash} onOpenChange={(open) => {
+        setShowTrash(open);
+        if (!open) {
+          // Re-fetch trash count when modal closes (items may have been restored/deleted)
+          fetch("/api/trash", { headers: getCsrfHeaders(), credentials: "include" })
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => { if (data?.totals?.total != null) setTrashCount(data.totals.total); })
+            .catch(() => {});
+        }
+      }} />
+
       {/* Share Collection Dialog */}
       <ShareCollectionDialog
         type={shareDialogState.type}
@@ -847,6 +1033,52 @@ export function Sidebar() {
         open={shareDialogState.open}
         onOpenChange={(open) => setShareDialogState((prev) => ({ ...prev, open }))}
       />
+
+      {/* Save Search Dialog */}
+      <Dialog open={showSaveSearchDialog} onOpenChange={setShowSaveSearchDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("sidebar.saveSearchTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="save-search-name">{t("sidebar.saveSearchName")}</Label>
+              <Input
+                id="save-search-name"
+                placeholder={t("sidebar.saveSearchNamePlaceholder")}
+                value={saveSearchName}
+                onChange={(e) => setSaveSearchName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && saveSearchName.trim()) {
+                    handleSaveSearch();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            {searchQuery && (
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium">{t("header.search")}:</span>{" "}
+                <span className="text-foreground">&quot;{searchQuery}&quot;</span>
+              </div>
+            )}
+            {activeFilter.type !== "all" && activeFilter.label && (
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium">{t("sidebar.categories")}:</span>{" "}
+                <Badge variant="secondary" className="text-xs">{activeFilter.label}</Badge>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveSearchDialog(false)}>
+              {t("sidebar.saveSearchCancel")}
+            </Button>
+            <Button onClick={handleSaveSearch} disabled={!saveSearchName.trim() || isSavingSearch}>
+              {t("sidebar.saveSearchSave")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

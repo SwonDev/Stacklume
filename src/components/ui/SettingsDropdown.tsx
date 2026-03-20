@@ -189,10 +189,11 @@ interface SettingsDropdownProps {
   onOpenClassificationRules?: () => void;
   onOpenSessions?: () => void;
   onOpenReadingQueue?: () => void;
+  onOpenTrash?: () => void;
 }
 
 // ─── Componente principal ────────────────────────────────────────────────────
-export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenHealthCheck, onOpenClassificationRules, onOpenSessions, onOpenReadingQueue }: SettingsDropdownProps) {
+export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenHealthCheck, onOpenClassificationRules, onOpenSessions, onOpenReadingQueue, onOpenTrash }: SettingsDropdownProps) {
   const { setTheme: setNextTheme, theme: currentNextTheme } = useTheme();
   const { t } = useTranslation();
   const {
@@ -986,6 +987,12 @@ export function SettingsDropdown({ onOpenImportExport, onOpenDuplicates, onOpenH
             descKey: "settings.readingQueueDesc",
             Icon: Inbox,
             onClick: () => { setOpen(false); onOpenReadingQueue?.(); },
+          },
+          {
+            labelKey: "settings.trash",
+            descKey: "settings.trashDesc",
+            Icon: Trash2,
+            onClick: () => { setOpen(false); onOpenTrash?.(); },
           },
           ...(isDesktop ? [
             {

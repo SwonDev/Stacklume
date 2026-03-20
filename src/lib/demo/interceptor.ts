@@ -452,6 +452,47 @@ async function handleDemoRequest(
     }
   }
 
+  // ── /api/saved-searches ──
+  if (resource === "saved-searches") {
+    const STORAGE_KEY = "stacklume-demo-saved-searches";
+    const getAll = (): Array<Record<string, unknown>> => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    };
+    const saveAll = (items: Array<Record<string, unknown>>) => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    };
+
+    if (method === "GET") return jsonResponse(getAll());
+    if (method === "POST") {
+      const b = body as Record<string, unknown>;
+      const item = {
+        id: crypto.randomUUID(),
+        userId: "default",
+        name: b.name ?? "",
+        query: b.query ?? "",
+        filters: b.filters ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      const all = getAll();
+      all.push(item);
+      saveAll(all);
+      return jsonResponse(item, 201);
+    }
+    if (method === "DELETE") {
+      const id = url.searchParams.get("id");
+      if (id) {
+        const all = getAll().filter((s) => s.id !== id);
+        saveAll(all);
+      }
+      return jsonResponse({ success: true });
+    }
+  }
+
   // ── /api/backups ── (no disponible en demo)
   if (resource === "backups") {
     if (method === "GET") return jsonResponse([]);

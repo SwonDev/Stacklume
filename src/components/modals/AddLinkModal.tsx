@@ -557,6 +557,44 @@ export function AddLinkModal() {
         const newLink = await response.json();
         useLinksStore.getState().addLink(newLink);
 
+        // Generar resumen con IA en segundo plano (no bloquea el flujo)
+        if (isDesktop && !newLink.summary) {
+          (async () => {
+            try {
+              let llamaPort = 0;
+              try {
+                const internals = (window as unknown as Record<string, unknown>)
+                  .__TAURI_INTERNALS__ as { invoke?: (cmd: string, args?: unknown) => Promise<number> } | undefined;
+                if (internals?.invoke) {
+                  llamaPort = await internals.invoke("get_llama_port");
+                }
+              } catch { /* */ }
+              if (!llamaPort) return;
+
+              const sumRes = await fetch("/api/llm/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  url: newLink.url,
+                  currentTitle: newLink.title,
+                  currentDescription: newLink.description,
+                  type: "summary",
+                  linkId: newLink.id,
+                  llamaPort,
+                }),
+              });
+              if (sumRes.ok) {
+                const data = await sumRes.json();
+                if (data.result) {
+                  // Actualizar el store local con el resumen
+                  const store = useLinksStore.getState();
+                  store.updateLink(newLink.id, { summary: data.result });
+                }
+              }
+            } catch { /* resumen no es crítico */ }
+          })();
+        }
+
         // Save multi-category associations if more than one category selected
         if (selectedCategoryIds.length > 0) {
           try {

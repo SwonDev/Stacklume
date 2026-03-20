@@ -10,6 +10,7 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { BentoCard } from "./BentoCard";
 import { EmptyState, SearchEmptyState, WidgetEmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
+import { fuzzyMatch } from "@/lib/fuzzy-search";
 import { generateResponsiveLayouts, COLS } from "@/lib/responsive-layout";
 import { useDragAnnouncements, getPositionInfo } from "@/hooks/useDragAnnouncements";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
@@ -131,17 +132,23 @@ export function BentoGrid({ className }: BentoGridProps) {
     useWidgetStore.getState().refreshWidgets();
   }, []); // Solo al montar
 
-  // Polling cada 5s para detectar widgets creados externamente (MCP) cuando la ventana ya tiene foco.
-  // Sin esto, los widgets nuevos solo aparecen tras perder y recuperar el foco o navegar a otra vista.
-  // En modo edición se omite el sondeo para evitar que un refresh sobreescriba posiciones en vuelo
-  // (drag/resize debounce de 500ms puede quedar atrás del intervalo de 5s).
+  // Refrescar widgets cuando la pestaña/ventana vuelve a ser visible (cubre MCP widgets creados
+  // externamente). Se usa visibilitychange en lugar de polling cada 5s para reducir trabajo idle.
+  // Mínimo 30s entre refrescos para no saturar en cambios rápidos de ventana.
+  // En modo edición se omite para no sobreescribir posiciones en vuelo.
+  const lastWidgetRefreshRef = useRef(0);
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible" && !isEditMode) {
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible" || isEditMode) return;
+      const now = Date.now();
+      if (now - lastWidgetRefreshRef.current > 30_000) {
+        lastWidgetRefreshRef.current = now;
         useWidgetStore.getState().refreshWidgets();
       }
-    }, 5000);
-    return () => clearInterval(interval);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [isEditMode]);
 
   // Sync project ID from projects store to widget store
@@ -190,21 +197,22 @@ export function BentoGrid({ className }: BentoGridProps) {
       return [];
     };
 
-    // Helper to check if widget matches search query
+    // Helper to check if widget matches search query (fuzzy)
     const matchesSearch = (widget: Widget): boolean => {
       if (!deferredSearchQuery.trim()) return true;
 
-      const query = deferredSearchQuery.toLowerCase().trim();
+      const query = deferredSearchQuery.trim();
+      const threshold = 0.3;
 
       // Check widget title
-      if (widget.title.toLowerCase().includes(query)) return true;
+      if (fuzzyMatch(query, widget.title) >= threshold) return true;
 
       // Check widget links
       const widgetLinks = getWidgetLinks(widget);
       return widgetLinks.some((link: Link) =>
-        link.title.toLowerCase().includes(query) ||
-        link.url.toLowerCase().includes(query) ||
-        (link.description && link.description.toLowerCase().includes(query))
+        fuzzyMatch(query, link.title) >= threshold ||
+        fuzzyMatch(query, link.url) >= threshold ||
+        (link.description && fuzzyMatch(query, link.description) >= threshold)
       );
     };
 

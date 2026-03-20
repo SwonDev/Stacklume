@@ -71,7 +71,7 @@ export function EditLinkModal() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [aiGenerating, setAiGenerating] = useState<"title" | "description" | null>(null);
+  const [aiGenerating, setAiGenerating] = useState<"title" | "description" | "tags" | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [readingStatus, setReadingStatus] = useState<string>("inbox");
@@ -124,7 +124,7 @@ export function EditLinkModal() {
 
   const isDesktop = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-  const generateWithAI = async (type: "title" | "description") => {
+  const generateWithAI = async (type: "title" | "description" | "tags") => {
     const url = form.getValues("url");
     if (!url) return;
     setAiGenerating(type);
@@ -149,7 +149,36 @@ export function EditLinkModal() {
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `HTTP ${res.status}`); }
       const data = await res.json();
-      if (data.result) form.setValue(type, data.result);
+      if (type === "tags" && data.tags) {
+        // Buscar o crear las etiquetas generadas y seleccionarlas
+        const allTags = useLinksStore.getState().tags;
+        const newSelectedIds = [...selectedTagIds];
+        for (const tagName of data.tags as string[]) {
+          const existing = allTags.find((t: Tag) => t.name.toLowerCase() === tagName.toLowerCase());
+          if (existing && !newSelectedIds.includes(existing.id)) {
+            newSelectedIds.push(existing.id);
+          } else if (!existing) {
+            // Crear tag nuevo
+            try {
+              const tagRes = await fetch("/api/tags", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+                credentials: "include",
+                body: JSON.stringify({ name: tagName, color: "#3b82f6" }),
+              });
+              if (tagRes.ok) {
+                const newTag = await tagRes.json();
+                useLinksStore.getState().addTag(newTag);
+                newSelectedIds.push(newTag.id);
+              }
+            } catch { /* skip */ }
+          }
+        }
+        setSelectedTagIds(newSelectedIds);
+        toast.success(`${(data.tags as string[]).length} etiquetas generadas`);
+      } else if (data.result) {
+        form.setValue(type as "title" | "description", data.result);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al generar con IA");
     } finally {
@@ -300,6 +329,19 @@ export function EditLinkModal() {
           </DialogDescription>
         </DialogHeader>
 
+        {/* Link Image Preview */}
+        {selectedLink?.imageUrl && (
+          <div className="relative w-full h-32 rounded-lg overflow-hidden bg-secondary mb-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedLink.imageUrl}
+              alt={selectedLink.title || ""}
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          </div>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
             {/* URL Field */}
@@ -381,9 +423,18 @@ export function EditLinkModal() {
 
             {/* Tags */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <TagIcon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t("editLink.tags")}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TagIcon className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t("editLink.tags")}</span>
+                </div>
+                {isDesktop && (
+                  <button type="button" onClick={() => generateWithAI("tags")} disabled={aiGenerating !== null}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-40" title="Generar etiquetas con IA">
+                    {aiGenerating === "tags" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                    <span>IA</span>
+                  </button>
+                )}
               </div>
               <TagSelector
                 selectedTagIds={selectedTagIds}

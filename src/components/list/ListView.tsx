@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { Link2Off, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fuzzySearch } from "@/lib/fuzzy-search";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListViewToolbar } from "./ListViewToolbar";
 import { SortableCategorySection } from "./CategorySection";
@@ -111,12 +112,14 @@ export function ListView({ className }: ListViewProps) {
       result = result.filter((link: Link) => (link.readingStatus ?? "inbox") === statusId);
     }
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (link: Link) =>
-          link.title.toLowerCase().includes(query) ||
-          link.url.toLowerCase().includes(query) ||
-          link.description?.toLowerCase().includes(query)
+      result = fuzzySearch(
+        result,
+        searchQuery,
+        (link: Link) => [
+          link.title,
+          link.url,
+          link.description ?? "",
+        ].filter(Boolean)
       );
     }
 
@@ -146,8 +149,12 @@ export function ListView({ className }: ListViewProps) {
     grouped.set(null, []);
     filteredLinks.forEach((link: Link) => {
       const categoryId = link.categoryId;
-      const existing = grouped.get(categoryId) || [];
-      grouped.set(categoryId, [...existing, link]);
+      const arr = grouped.get(categoryId);
+      if (arr) {
+        arr.push(link);
+      } else {
+        grouped.set(categoryId, [link]);
+      }
     });
     return grouped;
   }, [filteredLinks, categories]);
@@ -215,8 +222,12 @@ export function ListView({ className }: ListViewProps) {
   const getLinkTagIds = useMemo(() => {
     const tagMap = new Map<string, string[]>();
     filteredLinkTags.forEach((lt) => {
-      const existing = tagMap.get(lt.linkId) || [];
-      tagMap.set(lt.linkId, [...existing, lt.tagId]);
+      const arr = tagMap.get(lt.linkId);
+      if (arr) {
+        arr.push(lt.tagId);
+      } else {
+        tagMap.set(lt.linkId, [lt.tagId]);
+      }
     });
     return (linkId: string) => tagMap.get(linkId) || [];
   }, [filteredLinkTags]);

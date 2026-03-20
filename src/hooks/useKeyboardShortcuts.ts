@@ -50,6 +50,13 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // `?` key (Shift+/) — show keyboard shortcuts overlay
+      if (event.key === "?" && !isModifier && !isInputField) {
+        event.preventDefault();
+        window.dispatchEvent(new Event("stacklume:show-shortcuts"));
+        return;
+      }
+
       // Other shortcuts require modifier key
       if (!isModifier) return;
 

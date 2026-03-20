@@ -75,22 +75,39 @@ export async function GET(request: NextRequest) {
     const searchPattern = `%${q}%`;
     const isDesktop = getCurrentDatabaseType() === "sqlite";
 
+    // En SQLite, intentar FTS5 primero (búsqueda ranked mucho más rápida)
+    let ftsLinkIds: string[] | null = null;
+    if (isDesktop) {
+      try {
+        const { searchLinksFts } = await import("@/lib/db/fts");
+        const ids = await searchLinksFts(q, 200);
+        if (ids.length > 0) {
+          ftsLinkIds = ids;
+        }
+      } catch {
+        // FTS5 no disponible o falló — fallback a LIKE
+      }
+    }
+
     // Build base conditions array
     const conditions = [
       isNull(links.deletedAt),
-      isDesktop
-        ? or(
-            like(links.title, searchPattern),
-            like(links.description, searchPattern),
-            like(links.url, searchPattern),
-            like(links.siteName, searchPattern)
-          )
-        : or(
-            ilike(links.title, searchPattern),
-            ilike(links.description, searchPattern),
-            ilike(links.url, searchPattern),
-            ilike(links.siteName, searchPattern)
-          ),
+      // Si FTS5 devolvió resultados, filtrar por esos IDs; si no, fallback a LIKE
+      ftsLinkIds
+        ? inArray(links.id, ftsLinkIds)
+        : isDesktop
+          ? or(
+              like(links.title, searchPattern),
+              like(links.description, searchPattern),
+              like(links.url, searchPattern),
+              like(links.siteName, searchPattern)
+            )
+          : or(
+              ilike(links.title, searchPattern),
+              ilike(links.description, searchPattern),
+              ilike(links.url, searchPattern),
+              ilike(links.siteName, searchPattern)
+            ),
     ];
 
     // Add optional filters
