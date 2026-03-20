@@ -352,6 +352,8 @@
   "categorySection.linkCountPlural": "{{count}} links",
   "categorySection.moreOptions": "More options",
   "categorySection.openAll": "Open all ({{count}})",
+  "categorySection.showMore": "Show {{count}} more",
+  "categorySection.showAll": "Show all ({{count}})",
   "categorySection.uncategorized": "Uncategorized",
   "categorySelector.create": "Create \"{{name}}\"",
   "categorySelector.createFromSearch": "Create \"{{search}}\"",

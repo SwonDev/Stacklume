@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronRight,
@@ -26,6 +26,9 @@ import { useListViewStore } from "@/stores/list-view-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTranslation } from "@/lib/i18n";
 import type { Link, Category, LinkTag } from "@/lib/db/schema";
+
+/** Number of links shown per page inside a category section */
+const LINKS_PAGE_SIZE = 30;
 
 // dnd-kit imports
 import { useDroppable } from "@dnd-kit/core";
@@ -122,6 +125,21 @@ export function CategorySectionContent({
     const urls = links.map((link) => link.url).join("\n");
     navigator.clipboard.writeText(urls);
   }, [links]);
+
+  // Pagination: show links incrementally for large categories
+  const [visibleCount, setVisibleCount] = useState(LINKS_PAGE_SIZE);
+  const visibleLinks = useMemo(
+    () => (links.length > LINKS_PAGE_SIZE ? links.slice(0, visibleCount) : links),
+    [links, visibleCount]
+  );
+  const remainingCount = links.length - visibleCount;
+  const hasMore = remainingCount > 0;
+  const handleShowMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + LINKS_PAGE_SIZE, links.length));
+  }, [links.length]);
+  const handleShowAll = useCallback(() => {
+    setVisibleCount(links.length);
+  }, [links.length]);
 
   // Show drop indicator when dragging a LINK over this category from another
   const showDropIndicator = !isCategoryDragActive && (isDragActiveOverThis || isOver);
@@ -258,10 +276,10 @@ export function CategorySectionContent({
             >
               <div className="border-t border-border/50">
                 <SortableContext
-                  items={links.map((l) => l.id)}
+                  items={visibleLinks.map((l) => l.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {links.map((link) => (
+                  {visibleLinks.map((link) => (
                     <SortableLinkListItem
                       key={link.id}
                       link={link}
@@ -269,6 +287,30 @@ export function CategorySectionContent({
                     />
                   ))}
                 </SortableContext>
+
+                {/* Show more / show all buttons for large categories */}
+                {hasMore && (
+                  <div className="flex items-center justify-center gap-3 py-2.5 border-t border-border/30">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleShowMore}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {t("categorySection.showMore", { count: Math.min(LINKS_PAGE_SIZE, remainingCount) })}
+                    </Button>
+                    {remainingCount > LINKS_PAGE_SIZE && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleShowAll}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {t("categorySection.showAll", { count: links.length })}
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Drop zone indicator for empty categories during drag */}
                 {links.length === 0 && isDragActiveOverThis && (
