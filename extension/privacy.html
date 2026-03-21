@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stacklume — Pol&iacute;tica de Privacidad</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.7;
+      color: #e1e7ef;
+      background: #0a1628;
+      padding: 2rem 1.5rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.5rem; color: #d4a853; margin-bottom: 0.5rem; }
+    h2 { font-size: 1.1rem; color: #d4a853; margin-top: 2rem; margin-bottom: 0.5rem; }
+    p, li { color: #8492a6; font-size: 0.95rem; }
+    p { margin-bottom: 1rem; }
+    ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.4rem; }
+    strong { color: #e1e7ef; }
+    a { color: #d4a853; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .badge {
+      display: inline-block;
+      background: rgba(212, 168, 83, 0.15);
+      color: #d4a853;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .updated { color: #5a6b82; font-size: 0.85rem; margin-bottom: 2rem; }
+    hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 2rem 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Pol&iacute;tica de Privacidad</h1>
+  <p class="updated">&Uacute;ltima actualizaci&oacute;n: 21 de marzo de 2026</p>
+
+  <p>
+    La extensi&oacute;n <strong>Stacklume</strong> est&aacute; dise&ntilde;ada con la privacidad como prioridad.
+    No recopilamos, almacenamos ni compartimos datos personales de ning&uacute;n tipo.
+  </p>
+
+  <h2>1. Qu&eacute; datos procesa la extensi&oacute;n</h2>
+  <p>Cuando el usuario decide guardar un enlace, la extensi&oacute;n accede a:</p>
+  <ul>
+    <li><strong>URL</strong> de la p&aacute;gina activa o del enlace seleccionado.</li>
+    <li><strong>T&iacute;tulo</strong> de la p&aacute;gina (etiqueta <code>&lt;title&gt;</code> o <code>og:title</code>).</li>
+    <li><strong>Descripci&oacute;n</strong> (metaetiqueta <code>og:description</code> o <code>description</code>).</li>
+    <li><strong>Favicon e imagen OG</strong> (URLs de <code>&lt;link rel="icon"&gt;</code> y <code>og:image</code>).</li>
+  </ul>
+  <p>
+    La extensi&oacute;n <strong>no</strong> accede a cookies, localStorage, sessionStorage,
+    contrase&ntilde;as, formularios, historial de navegaci&oacute;n ni ning&uacute;n otro dato
+    de las p&aacute;ginas visitadas.
+  </p>
+
+  <h2>2. D&oacute;nde se almacenan los datos</h2>
+  <ul>
+    <li>
+      <strong>Configuraci&oacute;n de la extensi&oacute;n</strong> (URL del servidor, token de API, preferencias):
+      se almacena en <code>chrome.storage.sync</code>, cifrado por el navegador y sincronizado
+      solo entre dispositivos del mismo perfil de Chrome del usuario.
+    </li>
+    <li>
+      <strong>Enlaces guardados</strong>: se env&iacute;an exclusivamente a la instancia de Stacklume
+      configurada por el usuario (por defecto <code>http://127.0.0.1:7879</code>, la app de escritorio local).
+      Los datos se almacenan en la base de datos SQLite local de la aplicaci&oacute;n Stacklume en el
+      dispositivo del usuario.
+    </li>
+  </ul>
+
+  <h2>3. Servidores de terceros</h2>
+  <p>
+    La extensi&oacute;n <span class="badge">no env&iacute;a datos a ning&uacute;n servidor de terceros</span>.
+    Toda la comunicaci&oacute;n se realiza entre el navegador del usuario y su propia instancia de Stacklume.
+  </p>
+
+  <h2>4. Telemetr&iacute;a y an&aacute;lisis</h2>
+  <p>
+    La extensi&oacute;n <strong>no contiene</strong> c&oacute;digo de telemetr&iacute;a, anal&iacute;ticas,
+    seguimiento (tracking), p&iacute;xeles de rastreo ni herramientas de terceros como Google Analytics,
+    Sentry, Mixpanel o similares.
+  </p>
+
+  <h2>5. Token de API</h2>
+  <p>
+    El token de API (necesario para guardar enlaces directamente) se almacena en
+    <code>chrome.storage.sync</code>. Este almacenamiento est&aacute; cifrado por el navegador
+    y solo es accesible por la propia extensi&oacute;n. El token nunca se registra en logs,
+    no se muestra en consola y se transmite &uacute;nicamente al servidor Stacklume del usuario
+    mediante cabeceras HTTP <code>Authorization</code>.
+  </p>
+
+  <h2>6. Permisos del navegador</h2>
+  <ul>
+    <li><strong>activeTab</strong>: leer URL y t&iacute;tulo de la pesta&ntilde;a activa al hacer clic en la extensi&oacute;n.</li>
+    <li><strong>storage</strong>: persistir la configuraci&oacute;n de la extensi&oacute;n.</li>
+    <li><strong>contextMenus</strong>: ofrecer opciones de guardado en el men&uacute; contextual.</li>
+    <li><strong>tabs</strong>: consultar pesta&ntilde;as abiertas para la funci&oacute;n "guardar todas las pesta&ntilde;as".</li>
+    <li><strong>scripting</strong>: extraer metadatos de la p&aacute;gina (og:tags, favicon). No accede a cookies ni datos sensibles.</li>
+  </ul>
+
+  <h2>7. Actualizaciones</h2>
+  <p>
+    Esta pol&iacute;tica puede actualizarse para reflejar cambios en la funcionalidad de la extensi&oacute;n.
+    Cualquier cambio significativo ser&aacute; comunicado en las notas de la versi&oacute;n.
+  </p>
+
+  <hr />
+
+  <p>
+    <strong>Contacto:</strong> Si tienes preguntas sobre esta pol&iacute;tica, puedes abrir un issue en
+    <a href="https://github.com/SwonDev/Stacklume/issues" target="_blank" rel="noopener noreferrer">GitHub</a>.
+  </p>
+
+</body>
+</html>

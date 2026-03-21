@@ -3,6 +3,21 @@
  * Gestiona menús contextuales, atajos y comunicación entre componentes.
  */
 
+// ── Seguridad: validación de URL ─────────────────────────────────────────────
+
+/**
+ * Valida que una URL sea http: o https: y no un esquema peligroso
+ * (javascript:, data:, file:, chrome:, about:, etc.).
+ */
+function isValidHttpUrl(string) {
+  try {
+    const url = new URL(string);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 // ── Instalación ──────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -61,7 +76,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     targetTitle = info.srcUrl || "";
   }
 
-  if (!targetUrl) return;
+  if (!targetUrl || !isValidHttpUrl(targetUrl)) return;
 
   if (settings.apiToken) {
     // Guardar directamente via MCP
@@ -223,6 +238,10 @@ async function getSettings() {
 }
 
 async function saveViaApi(settings, data) {
+  // Validar la URL antes de enviar a la API
+  if (!data.url || !isValidHttpUrl(data.url)) {
+    return { success: false, error: "URL no válida. Solo se permiten http:// y https://" };
+  }
   const stacklumeUrl = settings.stacklumeUrl.replace(/\/$/, "");
   try {
     const response = await fetch(`${stacklumeUrl}/api/mcp`, {
@@ -337,6 +356,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message.type === "SAVE_VIA_API") {
+    if (!message.data?.url || !isValidHttpUrl(message.data.url)) {
+      sendResponse({ success: false, error: "URL no válida" });
+      return true;
+    }
     getSettings().then((settings) =>
       saveViaApi(settings, message.data).then(sendResponse)
     );
