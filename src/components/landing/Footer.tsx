@@ -1,91 +1,99 @@
 "use client";
 
-const footerSections = [
-  {
-    title: "Producto",
-    links: [
-      { label: "Funciones", href: "#funciones" },
-      { label: "Descargar", href: "#descargar" },
-      { label: "Demo", href: "https://demo.stacklume.app", external: true },
-    ],
-  },
-  {
-    title: "Recursos",
-    links: [
-      {
-        label: "Documentación",
-        href: "https://github.com/SwonDev/Stacklume#readme",
-        external: true,
-      },
-      {
-        label: "Changelog",
-        href: "https://github.com/SwonDev/Stacklume/releases",
-        external: true,
-      },
-      {
-        label: "Issues",
-        href: "https://github.com/SwonDev/Stacklume/issues",
-        external: true,
-      },
-    ],
-  },
-  {
-    title: "Comunidad",
-    links: [
-      {
-        label: "GitHub",
-        href: "https://github.com/SwonDev/Stacklume",
-        external: true,
-      },
-      {
-        label: "Ko-fi",
-        href: "https://ko-fi.com/swondev",
-        external: true,
-      },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      {
-        label: "Licencia MIT",
-        href: "https://github.com/SwonDev/Stacklume/blob/main/LICENSE",
-        external: true,
-      },
-    ],
-  },
-];
+const FOOTER_LINKS = {
+  Producto: [
+    { label: "Funciones", href: "#funciones" },
+    { label: "Descargar", href: "#descargar" },
+    {
+      label: "Changelog",
+      href: "https://github.com/SwonDev/Stacklume/releases",
+      external: true,
+    },
+  ],
+  Recursos: [
+    {
+      label: "GitHub",
+      href: "https://github.com/SwonDev/Stacklume",
+      external: true,
+    },
+    {
+      label: "Demo",
+      href: "https://demo.stacklume.app",
+      external: true,
+    },
+    {
+      label: "Documentación",
+      href: "https://github.com/SwonDev/Stacklume#readme",
+      external: true,
+    },
+  ],
+  Legal: [
+    { label: "Privacidad", href: "/landing/privacy" },
+    { label: "Cookies", href: "/landing/cookies" },
+    {
+      label: "Licencia MIT",
+      href: "https://github.com/SwonDev/Stacklume/blob/main/LICENSE",
+      external: true,
+    },
+  ],
+  Comunidad: [
+    {
+      label: "Ko-fi",
+      href: "https://ko-fi.com/swondev",
+      external: true,
+    },
+    {
+      label: "Twitter / X",
+      href: "https://x.com/SwonDev",
+      external: true,
+    },
+  ],
+};
 
 export function Footer() {
+  const handleAnchorClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => {
+    if (href.startsWith("#")) {
+      e.preventDefault();
+      const el = document.querySelector(href);
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <footer
-      className="border-t"
-      style={{
-        backgroundColor: "oklch(0.10 0.015 260)",
-        borderColor: "oklch(0.2 0.02 260)",
-      }}
+      className="border-t border-white/5"
+      style={{ backgroundColor: "#070e1a" }}
     >
-      <div className="mx-auto max-w-6xl px-6 py-12 md:py-16">
+      <div className="mx-auto max-w-6xl px-6 py-16">
         {/* Grid */}
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          {footerSections.map((section) => (
-            <div key={section.title}>
-              <h3
-                className="text-sm font-semibold mb-4"
-                style={{ color: "oklch(0.75 0 0)" }}
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          {Object.entries(FOOTER_LINKS).map(([category, links]) => (
+            <div key={category}>
+              <h4
+                className="mb-4 text-sm font-semibold"
+                style={{ color: "#e8eaf0" }}
               >
-                {section.title}
-              </h3>
-              <ul className="space-y-2.5">
-                {section.links.map((link) => (
+                {category}
+              </h4>
+              <ul className="flex flex-col gap-2.5">
+                {links.map((link) => (
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-sm transition-colors hover:text-[oklch(0.75_0.14_85)]"
-                      style={{ color: "oklch(0.45 0 0)" }}
-                      {...(link.external
-                        ? { target: "_blank", rel: "noopener noreferrer" }
-                        : {})}
+                      onClick={(e) => handleAnchorClick(e, link.href)}
+                      target={link.external ? "_blank" : undefined}
+                      rel={link.external ? "noopener noreferrer" : undefined}
+                      className="text-sm transition-colors"
+                      style={{ color: "#6b7280" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "#d4a853")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.color = "#6b7280")
+                      }
                     >
                       {link.label}
                     </a>
@@ -97,19 +105,19 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div
-          className="mt-12 pt-8 border-t flex flex-col items-center gap-3 md:flex-row md:justify-between"
-          style={{ borderColor: "oklch(0.2 0.02 260)" }}
-        >
-          <p className="text-xs" style={{ color: "oklch(0.4 0 0)" }}>
-            &copy; {new Date().getFullYear()} SwonDev. Todos los derechos
-            reservados.
-          </p>
+        <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
+          <div className="flex items-center gap-3">
+            <img src="/logo.svg" alt="Stacklume" className="size-6" />
+            <span className="text-sm font-medium" style={{ color: "#d4a853" }}>
+              Stacklume
+            </span>
+          </div>
           <p
-            className="text-xs font-mono"
-            style={{ color: "oklch(0.35 0 0)" }}
+            className="text-center text-xs"
+            style={{ color: "#6b7280", fontFamily: "monospace" }}
           >
-            Hecho con Tauri, Next.js y mucho caf&eacute;
+            &copy; 2026 SwonDev &middot; Hecho con Tauri, Next.js y mucho
+            caf&eacute;
           </p>
         </div>
       </div>

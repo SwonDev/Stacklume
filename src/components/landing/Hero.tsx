@@ -1,277 +1,159 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Download, ExternalLink, ChevronDown } from "lucide-react";
 import { motion } from "motion/react";
+import { ExternalLink } from "lucide-react";
+import { Particles } from "@/components/ui/particles";
+import { AnimatedShinyText } from "@/components/ui/animated-shiny-text";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { MagicCard } from "@/components/ui/magic-card";
 import { DownloadButton } from "./DownloadButton";
 
-const ease = [0.25, 0.1, 0.25, 1] as const;
-
-function BentoMockup() {
-  const cells = [
-    {
-      col: "1 / 3",
-      row: "1 / 3",
-      bg: "oklch(0.75 0.14 85 / 0.15)",
-      border: "oklch(0.75 0.14 85 / 0.25)",
-      label: "Dashboard",
-    },
-    {
-      col: "3 / 5",
-      row: "1 / 2",
-      bg: "oklch(0.5 0.15 260 / 0.2)",
-      border: "oklch(0.5 0.15 260 / 0.3)",
-      label: "Reloj",
-    },
-    {
-      col: "5 / 7",
-      row: "1 / 2",
-      bg: "oklch(0.6 0.12 160 / 0.15)",
-      border: "oklch(0.6 0.12 160 / 0.25)",
-      label: "Notas",
-    },
-    {
-      col: "3 / 4",
-      row: "2 / 3",
-      bg: "oklch(0.65 0.18 30 / 0.15)",
-      border: "oklch(0.65 0.18 30 / 0.25)",
-      label: "Todo",
-    },
-    {
-      col: "4 / 5",
-      row: "2 / 3",
-      bg: "oklch(0.55 0.12 300 / 0.15)",
-      border: "oklch(0.55 0.12 300 / 0.25)",
-      label: "Stats",
-    },
-    {
-      col: "5 / 7",
-      row: "2 / 4",
-      bg: "oklch(0.7 0.1 200 / 0.15)",
-      border: "oklch(0.7 0.1 200 / 0.25)",
-      label: "Enlaces",
-    },
-    {
-      col: "1 / 3",
-      row: "3 / 4",
-      bg: "oklch(0.6 0.15 120 / 0.15)",
-      border: "oklch(0.6 0.15 120 / 0.25)",
-      label: "Pomodoro",
-    },
-    {
-      col: "3 / 5",
-      row: "3 / 4",
-      bg: "oklch(0.7 0.14 50 / 0.15)",
-      border: "oklch(0.7 0.14 50 / 0.25)",
-      label: "Clima",
-    },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 60 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.6, ease }}
-      className="relative mx-auto mt-12 w-full max-w-4xl md:mt-16"
-      style={{ perspective: "1200px" }}
-    >
-      <div
-        className="rounded-2xl border p-4 md:p-6"
-        style={{
-          backgroundColor: "oklch(0.13 0.02 260)",
-          borderColor: "oklch(0.25 0.03 260)",
-          transform: "rotateX(4deg)",
-          transformOrigin: "center bottom",
-          boxShadow:
-            "0 -4px 40px oklch(0.75 0.14 85 / 0.06), 0 20px 60px oklch(0 0 0 / 0.4)",
-        }}
-      >
-        {/* Title bar */}
-        <div className="mb-4 flex items-center gap-2">
-          <div
-            className="size-3 rounded-full"
-            style={{ backgroundColor: "oklch(0.65 0.18 30)" }}
-          />
-          <div
-            className="size-3 rounded-full"
-            style={{ backgroundColor: "oklch(0.75 0.14 85)" }}
-          />
-          <div
-            className="size-3 rounded-full"
-            style={{ backgroundColor: "oklch(0.6 0.12 160)" }}
-          />
-          <div
-            className="ml-3 h-5 w-48 rounded"
-            style={{ backgroundColor: "oklch(0.2 0.02 260)" }}
-          />
-        </div>
-
-        {/* Grid */}
-        <div
-          className="grid gap-3"
-          style={{
-            gridTemplateColumns: "repeat(6, 1fr)",
-            gridTemplateRows: "repeat(3, 64px)",
-          }}
-        >
-          {cells.map((cell, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.8 + i * 0.06, ease }}
-              className="rounded-lg border p-3 flex items-end"
-              style={{
-                gridColumn: cell.col,
-                gridRow: cell.row,
-                backgroundColor: cell.bg,
-                borderColor: cell.border,
-              }}
-            >
-              <span
-                className="text-xs font-medium"
-                style={{ color: "oklch(0.55 0 0)" }}
-              >
-                {cell.label}
-              </span>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+const MOCK_WIDGETS = [
+  { label: "Favoritos", color: "#d4a853", w: 2, h: 2 },
+  { label: "Notas", color: "#4a9eff", w: 1, h: 1 },
+  { label: "Pomodoro", color: "#ef4444", w: 1, h: 1 },
+  { label: "GitHub Trending", color: "#8b5cf6", w: 2, h: 1 },
+  { label: "Reloj", color: "#10b981", w: 1, h: 1 },
+  { label: "Clima", color: "#06b6d4", w: 1, h: 1 },
+  { label: "Estadísticas", color: "#f59e0b", w: 2, h: 1 },
+  { label: "To-Do", color: "#ec4899", w: 1, h: 2 },
+  { label: "Cripto", color: "#6366f1", w: 1, h: 1 },
+  { label: "Calendario", color: "#14b8a6", w: 1, h: 1 },
+];
 
 export function Hero() {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden noise">
-      {/* Dot grid background */}
-      <div
-        className="dot-grid absolute inset-0 opacity-40"
-        aria-hidden="true"
+    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-24 pb-16">
+      {/* Particles background */}
+      <Particles
+        className="absolute inset-0"
+        quantity={30}
+        color="#d4a853"
+        size={1.2}
+        staticity={80}
+        ease={80}
       />
 
-      {/* Radial glow */}
-      <div
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full blur-3xl pointer-events-none"
-        style={{ backgroundColor: "oklch(0.75 0.14 85 / 0.06)" }}
-        aria-hidden="true"
-      />
-
-      <div className="relative z-10 w-full max-w-6xl px-6 pt-24 pb-12 text-center">
+      {/* Content */}
+      <div className="relative z-10 mx-auto flex max-w-5xl flex-col items-center text-center">
         {/* Badge */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease }}
+          transition={{ duration: 0.5 }}
+          className="mb-8 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-5 py-2 backdrop-blur-sm"
         >
-          <Badge
-            variant="outline"
-            className="mb-8 px-4 py-1.5 text-xs font-medium"
-            style={{
-              borderColor: "oklch(0.75 0.14 85 / 0.3)",
-              color: "oklch(0.75 0.14 85)",
-              backgroundColor: "oklch(0.75 0.14 85 / 0.08)",
-            }}
-          >
-            Open Source &middot; Licencia MIT
-          </Badge>
+          <AnimatedShinyText shimmerWidth={120}>
+            Open Source &middot; Licencia MIT &middot; Gratis
+          </AnimatedShinyText>
         </motion.div>
 
-        {/* Headline */}
+        {/* Heading */}
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15, ease }}
-          className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
-          style={{ color: "oklch(0.93 0 0)" }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-5xl leading-tight font-bold tracking-tight sm:text-6xl lg:text-7xl"
         >
-          Tu escritorio de enlaces.
+          <span style={{ color: "#e8eaf0" }}>Tu escritorio de enlaces.</span>
+          <br />
+          <span
+            className="bg-clip-text text-transparent"
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, #e6c77a 0%, #d4a853 40%, #b8923f 100%)",
+            }}
+          >
+            Perfectamente organizado.
+          </span>
         </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3, ease }}
-          className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl landing-gold-gradient"
-        >
-          Organizado. Privado. Tuyo.
-        </motion.p>
 
         {/* Subtitle */}
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.45, ease }}
-          className="mx-auto mt-6 max-w-2xl text-base md:text-lg"
-          style={{ color: "oklch(0.55 0 0)" }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl"
+          style={{ color: "#6b7280" }}
         >
-          Gestor de marcadores open-source con 120+ widgets, IA local y un
-          dashboard bento que se adapta a ti.
+          Gestor de marcadores con 120+ widgets, IA local y privacidad total.
         </motion.p>
 
         {/* CTAs */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6, ease }}
-          className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-10 flex flex-wrap items-center justify-center gap-4"
         >
-          <DownloadButton />
-          <Button
-            size="lg"
-            variant="outline"
-            className="gap-2 px-6 text-base"
-            style={{
-              borderColor: "oklch(0.3 0.02 260)",
-              color: "oklch(0.75 0 0)",
-            }}
-            asChild
-          >
-            <a
-              href="https://demo.stacklume.app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ExternalLink className="size-4" />
-              Ver demo en vivo
-            </a>
-          </Button>
-        </motion.div>
-
-        {/* Version info */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.75, ease }}
-          className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs"
-          style={{ color: "oklch(0.45 0 0)" }}
-        >
-          <span>Gratis</span>
-          <span>&middot;</span>
-          <span>Código abierto</span>
-          <span>&middot;</span>
-          <span>Windows</span>
-        </motion.div>
-
-        {/* Bento mockup */}
-        <BentoMockup />
-
-        {/* Scroll indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 1.2, ease }}
-          className="mt-12 flex justify-center"
-        >
+          <DownloadButton size="large" />
           <a
-            href="#funciones"
-            className="landing-bounce inline-flex flex-col items-center gap-1"
-            style={{ color: "oklch(0.4 0 0)" }}
-            aria-label="Ir a funciones"
+            href="https://demo.stacklume.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-7 py-4 text-lg font-medium text-[#e8eaf0]/80 transition-all hover:border-[#d4a853]/40 hover:text-[#d4a853]"
           >
-            <ChevronDown className="size-5" />
+            Ver demo en vivo
+            <ExternalLink className="size-4" />
           </a>
+        </motion.div>
+
+        {/* Product mockup */}
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="relative mt-20 w-full max-w-4xl"
+        >
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+            <BorderBeam
+              size={120}
+              duration={8}
+              colorFrom="#d4a853"
+              colorTo="#b8923f"
+              borderWidth={2}
+            />
+
+            {/* Bento grid mockup */}
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
+              {MOCK_WIDGETS.map((widget, i) => (
+                <MagicCard
+                  key={i}
+                  gradientColor="rgba(212, 168, 83, 0.15)"
+                  gradientFrom="#d4a853"
+                  gradientTo="#b8923f"
+                  gradientSize={150}
+                  className={`rounded-xl ${
+                    widget.w === 2 ? "col-span-2" : "col-span-1"
+                  } ${widget.h === 2 ? "row-span-2" : "row-span-1"}`}
+                >
+                  <div
+                    className="flex h-full min-h-[80px] flex-col items-start justify-end rounded-xl p-4"
+                    style={{
+                      background: `linear-gradient(135deg, ${widget.color}15 0%, transparent 60%)`,
+                    }}
+                  >
+                    <div
+                      className="mb-1.5 size-2 rounded-full"
+                      style={{ backgroundColor: widget.color }}
+                    />
+                    <span className="text-xs font-medium text-[#e8eaf0]/60">
+                      {widget.label}
+                    </span>
+                  </div>
+                </MagicCard>
+              ))}
+            </div>
+          </div>
+
+          {/* Glow effect behind mockup */}
+          <div
+            className="absolute -inset-4 -z-10 rounded-3xl opacity-30 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, #d4a853 0%, transparent 70%)",
+            }}
+          />
         </motion.div>
       </div>
     </section>

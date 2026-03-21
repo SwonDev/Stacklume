@@ -2,312 +2,249 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { cn } from "@/lib/utils";
+import { MagicCard } from "@/components/ui/magic-card";
+import { BorderBeam } from "@/components/ui/border-beam";
 
-const ease = [0.25, 0.1, 0.25, 1] as const;
-
-type TabId = "bento" | "kanban" | "lista" | "chat";
-
-interface Tab {
-  id: TabId;
-  label: string;
-}
-
-const tabs: Tab[] = [
+const TABS = [
   { id: "bento", label: "Bento Grid" },
   { id: "kanban", label: "Kanban" },
-  { id: "lista", label: "Lista" },
-  { id: "chat", label: "Chat IA" },
-];
+  { id: "list", label: "Lista" },
+] as const;
 
-function BentoMock() {
+type TabId = (typeof TABS)[number]["id"];
+
+function BentoMockup() {
   const cells = [
-    { col: "1/3", row: "1/2", color: "oklch(0.75 0.14 85 / 0.12)" },
-    { col: "3/5", row: "1/2", color: "oklch(0.5 0.15 260 / 0.15)" },
-    { col: "5/7", row: "1/3", color: "oklch(0.6 0.12 160 / 0.12)" },
-    { col: "1/2", row: "2/3", color: "oklch(0.65 0.18 30 / 0.12)" },
-    { col: "2/3", row: "2/3", color: "oklch(0.55 0.12 300 / 0.12)" },
-    { col: "3/5", row: "2/3", color: "oklch(0.7 0.1 200 / 0.12)" },
-    { col: "1/4", row: "3/4", color: "oklch(0.6 0.15 120 / 0.12)" },
-    { col: "4/7", row: "3/4", color: "oklch(0.7 0.14 50 / 0.12)" },
+    { w: "col-span-2", h: "row-span-2", color: "#d4a853", label: "Favoritos" },
+    { w: "col-span-1", h: "row-span-1", color: "#4a9eff", label: "Notas" },
+    { w: "col-span-1", h: "row-span-1", color: "#10b981", label: "Reloj" },
+    { w: "col-span-1", h: "row-span-1", color: "#ef4444", label: "Pomodoro" },
+    { w: "col-span-1", h: "row-span-1", color: "#8b5cf6", label: "Cripto" },
+    { w: "col-span-2", h: "row-span-1", color: "#f59e0b", label: "Estadísticas" },
   ];
+
   return (
-    <div
-      className="grid gap-2 h-full"
-      style={{
-        gridTemplateColumns: "repeat(6, 1fr)",
-        gridTemplateRows: "repeat(3, 1fr)",
-      }}
-    >
-      {cells.map((c, i) => (
+    <div className="grid grid-cols-4 gap-2.5 p-4">
+      {cells.map((cell, i) => (
         <div
           key={i}
-          className="rounded-lg border"
+          className={`${cell.w} ${cell.h} min-h-[60px] rounded-lg border border-white/10 p-3`}
           style={{
-            gridColumn: c.col,
-            gridRow: c.row,
-            backgroundColor: c.color,
-            borderColor: "oklch(0.25 0.03 260)",
+            background: `linear-gradient(135deg, ${cell.color}20 0%, ${cell.color}08 100%)`,
           }}
-        />
+        >
+          <div
+            className="mb-1 size-2 rounded-full"
+            style={{ backgroundColor: cell.color }}
+          />
+          <span className="text-[10px] font-medium text-[#e8eaf0]/50">
+            {cell.label}
+          </span>
+        </div>
       ))}
     </div>
   );
 }
 
-function KanbanMock() {
+function KanbanMockup() {
   const columns = [
-    { title: "Por leer", count: 4 },
-    { title: "Leyendo", count: 2 },
-    { title: "Leído", count: 5 },
+    {
+      title: "Por leer",
+      color: "#6b7280",
+      items: ["Tutorial React 19", "Guía de Tauri v2", "Clean Architecture"],
+    },
+    {
+      title: "En progreso",
+      color: "#d4a853",
+      items: ["Curso TypeScript", "API Design Patterns"],
+    },
+    {
+      title: "Completado",
+      color: "#10b981",
+      items: ["Intro a Rust", "Docker Basics", "Git Workflow"],
+    },
   ];
+
   return (
-    <div className="flex gap-3 h-full">
+    <div className="flex gap-3 overflow-x-auto p-4">
       {columns.map((col) => (
         <div
           key={col.title}
-          className="flex-1 rounded-lg border p-3 flex flex-col gap-2"
-          style={{
-            backgroundColor: "oklch(0.14 0.02 260)",
-            borderColor: "oklch(0.25 0.03 260)",
-          }}
+          className="min-w-[160px] flex-1 rounded-lg border border-white/10 bg-white/5 p-3"
         >
-          <div className="flex items-center justify-between mb-1">
-            <span
-              className="text-xs font-medium"
-              style={{ color: "oklch(0.65 0 0)" }}
-            >
+          <div className="mb-3 flex items-center gap-2">
+            <div
+              className="size-2 rounded-full"
+              style={{ backgroundColor: col.color }}
+            />
+            <span className="text-xs font-semibold text-[#e8eaf0]/70">
               {col.title}
             </span>
-            <span
-              className="text-xs px-1.5 py-0.5 rounded"
-              style={{
-                backgroundColor: "oklch(0.75 0.14 85 / 0.12)",
-                color: "oklch(0.75 0.14 85)",
-              }}
-            >
-              {col.count}
+            <span className="ml-auto text-[10px] text-[#6b7280]">
+              {col.items.length}
             </span>
           </div>
-          {Array.from({ length: col.count }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded border h-8"
-              style={{
-                backgroundColor: "oklch(0.18 0.02 260)",
-                borderColor: "oklch(0.25 0.03 260)",
-              }}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ListMock() {
-  const rows = 6;
-  return (
-    <div className="flex flex-col gap-2 h-full">
-      {/* Header */}
-      <div
-        className="flex items-center gap-4 px-4 py-2 rounded-lg"
-        style={{ backgroundColor: "oklch(0.14 0.02 260)" }}
-      >
-        <div
-          className="h-3 w-16 rounded"
-          style={{ backgroundColor: "oklch(0.25 0.03 260)" }}
-        />
-        <div
-          className="h-3 w-32 rounded flex-1"
-          style={{ backgroundColor: "oklch(0.25 0.03 260)" }}
-        />
-        <div
-          className="h-3 w-20 rounded"
-          style={{ backgroundColor: "oklch(0.25 0.03 260)" }}
-        />
-      </div>
-      {Array.from({ length: rows }).map((_, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-4 px-4 py-3 rounded-lg border"
-          style={{
-            backgroundColor: "oklch(0.16 0.02 260 / 0.5)",
-            borderColor: "oklch(0.22 0.03 260)",
-          }}
-        >
-          <div
-            className="size-6 rounded"
-            style={{
-              backgroundColor:
-                i % 2 === 0
-                  ? "oklch(0.75 0.14 85 / 0.15)"
-                  : "oklch(0.5 0.15 260 / 0.15)",
-            }}
-          />
-          <div className="flex-1 flex flex-col gap-1.5">
-            <div
-              className="h-3 rounded"
-              style={{
-                backgroundColor: "oklch(0.3 0.02 260)",
-                width: `${55 + ((i * 17) % 35)}%`,
-              }}
-            />
-            <div
-              className="h-2 rounded w-2/5"
-              style={{ backgroundColor: "oklch(0.22 0.02 260)" }}
-            />
+          <div className="flex flex-col gap-2">
+            {col.items.map((item) => (
+              <div
+                key={item}
+                className="rounded-md border border-white/5 bg-white/5 p-2.5"
+              >
+                <span className="text-[10px] font-medium text-[#e8eaf0]/60">
+                  {item}
+                </span>
+              </div>
+            ))}
           </div>
-          <div
-            className="h-5 w-14 rounded-full"
-            style={{
-              backgroundColor: "oklch(0.75 0.14 85 / 0.1)",
-              borderColor: "oklch(0.75 0.14 85 / 0.2)",
-            }}
-          />
         </div>
       ))}
     </div>
   );
 }
 
-function ChatMock() {
-  const messages = [
-    { from: "user" as const, text: "Busca recursos sobre React Server Components" },
-    { from: "ai" as const, text: "Encontré 3 enlaces relevantes en tu biblioteca y 5 resultados web..." },
-    { from: "user" as const, text: "Guarda los dos primeros" },
-    { from: "ai" as const, text: "Listo, los he añadido a la categoría Desarrollo." },
+function ListMockup() {
+  const items = [
+    { title: "React 19 Documentation", url: "react.dev", category: "Frontend", color: "#4a9eff" },
+    { title: "Tauri v2 Getting Started", url: "v2.tauri.app", category: "Desktop", color: "#f59e0b" },
+    { title: "TypeScript Handbook", url: "typescriptlang.org", category: "Lenguajes", color: "#3b82f6" },
+    { title: "Drizzle ORM Docs", url: "orm.drizzle.team", category: "Backend", color: "#10b981" },
+    { title: "Tailwind CSS v4", url: "tailwindcss.com", category: "CSS", color: "#06b6d4" },
   ];
+
   return (
-    <div className="flex flex-col gap-3 h-full justify-end">
-      {messages.map((msg, i) => (
+    <div className="flex flex-col p-4">
+      {/* Header row */}
+      <div className="mb-2 grid grid-cols-[1fr_120px_80px] gap-4 border-b border-white/10 px-3 pb-2">
+        <span className="text-[10px] font-semibold text-[#6b7280] uppercase">
+          Título
+        </span>
+        <span className="text-[10px] font-semibold text-[#6b7280] uppercase">
+          Dominio
+        </span>
+        <span className="text-[10px] font-semibold text-[#6b7280] uppercase">
+          Categoría
+        </span>
+      </div>
+      {items.map((item) => (
         <div
-          key={i}
-          className={cn("flex", msg.from === "user" ? "justify-end" : "justify-start")}
+          key={item.title}
+          className="grid grid-cols-[1fr_120px_80px] gap-4 border-b border-white/5 px-3 py-2.5 transition-colors hover:bg-white/5"
         >
-          <div
-            className="rounded-2xl px-4 py-2.5 max-w-[75%] text-xs leading-relaxed"
+          <span className="truncate text-xs font-medium text-[#e8eaf0]/70">
+            {item.title}
+          </span>
+          <span className="truncate text-[10px] text-[#6b7280]">
+            {item.url}
+          </span>
+          <span
+            className="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[9px] font-medium"
             style={{
-              backgroundColor:
-                msg.from === "user"
-                  ? "oklch(0.75 0.14 85 / 0.15)"
-                  : "oklch(0.18 0.02 260)",
-              borderColor:
-                msg.from === "user"
-                  ? "oklch(0.75 0.14 85 / 0.25)"
-                  : "oklch(0.25 0.03 260)",
-              border: "1px solid",
-              color: "oklch(0.75 0 0)",
+              backgroundColor: `${item.color}20`,
+              color: item.color,
             }}
           >
-            {msg.text}
-          </div>
+            {item.category}
+          </span>
         </div>
       ))}
     </div>
   );
 }
-
-const mockComponents: Record<TabId, React.ComponentType> = {
-  bento: BentoMock,
-  kanban: KanbanMock,
-  lista: ListMock,
-  chat: ChatMock,
-};
 
 export function Showcase() {
   const [activeTab, setActiveTab] = useState<TabId>("bento");
 
   return (
-    <section
-      className="relative py-24 md:py-32 noise"
-      style={{ backgroundColor: "oklch(0.11 0.018 260)" }}
-    >
-      <div className="relative z-10 mx-auto max-w-6xl px-6">
-        {/* Section header */}
+    <section className="relative py-24" style={{ backgroundColor: "#0a1628" }}>
+      <div className="mx-auto max-w-5xl px-6">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease }}
-          className="text-center"
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5 }}
+          className="mb-12 text-center"
         >
           <h2
-            className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl"
-            style={{ color: "oklch(0.93 0 0)" }}
+            className="text-4xl font-bold tracking-tight sm:text-5xl"
+            style={{ color: "#e8eaf0" }}
           >
-            Diseñado para cada{" "}
-            <span className="landing-gold-gradient">flujo de trabajo</span>
+            Diseñado para cada flujo de trabajo
           </h2>
+          <p className="mt-4 text-lg" style={{ color: "#6b7280" }}>
+            Elige la vista que mejor se adapte a tu estilo.
+          </p>
         </motion.div>
 
-        {/* Tabs */}
+        {/* Tab switcher */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1, ease }}
-          className="mt-10 flex justify-center"
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="mb-8 flex justify-center"
         >
-          <div
-            className="inline-flex gap-1 rounded-full p-1 border"
-            style={{
-              backgroundColor: "oklch(0.14 0.02 260)",
-              borderColor: "oklch(0.22 0.03 260)",
-            }}
-          >
-            {tabs.map((tab) => (
+          <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
+            {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "rounded-full px-5 py-2 text-sm font-medium transition-all duration-200",
-                )}
+                className="relative rounded-lg px-5 py-2.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor:
-                    activeTab === tab.id
-                      ? "oklch(0.75 0.14 85 / 0.15)"
-                      : "transparent",
-                  color:
-                    activeTab === tab.id
-                      ? "oklch(0.75 0.14 85)"
-                      : "oklch(0.5 0 0)",
+                  color: activeTab === tab.id ? "#e8eaf0" : "#6b7280",
                 }}
               >
-                {tab.label}
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="showcase-tab"
+                    className="absolute inset-0 rounded-lg"
+                    style={{ backgroundColor: "rgba(212, 168, 83, 0.15)" }}
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
               </button>
             ))}
           </div>
         </motion.div>
 
-        {/* Mock area */}
+        {/* Tab content */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2, ease }}
-          className="mt-8 rounded-2xl border p-6 md:p-8"
-          style={{
-            backgroundColor: "oklch(0.13 0.02 260)",
-            borderColor: "oklch(0.22 0.03 260)",
-            minHeight: "360px",
-          }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease }}
-              className="h-[320px]"
-            >
-              {(() => {
-                const Comp = mockComponents[activeTab];
-                return <Comp />;
-              })()}
-            </motion.div>
-          </AnimatePresence>
+          <MagicCard
+            gradientColor="rgba(212, 168, 83, 0.1)"
+            gradientFrom="#d4a853"
+            gradientTo="#b8923f"
+            gradientSize={300}
+            className="relative overflow-hidden rounded-2xl"
+          >
+            <BorderBeam
+              size={100}
+              duration={10}
+              colorFrom="#d4a853"
+              colorTo="#b8923f"
+              borderWidth={1}
+            />
+            <div className="min-h-[320px]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  {activeTab === "bento" && <BentoMockup />}
+                  {activeTab === "kanban" && <KanbanMockup />}
+                  {activeTab === "list" && <ListMockup />}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </MagicCard>
         </motion.div>
       </div>
     </section>
