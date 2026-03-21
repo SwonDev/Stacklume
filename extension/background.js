@@ -26,6 +26,13 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Guardar URL de esta imagen en Stacklume",
     contexts: ["image"],
   });
+
+  // Menú contextual: guardar todas las pestañas abiertas
+  chrome.contextMenus.create({
+    id: "stacklume-save-all-tabs",
+    title: "Guardar todas las pestañas abiertas",
+    contexts: ["page", "frame"],
+  });
 });
 
 // ── Menú contextual ───────────────────────────────────────────────────────────
@@ -33,6 +40,12 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const settings = await getSettings();
   const stacklumeUrl = settings.stacklumeUrl || "http://127.0.0.1:7879";
+
+  // ── Guardar todas las pestañas ──
+  if (info.menuItemId === "stacklume-save-all-tabs") {
+    await handleSaveAllTabs(settings, tab);
+    return;
+  }
 
   let targetUrl = "";
   let targetTitle = "";
@@ -54,28 +67,144 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Guardar directamente via MCP
     const result = await saveViaApi(settings, { url: targetUrl, title: targetTitle });
     if (result.success) {
-      // Notificación visual inyectada directamente en la pestaña activa
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: (msg) => {
-          const el = document.createElement('div');
-          el.style.cssText = 'position:fixed;top:20px;right:20px;z-index:2147483647;background:#0a1628;color:#d4a853;padding:12px 20px;border-radius:8px;font-family:system-ui,sans-serif;font-size:14px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.4);pointer-events:none;opacity:0;transition:opacity .2s ease';
-          el.textContent = msg;
-          document.body.appendChild(el);
-          requestAnimationFrame(() => { el.style.opacity = '1'; });
-          setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }, 2500);
-        },
-        args: ['✓ Guardado en Stacklume'],
-      }).catch(() => {});
+      const msg = result.duplicate
+        ? "Este enlace ya existe en tu biblioteca"
+        : "\u2713 Guardado en Stacklume";
+      injectNotification(tab.id, msg, result.duplicate ? "info" : "success");
     } else {
-      // Si falla, abrir en Stacklume
-      openInStacklume(stacklumeUrl, { url: targetUrl, title: targetTitle }, settings);
+      injectNotification(tab.id, result.error || "Error al guardar", "error");
     }
   } else {
     // Abrir en Stacklume con parámetros
     openInStacklume(stacklumeUrl, { url: targetUrl, title: targetTitle }, settings);
   }
 });
+
+// ── Guardar todas las pestañas ────────────────────────────────────────────────
+
+async function handleSaveAllTabs(settings, sourceTab) {
+  if (!settings.apiToken) {
+    injectNotification(
+      sourceTab.id,
+      "Configura un token de API para guardar pestañas directamente",
+      "error"
+    );
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  // Filtrar pestañas válidas (excluir chrome://, about:, extensiones, etc.)
+  const validTabs = tabs.filter((t) =>
+    t.url && (t.url.startsWith("http://") || t.url.startsWith("https://"))
+  );
+
+  if (validTabs.length === 0) {
+    injectNotification(sourceTab.id, "No hay pestañas válidas para guardar", "info");
+    return;
+  }
+
+  injectNotification(
+    sourceTab.id,
+    `Guardando ${validTabs.length} pestañas...`,
+    "info"
+  );
+
+  let saved = 0;
+  let duplicates = 0;
+  let errors = 0;
+
+  // Guardar en lotes de 3 para no saturar la API
+  for (let i = 0; i < validTabs.length; i += 3) {
+    const batch = validTabs.slice(i, i + 3);
+    const results = await Promise.allSettled(
+      batch.map((t) =>
+        saveViaApi(settings, { url: t.url, title: t.title || t.url })
+      )
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.success) {
+        if (r.value.duplicate) duplicates++;
+        else saved++;
+      } else {
+        errors++;
+      }
+    }
+  }
+
+  // Resumen
+  const parts = [];
+  if (saved > 0) parts.push(`${saved} guardadas`);
+  if (duplicates > 0) parts.push(`${duplicates} ya existían`);
+  if (errors > 0) parts.push(`${errors} con error`);
+  const summary = parts.join(", ");
+
+  injectNotification(
+    sourceTab.id,
+    `\u2713 ${validTabs.length} pestañas procesadas: ${summary}`,
+    errors > 0 ? "info" : "success"
+  );
+}
+
+// ── Notificación inyectada segura ─────────────────────────────────────────────
+
+function injectNotification(tabId, message, type) {
+  if (!tabId) return;
+
+  chrome.scripting.executeScript({
+    target: { tabId },
+    func: (msg, notifType) => {
+      // Eliminar notificación previa si existe
+      const prev = document.getElementById("__stacklume-notif");
+      if (prev) prev.remove();
+
+      const div = document.createElement("div");
+      div.id = "__stacklume-notif";
+
+      const bgColors = {
+        success: "#0a1628",
+        error: "#3b1111",
+        info: "#0a1628",
+      };
+      const textColors = {
+        success: "#d4a853",
+        error: "#f56565",
+        info: "#8492a6",
+      };
+
+      div.style.cssText = [
+        "position:fixed",
+        "top:20px",
+        "right:20px",
+        "z-index:2147483647",
+        "background:" + (bgColors[notifType] || bgColors.success),
+        "color:" + (textColors[notifType] || textColors.success),
+        "padding:12px 20px",
+        "border-radius:8px",
+        "font-family:system-ui,sans-serif",
+        "font-size:14px",
+        "font-weight:500",
+        "box-shadow:0 4px 16px rgba(0,0,0,.4)",
+        "pointer-events:none",
+        "opacity:0",
+        "transition:opacity .2s ease",
+        "max-width:360px",
+        "word-break:break-word",
+      ].join(";");
+
+      div.textContent = msg;
+      document.body.appendChild(div);
+
+      requestAnimationFrame(() => {
+        div.style.opacity = "1";
+      });
+      setTimeout(() => {
+        div.style.opacity = "0";
+        setTimeout(() => div.remove(), 200);
+      }, 3000);
+    },
+    args: [message, type],
+  }).catch(() => {});
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -118,15 +247,62 @@ async function saveViaApi(settings, data) {
         },
       }),
     });
+
+    // HTTP 409 = duplicado
+    if (response.status === 409) {
+      return { success: true, duplicate: true };
+    }
+
+    // HTTP 401/403 = token inválido
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        error: "Token de API inválido. Verifica en Ajustes \u2192 MCP",
+      };
+    }
+
     const json = await response.json();
-    if (json.error) return { success: false, error: json.error.message };
+    if (json.error) {
+      if (json.error.code === -32001) {
+        return {
+          success: false,
+          error: "Token de API inválido. Verifica en Ajustes \u2192 MCP",
+        };
+      }
+      return { success: false, error: json.error.message };
+    }
+
     const result = json.result?.content?.[0]?.text || "";
     if (result.includes("Error") || result.includes("error")) {
-      return { success: false, error: result };
+      // Duplicado reportado por el MCP
+      if (
+        result.includes("duplicad") ||
+        result.includes("409") ||
+        result.includes("Ya existe") ||
+        result.includes("ya existe")
+      ) {
+        return { success: true, duplicate: true };
+      }
+      return { success: false, error: result.slice(0, 120) };
     }
+
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    // Errores de red específicos
+    if (err.name === "TypeError" && err.message.includes("Failed to fetch")) {
+      return {
+        success: false,
+        error:
+          "No se pudo conectar a Stacklume. \u00bfEst\u00e1 la aplicaci\u00f3n abierta?",
+      };
+    }
+    if (!navigator.onLine) {
+      return { success: false, error: "Sin conexi\u00f3n a internet" };
+    }
+    return {
+      success: false,
+      error: "No se pudo conectar a Stacklume. \u00bfEst\u00e1 la aplicaci\u00f3n abierta?",
+    };
   }
 }
 

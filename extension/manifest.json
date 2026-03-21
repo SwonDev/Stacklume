@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stacklume — Guarda enlaces",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Guarda el enlace actual en Stacklume con un solo clic. Compatible con la app de escritorio y cualquier instancia propia.",
   "homepage_url": "https://github.com/SwonDev/Stacklume",
   "icons": {
@@ -31,8 +31,12 @@
     "scripting"
   ],
   "host_permissions": [
-    "*://*/*"
+    "http://*/*",
+    "https://*/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  },
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true

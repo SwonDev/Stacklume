@@ -10,6 +10,7 @@ import {
   categories,
   tags,
   links,
+  linkTags,
   projects,
   userSettings,
   customWidgetTypes,
@@ -131,6 +132,7 @@ const addLinkArgs = z.object({
   description: z.string().max(5000).nullable().optional(),
   categoryId: optionalUuidParam,
   isFavorite: z.boolean().optional().default(false),
+  tagIds: z.array(z.string()).optional(),
 });
 
 /** update_link */
@@ -627,7 +629,7 @@ async function handleListLinks(args: Record<string, unknown>): Promise<ToolResul
 async function handleAddLink(args: Record<string, unknown>): Promise<ToolResult> {
   const v = validateArgs(addLinkArgs, args);
   if (!v.ok) return v.error;
-  const { url, title, description, categoryId, isFavorite } = v.data;
+  const { url, title, description, categoryId, isFavorite, tagIds } = v.data;
   const [created] = await withRetry(
     () =>
       db
@@ -645,6 +647,22 @@ async function handleAddLink(args: Record<string, unknown>): Promise<ToolResult>
         .returning(),
     { operationName: "add link" }
   );
+
+  // Asociar etiquetas si se proporcionaron
+  if (tagIds && tagIds.length > 0) {
+    try {
+      await withRetry(
+        () =>
+          db.insert(linkTags).values(
+            tagIds.map((tagId) => ({ linkId: created.id, tagId }))
+          ).onConflictDoNothing(),
+        { operationName: "insert link tags (MCP add_link)" }
+      );
+    } catch {
+      // No bloquear si falla la asociación de tags
+    }
+  }
+
   return ok({ success: true, link: { id: created.id, url: created.url, title: created.title } });
 }
 

@@ -15,6 +15,7 @@
   --success-bg: rgba(52, 201, 126, 0.1);
   --error: #f56565;
   --error-bg: rgba(245, 101, 101, 0.1);
+  --info-bg: rgba(132, 146, 166, 0.1);
   --radius: 10px;
   --radius-sm: 6px;
 }
@@ -42,6 +43,9 @@ body {
   padding: 28px 0 20px;
   border-bottom: 1px solid var(--navy-border);
   margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .header-brand {
@@ -66,6 +70,16 @@ body {
 .header-sub {
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.header-version {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-border);
+  border-radius: 20px;
+  padding: 2px 10px;
+  white-space: nowrap;
 }
 
 /* ── Sections ──────────────────────────────────────────────────────────────── */
@@ -268,6 +282,12 @@ body {
   color: var(--gold);
 }
 
+/* ── Botón file input (importar) ───────────────────────────────────────────── */
+
+.btn--file-label {
+  cursor: pointer;
+}
+
 /* ── Test result ───────────────────────────────────────────────────────────── */
 
 .test-result {
@@ -318,6 +338,108 @@ kbd {
   color: var(--success);
   font-size: 13px;
   font-weight: 500;
+}
+
+/* ── Backup actions ────────────────────────────────────────────────────────── */
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.backup-status {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.backup-status--ok {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid rgba(52, 201, 126, 0.2);
+}
+
+.backup-status--error {
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid rgba(245, 101, 101, 0.2);
+}
+
+/* ── Privacy ───────────────────────────────────────────────────────────────── */
+
+.privacy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.privacy-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.privacy-item strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.privacy-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.privacy-icon--ok {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+/* ── About ─────────────────────────────────────────────────────────────────── */
+
+.about-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.about-version {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.about-version strong {
+  color: var(--gold);
+}
+
+.about-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.about-link:hover {
+  color: var(--gold);
 }
 
 /* ── Utility ───────────────────────────────────────────────────────────────── */

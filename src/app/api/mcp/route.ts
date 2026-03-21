@@ -218,6 +218,7 @@ const TOOL_DEFINITIONS = [
         description: { type: "string", description: "Descripción (opcional)" },
         categoryId: { type: "string", description: "ID de categoría (opcional)" },
         isFavorite: { type: "boolean", description: "Marcar como favorito (opcional)" },
+        tagIds: { type: "array", items: { type: "string" }, description: "IDs de etiquetas a asociar (opcional)" },
       },
       required: ["url", "title"],
     },
