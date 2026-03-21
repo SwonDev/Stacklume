@@ -133,6 +133,11 @@ const addLinkArgs = z.object({
   categoryId: optionalUuidParam,
   isFavorite: z.boolean().optional().default(false),
   tagIds: z.array(z.string()).optional(),
+  notes: z.string().max(10000).nullable().optional(),
+  reminderAt: z.string().nullable().optional(),
+  platform: z.string().max(50).nullable().optional(),
+  contentType: z.string().max(30).nullable().optional(),
+  readingStatus: z.enum(["inbox", "reading", "done"]).optional().default("inbox"),
 });
 
 /** update_link */
@@ -629,7 +634,7 @@ async function handleListLinks(args: Record<string, unknown>): Promise<ToolResul
 async function handleAddLink(args: Record<string, unknown>): Promise<ToolResult> {
   const v = validateArgs(addLinkArgs, args);
   if (!v.ok) return v.error;
-  const { url, title, description, categoryId, isFavorite, tagIds } = v.data;
+  const { url, title, description, categoryId, isFavorite, tagIds, notes, reminderAt, platform, contentType, readingStatus } = v.data;
   const [created] = await withRetry(
     () =>
       db
@@ -641,6 +646,11 @@ async function handleAddLink(args: Record<string, unknown>): Promise<ToolResult>
           description: description || null,
           categoryId: categoryId || null,
           isFavorite: isFavorite,
+          notes: notes || null,
+          reminderAt: reminderAt ? new Date(reminderAt) : null,
+          platform: platform || null,
+          contentType: contentType || null,
+          readingStatus: readingStatus || "inbox",
           createdAt: new Date(),
           updatedAt: new Date(),
         })

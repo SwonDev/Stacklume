@@ -605,6 +605,106 @@ body {
   color: var(--gold-dim);
 }
 
+/* ── Platform badge ──────────────────────────────────────────────────── */
+
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: white;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+/* ── Command detected ───────────────────────────────────────────────── */
+
+.command-detected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: var(--amber-bg);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease;
+}
+
+.command-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* ── Collapsible toggle ─────────────────────────────────────────────── */
+
+.collapsible-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+
+.collapsible-chevron {
+  color: var(--text-dim);
+  transition: transform var(--transition);
+}
+
+.collapsible-toggle[aria-expanded="true"] .collapsible-chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible-content {
+  animation: slideDown 0.2s ease;
+}
+
+/* ── Reminder row ───────────────────────────────────────────────────── */
+
+.reminder-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.reminder-row .form-input {
+  flex: 1;
+  font-size: 11px;
+  color-scheme: dark;
+}
+
+.btn--icon {
+  background: none;
+  border: 1px solid var(--navy-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.btn--icon:hover {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--error-bg);
+}
+
 /* ── Utilities ───────────────────────────────────────────────────────── */
 
 .hidden {

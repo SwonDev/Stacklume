@@ -45,9 +45,15 @@
       </div>
     </div>
     <div class="page-info">
-      <p class="page-title" id="page-display-title">Cargando...</p>
+      <p class="page-title" id="page-display-title">Cargando...<span id="platform-badge" class="platform-badge" style="display:none"></span></p>
       <p class="page-url" id="page-display-url"></p>
     </div>
+  </div>
+
+  <!-- Comando detectado -->
+  <div class="command-detected hidden" id="command-detected">
+    <span class="command-icon">⌨</span>
+    <span id="command-text">Comando detectado</span>
   </div>
 
   <!-- Formulario -->
@@ -105,6 +111,31 @@
         <button type="button" class="reading-btn" data-status="done" aria-label="Leído" aria-pressed="false">
           <span class="reading-icon">✅</span> Leído
         </button>
+      </div>
+    </div>
+
+    <!-- Notas personales -->
+    <div class="form-group hidden" id="notes-group">
+      <button type="button" class="collapsible-toggle" id="notes-toggle" aria-expanded="false" aria-controls="notes-content">
+        <span class="form-label" style="cursor:pointer">Notas personales</span>
+        <svg class="collapsible-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="collapsible-content" id="notes-content" style="display:none">
+        <textarea
+          id="notes"
+          class="form-textarea"
+          rows="2"
+          placeholder="Añade notas sobre este enlace..."
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Recordatorio -->
+    <div class="form-group hidden" id="reminder-group">
+      <label class="form-label" for="reminder">Recordatorio</label>
+      <div class="reminder-row">
+        <input type="datetime-local" id="reminder" class="form-input" />
+        <button type="button" class="btn--icon hidden" id="clear-reminder" title="Quitar recordatorio" aria-label="Quitar recordatorio">✕</button>
       </div>
     </div>
 

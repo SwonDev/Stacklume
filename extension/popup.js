@@ -2,6 +2,47 @@
  * Stacklume Extension — Popup Script
  */
 
+// ── Seguridad ─────────────────────────────────────────────────────────────────
+
+/**
+ * Sanitiza texto para prevenir inyección XSS al construir HTML.
+ * Para textContent ya es seguro, pero esta función protege cualquier
+ * uso futuro de innerHTML o inserción dinámica.
+ */
+function sanitizeText(text) {
+  if (typeof text !== "string") return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Valida que una URL sea http: o https: y no un esquema peligroso
+ * (javascript:, data:, file:, chrome:, about:, etc.).
+ */
+function isValidHttpUrl(string) {
+  try {
+    const url = new URL(string);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+
+let lastSaveTime = 0;
+
+/**
+ * Previene doble-guardado accidental con un cooldown de 2 segundos.
+ */
+function canSave() {
+  const now = Date.now();
+  if (now - lastSaveTime < 2000) return false;
+  lastSaveTime = now;
+  return true;
+}
+
 // ── Estado global ─────────────────────────────────────────────────────────────
 
 let currentTab = null;
@@ -12,6 +53,8 @@ let categories = [];
 let tags = [];
 let selectedTagIds = new Set();
 let readingStatus = "inbox";
+let detectedPlatform = null;
+let detectedCommand = null;
 
 // ── Elementos DOM ─────────────────────────────────────────────────────────────
 
@@ -33,6 +76,16 @@ const els = {
   tagsGroup:          $("tags-group"),
   tagsContainer:      $("tags-container"),
   btnFavorite:        $("btn-favorite"),
+  platformBadge:      $("platform-badge"),
+  commandDetected:    $("command-detected"),
+  commandText:        $("command-text"),
+  notesGroup:         $("notes-group"),
+  notesToggle:        $("notes-toggle"),
+  notesContent:       $("notes-content"),
+  notesInput:         $("notes"),
+  reminderGroup:      $("reminder-group"),
+  reminderInput:      $("reminder"),
+  clearReminder:      $("clear-reminder"),
   btnOpen:            $("btn-open"),
   btnSave:            $("btn-save"),
   saveLabel:          $("save-label"),
@@ -68,6 +121,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Mostrar info básica de la pestaña
   renderPagePreview(currentTab.url, currentTab.title, null);
 
+  // Detectar plataforma desde la URL
+  detectedPlatform = detectPlatform(currentTab.url);
+  if (detectedPlatform) {
+    showPlatformBadge(detectedPlatform);
+  }
+
   // Extraer metadatos ricos del content script
   pageMetadata = await extractMetadata(currentTab);
   if (pageMetadata) {
@@ -88,6 +147,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     els.noTokenHint.classList.add("hidden");
     els.saveLabel.textContent = "Guardar";
     els.readingStatusGroup.classList.remove("hidden");
+    els.notesGroup.classList.remove("hidden");
+    els.reminderGroup.classList.remove("hidden");
     els.saveAllSection.classList.remove("hidden");
 
     // Cargar categorías, etiquetas y verificar si ya está guardado en paralelo
@@ -125,6 +186,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Reading status buttons
   document.querySelectorAll(".reading-btn").forEach((btn) => {
     btn.addEventListener("click", () => setReadingStatus(btn.dataset.status));
+  });
+
+  // Notes collapsible toggle
+  els.notesToggle.addEventListener("click", () => {
+    const expanded = els.notesToggle.getAttribute("aria-expanded") === "true";
+    els.notesToggle.setAttribute("aria-expanded", String(!expanded));
+    els.notesContent.style.display = expanded ? "none" : "";
+    if (!expanded) els.notesInput.focus();
+  });
+
+  // Reminder clear button
+  els.reminderInput.addEventListener("input", () => {
+    els.clearReminder.classList.toggle("hidden", !els.reminderInput.value);
+  });
+  els.clearReminder.addEventListener("click", () => {
+    els.reminderInput.value = "";
+    els.clearReminder.classList.add("hidden");
+  });
+
+  // Command detection on title input (in case user pastes a command)
+  els.inputTitle.addEventListener("input", () => {
+    const val = els.inputTitle.value.trim();
+    const cmd = detectCommand(val);
+    if (cmd) {
+      applyDetectedCommand(cmd, val);
+    } else if (detectedCommand) {
+      // Clear command state if text no longer matches
+      detectedCommand = null;
+      els.commandDetected.classList.add("hidden");
+    }
   });
 });
 
@@ -357,7 +448,8 @@ async function checkAlreadySaved(url) {
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function renderPagePreview(url, title, faviconUrl) {
-  els.pageTitle.textContent = title || url || "Sin título";
+  // Actualizar solo el nodo de texto, preservando el span del platform badge
+  els.pageTitle.childNodes[0].textContent = title || url || "Sin título";
   try {
     const parsed = new URL(url || "");
     els.pageUrl.textContent = parsed.hostname + (parsed.pathname !== "/" ? parsed.pathname : "");
@@ -419,7 +511,7 @@ function renderTags(tagList) {
     badge.className = "tag-badge";
     badge.dataset.tagId = tag.id;
     badge.setAttribute("aria-pressed", "false");
-    badge.setAttribute("aria-label", `Etiqueta: ${tag.name}`);
+    badge.setAttribute("aria-label", `Etiqueta: ${sanitizeText(tag.name)}`);
 
     // Color del tag
     const color = tag.color || "#8492a6";
@@ -494,6 +586,15 @@ async function handleSave(e) {
     return;
   }
 
+  // Validar URL antes de guardar
+  if (!isValidHttpUrl(data.url)) {
+    showError("URL no válida. Solo se permiten enlaces http:// y https://");
+    return;
+  }
+
+  // Rate limiting: prevenir doble-clic accidental
+  if (!canSave()) return;
+
   // Sin token: redirigir a Stacklume
   if (!settings.apiToken) {
     handleOpenInStacklume();
@@ -522,6 +623,9 @@ async function handleSave(e) {
  */
 async function handleSaveAllTabs() {
   if (!settings.apiToken) return;
+
+  // Rate limiting: prevenir doble-clic accidental
+  if (!canSave()) return;
 
   const allTabs = await new Promise((resolve) => {
     chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs || []));
@@ -582,6 +686,10 @@ async function handleSaveAllTabs() {
 }
 
 async function saveViaApi(data) {
+  // Validar la URL antes de enviar a la API
+  if (!data.url || !isValidHttpUrl(data.url)) {
+    return { success: false, error: "URL no válida. Solo se permiten http:// y https://" };
+  }
   const base = (settings.stacklumeUrl || "").replace(/\/$/, "");
   try {
     const args = {
@@ -596,6 +704,13 @@ async function saveViaApi(data) {
     if (data.tagIds && data.tagIds.length > 0) {
       args.tagIds = data.tagIds;
     }
+
+    // Campos adicionales
+    if (data.notes) args.notes = data.notes;
+    if (data.reminderAt) args.reminderAt = data.reminderAt;
+    if (data.platform) args.platform = data.platform;
+    if (data.contentType) args.contentType = data.contentType;
+    if (data.readingStatus && data.readingStatus !== "inbox") args.readingStatus = data.readingStatus;
 
     const res = await fetch(`${base}/api/mcp`, {
       method: "POST",
@@ -675,12 +790,17 @@ async function saveViaApi(data) {
 }
 
 function collectFormData() {
-  const url = pageMetadata?.url || currentTab?.url || "";
+  let url = detectedCommand ? detectedCommand.url : (pageMetadata?.url || currentTab?.url || "");
   const title = els.inputTitle.value.trim();
   const description = els.inputDescription.value.trim();
   const categoryId = els.selectCategory.value || "";
   const tagIds = [...selectedTagIds];
-  return { url, title, description, categoryId, isFavorite, tagIds, readingStatus };
+  const notes = els.notesInput ? els.notesInput.value.trim() : "";
+  const reminderVal = els.reminderInput ? els.reminderInput.value : "";
+  const reminderAt = reminderVal ? new Date(reminderVal).toISOString() : null;
+  const platform = detectedPlatform ? detectedPlatform.name.toLowerCase() : null;
+  const contentType = detectedPlatform ? (detectedPlatform.contentType || null) : null;
+  return { url, title, description, categoryId, isFavorite, tagIds, readingStatus, notes, reminderAt, platform, contentType };
 }
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
@@ -708,7 +828,15 @@ function showError(msg) {
 function normalizeUrl(url) {
   try {
     const u = new URL(url);
-    return u.origin + u.pathname.replace(/\/$/, "");
+    // Eliminar parámetros de tracking conocidos
+    const trackingParams = [
+      "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+      "ref", "fbclid", "gclid", "mc_cid", "mc_eid", "msclkid", "twclid",
+    ];
+    trackingParams.forEach((p) => u.searchParams.delete(p));
+    // Normalizar path (eliminar trailing slash)
+    const path = u.pathname.replace(/\/+$/, "") || "/";
+    return `${u.protocol}//${u.hostname}${path}${u.search}${u.hash}`;
   } catch {
     return url;
   }
@@ -724,4 +852,95 @@ function hexToRgba(hex, alpha) {
   const b = parseInt(hex.slice(5, 7), 16);
   if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(132, 146, 166, ${alpha})`;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// ── Detección de plataforma ──────────────────────────────────────────────────
+
+function detectPlatform(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    const platforms = {
+      "youtube.com":            { name: "YouTube",       color: "#FF0000", icon: "\u25B6",  contentType: "video" },
+      "youtu.be":               { name: "YouTube",       color: "#FF0000", icon: "\u25B6",  contentType: "video" },
+      "github.com":             { name: "GitHub",        color: "#24292e", icon: "\u2699",  contentType: "code" },
+      "store.steampowered.com": { name: "Steam",         color: "#1b2838", icon: "\uD83C\uDFAE", contentType: "game" },
+      "twitter.com":            { name: "X/Twitter",     color: "#1DA1F2", icon: "\uD835\uDD4F", contentType: "social" },
+      "x.com":                  { name: "X/Twitter",     color: "#1DA1F2", icon: "\uD835\uDD4F", contentType: "social" },
+      "reddit.com":             { name: "Reddit",        color: "#FF4500", icon: "\uD83D\uDD34", contentType: "social" },
+      "stackoverflow.com":      { name: "StackOverflow", color: "#F48024", icon: "\uD83D\uDCDA", contentType: "code" },
+      "medium.com":             { name: "Medium",        color: "#00AB6C", icon: "\uD83D\uDCDD", contentType: "article" },
+      "dev.to":                 { name: "DEV",           color: "#0A0A0A", icon: "\uD83D\uDC69\u200D\uD83D\uDCBB", contentType: "article" },
+      "figma.com":              { name: "Figma",         color: "#F24E1E", icon: "\uD83C\uDFA8", contentType: "design" },
+      "dribbble.com":           { name: "Dribbble",      color: "#EA4C89", icon: "\uD83C\uDFC0", contentType: "design" },
+      "npmjs.com":              { name: "npm",           color: "#CB3837", icon: "\uD83D\uDCE6", contentType: "code" },
+      "spotify.com":            { name: "Spotify",       color: "#1DB954", icon: "\uD83C\uDFB5", contentType: "music" },
+      "linkedin.com":           { name: "LinkedIn",      color: "#0077B5", icon: "\uD83D\uDCBC", contentType: "social" },
+    };
+    for (const [domain, info] of Object.entries(platforms)) {
+      if (hostname === domain || hostname.endsWith("." + domain)) return info;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Muestra el badge de plataforma junto al título de la página.
+ */
+function showPlatformBadge(platform) {
+  if (!platform || !els.platformBadge) return;
+  els.platformBadge.textContent = platform.icon + " " + platform.name;
+  els.platformBadge.style.backgroundColor = platform.color;
+  els.platformBadge.style.display = "inline-flex";
+}
+
+// ── Detección de comandos ────────────────────────────────────────────────────
+
+function detectCommand(text) {
+  const patterns = [
+    { regex: /^(npm|npx)\s+(install|i|add)\s+/i,  registry: "npm",    base: "https://www.npmjs.com/package/" },
+    { regex: /^(yarn|pnpm)\s+add\s+/i,            registry: "npm",    base: "https://www.npmjs.com/package/" },
+    { regex: /^pip\s+install\s+/i,                 registry: "pypi",   base: "https://pypi.org/project/" },
+    { regex: /^cargo\s+(install|add)\s+/i,         registry: "crates", base: "https://crates.io/crates/" },
+    { regex: /^brew\s+install\s+/i,                registry: "brew",   base: "https://formulae.brew.sh/formula/" },
+    { regex: /^gem\s+install\s+/i,                 registry: "ruby",   base: "https://rubygems.org/gems/" },
+    { regex: /^go\s+(install|get)\s+/i,            registry: "go",     base: "https://pkg.go.dev/" },
+    { regex: /^bun\s+add\s+/i,                     registry: "npm",    base: "https://www.npmjs.com/package/" },
+  ];
+  for (const p of patterns) {
+    if (p.regex.test(text)) {
+      const pkg = text.replace(p.regex, "").split(/\s/)[0].replace(/@[\d.]+$/, "");
+      if (!pkg) return null;
+      return { registry: p.registry, package: pkg, url: p.base + pkg };
+    }
+  }
+  return null;
+}
+
+/**
+ * Aplica un comando detectado: actualiza la URL, título y muestra el badge.
+ */
+function applyDetectedCommand(cmd) {
+  detectedCommand = cmd;
+  els.commandDetected.classList.remove("hidden");
+  els.commandText.textContent = "Comando detectado: " + cmd.registry + " \u2192 " + cmd.package;
+
+  // Actualizar el título con el nombre del paquete
+  els.inputTitle.value = cmd.package;
+
+  // Actualizar la preview de la página
+  els.pageTitle.childNodes[0].textContent = cmd.package;
+  try {
+    const parsed = new URL(cmd.url);
+    els.pageUrl.textContent = parsed.hostname + parsed.pathname;
+  } catch {
+    els.pageUrl.textContent = cmd.url;
+  }
+
+  // Detectar plataforma del registry
+  detectedPlatform = detectPlatform(cmd.url);
+  if (detectedPlatform) {
+    showPlatformBadge(detectedPlatform);
+  }
 }

@@ -2,6 +2,22 @@
  * Stacklume Extension — Options Page
  */
 
+// ── Seguridad ─────────────────────────────────────────────────────────────────
+
+/**
+ * Valida que una URL sea http: o https: y no un esquema peligroso.
+ */
+function isValidHttpUrl(string) {
+  try {
+    const url = new URL(string);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// ── DOM ───────────────────────────────────────────────────────────────────────
+
 const $ = (id) => document.getElementById(id);
 
 const els = {
@@ -66,6 +82,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Exportar / Importar configuración
   els.btnExportConfig.addEventListener("click", exportConfig);
   els.inputImportConfig.addEventListener("change", importConfig);
+
+  // Limpiar token del DOM al cerrar la página (seguridad)
+  window.addEventListener("pagehide", () => {
+    if (els.inputToken) {
+      els.inputToken.value = "";
+    }
+  });
 });
 
 // ── Cargar / guardar ajustes ───────────────────────────────────────────────
@@ -100,6 +123,12 @@ async function saveSettings() {
   const apiToken = els.inputToken.value.trim();
   const openMode = els.selectOpenMode.value;
   const defaultCategory = els.selectDefaultCat.value;
+
+  // Validar URL del servidor
+  if (stacklumeUrl && !isValidHttpUrl(stacklumeUrl)) {
+    showTestResult("error", "URL no válida. Debe empezar con http:// o https://");
+    return;
+  }
 
   await new Promise((resolve) => {
     chrome.storage.sync.set(
@@ -307,7 +336,22 @@ function importConfig(e) {
         return;
       }
 
-      chrome.storage.sync.set(importedSettings, () => {
+      // Validar que la URL importada sea http/https
+      if (!isValidHttpUrl(importedSettings.stacklumeUrl)) {
+        showBackupStatus("error", "La URL del archivo no es válida (solo http:// o https://).");
+        return;
+      }
+
+      // Solo importar claves conocidas para evitar inyección de datos
+      const safeSettings = {};
+      const allowedKeys = ["stacklumeUrl", "apiToken", "openMode", "defaultCategory"];
+      for (const key of allowedKeys) {
+        if (key in importedSettings) {
+          safeSettings[key] = importedSettings[key];
+        }
+      }
+
+      chrome.storage.sync.set(safeSettings, () => {
         showBackupStatus("ok", "Configuración importada. Recargando...");
         setTimeout(() => location.reload(), 1000);
       });
