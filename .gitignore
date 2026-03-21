@@ -137,6 +137,15 @@ playwright.extension.config.ts
 # AI tools config — instrucciones internas para asistentes de código
 AGENTS.md
 
+# Extensión del navegador (repo y distribución separados)
+/extension/
+/dist-extension/
+/assets/extension/
+/assets/extension-en/
+
+# Componentes solo para la web (no forman parte de la app)
+/src/components/kokonutui/
+
 # Proyectos independientes que viven en este directorio
 /stacklume-web/
 
