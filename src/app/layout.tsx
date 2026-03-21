@@ -11,6 +11,7 @@ import { DemoBanner } from "@/components/demo/DemoBanner";
 import { ExtensionLinkHandler } from "@/components/layout/ExtensionLinkHandler";
 import { QuickLauncherOverlay } from "@/components/layout/QuickLauncherOverlay";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -135,6 +136,7 @@ export default function RootLayout({
           </Providers>
         )}
         {!isDesktopMode && <Analytics />}
+        {!isDesktopMode && <SpeedInsights />}
       </body>
     </html>
   );
