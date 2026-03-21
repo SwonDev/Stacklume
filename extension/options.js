@@ -15,9 +15,18 @@ const els = {
   btnSave:              $("btn-save"),
   saveStatus:           $("save-status"),
   linkShortcuts:        $("link-shortcuts"),
+  btnExportConfig:      $("btn-export-config"),
+  inputImportConfig:    $("input-import-config"),
+  backupStatus:         $("backup-status"),
 };
 
 let categories = [];
+
+// ── Constantes de caché ──────────────────────────────────────────────────────
+
+const CATEGORIES_CACHE_KEY = "stacklume-ext-categories";
+const CATEGORIES_CACHE_TIME_KEY = "stacklume-ext-categories-time";
+const CATEGORIES_CACHE_TTL = 300000; // 5 minutos
 
 // ── Inicialización ─────────────────────────────────────────────────────────
 
@@ -53,6 +62,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Cargar categorías cuando hay token
   els.inputToken.addEventListener("blur", maybeLoadCategories);
   els.inputUrl.addEventListener("blur", maybeLoadCategories);
+
+  // Exportar / Importar configuración
+  els.btnExportConfig.addEventListener("click", exportConfig);
+  els.inputImportConfig.addEventListener("change", importConfig);
 });
 
 // ── Cargar / guardar ajustes ───────────────────────────────────────────────
@@ -132,15 +145,24 @@ async function testConnection() {
       });
       const json = await mcpRes.json();
       if (json.error && json.error.code === -32001) {
-        showTestResult("error", "Token de API incorrecto o MCP no activado.");
+        showTestResult("error", "Token de API inválido. Verifica en Ajustes \u2192 MCP.");
       } else {
-        showTestResult("ok", "✓ Conexión correcta con token de API.");
+        showTestResult("ok", "\u2713 Conexión correcta con token de API.");
       }
     } else {
-      showTestResult("ok", "✓ Stacklume accesible. Configura un token para guardar directamente.");
+      showTestResult("ok", "\u2713 Stacklume accesible. Configura un token para guardar directamente.");
     }
   } catch (err) {
-    showTestResult("error", `No se pudo conectar: ${err.message}`);
+    if (!navigator.onLine) {
+      showTestResult("error", "Sin conexión a internet.");
+    } else if (err.name === "TypeError" && err.message.includes("Failed to fetch")) {
+      showTestResult(
+        "error",
+        "No se pudo conectar a Stacklume. \u00bfEstá la aplicación abierta?"
+      );
+    } else {
+      showTestResult("error", `No se pudo conectar: ${err.message}`);
+    }
   } finally {
     els.btnTest.disabled = false;
     els.btnTest.innerHTML = `
@@ -158,7 +180,7 @@ function showTestResult(type, message) {
   els.testResult.classList.remove("hidden");
 }
 
-// ── Categorías ─────────────────────────────────────────────────────────────
+// ── Categorías con caché ─────────────────────────────────────────────────────
 
 async function maybeLoadCategories() {
   const url = els.inputUrl.value.trim().replace(/\/$/, "");
@@ -166,6 +188,27 @@ async function maybeLoadCategories() {
 
   if (!url || !token) return;
 
+  // Intentar caché primero
+  try {
+    const cached = localStorage.getItem(CATEGORIES_CACHE_KEY);
+    const cacheTime = localStorage.getItem(CATEGORIES_CACHE_TIME_KEY);
+    if (
+      cached &&
+      cacheTime &&
+      Date.now() - parseInt(cacheTime, 10) < CATEGORIES_CACHE_TTL
+    ) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        categories = parsed;
+        renderCategories();
+        return;
+      }
+    }
+  } catch {
+    // Caché corrupta, continuar con fetch
+  }
+
+  // Fetch desde la API
   try {
     const res = await fetch(`${url}/api/mcp`, {
       method: "POST",
@@ -186,16 +229,101 @@ async function maybeLoadCategories() {
     const data = JSON.parse(text);
     categories = Array.isArray(data) ? data : data.categories || [];
 
-    const currentVal = els.selectDefaultCat.value;
-    els.selectDefaultCat.innerHTML = '<option value="">Sin categoría</option>';
-    for (const cat of categories) {
-      const opt = document.createElement("option");
-      opt.value = cat.id;
-      opt.textContent = cat.name;
-      els.selectDefaultCat.appendChild(opt);
+    // Guardar en caché
+    if (categories.length > 0) {
+      try {
+        localStorage.setItem(CATEGORIES_CACHE_KEY, JSON.stringify(categories));
+        localStorage.setItem(CATEGORIES_CACHE_TIME_KEY, String(Date.now()));
+      } catch {
+        // localStorage lleno o no disponible
+      }
     }
-    if (currentVal) els.selectDefaultCat.value = currentVal;
+
+    renderCategories();
   } catch {
     // Sin categorías disponibles
   }
+}
+
+function renderCategories() {
+  const currentVal = els.selectDefaultCat.value;
+  els.selectDefaultCat.innerHTML = '<option value="">Sin categoría</option>';
+  for (const cat of categories) {
+    const opt = document.createElement("option");
+    opt.value = cat.id;
+    opt.textContent = cat.name;
+    els.selectDefaultCat.appendChild(opt);
+  }
+  if (currentVal) els.selectDefaultCat.value = currentVal;
+}
+
+// ── Exportar / Importar configuración ─────────────────────────────────────────
+
+function exportConfig() {
+  chrome.storage.sync.get(null, (allSettings) => {
+    const exportData = {
+      _type: "stacklume-extension-config",
+      _version: "1.1.0",
+      _exportedAt: new Date().toISOString(),
+      settings: allSettings,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `stacklume-extension-config-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showBackupStatus("ok", "Configuración exportada correctamente.");
+  });
+}
+
+function importConfig(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+
+      if (data._type !== "stacklume-extension-config") {
+        showBackupStatus(
+          "error",
+          "Archivo no válido. Debe ser una exportación de Stacklume."
+        );
+        return;
+      }
+
+      const importedSettings = data.settings || {};
+
+      // Validar que tenga al menos stacklumeUrl
+      if (!importedSettings.stacklumeUrl) {
+        showBackupStatus("error", "El archivo no contiene una configuración válida.");
+        return;
+      }
+
+      chrome.storage.sync.set(importedSettings, () => {
+        showBackupStatus("ok", "Configuración importada. Recargando...");
+        setTimeout(() => location.reload(), 1000);
+      });
+    } catch {
+      showBackupStatus("error", "Error al leer el archivo. Verifica que sea JSON válido.");
+    }
+  };
+  reader.readAsText(file);
+
+  // Limpiar input para permitir reimportar el mismo archivo
+  e.target.value = "";
+}
+
+function showBackupStatus(type, message) {
+  els.backupStatus.textContent = message;
+  els.backupStatus.className = `backup-status backup-status--${type}`;
+  els.backupStatus.classList.remove("hidden");
+  setTimeout(() => els.backupStatus.classList.add("hidden"), 4000);
 }

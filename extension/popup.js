@@ -9,34 +9,46 @@ let pageMetadata = null;
 let settings = {};
 let isFavorite = false;
 let categories = [];
+let tags = [];
+let selectedTagIds = new Set();
+let readingStatus = "inbox";
 
 // ── Elementos DOM ─────────────────────────────────────────────────────────────
 
 const $ = (id) => document.getElementById(id);
 
 const els = {
-  statusSaved:      $("status-saved"),
-  pageTitle:        $("page-display-title"),
-  pageUrl:          $("page-display-url"),
-  pageFavicon:      $("page-favicon"),
-  faviconFallback:  $("favicon-fallback"),
-  inputTitle:       $("input-title"),
-  inputDescription: $("input-description"),
-  selectCategory:   $("select-category"),
-  categoryGroup:    $("category-group"),
-  btnFavorite:      $("btn-favorite"),
-  btnOpen:          $("btn-open"),
-  btnSave:          $("btn-save"),
-  saveLabel:        $("save-label"),
-  overlayLoading:   $("overlay-loading"),
-  overlaySuccess:   $("overlay-success"),
-  overlayError:     $("overlay-error"),
-  errorMessage:     $("error-message"),
-  successMessage:   $("success-message"),
-  btnRetry:         $("btn-retry"),
-  noTokenHint:      $("no-token-hint"),
-  hintConfig:       $("hint-config"),
-  btnSettings:      $("btn-settings"),
+  statusSaved:        $("status-saved"),
+  ogImageWrap:        $("og-image-wrap"),
+  ogImage:            $("og-image"),
+  pageTitle:          $("page-display-title"),
+  pageUrl:            $("page-display-url"),
+  pageFavicon:        $("page-favicon"),
+  faviconFallback:    $("favicon-fallback"),
+  inputTitle:         $("input-title"),
+  inputDescription:   $("input-description"),
+  selectCategory:     $("select-category"),
+  categoryGroup:      $("category-group"),
+  readingStatusGroup: $("reading-status-group"),
+  tagsGroup:          $("tags-group"),
+  tagsContainer:      $("tags-container"),
+  btnFavorite:        $("btn-favorite"),
+  btnOpen:            $("btn-open"),
+  btnSave:            $("btn-save"),
+  saveLabel:          $("save-label"),
+  overlayLoading:     $("overlay-loading"),
+  loadingMessage:     $("loading-message"),
+  overlaySuccess:     $("overlay-success"),
+  overlayError:       $("overlay-error"),
+  errorMessage:       $("error-message"),
+  successMessage:     $("success-message"),
+  btnRetry:           $("btn-retry"),
+  noTokenHint:        $("no-token-hint"),
+  hintConfig:         $("hint-config"),
+  btnSettings:        $("btn-settings"),
+  saveAllSection:     $("save-all-section"),
+  btnSaveAll:         $("btn-save-all"),
+  saveAllLabel:       $("save-all-label"),
 };
 
 // ── Inicialización ────────────────────────────────────────────────────────────
@@ -62,6 +74,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderPagePreview(pageMetadata.url, pageMetadata.title, pageMetadata.faviconUrl);
     els.inputTitle.value = pageMetadata.title;
     els.inputDescription.value = pageMetadata.description || "";
+
+    // Mostrar imagen OG si existe
+    if (pageMetadata.ogImage) {
+      showOgImage(pageMetadata.ogImage);
+    }
   } else {
     els.inputTitle.value = currentTab.title || "";
   }
@@ -70,14 +87,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (settings.apiToken) {
     els.noTokenHint.classList.add("hidden");
     els.saveLabel.textContent = "Guardar";
+    els.readingStatusGroup.classList.remove("hidden");
+    els.saveAllSection.classList.remove("hidden");
 
-    // Cargar categorías y verificar si ya está guardado en paralelo
-    const [cats, alreadySaved] = await Promise.all([
+    // Cargar categorías, etiquetas y verificar si ya está guardado en paralelo
+    const [cats, loadedTags, alreadySaved] = await Promise.all([
       loadCategories(),
+      loadTags(),
       checkAlreadySaved(currentTab.url),
     ]);
     categories = cats;
+    tags = loadedTags;
     populateCategorySelect(cats);
+    renderTags(loadedTags);
 
     if (alreadySaved) {
       els.statusSaved.classList.remove("hidden");
@@ -97,7 +119,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   els.btnRetry.addEventListener("click", resetOverlays);
   els.btnSettings.addEventListener("click", () => chrome.runtime.openOptionsPage());
   els.hintConfig.addEventListener("click", () => chrome.runtime.openOptionsPage());
+  els.btnSaveAll.addEventListener("click", handleSaveAllTabs);
   document.getElementById("form-add-link").addEventListener("submit", handleSave);
+
+  // Reading status buttons
+  document.querySelectorAll(".reading-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setReadingStatus(btn.dataset.status));
+  });
 });
 
 // ── Carga de datos ────────────────────────────────────────────────────────────
@@ -138,6 +166,7 @@ async function extractMetadata(tab) {
           document.querySelector('link[rel="apple-touch-icon"]')?.href ||
           document.querySelector('link[rel="icon"]')?.href ||
           document.querySelector('link[rel="shortcut icon"]')?.href || '';
+        const ogImage = getMeta('og:image') || getMeta('twitter:image') || '';
         return {
           url: canonical?.href || window.location.href,
           title: getMeta('og:title') || document.title || '',
@@ -145,6 +174,7 @@ async function extractMetadata(tab) {
           faviconUrl: favicon || `${window.location.origin}/favicon.ico`,
           siteName: getMeta('og:site_name') || '',
           author: getMeta('author') || getMeta('article:author') || '',
+          ogImage: ogImage,
         };
       },
     });
@@ -155,8 +185,49 @@ async function extractMetadata(tab) {
   }
 }
 
+// ── Categorías con caché ──────────────────────────────────────────────────────
+
+const CATEGORIES_CACHE_KEY = "stacklume-ext-categories";
+const CATEGORIES_CACHE_TIME_KEY = "stacklume-ext-categories-time";
+const TAGS_CACHE_KEY = "stacklume-ext-tags";
+const TAGS_CACHE_TIME_KEY = "stacklume-ext-tags-time";
+const CACHE_TTL = 300000; // 5 minutos
+
 async function loadCategories() {
   if (!settings.apiToken) return [];
+
+  // Intentar caché primero
+  try {
+    const cached = localStorage.getItem(CATEGORIES_CACHE_KEY);
+    const cacheTime = localStorage.getItem(CATEGORIES_CACHE_TIME_KEY);
+    if (
+      cached &&
+      cacheTime &&
+      Date.now() - parseInt(cacheTime, 10) < CACHE_TTL
+    ) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Caché corrupta, continuar con fetch
+  }
+
+  // Fetch desde la API
+  const cats = await fetchCategoriesFromApi();
+  if (cats.length > 0) {
+    try {
+      localStorage.setItem(CATEGORIES_CACHE_KEY, JSON.stringify(cats));
+      localStorage.setItem(CATEGORIES_CACHE_TIME_KEY, String(Date.now()));
+    } catch {
+      // localStorage lleno o no disponible
+    }
+  }
+  return cats;
+}
+
+async function fetchCategoriesFromApi() {
   const base = (settings.stacklumeUrl || "").replace(/\/$/, "");
   try {
     const res = await fetch(`${base}/api/mcp`, {
@@ -174,10 +245,76 @@ async function loadCategories() {
     });
     const json = await res.json();
     const text = json?.result?.content?.[0]?.text || "[]";
-    // El MCP devuelve JSON como texto
     try {
       const data = JSON.parse(text);
       return Array.isArray(data) ? data : data.categories || [];
+    } catch {
+      return [];
+    }
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Carga las etiquetas del usuario vía MCP (list_tags) con caché local.
+ * Devuelve un array de objetos { id, name, color }.
+ */
+async function loadTags() {
+  if (!settings.apiToken) return [];
+
+  // Intentar caché primero
+  try {
+    const cached = localStorage.getItem(TAGS_CACHE_KEY);
+    const cacheTime = localStorage.getItem(TAGS_CACHE_TIME_KEY);
+    if (
+      cached &&
+      cacheTime &&
+      Date.now() - parseInt(cacheTime, 10) < CACHE_TTL
+    ) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Caché corrupta, continuar con fetch
+  }
+
+  // Fetch desde la API
+  const loadedTags = await fetchTagsFromApi();
+  if (loadedTags.length > 0) {
+    try {
+      localStorage.setItem(TAGS_CACHE_KEY, JSON.stringify(loadedTags));
+      localStorage.setItem(TAGS_CACHE_TIME_KEY, String(Date.now()));
+    } catch {
+      // localStorage lleno o no disponible
+    }
+  }
+  return loadedTags;
+}
+
+async function fetchTagsFromApi() {
+  const base = (settings.stacklumeUrl || "").replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${settings.apiToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "list_tags", arguments: {} },
+      }),
+    });
+    const json = await res.json();
+    const text = json?.result?.content?.[0]?.text || "[]";
+    try {
+      const data = JSON.parse(text);
+      return Array.isArray(data) ? data : data.tags || [];
     } catch {
       return [];
     }
@@ -230,12 +367,26 @@ function renderPagePreview(url, title, faviconUrl) {
 
   if (faviconUrl) {
     els.pageFavicon.src = faviconUrl;
-    els.pageFavicon.classList.remove("hidden");
+    els.pageFavicon.style.display = "";
     els.faviconFallback.classList.add("hidden");
   } else {
-    els.pageFavicon.classList.add("hidden");
+    els.pageFavicon.style.display = "none";
     els.faviconFallback.classList.remove("hidden");
   }
+}
+
+/**
+ * Muestra la imagen OG como banner de vista previa.
+ */
+function showOgImage(imageUrl) {
+  if (!imageUrl) return;
+  els.ogImage.src = imageUrl;
+  els.ogImage.onerror = () => {
+    els.ogImageWrap.classList.add("hidden");
+  };
+  els.ogImage.onload = () => {
+    els.ogImageWrap.classList.remove("hidden");
+  };
 }
 
 function populateCategorySelect(cats) {
@@ -249,11 +400,82 @@ function populateCategorySelect(cats) {
   }
 }
 
+/**
+ * Renderiza los badges de etiquetas como botones multi-selección.
+ */
+function renderTags(tagList) {
+  if (!tagList || tagList.length === 0) {
+    els.tagsContainer.innerHTML = '<span class="tags-empty">Sin etiquetas disponibles</span>';
+    els.tagsGroup.classList.remove("hidden");
+    return;
+  }
+
+  els.tagsContainer.innerHTML = "";
+  els.tagsGroup.classList.remove("hidden");
+
+  for (const tag of tagList) {
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "tag-badge";
+    badge.dataset.tagId = tag.id;
+    badge.setAttribute("aria-pressed", "false");
+    badge.setAttribute("aria-label", `Etiqueta: ${tag.name}`);
+
+    // Color del tag
+    const color = tag.color || "#8492a6";
+    badge.style.setProperty("--tag-color", color);
+    badge.style.setProperty("--tag-bg", hexToRgba(color, 0.15));
+
+    // Punto de color + nombre
+    const dot = document.createElement("span");
+    dot.className = "tag-dot";
+    dot.style.backgroundColor = color;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = tag.name;
+
+    badge.appendChild(dot);
+    badge.appendChild(nameSpan);
+
+    badge.addEventListener("click", () => toggleTag(tag.id, badge));
+
+    els.tagsContainer.appendChild(badge);
+  }
+}
+
 // ── Acciones ──────────────────────────────────────────────────────────────────
 
 function toggleFavorite() {
   isFavorite = !isFavorite;
   els.btnFavorite.classList.toggle("active", isFavorite);
+  els.btnFavorite.setAttribute("aria-pressed", String(isFavorite));
+}
+
+/**
+ * Alterna la selección de un tag.
+ */
+function toggleTag(tagId, badge) {
+  if (selectedTagIds.has(tagId)) {
+    selectedTagIds.delete(tagId);
+    badge.classList.remove("selected");
+    badge.setAttribute("aria-pressed", "false");
+  } else {
+    selectedTagIds.add(tagId);
+    badge.classList.add("selected");
+    badge.setAttribute("aria-pressed", "true");
+  }
+}
+
+/**
+ * Establece el estado de lectura activo.
+ */
+function setReadingStatus(status) {
+  readingStatus = status;
+  document.querySelectorAll(".reading-btn").forEach((btn) => {
+    const isActive = btn.dataset.status === status;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
+  });
 }
 
 function handleOpenInStacklume() {
@@ -280,12 +502,13 @@ async function handleSave(e) {
 
   // Con token: guardar directamente
   showOverlay("loading");
+  els.loadingMessage.textContent = "Guardando...";
 
   const result = await saveViaApi(data);
 
   if (result.success) {
     els.successMessage.textContent =
-      result.duplicate ? "Ya estaba guardado en Stacklume" : "¡Enlace guardado!";
+      result.duplicate ? "Este enlace ya existe en tu biblioteca" : "\u00a1Enlace guardado!";
     showOverlay("success");
     setTimeout(() => window.close(), 1400);
   } else {
@@ -294,9 +517,86 @@ async function handleSave(e) {
   }
 }
 
+/**
+ * Guarda todas las pestañas abiertas de la ventana actual.
+ */
+async function handleSaveAllTabs() {
+  if (!settings.apiToken) return;
+
+  const allTabs = await new Promise((resolve) => {
+    chrome.tabs.query({ currentWindow: true }, (tabs) => resolve(tabs || []));
+  });
+
+  // Filtrar pestañas válidas (no chrome://, no about:, no extensiones)
+  const validTabs = allTabs.filter((tab) => {
+    try {
+      const url = new URL(tab.url);
+      return ["http:", "https:"].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  });
+
+  if (validTabs.length === 0) {
+    els.saveAllLabel.textContent = "No hay pestañas válidas";
+    setTimeout(() => {
+      els.saveAllLabel.textContent = "Guardar todas las pestañas";
+    }, 2000);
+    return;
+  }
+
+  showOverlay("loading");
+
+  let saved = 0;
+  let errors = 0;
+
+  for (let i = 0; i < validTabs.length; i++) {
+    els.loadingMessage.textContent = `Guardando ${i + 1}/${validTabs.length}...`;
+
+    const tab = validTabs[i];
+    const data = {
+      url: tab.url,
+      title: tab.title || tab.url,
+      description: "",
+      categoryId: els.selectCategory.value || "",
+      isFavorite: false,
+      tagIds: [...selectedTagIds],
+      readingStatus: "inbox",
+    };
+
+    const result = await saveViaApi(data);
+    if (result.success) {
+      saved++;
+    } else {
+      errors++;
+    }
+  }
+
+  if (errors === 0) {
+    els.successMessage.textContent = `\u00a1${saved} enlace${saved !== 1 ? "s" : ""} guardado${saved !== 1 ? "s" : ""}!`;
+  } else {
+    els.successMessage.textContent = `${saved} guardado${saved !== 1 ? "s" : ""}, ${errors} con error`;
+  }
+  showOverlay("success");
+  setTimeout(() => window.close(), errors === 0 ? 1800 : 2500);
+}
+
 async function saveViaApi(data) {
   const base = (settings.stacklumeUrl || "").replace(/\/$/, "");
   try {
+    const args = {
+      url: data.url,
+      title: data.title,
+      description: data.description || undefined,
+      categoryId: data.categoryId || undefined,
+      isFavorite: data.isFavorite,
+    };
+
+    // Incluir tagIds si hay etiquetas seleccionadas
+    if (data.tagIds && data.tagIds.length > 0) {
+      args.tagIds = data.tagIds;
+    }
+
     const res = await fetch(`${base}/api/mcp`, {
       method: "POST",
       headers: {
@@ -309,23 +609,32 @@ async function saveViaApi(data) {
         method: "tools/call",
         params: {
           name: "add_link",
-          arguments: {
-            url: data.url,
-            title: data.title,
-            description: data.description || undefined,
-            categoryId: data.categoryId || undefined,
-            isFavorite: data.isFavorite,
-          },
+          arguments: args,
         },
       }),
     });
 
+    // HTTP 409 = duplicado
     if (res.status === 409) {
       return { success: true, duplicate: true };
     }
 
+    // HTTP 401/403 = token inválido
+    if (res.status === 401 || res.status === 403) {
+      return {
+        success: false,
+        error: "Token de API inv\u00e1lido. Verifica en Ajustes \u2192 MCP",
+      };
+    }
+
     const json = await res.json();
     if (json.error) {
+      if (json.error.code === -32001) {
+        return {
+          success: false,
+          error: "Token de API inv\u00e1lido. Verifica en Ajustes \u2192 MCP",
+        };
+      }
       return { success: false, error: json.error.message };
     }
 
@@ -333,7 +642,12 @@ async function saveViaApi(data) {
     // Detectar si el MCP devolvió error en el texto
     if (text.toLowerCase().includes('"error"') || text.startsWith("Error")) {
       // Puede ser URL duplicada
-      if (text.includes("duplicad") || text.includes("409") || text.includes("Ya existe")) {
+      if (
+        text.includes("duplicad") ||
+        text.includes("409") ||
+        text.includes("Ya existe") ||
+        text.includes("ya existe")
+      ) {
         return { success: true, duplicate: true };
       }
       return { success: false, error: text.slice(0, 120) };
@@ -341,7 +655,22 @@ async function saveViaApi(data) {
 
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    // Errores de red específicos
+    if (!navigator.onLine) {
+      return { success: false, error: "Sin conexi\u00f3n a internet" };
+    }
+    if (err.name === "TypeError" && err.message.includes("Failed to fetch")) {
+      return {
+        success: false,
+        error:
+          "No se pudo conectar a Stacklume. \u00bfEst\u00e1 la aplicaci\u00f3n abierta?",
+      };
+    }
+    return {
+      success: false,
+      error:
+        "No se pudo conectar a Stacklume. \u00bfEst\u00e1 la aplicaci\u00f3n abierta?",
+    };
   }
 }
 
@@ -350,7 +679,8 @@ function collectFormData() {
   const title = els.inputTitle.value.trim();
   const description = els.inputDescription.value.trim();
   const categoryId = els.selectCategory.value || "";
-  return { url, title, description, categoryId, isFavorite };
+  const tagIds = [...selectedTagIds];
+  return { url, title, description, categoryId, isFavorite, tagIds, readingStatus };
 }
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
@@ -382,4 +712,16 @@ function normalizeUrl(url) {
   } catch {
     return url;
   }
+}
+
+/**
+ * Convierte un color hex a rgba con opacidad.
+ */
+function hexToRgba(hex, alpha) {
+  if (!hex || !hex.startsWith("#")) return `rgba(132, 146, 166, ${alpha})`;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(132, 146, 166, ${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

@@ -13,7 +13,7 @@
       <img src="icons/icon-32.png" alt="Stacklume" class="header-logo" />
       <span class="header-title">Stacklume</span>
     </div>
-    <button class="header-settings" id="btn-settings" title="Configuración">
+    <button class="header-settings" id="btn-settings" title="Configuración" aria-label="Abrir configuración">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
         <circle cx="12" cy="12" r="3"/>
@@ -22,11 +22,16 @@
   </header>
 
   <!-- Estado: ya guardado -->
-  <div class="status-saved hidden" id="status-saved">
+  <div class="status-saved hidden" id="status-saved" role="status">
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20 6 9 17l-5-5"/>
     </svg>
     <span>Ya guardado en Stacklume</span>
+  </div>
+
+  <!-- Preview de imagen OG -->
+  <div class="og-image-wrap hidden" id="og-image-wrap">
+    <img id="og-image" class="og-image" src="" alt="Vista previa de la página" />
   </div>
 
   <!-- Preview de la página -->
@@ -34,7 +39,7 @@
     <div class="page-favicon-wrap">
       <img id="page-favicon" class="page-favicon" src="" alt="" onerror="this.style.display='none'" />
       <div class="page-favicon-fallback hidden" id="favicon-fallback">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
         </svg>
       </div>
@@ -79,7 +84,7 @@
 
       <div class="form-group">
         <label class="form-label">&nbsp;</label>
-        <button type="button" class="btn-favorite" id="btn-favorite" title="Marcar como favorito">
+        <button type="button" class="btn-favorite" id="btn-favorite" title="Marcar como favorito" aria-label="Marcar como favorito" aria-pressed="false">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="star-icon">
             <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>
           </svg>
@@ -87,15 +92,39 @@
       </div>
     </div>
 
+    <!-- Estado de lectura -->
+    <div class="form-group hidden" id="reading-status-group">
+      <label class="form-label">Estado de lectura</label>
+      <div class="reading-status-row" role="radiogroup" aria-label="Estado de lectura">
+        <button type="button" class="reading-btn active" data-status="inbox" aria-label="Bandeja de entrada" aria-pressed="true">
+          <span class="reading-icon">📥</span> Bandeja
+        </button>
+        <button type="button" class="reading-btn" data-status="reading" aria-label="Leyendo" aria-pressed="false">
+          <span class="reading-icon">📖</span> Leyendo
+        </button>
+        <button type="button" class="reading-btn" data-status="done" aria-label="Leído" aria-pressed="false">
+          <span class="reading-icon">✅</span> Leído
+        </button>
+      </div>
+    </div>
+
+    <!-- Etiquetas -->
+    <div class="form-group hidden" id="tags-group">
+      <label class="form-label">Etiquetas</label>
+      <div class="tags-container" id="tags-container" role="group" aria-label="Seleccionar etiquetas">
+        <span class="tags-loading">Cargando etiquetas...</span>
+      </div>
+    </div>
+
     <!-- Acciones -->
     <div class="form-actions">
-      <button type="button" class="btn btn--outline" id="btn-open">
+      <button type="button" class="btn btn--outline" id="btn-open" aria-label="Abrir en Stacklume">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
         </svg>
         Abrir en Stacklume
       </button>
-      <button type="submit" class="btn btn--primary" id="btn-save">
+      <button type="submit" class="btn btn--primary" id="btn-save" aria-label="Guardar enlace">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="save-icon">
           <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>
         </svg>
@@ -104,25 +133,37 @@
     </div>
   </form>
 
-  <!-- Estado de carga / éxito / error -->
-  <div class="overlay hidden" id="overlay-loading">
-    <div class="spinner"></div>
-    <p>Guardando...</p>
+  <!-- Guardar todas las pestañas -->
+  <div class="save-all-section hidden" id="save-all-section">
+    <button type="button" class="btn btn--ghost" id="btn-save-all" aria-label="Guardar todas las pestañas abiertas">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/><path d="M6 8v12"/>
+      </svg>
+      <span id="save-all-label">Guardar todas las pestañas</span>
+    </button>
   </div>
 
-  <div class="overlay overlay--success hidden" id="overlay-success">
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M20 6 9 17l-5-5"/>
-    </svg>
+  <!-- Estado de carga / éxito / error -->
+  <div class="overlay hidden" id="overlay-loading" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <p id="loading-message">Guardando...</p>
+  </div>
+
+  <div class="overlay overlay--success hidden" id="overlay-success" role="status" aria-live="polite">
+    <div class="success-check">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6 9 17l-5-5"/>
+      </svg>
+    </div>
     <p id="success-message">¡Enlace guardado!</p>
   </div>
 
-  <div class="overlay overlay--error hidden" id="overlay-error">
+  <div class="overlay overlay--error hidden" id="overlay-error" role="alert" aria-live="assertive">
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
     </svg>
     <p id="error-message">Error al guardar</p>
-    <button class="btn btn--outline btn--sm" id="btn-retry">Reintentar</button>
+    <button class="btn btn--outline btn--sm" id="btn-retry" aria-label="Reintentar guardado">Reintentar</button>
   </div>
 
   <!-- Footer: info sin token configurado -->
@@ -130,7 +171,7 @@
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
     </svg>
-    Sin token API — solo modo "Abrir en Stacklume". <button class="link-btn" id="hint-config">Configurar</button>
+    Sin token API — solo modo "Abrir en Stacklume". <button class="link-btn" id="hint-config" aria-label="Abrir configuración del token API">Configurar</button>
   </div>
 
   <script src="popup.js"></script>
