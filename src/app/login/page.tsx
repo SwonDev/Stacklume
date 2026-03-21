@@ -74,7 +74,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gold-gradient mb-2">Stacklume</h1>
-          <p className="text-muted-foreground">Tu universo de links, bellamente organizado</p>
+          <p className="text-muted-foreground">Tu universo de links, perfectamente organizado</p>
         </div>
 
         {/* Login card */}

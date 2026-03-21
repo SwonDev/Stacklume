@@ -11,7 +11,18 @@ import { useSettingsStore } from "@/stores/settings-store";
 const KanbanBoard = lazy(() => import("@/components/kanban").then((m) => ({ default: m.KanbanBoard })));
 const ListView = lazy(() => import("@/components/list").then((m) => ({ default: m.ListView })));
 
+// En stacklume.app (NEXT_PUBLIC_LANDING_MODE=true), muestra la landing en vez del dashboard
+const LandingPage = lazy(() => import("@/app/landing/page"));
+const isLandingMode = process.env.NEXT_PUBLIC_LANDING_MODE === "true";
+
 export default function Home() {
+  if (isLandingMode) {
+    return (
+      <Suspense fallback={null}>
+        <LandingPage />
+      </Suspense>
+    );
+  }
   const isLoading = useLinksStore((state) => state.isLoading);
   const viewMode = useSettingsStore((state) => state.viewMode);
 

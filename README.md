@@ -13,7 +13,7 @@
 
 # Stacklume
 
-### **Tu universo de links, bellamente organizado**
+### **Tu universo de links, perfectamente organizado**
 
 <br />
 
@@ -327,7 +327,7 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 <br />
 
-`Navy Blue & Gold` · *Tu universo de links, bellamente organizado*
+`Navy Blue & Gold` · *Tu universo de links, perfectamente organizado*
 
 <br />
 
@@ -358,7 +358,7 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 # Stacklume
 
-### **Your link universe, beautifully organized**
+### **Your link universe, perfectly organized**
 
 <br />
 
