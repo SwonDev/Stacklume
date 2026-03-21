@@ -1917,3 +1917,49 @@
   color: oklch(from var(--foreground) l c h / 0.6);
   margin-top: 0.5em;
 }
+
+/* ============================================================
+   LANDING PAGE
+   ============================================================ */
+
+/* Dot grid background */
+.dot-grid {
+  background-image: radial-gradient(circle, oklch(0.3 0.02 260) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Noise texture overlay */
+.noise {
+  position: relative;
+}
+.noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  z-index: 0;
+}
+
+/* Landing page gold gradient text (override for landing-specific styling) */
+.landing-gold-gradient {
+  background: linear-gradient(135deg, oklch(0.82 0.12 85), oklch(0.75 0.14 85), oklch(0.65 0.15 85));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Scroll indicator bounce */
+@keyframes landing-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+.landing-bounce {
+  animation: landing-bounce 2s ease-in-out infinite;
+}
+
+/* Counter tabular nums */
+.landing-counter {
+  font-variant-numeric: tabular-nums;
+}
