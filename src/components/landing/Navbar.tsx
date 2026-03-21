@@ -1,161 +1,163 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Download, Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "motion/react";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
+
+const NAV_LINKS = [
+  { label: "Funciones", href: "#funciones" },
+  { label: "Descargar", href: "#descargar" },
+  {
+    label: "GitHub",
+    href: "https://github.com/SwonDev/Stacklume",
+    external: true,
+  },
+];
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const navLinks = [
-    { label: "Funciones", href: "#funciones" },
-    { label: "Descargar", href: "#descargar" },
-    {
-      label: "GitHub",
-      href: "https://github.com/SwonDev/Stacklume",
-      external: true,
-    },
-  ];
+  const handleNavClick = (href: string) => {
+    setMobileOpen(false);
+    if (href.startsWith("#")) {
+      const el = document.querySelector(href);
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   return (
-    <header
+    <nav
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         scrolled
-          ? "backdrop-blur-xl border-b border-white/10"
-          : "border-b border-transparent",
+          ? "border-b border-white/10 bg-[#0a1628]/80 backdrop-blur-xl"
+          : "bg-transparent",
       )}
-      style={{
-        backgroundColor: scrolled
-          ? "oklch(0.13 0.02 260 / 0.8)"
-          : "transparent",
-      }}
     >
-      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2.5 group">
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className="flex items-center gap-3"
+        >
+          <img
+            src="/logo.svg"
+            alt="Stacklume"
+            className="size-9"
+          />
           <span
-            className="flex size-8 items-center justify-center rounded-lg font-bold text-lg"
-            style={{
-              background:
-                "linear-gradient(135deg, oklch(0.75 0.14 85), oklch(0.65 0.15 85))",
-              color: "oklch(0.12 0.03 250)",
-            }}
-          >
-            S
-          </span>
-          <span
-            className="text-lg font-semibold tracking-tight"
-            style={{ color: "oklch(0.93 0 0)" }}
+            className="text-xl font-bold tracking-tight"
+            style={{ color: "#d4a853" }}
           >
             Stacklume
           </span>
         </a>
 
-        {/* Center navigation — desktop */}
-        <ul className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
-            <li key={link.href}>
-              <a
-                href={link.href}
-                className="text-sm font-medium transition-colors hover:text-[oklch(0.75_0.14_85)]"
-                style={{ color: "oklch(0.55 0 0)" }}
-                {...(link.external
-                  ? { target: "_blank", rel: "noopener noreferrer" }
-                  : {})}
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-
-        {/* CTA — desktop */}
-        <div className="hidden md:block">
-          <Button
-            size="sm"
-            className="gap-2 font-semibold"
-            style={{
-              background:
-                "linear-gradient(135deg, oklch(0.75 0.14 85), oklch(0.65 0.15 85))",
-              color: "oklch(0.12 0.03 250)",
-            }}
-            asChild
-          >
-            <a href="#descargar">
-              <Download className="size-4" />
-              Descargar
+        {/* Desktop links */}
+        <div className="hidden items-center gap-8 md:flex">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={(e) => {
+                if (!link.external) {
+                  e.preventDefault();
+                  handleNavClick(link.href);
+                }
+              }}
+              target={link.external ? "_blank" : undefined}
+              rel={link.external ? "noopener noreferrer" : undefined}
+              className="text-sm font-medium text-[#e8eaf0]/70 transition-colors hover:text-[#d4a853]"
+            >
+              {link.label}
             </a>
-          </Button>
+          ))}
+        </div>
+
+        {/* Desktop CTA */}
+        <div className="hidden md:block">
+          <a
+            href="#descargar"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavClick("#descargar");
+            }}
+          >
+            <ShimmerButton
+              shimmerColor="#e6c77a"
+              shimmerSize="0.05em"
+              background="linear-gradient(135deg, #b8923f, #d4a853)"
+              borderRadius="10px"
+              className="px-5 py-2 text-sm font-semibold"
+            >
+              <span style={{ color: "#0a1628" }}>Descargar</span>
+            </ShimmerButton>
+          </a>
         </div>
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden p-2"
+          className="text-[#e8eaf0] md:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
         >
-          {mobileOpen ? (
-            <X className="size-5" style={{ color: "oklch(0.93 0 0)" }} />
-          ) : (
-            <Menu className="size-5" style={{ color: "oklch(0.93 0 0)" }} />
-          )}
+          {mobileOpen ? <X className="size-6" /> : <Menu className="size-6" />}
         </button>
-      </nav>
+      </div>
 
       {/* Mobile menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden overflow-hidden border-b border-white/10"
-            style={{ backgroundColor: "oklch(0.13 0.02 260 / 0.95)" }}
-          >
-            <div className="flex flex-col gap-4 px-6 py-6">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm font-medium transition-colors"
-                  style={{ color: "oklch(0.75 0 0)" }}
-                  onClick={() => setMobileOpen(false)}
-                  {...(link.external
-                    ? { target: "_blank", rel: "noopener noreferrer" }
-                    : {})}
-                >
-                  {link.label}
-                </a>
-              ))}
-              <Button
-                size="sm"
-                className="gap-2 font-semibold w-fit"
-                style={{
-                  background:
-                    "linear-gradient(135deg, oklch(0.75 0.14 85), oklch(0.65 0.15 85))",
-                  color: "oklch(0.12 0.03 250)",
+      {mobileOpen && (
+        <div className="border-t border-white/10 bg-[#0a1628]/95 px-6 py-4 backdrop-blur-xl md:hidden">
+          <div className="flex flex-col gap-4">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={(e) => {
+                  if (!link.external) {
+                    e.preventDefault();
+                    handleNavClick(link.href);
+                  }
                 }}
-                asChild
+                target={link.external ? "_blank" : undefined}
+                rel={link.external ? "noopener noreferrer" : undefined}
+                className="text-base font-medium text-[#e8eaf0]/70 transition-colors hover:text-[#d4a853]"
               >
-                <a href="#descargar" onClick={() => setMobileOpen(false)}>
-                  <Download className="size-4" />
-                  Descargar
-                </a>
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
+                {link.label}
+              </a>
+            ))}
+            <a
+              href="#descargar"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick("#descargar");
+              }}
+            >
+              <ShimmerButton
+                shimmerColor="#e6c77a"
+                shimmerSize="0.05em"
+                background="linear-gradient(135deg, #b8923f, #d4a853)"
+                borderRadius="10px"
+                className="w-full px-5 py-2.5 text-sm font-semibold"
+              >
+                <span style={{ color: "#0a1628" }}>Descargar</span>
+              </ShimmerButton>
+            </a>
+          </div>
+        </div>
+      )}
+    </nav>
   );
 }

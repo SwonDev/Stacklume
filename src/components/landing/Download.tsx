@@ -1,93 +1,81 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { ExternalLink, Github } from "lucide-react";
 import { motion } from "motion/react";
+import { ExternalLink } from "lucide-react";
+import { BorderBeam } from "@/components/ui/border-beam";
 import { DownloadButton } from "./DownloadButton";
-
-const ease = [0.25, 0.1, 0.25, 1] as const;
 
 export function Download() {
   return (
-    <section id="descargar" className="relative py-24 md:py-32 overflow-hidden">
-      {/* Radial gradient background */}
+    <section
+      id="descargar"
+      className="relative py-32"
+      style={{ backgroundColor: "#0a1628" }}
+    >
+      {/* Gold radial glow */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 opacity-20"
         style={{
           background:
-            "radial-gradient(ellipse 80% 50% at 50% 50%, oklch(0.75 0.14 85 / 0.06), transparent)",
+            "radial-gradient(ellipse 60% 50% at 50% 50%, #d4a853 0%, transparent 70%)",
         }}
-        aria-hidden="true"
       />
 
-      <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
+      <div className="relative z-10 mx-auto max-w-3xl px-6">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-sm sm:p-16"
         >
-          <h2
-            className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl"
-            style={{ color: "oklch(0.93 0 0)" }}
-          >
-            Empieza a organizar tus{" "}
-            <span className="landing-gold-gradient">enlaces</span> hoy
-          </h2>
+          <BorderBeam
+            size={150}
+            duration={10}
+            colorFrom="#d4a853"
+            colorTo="#e6c77a"
+            borderWidth={2}
+          />
 
-          <p
-            className="mx-auto mt-4 max-w-lg text-base md:text-lg"
-            style={{ color: "oklch(0.55 0 0)" }}
+          <h2
+            className="text-4xl font-bold tracking-tight sm:text-5xl"
+            style={{ color: "#e8eaf0" }}
           >
-            Descarga Stacklume gratis y toma el control de tus marcadores.
+            Empieza hoy
+          </h2>
+          <p className="mt-4 text-lg" style={{ color: "#6b7280" }}>
+            Descarga Stacklume y organiza tus enlaces como nunca antes.
           </p>
 
-          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <DownloadButton />
-
-            <Button
-              size="lg"
-              variant="outline"
-              className="gap-2 px-6 text-base"
-              style={{
-                borderColor: "oklch(0.3 0.02 260)",
-                color: "oklch(0.75 0 0)",
-              }}
-              asChild
-            >
-              <a
-                href="https://demo.stacklume.app"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="size-4" />
-                Probar demo
-              </a>
-            </Button>
-
-            <Button
-              size="lg"
-              variant="ghost"
-              className="gap-2 px-6 text-base"
-              style={{ color: "oklch(0.5 0 0)" }}
-              asChild
-            >
-              <a
-                href="https://github.com/SwonDev/Stacklume"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Github className="size-4" />
-                GitHub
-              </a>
-            </Button>
+          {/* CTAs */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <DownloadButton size="large" />
           </div>
 
-          <p
-            className="mt-6 text-xs"
-            style={{ color: "oklch(0.4 0 0)" }}
-          >
-            Gratis y de código abierto &middot; Licencia MIT
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            <a
+              href="https://demo.stacklume.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#e8eaf0]/60 transition-colors hover:text-[#d4a853]"
+            >
+              Ver demo
+              <ExternalLink className="size-3.5" />
+            </a>
+            <span className="text-[#6b7280]">&middot;</span>
+            <a
+              href="https://github.com/SwonDev/Stacklume"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#e8eaf0]/60 transition-colors hover:text-[#d4a853]"
+            >
+              GitHub
+              <ExternalLink className="size-3.5" />
+            </a>
+          </div>
+
+          <p className="mt-8 text-xs" style={{ color: "#6b7280" }}>
+            Gratis &middot; Código abierto &middot; Licencia MIT
           </p>
         </motion.div>
       </div>

@@ -1,131 +1,75 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
+import { LayoutGrid, Palette, Globe, Columns3 } from "lucide-react";
+import { NumberTicker } from "@/components/ui/number-ticker";
 
-const ease = [0.25, 0.1, 0.25, 1] as const;
-
-interface Stat {
-  value: number;
-  suffix: string;
-  label: string;
-}
-
-const stats: Stat[] = [
-  { value: 120, suffix: "+", label: "Widgets incluidos" },
-  { value: 23, suffix: "", label: "Temas de color" },
-  { value: 15, suffix: "+", label: "Plataformas detectadas" },
-  { value: 3, suffix: "", label: "Vistas de layout" },
+const STATS = [
+  {
+    value: 120,
+    suffix: "+",
+    label: "Widgets",
+    icon: LayoutGrid,
+  },
+  {
+    value: 23,
+    suffix: "",
+    label: "Temas",
+    icon: Palette,
+  },
+  {
+    value: 15,
+    suffix: "+",
+    label: "Plataformas",
+    icon: Globe,
+  },
+  {
+    value: 3,
+    suffix: "",
+    label: "Vistas",
+    icon: Columns3,
+  },
 ];
 
-function AnimatedCounter({
-  value,
-  suffix,
-  inView,
-}: {
-  value: number;
-  suffix: string;
-  inView: boolean;
-}) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (!inView) return;
-
-    let frame: number;
-    const duration = 1200;
-    const start = performance.now();
-
-    function animate(now: number) {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(eased * value));
-      if (progress < 1) {
-        frame = requestAnimationFrame(animate);
-      }
-    }
-
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, [inView, value]);
-
-  return (
-    <span className="landing-counter">
-      {count}
-      {suffix}
-    </span>
-  );
-}
-
 export function Stats() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.3 },
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section className="relative py-24 md:py-32">
-      <div className="mx-auto max-w-6xl px-6" ref={ref}>
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease }}
-          className="text-center mb-16"
-        >
-          <h2
-            className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl"
-            style={{ color: "oklch(0.93 0 0)" }}
-          >
-            Stacklume en{" "}
-            <span className="landing-gold-gradient">números</span>
-          </h2>
-        </motion.div>
-
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-          {stats.map((stat, i) => (
+    <section className="relative py-24">
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, #0a1628 0%, #0d1b30 50%, #0a1628 100%)",
+        }}
+      />
+      <div className="relative z-10 mx-auto max-w-5xl px-6">
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          {STATS.map((stat, i) => (
             <motion.div
               key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1, ease }}
-              className="text-center"
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              className="flex flex-col items-center text-center"
             >
-              <div
-                className="text-4xl font-bold md:text-5xl"
-                style={{ color: "oklch(0.75 0.14 85)" }}
-              >
-                <AnimatedCounter
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  inView={inView}
-                />
+              <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                <stat.icon className="size-6" style={{ color: "#d4a853" }} />
               </div>
-              <p
-                className="mt-2 text-sm font-medium"
-                style={{ color: "oklch(0.55 0 0)" }}
-              >
+              <div className="flex items-baseline gap-0.5">
+                <NumberTicker
+                  value={stat.value}
+                  delay={0.3 + i * 0.15}
+                  className="text-4xl font-bold text-[#e8eaf0] sm:text-5xl"
+                />
+                {stat.suffix && (
+                  <span className="text-3xl font-bold sm:text-4xl" style={{ color: "#d4a853" }}>
+                    {stat.suffix}
+                  </span>
+                )}
+              </div>
+              <span className="mt-2 text-sm font-medium" style={{ color: "#6b7280" }}>
                 {stat.label}
-              </p>
+              </span>
             </motion.div>
           ))}
         </div>
