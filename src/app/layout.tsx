@@ -76,12 +76,11 @@ export default function RootLayout({
 }>) {
   const isDesktopMode = process.env.DESKTOP_MODE === "true";
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-  const isLandingMode = process.env.NEXT_PUBLIC_LANDING_MODE === "true" && !isDemoMode && !isDesktopMode;
 
   return (
     <html lang="es" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased${isLandingMode ? "" : " no-scroll"}`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased no-scroll`}
       >
         {/*
           Inyección temprana: cuando el servidor corre en DESKTOP_MODE,
@@ -103,18 +102,7 @@ export default function RootLayout({
             dangerouslySetInnerHTML={{ __html: "Object.defineProperty(window,'__DEMO_MODE__',{value:true,writable:false,configurable:false});" }}
           />
         )}
-        {isLandingMode ? (
-          <>
-            {children}
-            <Toaster
-              theme="dark"
-              position="bottom-right"
-              toastOptions={{
-                className: "bg-card border border-border text-foreground",
-              }}
-            />
-          </>
-        ) : isDemoMode && !isDesktopMode ? (
+        {isDemoMode && !isDesktopMode ? (
           <DemoProvider>
             <Providers>
               <DemoBanner />
