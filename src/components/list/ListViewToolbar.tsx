@@ -297,6 +297,18 @@ export function ListViewToolbar({
                       )}
                     </CommandItem>
                   ))}
+                  <CommandItem
+                    onSelect={() => toggleCategoryId("__uncategorized__")}
+                    className="cursor-pointer"
+                  >
+                    <div className="w-2 h-2 rounded-full mr-2 flex-shrink-0 bg-muted-foreground/40" />
+                    <span className={cn(activeCategoryIds.includes("__uncategorized__") && "font-semibold")}>
+                      {t("listView.uncategorized")}
+                    </span>
+                    {activeCategoryIds.includes("__uncategorized__") && (
+                      <Check className="ml-auto w-4 h-4 text-primary" />
+                    )}
+                  </CommandItem>
                 </CommandGroup>
               </CommandList>
             </Command>
