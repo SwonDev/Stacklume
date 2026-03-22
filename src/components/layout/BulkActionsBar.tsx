@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useLinksStore } from "@/stores/links-store";
+import { useLayoutStore } from "@/stores/layout-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { toast } from "sonner";
 import { DevPromptModal } from "@/components/modals/DevPromptModal";
@@ -25,10 +26,48 @@ export function BulkActionsBar() {
   const { isSelecting, selectedIds, clearSelection, exitSelecting, selectAll } =
     useMultiSelect();
   const links = useLinksStore((s) => s.links);
+  const linkTags = useLinksStore((s) => s.linkTags);
   const categories = useLinksStore((s) => s.categories);
   const tags = useLinksStore((s) => s.tags);
   const refreshAllData = useLinksStore((s) => s.refreshAllData);
+  const activeFilter = useLayoutStore((s) => s.activeFilter);
   const [devPromptOpen, setDevPromptOpen] = useState(false);
+
+  // Compute filtered links based on active filter (same logic as ListView)
+  const filteredLinkIds = (() => {
+    if (!activeFilter.type) {
+      return links.map(l => l.id);
+    }
+    if (activeFilter.type === "category") {
+      const ids = activeFilter.ids && activeFilter.ids.length > 0
+        ? activeFilter.ids
+        : activeFilter.id ? [activeFilter.id] : [];
+      if (ids.length === 0) return links.map(l => l.id);
+      const hasUncategorized = ids.includes("__uncategorized__");
+      const realIds = ids.filter(id => id !== "__uncategorized__");
+      return links.filter(l => {
+        if (hasUncategorized && !l.categoryId) return true;
+        if (realIds.length > 0 && l.categoryId && realIds.includes(l.categoryId)) return true;
+        return false;
+      }).map(l => l.id);
+    }
+    if (activeFilter.type === "tag") {
+      const ids = activeFilter.ids && activeFilter.ids.length > 0
+        ? activeFilter.ids
+        : activeFilter.id ? [activeFilter.id] : [];
+      if (ids.length === 0) return links.map(l => l.id);
+      const tagLinkIds = new Set(linkTags.filter(lt => ids.includes(lt.tagId)).map(lt => lt.linkId));
+      return links.filter(l => tagLinkIds.has(l.id)).map(l => l.id);
+    }
+    if (activeFilter.type === "favorites") {
+      return links.filter(l => l.isFavorite).map(l => l.id);
+    }
+    if (activeFilter.type === "readingStatus") {
+      const status = activeFilter.id;
+      return links.filter(l => l.readingStatus === status).map(l => l.id);
+    }
+    return links.map(l => l.id);
+  })();
 
   const count = selectedIds.size;
 
@@ -145,7 +184,7 @@ export function BulkActionsBar() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => selectAll(links.map((l) => l.id))}
+                  onClick={() => selectAll(filteredLinkIds)}
                   aria-label="Seleccionar todos"
                 >
                   <CheckSquare className="w-4 h-4" />
