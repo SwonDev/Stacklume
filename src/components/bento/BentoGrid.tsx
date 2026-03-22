@@ -257,12 +257,21 @@ export function BentoGrid({ className }: BentoGridProps) {
         const widgetLinks = getWidgetLinks(widget);
         return widgetLinks.length > 0;
       });
-    } else if (activeFilter.type === "category" && activeFilter.id) {
+    } else if (activeFilter.type === "category" && (activeFilter.id || (activeFilter.ids && activeFilter.ids.length > 0))) {
       // Show only: the specific category widget, or widgets with links in that category
+      const filterIds = activeFilter.ids && activeFilter.ids.length > 0
+        ? activeFilter.ids
+        : activeFilter.id ? [activeFilter.id] : [];
+      const hasUncategorized = filterIds.includes("__uncategorized__");
+      const realIds = filterIds.filter((id) => id !== "__uncategorized__");
       filtered = projectWidgets.filter((widget: Widget) => {
-        if (widget.type === "category" && widget.categoryId === activeFilter.id) return true;
+        if (widget.type === "category" && widget.categoryId && realIds.includes(widget.categoryId)) return true;
         const widgetLinks = getWidgetLinks(widget);
-        return widgetLinks.some((link: Link) => link.categoryId === activeFilter.id);
+        return widgetLinks.some((link: Link) => {
+          if (hasUncategorized && !link.categoryId) return true;
+          if (realIds.length > 0 && link.categoryId && realIds.includes(link.categoryId)) return true;
+          return false;
+        });
       });
     } else if (activeFilter.type === "tag" && activeFilter.id) {
       // Show only: the specific tag widget, or widgets with links that have that tag

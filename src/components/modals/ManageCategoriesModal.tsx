@@ -19,16 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useLinksStore } from "@/stores/links-store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -133,13 +123,14 @@ export function ManageCategoriesModal() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (deleteLinks: boolean) => {
     if (!deleteId) return;
 
     const linkCount = getCategoryLinkCount(deleteId);
+    const deleteLinksParam = deleteLinks ? "&deleteLinks=true" : "";
 
     try {
-      const response = await fetch(`/api/categories?id=${deleteId}`, {
+      const response = await fetch(`/api/categories?id=${deleteId}${deleteLinksParam}`, {
         method: "DELETE",
         headers: getCsrfHeaders(),
         credentials: "include",
@@ -147,14 +138,15 @@ export function ManageCategoriesModal() {
 
       if (response.ok) {
         removeCategory(deleteId);
-        toast.success(
-          linkCount > 0
-            ? t("manageCategories.successDeleteWithLinks", { count: linkCount })
-            : t("manageCategories.successDelete")
-        );
+        if (deleteLinks && linkCount > 0) {
+          toast.success(t("manageCategories.successDeleteWithLinksDeleted", { count: linkCount }));
+        } else if (linkCount > 0) {
+          toast.success(t("manageCategories.successDeleteWithLinks", { count: linkCount }));
+        } else {
+          toast.success(t("manageCategories.successDelete"));
+        }
         setDeleteId(null);
-        // Los links que tenían esta categoría quedan huérfanos en el store;
-        // refreshAllData() los actualiza con categoryId: null del servidor
+        // refreshAllData() actualiza los links en el store
         useLinksStore.getState().refreshAllData();
       } else {
         toast.error(t("manageCategories.errorDelete"));
@@ -330,37 +322,69 @@ export function ManageCategoriesModal() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+      {/* Delete confirmation — 3 options when category has links */}
+      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent className="sm:max-w-md glass">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
               {t("manageCategories.deleteTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteId && getCategoryLinkCount(deleteId) > 0 ? (
-                <>
-                  {t("manageCategories.deleteWithLinks", {
-                    count: getCategoryLinkCount(deleteId!),
-                  })}
-                </>
-              ) : (
-                t("manageCategories.deleteConfirm")
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("btn.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {t("btn.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </DialogTitle>
+          </DialogHeader>
+          {deleteId && getCategoryLinkCount(deleteId) > 0 ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                {t("manageCategories.deleteAskAboutLinks", {
+                  count: getCategoryLinkCount(deleteId),
+                })}
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="destructive"
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleDelete(true)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {t("manageCategories.deleteWithLinksOption")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleDelete(false)}
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  {t("manageCategories.moveToUncategorizedOption")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start gap-2"
+                  onClick={() => setDeleteId(null)}
+                >
+                  <X className="w-4 h-4" />
+                  {t("btn.cancel")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                {t("manageCategories.deleteConfirm")}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setDeleteId(null)}>
+                  {t("btn.cancel")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDelete(false)}
+                >
+                  {t("btn.delete")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

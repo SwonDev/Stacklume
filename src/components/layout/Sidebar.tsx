@@ -528,6 +528,10 @@ export function Sidebar() {
     return counts;
   }, [links]);
 
+  const uncategorizedLinkCount = useMemo(() => {
+    return links.filter((l: Link) => !l.categoryId).length;
+  }, [links]);
+
   const tagLinkCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const lt of linkTags) {
@@ -574,6 +578,11 @@ export function Sidebar() {
       useLayoutStore.getState().setActiveFilter({ type: "category", id: category.id, label: category.name });
       useLayoutStore.getState().setSidebarOpen(false);
     }
+  };
+
+  const handleUncategorizedClick = () => {
+    useLayoutStore.getState().setActiveFilter({ type: "category", id: "__uncategorized__", label: t("sidebar.uncategorized") });
+    useLayoutStore.getState().setSidebarOpen(false);
   };
 
   const handleTagClick = (tag: Tag) => {
@@ -881,7 +890,17 @@ export function Sidebar() {
                 </DragOverlay>
               </DndContext>
 
-              {categories.length === 0 && (
+              {uncategorizedLinkCount > 0 && (
+                <NavItem
+                  icon={<FolderOpen className="h-4 w-4" />}
+                  label={t("sidebar.uncategorized")}
+                  count={uncategorizedLinkCount}
+                  isActive={activeFilter.type === "category" && activeFilter.id === "__uncategorized__"}
+                  onClick={handleUncategorizedClick}
+                />
+              )}
+
+              {categories.length === 0 && uncategorizedLinkCount === 0 && (
                 <p className="px-3 py-2 text-xs text-sidebar-foreground/40">
                   {t("sidebar.noCategories")}
                 </p>

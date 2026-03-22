@@ -187,11 +187,22 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Set categoryId to null for all links in this category
-    await withRetry(
-      () => db.update(links).set({ categoryId: null }).where(eq(links.categoryId, id)),
-      { operationName: "unset links category" }
-    );
+    // Check if the user wants to delete links along with the category
+    const deleteLinks = searchParams.get("deleteLinks") === "true";
+
+    if (deleteLinks) {
+      // Soft-delete all links in this category
+      await withRetry(
+        () => db.update(links).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(links.categoryId, id)),
+        { operationName: "soft delete category links" }
+      );
+    } else {
+      // Move links to uncategorized (existing behavior)
+      await withRetry(
+        () => db.update(links).set({ categoryId: null }).where(eq(links.categoryId, id)),
+        { operationName: "unset links category" }
+      );
+    }
 
     // Soft delete: set deletedAt timestamp instead of actually deleting
     const [deleted] = await withRetry(

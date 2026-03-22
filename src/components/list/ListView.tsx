@@ -89,7 +89,13 @@ export function ListView({ className }: ListViewProps) {
         ? activeFilter.ids
         : activeFilter.id ? [activeFilter.id] : [];
       if (ids.length > 0) {
-        result = result.filter((link: Link) => ids.includes(link.categoryId!));
+        const hasUncategorized = ids.includes("__uncategorized__");
+        const realIds = ids.filter((id) => id !== "__uncategorized__");
+        result = result.filter((link: Link) => {
+          if (hasUncategorized && !link.categoryId) return true;
+          if (realIds.length > 0 && link.categoryId && realIds.includes(link.categoryId)) return true;
+          return false;
+        });
       }
     }
     if (activeFilter.type === "tag") {
