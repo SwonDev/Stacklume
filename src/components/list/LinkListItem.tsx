@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { motion } from "motion/react";
 import {
   Star,
@@ -13,6 +14,12 @@ import {
   CheckIcon,
   GripVertical,
   Check,
+  FileText,
+  BookMarked,
+  Inbox,
+  BookOpen,
+  BookOpenCheck,
+  FolderInput,
 } from "lucide-react";
 import { useMultiSelect } from "@/hooks/useMultiSelect";
 import { useSortable } from "@dnd-kit/sortable";
@@ -32,6 +39,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   Popover,
   PopoverContent,
@@ -93,6 +110,7 @@ export function LinkListItemContent({
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
   const tags = useLinksStore((state) => state.tags);
+  const categories = useLinksStore((state) => state.categories);
   const updateLink = useLinksStore((state) => state.updateLink);
   const removeLink = useLinksStore((state) => state.removeLink);
   const addLinkTag = useLinksStore((state) => state.addLinkTag);
@@ -208,8 +226,56 @@ export function LinkListItemContent({
 
   // Copy URL
   const handleCopyUrl = useCallback(() => {
-    navigator.clipboard.writeText(link.url);
-  }, [link.url]);
+    navigator.clipboard.writeText(link.url).then(() => {
+      toast.success(t("richLink.copyUrlSuccess"));
+    });
+  }, [link.url, t]);
+
+  // Copy as Markdown
+  const handleCopyMarkdown = useCallback(() => {
+    navigator.clipboard.writeText(`[${link.title}](${link.url})`).then(() => {
+      toast.success(t("richLink.copyMarkdownSuccess"));
+    });
+  }, [link.title, link.url, t]);
+
+  // Update reading status
+  const handleUpdateReadingStatus = useCallback(async (status: string) => {
+    try {
+      const res = await fetch(`/api/links/${link.id}/reading-status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+        credentials: "include",
+        body: JSON.stringify({ readingStatus: status }),
+      });
+      if (!res.ok) throw new Error();
+      useLinksStore.getState().updateLink(link.id, { readingStatus: status } as Partial<Link>);
+      toast.success(t("richLink.readingStatusUpdated"));
+      await useLinksStore.getState().refreshAllData();
+    } catch {
+      toast.error(t("richLink.readingStatusError"));
+    }
+  }, [link.id, t]);
+
+  // Move to category
+  const handleMoveToCategory = useCallback(async (categoryId: string | null) => {
+    try {
+      const res = await fetch(`/api/links/${link.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
+        credentials: "include",
+        body: JSON.stringify({ categoryId }),
+      });
+      if (!res.ok) throw new Error();
+      const catName = categoryId
+        ? categories.find((c) => c.id === categoryId)?.name ?? ""
+        : t("richLink.noCategory");
+      useLinksStore.getState().updateLink(link.id, { categoryId } as Partial<Link>);
+      toast.success(t("richLink.movedToCategory", { category: catName }));
+      await useLinksStore.getState().refreshAllData();
+    } catch {
+      toast.error(t("richLink.moveCategoryError"));
+    }
+  }, [link.id, categories, t]);
 
   // Density-based styles
   const densityStyles = {
@@ -241,7 +307,77 @@ export function LinkListItemContent({
     }
   };
 
+  const linkContextMenu = (
+    <ContextMenuContent>
+      <ContextMenuItem onClick={handleCopyUrl}>
+        <Copy className="w-4 h-4" />
+        {t("richLink.copyUrl")}
+      </ContextMenuItem>
+      <ContextMenuItem onClick={handleCopyMarkdown}>
+        <FileText className="w-4 h-4" />
+        {t("richLink.copyMarkdown")}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={() => handleFavoriteToggle()}>
+        <Star className={cn("w-4 h-4", link.isFavorite && "text-yellow-500 fill-yellow-500")} />
+        {link.isFavorite ? t("richLink.removeFavorite") : t("richLink.addFavorite")}
+      </ContextMenuItem>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <BookMarked className="w-4 h-4" />
+          {t("richLink.readingStatus")}
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuItem onClick={() => handleUpdateReadingStatus("inbox")}>
+            <Inbox className={cn("w-4 h-4", (!link.readingStatus || link.readingStatus === "inbox") && "text-primary")} />
+            {t("richLink.readingInbox")}
+            {(!link.readingStatus || link.readingStatus === "inbox") && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleUpdateReadingStatus("reading")}>
+            <BookOpen className={cn("w-4 h-4", link.readingStatus === "reading" && "text-amber-500")} />
+            {t("richLink.readingReading")}
+            {link.readingStatus === "reading" && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handleUpdateReadingStatus("done")}>
+            <BookOpenCheck className={cn("w-4 h-4", link.readingStatus === "done" && "text-green-500")} />
+            {t("richLink.readingDone")}
+            {link.readingStatus === "done" && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSub>
+        <ContextMenuSubTrigger>
+          <FolderInput className="w-4 h-4" />
+          {t("richLink.moveToCategory")}
+        </ContextMenuSubTrigger>
+        <ContextMenuSubContent>
+          <ContextMenuItem onClick={() => handleMoveToCategory(null)}>
+            {t("richLink.noCategory")}
+            {!link.categoryId && <Check className="w-3 h-3 ml-auto" />}
+          </ContextMenuItem>
+          {categories.filter((c) => !c.deletedAt).map((cat) => (
+            <ContextMenuItem key={cat.id} onClick={() => handleMoveToCategory(cat.id)}>
+              {cat.name}
+              {link.categoryId === cat.id && <Check className="w-3 h-3 ml-auto" />}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={handleEdit}>
+        <Pencil className="w-4 h-4" />
+        {t("listView.edit")}
+      </ContextMenuItem>
+      <ContextMenuItem variant="destructive" onClick={handleDelete}>
+        <Trash2 className="w-4 h-4" />
+        {t("listView.delete")}
+      </ContextMenuItem>
+    </ContextMenuContent>
+  );
+
   return (
+    <ContextMenu>
+    <ContextMenuTrigger asChild>
     <motion.div
       initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       animate={{
@@ -256,7 +392,7 @@ export function LinkListItemContent({
       transition={{ duration: 0.2 }}
       onClick={handleSelectionClick}
       className={cn(
-        "group flex items-center gap-2 border-b border-border/50 hover:bg-secondary/30 transition-colors",
+        "group flex items-center gap-2 border-b border-border/50 hover:bg-secondary/30 transition-colors overflow-hidden",
         densityStyles[viewDensity],
         isOverlay && "bg-card border border-border rounded-lg shadow-lg",
         isSelecting && "cursor-pointer",
@@ -320,14 +456,14 @@ export function LinkListItemContent({
       <div className="flex-1 min-w-0 flex items-center gap-3">
         {/* Title and URL */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <a
               href={isSelecting ? undefined : link.url}
               target={isSelecting ? undefined : (linkClickBehavior === "same-tab" ? "_self" : "_blank")}
               rel={isSelecting ? undefined : "noopener noreferrer"}
               onClick={isSelecting ? (e) => e.preventDefault() : undefined}
               className={cn(
-                "font-medium truncate hover:text-primary transition-colors",
+                "font-medium truncate block hover:text-primary transition-colors",
                 titleSizes[viewDensity]
               )}
             >
@@ -523,6 +659,9 @@ export function LinkListItemContent({
         </Tooltip>
       </div>
     </motion.div>
+    </ContextMenuTrigger>
+    {linkContextMenu}
+    </ContextMenu>
   );
 }
 
