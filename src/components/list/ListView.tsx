@@ -487,7 +487,7 @@ export function ListView({ className }: ListViewProps) {
         className="flex-shrink-0 mb-3"
       />
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -563,7 +563,7 @@ export function ListView({ className }: ListViewProps) {
             ) : null}
           </DragOverlay>
         </DndContext>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

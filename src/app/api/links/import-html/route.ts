@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, links, categories, withRetry, type NewLink, type NewCategory, generateId } from "@/lib/db";
+import { db, links, categories, tags, linkTags, withRetry, type NewLink, type NewCategory, generateId } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import { htmlImportSchema, validateRequest, IMPORT_LIMITS } from "@/lib/validations";
+import { detectPlatform } from "@/lib/platform-detection";
 
 /**
  * Sanitizes a string by removing potentially dangerous HTML/scripts
@@ -63,6 +65,7 @@ function parseBookmarksHtml(html: string): {
     url: string;
     addDate?: number;
     category?: string;
+    description?: string;
   }>;
   errors: string[];
 } {
@@ -71,6 +74,7 @@ function parseBookmarksHtml(html: string): {
     url: string;
     addDate?: number;
     category?: string;
+    description?: string;
   }> = [];
   const errors: string[] = [];
 
@@ -153,11 +157,25 @@ function parseBookmarksHtml(html: string): {
           errors.push(`Line ${lineNum + 1}: Title truncated to 255 characters`);
         }
 
+        // Check if next line has a <DD> description
+        let description: string | undefined;
+        if (lineNum + 1 < lines.length) {
+          const nextLine = lines[lineNum + 1];
+          const ddMatch = nextLine.match(/<DD>(.+)/i);
+          if (ddMatch) {
+            description = sanitizeText(ddMatch[1].replace(/<[^>]*>/g, "").trim()) || undefined;
+            if (description && description.length > 500) {
+              description = description.substring(0, 500);
+            }
+          }
+        }
+
         bookmarks.push({
           title: sanitizedTitle,
           url: sanitizedUrl,
           addDate: addDateStr ? parseInt(addDateStr, 10) : undefined,
           category: currentCategory,
+          description,
         });
       }
 
@@ -243,6 +261,7 @@ export async function POST(request: NextRequest) {
     let imported = 0;
     const skipped: string[] = [];
     const categoryCache = new Map<string, string>(); // name -> id
+    const tagCache = new Map<string, string>(); // lowercase name -> id
 
     for (const bookmark of bookmarks) {
       // Check for duplicate URL
@@ -294,12 +313,33 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Detect platform and generate favicon from domain
+      let faviconUrl: string | null = null;
+      let platform: string | null = null;
+      let contentType: string | null = null;
+      let platformColor: string | null = null;
+      try {
+        const hostname = new URL(bookmark.url).hostname;
+        faviconUrl = `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+        const detection = detectPlatform(bookmark.url);
+        if (detection.platform !== "generic") {
+          platform = detection.platform;
+          contentType = detection.contentType;
+          platformColor = detection.color ?? null;
+        }
+      } catch { /* URL inválida — ignorar detección */ }
+
       // Create the link
       const newLink: NewLink = {
         id: generateId(),
         url: bookmark.url,
         title: bookmark.title,
+        description: bookmark.description || null,
         categoryId,
+        faviconUrl,
+        platform,
+        contentType,
+        platformColor,
         source: "import-html",
         isFavorite: false,
         createdAt: new Date(),
@@ -310,6 +350,58 @@ export async function POST(request: NextRequest) {
         () => db.insert(links).values(newLink),
         { operationName: "import html link" }
       );
+
+      // Auto-assign tags based on detected platform and category
+      const autoTags: string[] = [];
+      if (platform && platform !== "generic") {
+        // Capitalize first letter for tag name
+        autoTags.push(platform.charAt(0).toUpperCase() + platform.slice(1));
+      }
+      if (contentType && contentType !== "webpage") {
+        autoTags.push(contentType.charAt(0).toUpperCase() + contentType.slice(1));
+      }
+
+      // Create and assign auto-tags (best-effort, don't block import)
+      for (const tagName of autoTags) {
+        try {
+          // Check if tag exists
+          let tagId: string | undefined;
+          if (tagCache.has(tagName.toLowerCase())) {
+            tagId = tagCache.get(tagName.toLowerCase());
+          } else {
+            const existing = await db.select().from(tags).where(eq(tags.name, tagName)).limit(1);
+            if (existing.length > 0) {
+              tagId = existing[0].id;
+              tagCache.set(tagName.toLowerCase(), tagId);
+            } else {
+              // Create new tag
+              const newTagId = generateId();
+              const tagColors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"];
+              await withRetry(
+                () => db.insert(tags).values({
+                  id: newTagId,
+                  name: tagName,
+                  color: tagColors[tagCache.size % tagColors.length],
+                  createdAt: new Date(),
+                }),
+                { operationName: `create tag: ${tagName}` }
+              );
+              tagId = newTagId;
+              tagCache.set(tagName.toLowerCase(), newTagId);
+            }
+          }
+          if (tagId) {
+            const tagRow = { linkId: String(newLink.id), tagId: String(tagId) };
+            try {
+              await withRetry(
+                () => db.insert(linkTags).values(tagRow),
+                { operationName: "assign import tag" }
+              );
+            } catch { /* duplicate — skip */ }
+          }
+        } catch { /* skip tag assignment errors */ }
+      }
+
       imported++;
     }
 
