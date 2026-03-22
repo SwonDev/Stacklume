@@ -9,9 +9,13 @@ import {
   MoreHorizontal,
   ExternalLink,
   Copy,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { openExternalUrl } from "@/lib/desktop";
+import { useLinksStore } from "@/stores/links-store";
+import { getCsrfHeaders } from "@/hooks/useCsrf";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -256,6 +260,29 @@ export function CategorySectionContent({
                   <Copy className="w-4 h-4 mr-2" />
                   {t("categorySection.copyAllUrls")}
                 </DropdownMenuItem>
+                {links.length > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!confirm(t("categorySection.deleteAllLinksConfirm", { count: links.length }))) return;
+                      Promise.all(
+                        links.map(l =>
+                          fetch(`/api/links/${l.id}`, {
+                            method: "DELETE",
+                            headers: getCsrfHeaders(),
+                            credentials: "include",
+                          })
+                        )
+                      ).then(() => {
+                        useLinksStore.getState().refreshAllData();
+                        toast.success(t("categorySection.deleteAllLinksSuccess", { count: links.length }));
+                      }).catch(() => toast.error("Error al eliminar enlaces"));
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {t("categorySection.deleteAllLinks", { count: links.length })}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
