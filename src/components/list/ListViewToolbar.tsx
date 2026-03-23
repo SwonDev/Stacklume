@@ -15,6 +15,7 @@ import {
   X,
   Check,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
@@ -50,6 +51,7 @@ import { useListViewStore, type SortBy, type SortOrder, type CategorySortBy } fr
 import { useLinksStore } from "@/stores/links-store";
 import { useLayoutStore } from "@/stores/layout-store";
 import { AutoClassifyDialog } from "@/components/modals/AutoClassifyDialog";
+import { EnrichDialog } from "@/components/modals/EnrichDialog";
 import type { Category, Tag as TagType } from "@/lib/db/schema";
 
 // Mapa de colores para las categorías (hex estático — Tailwind no incluye clases dinámicas)
@@ -127,6 +129,9 @@ export function ListViewToolbar({
   const [classifyJobId, setClassifyJobId] = useState<string | null>(null);
   const [classifyProposal, setClassifyProposal] = useState<unknown>(null);
   const classifyPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [enrichOpen, setEnrichOpen] = useState(false);
+  const [enrichJobId, setEnrichJobId] = useState<string | null>(null);
+  const enrichPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const collapseAll = useListViewStore((state) => state.collapseAll);
   const expandAll = useListViewStore((state) => state.expandAll);
 
@@ -135,6 +140,42 @@ export function ListViewToolbar({
     setClassifyJobId(jobId);
     setClassifyProposal(null);
   }, []);
+
+  // Background polling para enriquecimiento
+  const handleEnrichJobStarted = useCallback((jobId: string) => {
+    setEnrichJobId(jobId);
+  }, []);
+
+  useEffect(() => {
+    if (!enrichJobId || enrichOpen) {
+      if (enrichPollingRef.current) clearInterval(enrichPollingRef.current);
+      return;
+    }
+    enrichPollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/links/enrich?jobId=${enrichJobId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+        if (job.status === "done") {
+          if (enrichPollingRef.current) clearInterval(enrichPollingRef.current);
+          setEnrichJobId(null);
+          const { toast } = await import("sonner");
+          toast.success("Enriquecimiento completado", {
+            description: `${job.results?.enriched ?? 0} enlaces enriquecidos`,
+            action: { label: "Ver", onClick: () => setEnrichOpen(true) },
+            duration: 10000,
+          });
+          useLinksStore.getState().refreshAllData().catch(() => {});
+        } else if (job.status === "error") {
+          if (enrichPollingRef.current) clearInterval(enrichPollingRef.current);
+          setEnrichJobId(null);
+          const { toast } = await import("sonner");
+          toast.error("Error en enriquecimiento", { description: job.error });
+        }
+      } catch { /* retry */ }
+    }, 2000);
+    return () => { if (enrichPollingRef.current) clearInterval(enrichPollingRef.current); };
+  }, [enrichJobId, enrichOpen]);
 
   useEffect(() => {
     // Solo polling cuando el dialog está cerrado y hay un job pendiente
@@ -572,6 +613,40 @@ export function ListViewToolbar({
             pendingJobId={classifyJobId}
             pendingProposal={classifyProposal}
             onApplied={() => { setClassifyJobId(null); setClassifyProposal(null); }}
+          />
+
+          {/* Enriquecer enlaces con IA */}
+          {typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("h-7 px-2 gap-1.5", enrichJobId && "text-primary")}
+                  onClick={() => setEnrichOpen(true)}
+                >
+                  {enrichJobId ? (
+                    <Wand2 className="w-3.5 h-3.5 animate-pulse" />
+                  ) : (
+                    <Wand2 className="w-3.5 h-3.5" />
+                  )}
+                  <span className="hidden sm:inline text-xs">
+                    {enrichJobId ? t("enrich.running") : t("enrich.button")}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{enrichJobId ? t("enrich.runningTooltip") : t("enrich.tooltip")}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          <EnrichDialog
+            open={enrichOpen}
+            onClose={() => setEnrichOpen(false)}
+            onJobStarted={handleEnrichJobStarted}
+            pendingJobId={enrichJobId}
+            onCompleted={() => setEnrichJobId(null)}
           />
 
           <div className="h-4 w-px bg-border" />

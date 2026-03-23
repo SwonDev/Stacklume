@@ -14,6 +14,8 @@ interface LinkRow {
   summary: string | null;
   url: string;
   siteName: string | null;
+  semanticTags: string | null;
+  notes: string | null;
 }
 
 /**
@@ -32,7 +34,7 @@ export async function upsertLinkFts(link: LinkRow): Promise<void> {
 
   // Insertar nueva entrada
   await client.execute({
-    sql: `INSERT INTO links_fts(link_id, title, description, summary, url, site_name) VALUES (?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO links_fts(link_id, title, description, summary, url, site_name, semantic_tags, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       link.id,
       link.title || "",
@@ -40,6 +42,8 @@ export async function upsertLinkFts(link: LinkRow): Promise<void> {
       link.summary || "",
       link.url || "",
       link.siteName || "",
+      link.semanticTags || "",
+      link.notes || "",
     ],
   });
 }
@@ -106,8 +110,8 @@ export async function rebuildLinksFts(): Promise<number> {
 
   // Insertar todos los links activos
   const result = await client.execute(
-    `INSERT INTO links_fts(link_id, title, description, summary, url, site_name)
-     SELECT id, COALESCE(title, ''), COALESCE(description, ''), COALESCE(summary, ''), COALESCE(url, ''), COALESCE(site_name, '')
+    `INSERT INTO links_fts(link_id, title, description, summary, url, site_name, semantic_tags, notes)
+     SELECT id, COALESCE(title, ''), COALESCE(description, ''), COALESCE(summary, ''), COALESCE(url, ''), COALESCE(site_name, ''), COALESCE(semantic_tags, ''), COALESCE(notes, '')
      FROM links
      WHERE deleted_at IS NULL`
   );

@@ -102,6 +102,7 @@ export const createLinkSchema = z.object({
   platformColor: z.string().max(20, 'Platform color must be 20 characters or less').nullable().optional(),
   installCommands: z.array(z.string().max(300)).max(20).nullable().optional(),
   summary: z.string().max(1000).nullable().optional(),
+  semanticTags: z.string().nullable().optional(),
 });
 
 // Update link request body (all fields optional except ID)
@@ -127,6 +128,7 @@ export const updateLinkSchema = z.object({
   reminderAt: isoDateSchema.nullable().optional(),
   installCommands: z.array(z.string().max(300)).max(20).nullable().optional(),
   summary: z.string().max(1000).nullable().optional(),
+  semanticTags: z.string().nullable().optional(),
 });
 
 // Link ID param

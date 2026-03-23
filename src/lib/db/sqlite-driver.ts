@@ -83,8 +83,8 @@ export async function getSQLiteDb(): Promise<SQLiteDatabase> {
     const count = Number(ftsCount.rows?.[0]?.c ?? 0);
     if (count === 0) {
       const result = await client.execute(
-        `INSERT INTO links_fts(link_id, title, description, summary, url, site_name)
-         SELECT id, COALESCE(title, ''), COALESCE(description, ''), COALESCE(summary, ''), COALESCE(url, ''), COALESCE(site_name, '')
+        `INSERT INTO links_fts(link_id, title, description, summary, url, site_name, semantic_tags, notes)
+         SELECT id, COALESCE(title, ''), COALESCE(description, ''), COALESCE(summary, ''), COALESCE(url, ''), COALESCE(site_name, ''), COALESCE(semantic_tags, ''), COALESCE(notes, '')
          FROM links
          WHERE deleted_at IS NULL`
       );
@@ -182,7 +182,8 @@ async function initializeSQLiteTables(client: ReturnType<typeof createClient>) {
       is_read INTEGER DEFAULT 0,
       notes TEXT,
       reminder_at INTEGER,
-      summary TEXT
+      summary TEXT,
+      semantic_tags TEXT
     )`,
     `CREATE INDEX IF NOT EXISTS idx_links_user_id ON links(user_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_links_url ON links(url) WHERE deleted_at IS NULL`,
@@ -622,7 +623,7 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
       sql: `ALTER TABLE links ADD COLUMN summary TEXT`,
       description: "links.summary",
     },
-    // FTS5 — Búsqueda full-text para enlaces
+    // FTS5 — Búsqueda full-text para enlaces (v1: title, description, summary, url, site_name)
     {
       sql: `CREATE VIRTUAL TABLE IF NOT EXISTS links_fts USING fts5(
         link_id UNINDEXED,
@@ -635,6 +636,32 @@ async function runSQLiteMigrations(client: ReturnType<typeof createClient>) {
         tokenize='unicode61'
       )`,
       description: "links_fts virtual table (FTS5)",
+    },
+    // Etiquetas semánticas generadas por IA local
+    {
+      sql: `ALTER TABLE links ADD COLUMN semantic_tags TEXT`,
+      description: "links.semantic_tags",
+    },
+    // FTS5 v2 — Añadir semantic_tags y notes al índice full-text
+    // DROP + CREATE para reconstruir con las columnas nuevas
+    {
+      sql: `DROP TABLE IF EXISTS links_fts`,
+      description: "links_fts drop (reconstruir con semantic_tags + notes)",
+    },
+    {
+      sql: `CREATE VIRTUAL TABLE IF NOT EXISTS links_fts USING fts5(
+        link_id UNINDEXED,
+        title,
+        description,
+        summary,
+        url,
+        site_name,
+        semantic_tags,
+        notes,
+        content='',
+        tokenize='unicode61'
+      )`,
+      description: "links_fts v2 virtual table (con semantic_tags + notes)",
     },
   ];
 

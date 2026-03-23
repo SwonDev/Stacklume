@@ -349,6 +349,11 @@ export async function POST(request: NextRequest) {
       ).catch(() => {});
     }
 
+    // Generar etiquetas semánticas en background (solo desktop con LLM local)
+    if (process.env.DESKTOP_MODE === "true") {
+      generateSemanticTags(created.id, created.url, created.title, created.description).catch(() => {});
+    }
+
     log.info({ linkId: created.id, url: created.url }, "Link created successfully");
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
@@ -387,5 +392,111 @@ export async function POST(request: NextRequest) {
       error: "Error al crear enlace",
       details: sanitizedError
     }, { status: 500 });
+  }
+}
+
+/**
+ * Genera etiquetas semánticas para un enlace usando el LLM local (llama.cpp).
+ * Se ejecuta en background — no bloquea la respuesta al cliente.
+ */
+async function generateSemanticTags(
+  linkId: string,
+  url: string,
+  title: string,
+  description: string | null
+): Promise<void> {
+  // Detectar el puerto del LLM local
+  let llamaPort = process.env.LLAMA_PORT || "0";
+
+  if (!llamaPort || llamaPort === "0") {
+    // Intentar detectar automáticamente
+    const candidates = [8080, 8099, 63334, 63335, 63336, 63337, 63338];
+    for (const port of candidates) {
+      try {
+        const resp = await fetch(`http://127.0.0.1:${port}/v1/models`, {
+          signal: AbortSignal.timeout(1000),
+        });
+        if (resp.ok) {
+          llamaPort = String(port);
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (llamaPort === "0") {
+      // No hay LLM disponible — salir silenciosamente
+      return;
+    }
+  }
+
+  const prompt = `Generate 15-20 semantic search tags for this webpage. Tags must be lowercase, specific and searchable. Include: topic, technology, programming language, framework, tool name, content type (tutorial, docs, article, tool, library, video), domain area. Be specific: "react hooks" beats "programming". NEVER include generic tags like "website", "webpage", "link", "internet".
+
+Title: ${title}
+URL: ${url}
+${description ? `Description: ${description}` : ""}
+
+Respond with ONLY a JSON array of strings:
+["tag1", "tag2", ...]`;
+
+  try {
+    const resp = await fetch(`http://127.0.0.1:${llamaPort}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "local-model",
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        temperature: 0.3,
+        max_tokens: 200,
+        chat_template_kwargs: { enable_thinking: false },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!resp.ok) return;
+
+    const data = await resp.json();
+    let content: string = data.choices?.[0]?.message?.content?.trim() ?? "";
+    // Limpiar bloques <think> y markdown code fences
+    content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    content = content.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+
+    const tags: unknown = JSON.parse(content);
+    if (Array.isArray(tags) && tags.length > 0) {
+      const cleanedTags = tags
+        .slice(0, 15)
+        .map((t) => String(t).toLowerCase().trim())
+        .filter((t) => t.length > 0 && t.length <= 50);
+
+      if (cleanedTags.length > 0) {
+        const semanticTagsJson = JSON.stringify(cleanedTags);
+        await db
+          .update(links)
+          .set({ semanticTags: semanticTagsJson, updatedAt: new Date() })
+          .where(eq(links.id, linkId));
+
+        // Actualizar FTS5 con las etiquetas semánticas
+        if (getCurrentDatabaseType() === "sqlite") {
+          try {
+            const { upsertLinkFts } = await import("@/lib/db/fts");
+            // Obtener el link completo para re-indexar
+            const [updated] = await db
+              .select()
+              .from(links)
+              .where(eq(links.id, linkId))
+              .limit(1);
+            if (updated) {
+              await upsertLinkFts(updated);
+            }
+          } catch {
+            // FTS update no crítico
+          }
+        }
+
+        log.debug({ linkId, tags: cleanedTags }, "Etiquetas semánticas generadas");
+      }
+    }
+  } catch {
+    // Error silencioso — la generación de tags es opcional
   }
 }

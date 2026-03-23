@@ -10,6 +10,7 @@ import { TagSelector } from "@/components/ui/tag-selector";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { MultiCategorySelector } from "@/components/ui/multi-category-selector";
 import type { Tag } from "@/lib/db/schema";
+import { randomTagColor } from "@/lib/colors";
 import {
   Dialog,
   DialogContent,
@@ -164,7 +165,7 @@ export function EditLinkModal() {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
                 credentials: "include",
-                body: JSON.stringify({ name: tagName, color: "#3b82f6" }),
+                body: JSON.stringify({ name: tagName, color: randomTagColor() }),
               });
               if (tagRes.ok) {
                 const newTag = await tagRes.json();
@@ -441,23 +442,6 @@ export function EditLinkModal() {
                 onTagsChange={setSelectedTagIds}
                 placeholder={t("editLink.addTags")}
               />
-              {selectedTagIds.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {selectedTagIds.map(tagId => {
-                    const tag = tags.find((t: Tag) => t.id === tagId);
-                    if (!tag) return null;
-                    return (
-                      <TagBadge
-                        key={tag.id}
-                        name={tag.name}
-                        color={tag.color || "gray"}
-                        size="sm"
-                        onRemove={() => setSelectedTagIds(prev => prev.filter(id => id !== tagId))}
-                      />
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* Favorite Toggle */}

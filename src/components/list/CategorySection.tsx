@@ -289,17 +289,11 @@ export function CategorySectionContent({
         )}
       </div>
 
-      {/* Links list — hidden in overlay to keep it compact */}
-      {!isOverlay && (
+      {/* Links list — NOT rendered when collapsed to keep DOM lightweight */}
+      {!isOverlay && !isCollapsed && (
         <div
           id={`category-content-${categoryId}`}
           className="overflow-hidden"
-          style={{
-            maxHeight: isCollapsed ? 0 : 2000,
-            opacity: isCollapsed ? 0 : 1,
-            transition: reduceMotion ? "none" : "max-height 0.2s ease-out, opacity 0.15s ease-out",
-            willChange: "max-height, opacity",
-          }}
         >
           <div className="border-t border-border/50">
             <SortableContext

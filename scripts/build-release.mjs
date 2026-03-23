@@ -58,7 +58,7 @@ if (process.env.SKIP_NEXT_BUILD !== "1") {
   } catch {
     console.error("\n[build-release] ✗ Build Next.js fallido.");
     console.error("  Si el problema es falta de recursos del sistema (hilos, memoria),");
-    console.error("  cierra otras aplicaciones, pausa OneDrive y ejecuta:");
+    console.error("  cierra otras aplicaciones y ejecuta:");
     console.error("    pnpm build:desktop");
     console.error("  Cuando termine, vuelve a ejecutar con:");
     console.error("    SKIP_NEXT_BUILD=1 pnpm tauri:build");

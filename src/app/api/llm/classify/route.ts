@@ -83,11 +83,7 @@ function setRunning(v: boolean) {
   try { if (v) writeFileSync(RUNNING_FLAG, "1"); else unlinkSync(RUNNING_FLAG); } catch { /* */ }
 }
 
-const COLOR_PALETTE = [
-  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e",
-  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
-  "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#64748b",
-];
+import { TAG_COLORS as COLOR_PALETTE, CATEGORY_COLORS } from "@/lib/colors";
 
 // ─── Auto-detectar puerto de llama-server ────────────────────────────────────
 
@@ -458,7 +454,7 @@ async function applyProposal(proposal: ClassifyProposal) {
   for (const name of proposal.newCategories) {
     if (catNameToId.has(name.toLowerCase())) continue;
     const id = generateId();
-    const color = COLOR_PALETTE[colorIdx % COLOR_PALETTE.length];
+    const color = CATEGORY_COLORS[colorIdx % CATEGORY_COLORS.length];
     colorIdx++;
     try {
       await withRetry(
@@ -501,7 +497,7 @@ async function applyProposal(proposal: ClassifyProposal) {
       // Auto-crear categoría si no existe (el LLM no siempre marca newCategory correctamente)
       if (!catId) {
         catId = generateId();
-        const color = COLOR_PALETTE[colorIdx % COLOR_PALETTE.length];
+        const color = CATEGORY_COLORS[colorIdx % CATEGORY_COLORS.length];
         colorIdx++;
         try {
           await withRetry(

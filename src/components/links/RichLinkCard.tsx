@@ -485,6 +485,27 @@ export const RichLinkCard = memo(function RichLinkCard({
                   {link.summary}
                 </p>
               )}
+              {/* Etiquetas semánticas generadas por IA */}
+              {link.semanticTags && (() => {
+                try {
+                  const parsed = JSON.parse(link.semanticTags) as string[];
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    return (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {parsed.slice(0, 8).map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground/70"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  }
+                } catch { /* JSON inválido — no mostrar */ }
+                return null;
+              })()}
               <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                 <span className="truncate">{hostname}</span>
                 {link.author && (

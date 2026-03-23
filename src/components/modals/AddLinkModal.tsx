@@ -44,6 +44,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TagBadge } from "@/components/ui/tag-badge";
+import type { Tag } from "@/lib/db/schema";
+import { randomTagColor } from "@/lib/colors";
 import { useLinksStore } from "@/stores/links-store";
 import { motion, AnimatePresence } from "motion/react";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
@@ -752,11 +754,12 @@ export function AddLinkModal() {
         form.setValue("description", data.result);
       } else if (type === "tags" && data.tags) {
         // Añadir las etiquetas generadas como sugerencias
-        const tagColors = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#ec4899", "#06b6d4", "#84cc16"];
-        const newTags: TagSuggestion[] = (data.tags as string[]).map((name: string, i: number) => ({
-          name,
-          color: tagColors[i % tagColors.length],
-        }));
+        const newTags: TagSuggestion[] = (data.tags as string[]).map((name: string) => {
+          // Si la etiqueta ya existe, usar su color; si no, aleatorio
+          const allTags = useLinksStore.getState().tags;
+          const existingTag = allTags.find((t: Tag) => t.name.toLowerCase() === name.toLowerCase());
+          return { name, color: existingTag?.color || randomTagColor() };
+        });
         // Fusionar con sugerencias existentes (evitar duplicados)
         setSuggestedTags((prev) => {
           const existingNames = new Set(prev.map((t) => t.name.toLowerCase()));

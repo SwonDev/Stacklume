@@ -192,6 +192,8 @@ export const links = pgTable(
     installCommands: text("install_commands"), // JSON string: string[]
     // Resumen generado por IA (2-3 oraciones)
     summary: text("summary"),
+    // Etiquetas semánticas generadas por IA local (JSON array de strings)
+    semanticTags: text("semantic_tags"),
   },
   (table) => ({
     userIdIdx: index("idx_links_user_id").on(table.userId),

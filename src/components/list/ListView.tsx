@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState, useCallback, useDeferredValue } from "react";
+import { useMemo, useState, useCallback, useDeferredValue, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Link2Off, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fuzzySearch } from "@/lib/fuzzy-search";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListViewToolbar } from "./ListViewToolbar";
 import { SortableCategorySection } from "./CategorySection";
 import { LinkListItemContent } from "./LinkListItem";
@@ -62,6 +61,23 @@ export function ListView({ className }: ListViewProps) {
   const uncategorizedPosition = useListViewStore((state) => state.uncategorizedPosition);
   const reduceMotion = useSettingsStore((state) => state.reduceMotion);
   const deferredSearch = useDeferredValue(searchQuery);
+
+  // Auto-collapse categories when there are many links to keep DOM lightweight
+  const autoCollapsedRef = useRef(false);
+  useEffect(() => {
+    if (autoCollapsedRef.current || links.length < 150 || categories.length < 5) return;
+    autoCollapsedRef.current = true;
+    const store = useListViewStore.getState();
+    // Only auto-collapse if user hasn't manually configured collapsed state
+    if (store.collapsedCategories.length === 0) {
+      // Collapse all except the first 3 categories
+      const allCatIds = categories.map(c => c.id);
+      const toCollapse = allCatIds.slice(3);
+      if (toCollapse.length > 0) {
+        store.collapseAll(toCollapse);
+      }
+    }
+  }, [links.length, categories]);
 
   // Drag state
   const [activeLinkId, setActiveLinkId] = useState<string | null>(null);

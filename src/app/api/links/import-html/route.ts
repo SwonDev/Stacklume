@@ -3,6 +3,7 @@ import { db, links, categories, tags, linkTags, withRetry, type NewLink, type Ne
 import { eq } from "drizzle-orm";
 import { htmlImportSchema, validateRequest, IMPORT_LIMITS } from "@/lib/validations";
 import { detectPlatform } from "@/lib/platform-detection";
+import { randomTagColor } from "@/lib/colors";
 
 /**
  * Sanitizes a string by removing potentially dangerous HTML/scripts
@@ -376,12 +377,11 @@ export async function POST(request: NextRequest) {
             } else {
               // Create new tag
               const newTagId = generateId();
-              const tagColors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"];
               await withRetry(
                 () => db.insert(tags).values({
                   id: newTagId,
                   name: tagName,
-                  color: tagColors[tagCache.size % tagColors.length],
+                  color: randomTagColor(),
                   createdAt: new Date(),
                 }),
                 { operationName: `create tag: ${tagName}` }
