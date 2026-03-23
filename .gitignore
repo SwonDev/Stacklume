@@ -10,12 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-/playwright-report
-/playwright-results
-/test-results
-
 # next.js
 /.next/
 /out/
@@ -26,9 +20,7 @@
 /dist-extension
 
 # misc
-.DS_Store
 *.pem
-Thumbs.db
 
 # debug
 npm-debug.log*
@@ -40,6 +32,7 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+.env*.local
 .env.development
 .env.production
 
@@ -99,20 +92,19 @@ lint_*.txt
 # Documentación interna (no relevante para usuarios externos)
 docs/
 src/lib/API_CLIENT_GUIDE.md
+src/stores/WIDGET_STORE_GUIDE.md
 
 # Artefactos de desarrollo interno (scripts auxiliares)
 scripts/i18n-keys-*.json
 scripts/take-screenshots.mjs
 scripts/screenshot-demo.mjs
 
-.vercel
-.env*.local
-
 # Claude Code — configuración local privada
 .claude/
+CLAUDE.md
 
-# TypeScript build info
-*.tsbuildinfo
+# AI tools config — instrucciones internas para asistentes de código
+AGENTS.md
 
 # Tests — no se publican en el repo público
 e2e/
@@ -133,9 +125,7 @@ playwright.extension.config.ts
 /playwright-results-extension/
 /playwright-extension-profile*/
 /test-results/
-
-# AI tools config — instrucciones internas para asistentes de código
-AGENTS.md
+/test-screenshots/
 
 # Extensión del navegador (repo y distribución separados)
 /extension/
@@ -148,6 +138,3 @@ AGENTS.md
 
 # Proyectos independientes que viven en este directorio
 /stacklume-web/
-
-.env*.local
-CLAUDE.md
