@@ -20,6 +20,8 @@ interface EnrichJobState {
     tagsGenerated: number;
     summariesGenerated: number;
     visionTagsGenerated: number;
+    llmAvailable: boolean;
+    skippedNoLlm: number;
   };
   error?: string;
 }
@@ -150,6 +152,8 @@ async function runEnrichJob(jobId: string, llamaPort: string) {
     tagsGenerated: 0,
     summariesGenerated: 0,
     visionTagsGenerated: 0,
+    llmAvailable: false,
+    skippedNoLlm: 0,
   };
 
   try {
@@ -197,14 +201,28 @@ async function runEnrichJob(jobId: string, llamaPort: string) {
       return;
     }
 
-    // Cap at 200 links
-    const toProcess = needsEnrichment.slice(0, 200);
-    state.progress.total = toProcess.length;
-    saveJob(jobId, state);
-
     // Comprobar disponibilidad del LLM
     const llmAvailable = llamaPort !== "0";
     const supportsVision = llmAvailable ? await checkVisionSupport(llamaPort) : false;
+    results.llmAvailable = llmAvailable;
+
+    // Filtrar enlaces que realmente se pueden procesar ahora
+    // Si no hay LLM, solo procesar los que necesitan favicon o platform
+    const toProcess = needsEnrichment.filter(link => {
+      const noFavicon = !link.faviconUrl;
+      const noPlatform = !link.platform;
+      const noTags2 = !linkTagMap.has(link.id) || linkTagMap.get(link.id)!.size === 0;
+      // Procesar todos: favicon, platform, y tags (el fallback sin LLM genera tags del título)
+      return noFavicon || noPlatform || noTags2 || (llmAvailable && !link.summary);
+    }).slice(0, 500);
+
+    // Contar los que necesitan LLM para summary (no se puede sin LLM)
+    if (!llmAvailable) {
+      results.skippedNoLlm = needsEnrichment.filter(link => !link.summary).length;
+    }
+
+    state.progress.total = toProcess.length;
+    saveJob(jobId, state);
 
     // Tag name → id lookup (para reutilizar tags existentes)
     const tagNameToId = new Map(allTags.map(t => [t.name.toLowerCase(), t.id]));
@@ -255,7 +273,7 @@ async function runEnrichJob(jobId: string, llamaPort: string) {
           } catch { /* skip */ }
         }
 
-        // 3. Tags con LLM (si no tiene tags y LLM disponible)
+        // 3. Tags — primero intenta con LLM, si no genera tags del título/URL/plataforma
         const existingTags = linkTagMap.get(link.id);
         const noTags = !existingTags || existingTags.size === 0;
         const noSemanticTags = !link.semanticTags;
@@ -312,7 +330,97 @@ async function runEnrichJob(jobId: string, llamaPort: string) {
 
               enriched = true;
             }
-          } catch { /* LLM failed, skip tags */ }
+          } catch { /* LLM failed, fall through to keyword-based tags */ }
+        }
+
+        // 3b. Fallback: generar tags del título/URL/plataforma SIN LLM
+        if (noTags && generatedTagNames.length === 0) {
+          const autoTags: string[] = [];
+          // Tag por plataforma
+          const plat = link.platform || (updates.platform as string) || null;
+          if (plat && plat !== "generic") {
+            autoTags.push(plat.charAt(0).toUpperCase() + plat.slice(1));
+          }
+          // Tag por contentType
+          const ct = link.contentType || (updates.contentType as string) || null;
+          if (ct && ct !== "webpage") {
+            autoTags.push(ct.charAt(0).toUpperCase() + ct.slice(1));
+          }
+          // Tags por keywords del título
+          const titleLower = (link.title || "").toLowerCase();
+          const keywordMap: Record<string, string> = {
+            "react": "React", "vue": "Vue", "angular": "Angular", "svelte": "Svelte",
+            "next.js": "Next.js", "nextjs": "Next.js", "nuxt": "Nuxt",
+            "typescript": "TypeScript", "javascript": "JavaScript", "python": "Python",
+            "rust": "Rust", "go": "Go", "java": "Java", "kotlin": "Kotlin", "swift": "Swift",
+            "docker": "Docker", "kubernetes": "Kubernetes", "aws": "AWS", "azure": "Azure",
+            "tailwind": "TailwindCSS", "css": "CSS", "html": "HTML",
+            "api": "API", "graphql": "GraphQL", "rest": "REST",
+            "tutorial": "Tutorial", "documentation": "Documentación", "docs": "Documentación",
+            "guía": "Guía", "guide": "Guía", "curso": "Curso", "course": "Curso",
+            "tool": "Herramienta", "herramienta": "Herramienta",
+            "library": "Librería", "librería": "Librería", "framework": "Framework",
+            "game": "Videojuegos", "juego": "Videojuegos",
+            "design": "Diseño", "diseño": "Diseño", "figma": "Figma",
+            "ai": "IA", "ia": "IA", "machine learning": "ML", "llm": "LLM",
+            "open source": "Open Source", "github": "GitHub",
+          };
+          for (const [keyword, tag] of Object.entries(keywordMap)) {
+            if (titleLower.includes(keyword) && !autoTags.some(t => t.toLowerCase() === tag.toLowerCase())) {
+              autoTags.push(tag);
+            }
+            if (autoTags.length >= 5) break;
+          }
+          // Tags por hostname
+          try {
+            const hostname = new URL(link.url).hostname.replace("www.", "");
+            const domainTags: Record<string, string> = {
+              "github.com": "GitHub", "youtube.com": "YouTube", "dev.to": "Dev.to",
+              "medium.com": "Medium", "stackoverflow.com": "StackOverflow",
+              "npmjs.com": "npm", "pypi.org": "PyPI", "crates.io": "Crates.io",
+              "figma.com": "Figma", "dribbble.com": "Dribbble",
+            };
+            if (domainTags[hostname] && !autoTags.some(t => t === domainTags[hostname])) {
+              autoTags.push(domainTags[hostname]);
+            }
+          } catch { /* skip */ }
+
+          // Crear y asignar auto-tags
+          for (const tagName of autoTags) {
+            const normalizedName = tagName.toLowerCase().trim();
+            if (!normalizedName) continue;
+            generatedTagNames.push(normalizedName);
+
+            let tagId = tagNameToId.get(normalizedName);
+            if (!tagId) {
+              tagId = generateId();
+              const color = COLOR_PALETTE[tagColorIdx % COLOR_PALETTE.length];
+              tagColorIdx++;
+              try {
+                await withRetry(
+                  () => db.insert(tags).values({ id: tagId!, name: tagName.trim(), color, createdAt: new Date() }),
+                  { operationName: `enrich: auto-tag ${tagName}` }
+                );
+                tagNameToId.set(normalizedName, tagId);
+              } catch { tagId = undefined; }
+            }
+            if (tagId) {
+              try {
+                await withRetry(
+                  () => db.insert(linkTags).values({ linkId: link.id, tagId: tagId! }),
+                  { operationName: "enrich: assign auto-tag" }
+                );
+                results.tagsGenerated++;
+              } catch { /* duplicate */ }
+            }
+          }
+
+          if (generatedTagNames.length > 0) {
+            if (noSemanticTags) {
+              updates.semanticTags = JSON.stringify(generatedTagNames);
+            }
+            enriched = true;
+          }
         }
 
         // 4. Summary con LLM (si no tiene y LLM disponible)

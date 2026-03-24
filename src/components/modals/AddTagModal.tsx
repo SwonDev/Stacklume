@@ -29,6 +29,7 @@ import { useLinksStore } from "@/stores/links-store"
 import { cn } from "@/lib/utils"
 import { getCsrfHeaders } from "@/hooks/useCsrf"
 import { useTranslation } from "@/lib/i18n"
+import { Pipette } from "lucide-react"
 
 const formSchema = z.object({
   name: z
@@ -40,58 +41,30 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-const colorOptions: Array<{ value: TagColor; labelKey: string }> = [
-  { value: "red", labelKey: "color.red" },
-  { value: "orange", labelKey: "color.orange" },
-  { value: "amber", labelKey: "color.amber" },
-  { value: "yellow", labelKey: "color.yellow" },
-  { value: "lime", labelKey: "color.lime" },
-  { value: "green", labelKey: "color.green" },
-  { value: "emerald", labelKey: "color.emerald" },
-  { value: "teal", labelKey: "color.teal" },
-  { value: "cyan", labelKey: "color.cyan" },
-  { value: "sky", labelKey: "color.sky" },
-  { value: "blue", labelKey: "color.blue" },
-  { value: "indigo", labelKey: "color.indigo" },
-  { value: "violet", labelKey: "color.violet" },
-  { value: "purple", labelKey: "color.purple" },
-  { value: "fuchsia", labelKey: "color.fuchsia" },
-  { value: "pink", labelKey: "color.pink" },
-  { value: "rose", labelKey: "color.rose" },
-  { value: "slate", labelKey: "color.slate" },
-  { value: "gray", labelKey: "color.gray" },
-  { value: "zinc", labelKey: "color.zinc" },
-  { value: "neutral", labelKey: "color.neutral" },
-  { value: "stone", labelKey: "color.stone" },
+const colorOptions: Array<{ value: TagColor; labelKey: string; hex: string }> = [
+  { value: "red", labelKey: "color.red", hex: "#ef4444" },
+  { value: "orange", labelKey: "color.orange", hex: "#f97316" },
+  { value: "amber", labelKey: "color.amber", hex: "#f59e0b" },
+  { value: "yellow", labelKey: "color.yellow", hex: "#eab308" },
+  { value: "lime", labelKey: "color.lime", hex: "#84cc16" },
+  { value: "green", labelKey: "color.green", hex: "#22c55e" },
+  { value: "emerald", labelKey: "color.emerald", hex: "#10b981" },
+  { value: "teal", labelKey: "color.teal", hex: "#14b8a6" },
+  { value: "cyan", labelKey: "color.cyan", hex: "#06b6d4" },
+  { value: "sky", labelKey: "color.sky", hex: "#0ea5e9" },
+  { value: "blue", labelKey: "color.blue", hex: "#3b82f6" },
+  { value: "indigo", labelKey: "color.indigo", hex: "#6366f1" },
+  { value: "violet", labelKey: "color.violet", hex: "#8b5cf6" },
+  { value: "purple", labelKey: "color.purple", hex: "#a855f7" },
+  { value: "fuchsia", labelKey: "color.fuchsia", hex: "#d946ef" },
+  { value: "pink", labelKey: "color.pink", hex: "#ec4899" },
+  { value: "rose", labelKey: "color.rose", hex: "#f43f5e" },
+  { value: "slate", labelKey: "color.slate", hex: "#64748b" },
+  { value: "gray", labelKey: "color.gray", hex: "#6b7280" },
+  { value: "zinc", labelKey: "color.zinc", hex: "#71717a" },
+  { value: "neutral", labelKey: "color.neutral", hex: "#737373" },
+  { value: "stone", labelKey: "color.stone", hex: "#78716c" },
 ]
-
-const getColorStyles = (color: TagColor) => {
-  const colorMap: Record<TagColor, string> = {
-    red: "#ef4444",
-    orange: "#f97316",
-    amber: "#f59e0b",
-    yellow: "#eab308",
-    lime: "#84cc16",
-    green: "#22c55e",
-    emerald: "#10b981",
-    teal: "#14b8a6",
-    cyan: "#06b6d4",
-    sky: "#0ea5e9",
-    blue: "#3b82f6",
-    indigo: "#6366f1",
-    violet: "#8b5cf6",
-    purple: "#a855f7",
-    fuchsia: "#d946ef",
-    pink: "#ec4899",
-    rose: "#f43f5e",
-    slate: "#64748b",
-    gray: "#6b7280",
-    zinc: "#71717a",
-    neutral: "#737373",
-    stone: "#78716c",
-  }
-  return colorMap[color]
-}
 
 export function AddTagModal() {
   const isAddTagModalOpen = useLinksStore((state) => state.isAddTagModalOpen);
@@ -99,7 +72,8 @@ export function AddTagModal() {
   const addTag = useLinksStore((state) => state.addTag);
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedColor, setSelectedColor] = useState<TagColor>("blue")
+  const [selectedColor, setSelectedColor] = useState<string>("blue")
+  const [customHex, setCustomHex] = useState("#3b82f6")
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -153,6 +127,7 @@ export function AddTagModal() {
   const handleClose = () => {
     form.reset()
     setSelectedColor("blue")
+    setCustomHex("#3b82f6")
     setAddTagModalOpen(false)
   }
 
@@ -205,7 +180,7 @@ export function AddTagModal() {
                         "ring-2 ring-primary ring-offset-2 ring-offset-background"
                     )}
                     style={{
-                      backgroundColor: getColorStyles(color.value),
+                      backgroundColor: color.hex,
                     }}
                     title={t(color.labelKey)}
                     whileHover={{ scale: 1.1 }}
@@ -224,6 +199,30 @@ export function AddTagModal() {
                     )}
                   </motion.button>
                 ))}
+                {/* Color personalizado */}
+                <label
+                  className={cn(
+                    "w-7 h-7 rounded-full cursor-pointer flex items-center justify-center relative transition-all",
+                    selectedColor.startsWith("#")
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                      : "border-2 border-dashed border-muted-foreground/40 hover:border-muted-foreground/70"
+                  )}
+                  style={selectedColor.startsWith("#") ? { backgroundColor: selectedColor } : undefined}
+                  title="Color personalizado"
+                >
+                  <input
+                    type="color"
+                    value={customHex}
+                    onChange={(e) => {
+                      setCustomHex(e.target.value)
+                      setSelectedColor(e.target.value)
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {!selectedColor.startsWith("#") && (
+                    <Pipette className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </label>
               </div>
             </div>
 

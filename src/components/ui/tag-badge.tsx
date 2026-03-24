@@ -164,19 +164,27 @@ export interface TagBadgeProps extends VariantProps<typeof tagBadgeVariants> {
 }
 
 export function TagBadge({ name, color = "blue", size, onRemove, className }: TagBadgeProps) {
-  const colorClass = tagColorClasses[color] || tagColorClasses.blue
+  const colorClass = tagColorClasses[color]
+  const isCustomHex = !colorClass && color.startsWith("#")
+  const fallbackClass = !colorClass && !isCustomHex ? tagColorClasses.blue : null
 
   return (
     <span
       className={cn(
         tagBadgeVariants({ size }),
-        colorClass.bg,
-        colorClass.text,
-        colorClass.textDark,
-        colorClass.border,
+        colorClass
+          ? [colorClass.bg, colorClass.text, colorClass.textDark, colorClass.border]
+          : fallbackClass
+            ? [fallbackClass.bg, fallbackClass.text, fallbackClass.textDark, fallbackClass.border]
+            : "",
         "hover:opacity-90",
         className
       )}
+      style={isCustomHex ? {
+        backgroundColor: `${color}33`,
+        color: color,
+        borderColor: `${color}4d`,
+      } : undefined}
     >
       <span className="truncate">{name}</span>
       {onRemove && (

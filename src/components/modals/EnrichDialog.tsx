@@ -32,6 +32,8 @@ interface EnrichResults {
   tagsGenerated: number;
   summariesGenerated: number;
   visionTagsGenerated: number;
+  llmAvailable: boolean;
+  skippedNoLlm: number;
 }
 
 interface EnrichProgress {
@@ -73,6 +75,12 @@ export function EnrichDialog({
   // Contar enlaces que necesitan enriquecimiento
   const allLinks = useLinksStore((s) => s.links);
   const linkTags = useLinksStore((s) => s.linkTags ?? []);
+
+  // Desglose detallado de lo que necesita enriquecimiento
+  const noFaviconCount = allLinks.filter(l => !l.faviconUrl).length;
+  const noPlatformCount = allLinks.filter(l => !l.platform).length;
+  const noTagsCount = allLinks.filter(l => !linkTags.some((lt: { linkId: string }) => lt.linkId === l.id)).length;
+  const noSummaryCount = allLinks.filter(l => !l.summary).length;
 
   const needsEnrichmentCount = allLinks.filter(link => {
     const noFavicon = !link.faviconUrl;
@@ -201,6 +209,37 @@ export function EnrichDialog({
                 <p className="text-xs text-muted-foreground">{t("enrich.totalLinks")}</p>
               </div>
             </div>
+            {/* Desglose detallado */}
+            {needsEnrichmentCount > 0 && (
+              <div className="bg-secondary/50 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground mb-2">{t("enrich.breakdown")}</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <span>{t("enrich.breakdown.favicon")}</span>
+                    <span className="ml-auto font-medium">{noFaviconCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Globe className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <span>{t("enrich.breakdown.platform")}</span>
+                    <span className="ml-auto font-medium">{noPlatformCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Tag className="w-3 h-3 text-amber-500 shrink-0" />
+                    <span className="text-amber-500/80">{t("enrich.breakdown.tags")}</span>
+                    <span className="ml-auto font-medium text-amber-500">{noTagsCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <FileText className="w-3 h-3 text-amber-500 shrink-0" />
+                    <span className="text-amber-500/80">{t("enrich.breakdown.summary")}</span>
+                    <span className="ml-auto font-medium text-amber-500">{noSummaryCount}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-amber-500 mt-1.5 pt-1.5 border-t border-border/50">
+                  {t("enrich.breakdown.llmHint")}
+                </p>
+              </div>
+            )}
             <div className="text-xs text-muted-foreground space-y-1">
               <p>{t("enrich.willDo")}</p>
               <ul className="list-disc pl-4 space-y-0.5">
@@ -210,7 +249,6 @@ export function EnrichDialog({
                 <li>{t("enrich.step.summary")}</li>
                 <li>{t("enrich.step.vision")}</li>
               </ul>
-              <p className="text-amber-500 mt-2">{t("enrich.llmNote")}</p>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={onClose}>{t("enrich.cancel")}</Button>
@@ -269,47 +307,47 @@ export function EnrichDialog({
                 <Check className="w-6 h-6 text-green-500" />
               </div>
             </div>
-            {results.enriched === 0 ? (
+            {results.enriched === 0 && results.skippedNoLlm === 0 ? (
               <p className="text-sm text-muted-foreground text-center">
                 {t("enrich.noChanges")}
               </p>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm font-medium text-center">
-                  {t("enrich.enrichedCount", { count: results.enriched })}
-                </p>
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  {results.faviconsAdded > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span>{results.faviconsAdded} favicons</span>
-                    </div>
-                  )}
-                  {results.platformsDetected > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span>{results.platformsDetected} {t("enrich.platforms")}</span>
-                    </div>
-                  )}
-                  {results.tagsGenerated > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Tag className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span>{results.tagsGenerated} {t("enrich.tags")}</span>
-                    </div>
-                  )}
-                  {results.summariesGenerated > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span>{results.summariesGenerated} {t("enrich.summaries")}</span>
-                    </div>
-                  )}
-                  {results.visionTagsGenerated > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <ImageIcon className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span>{results.visionTagsGenerated} {t("enrich.visionTags")}</span>
-                    </div>
-                  )}
+                {results.enriched > 0 && (
+                  <p className="text-sm font-medium text-center">
+                    {t("enrich.enrichedCount", { count: results.enriched })}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-1.5 mt-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{results.faviconsAdded} favicons {t("enrich.result.generated")}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{results.platformsDetected} {t("enrich.platforms")} {t("enrich.result.detected")}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Tag className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{results.tagsGenerated} {t("enrich.tags")} {t("enrich.result.generated")}{!results.llmAvailable ? ` (${t("enrich.result.noLlm")})` : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{results.summariesGenerated} {t("enrich.summaries")} {t("enrich.result.generated")}{!results.llmAvailable ? ` (${t("enrich.result.noLlm")})` : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ImageIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{results.visionTagsGenerated} {t("enrich.result.visionAnalyzed")}</span>
+                  </div>
                 </div>
+                {/* Nota sobre LLM no disponible */}
+                {!results.llmAvailable && results.skippedNoLlm > 0 && (
+                  <div className="bg-amber-500/10 rounded-lg p-2.5 mt-2">
+                    <p className="text-xs text-amber-500">
+                      {t("enrich.result.skippedNoLlm", { count: results.skippedNoLlm })}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             <div className="flex justify-end">

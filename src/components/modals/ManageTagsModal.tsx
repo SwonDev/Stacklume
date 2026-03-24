@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
+import { Pipette } from "lucide-react";
 
 // Hex values for rendering color swatches — TagColor names used in DB
 const tagColorOptions: Array<{ value: TagColor; hex: string }> = [
@@ -77,7 +78,8 @@ export function ManageTagsModal() {
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [editingColor, setEditingColor] = useState<TagColor>("blue");
+  const [editingColor, setEditingColor] = useState<string>("blue");
+  const [editingCustomHex, setEditingCustomHex] = useState("#3b82f6");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const getTagLinkCount = (tagId: string) => {
@@ -87,14 +89,21 @@ export function ManageTagsModal() {
   const handleStartEdit = (id: string, name: string, color: string | null | undefined) => {
     setEditingId(id);
     setEditingName(name);
-    const validColor = tagColorOptions.find((c) => c.value === color);
-    setEditingColor(validColor ? (color as TagColor) : "blue");
+    if (color && color.startsWith("#")) {
+      setEditingColor(color);
+      setEditingCustomHex(color);
+    } else {
+      const validColor = tagColorOptions.find((c) => c.value === color);
+      setEditingColor(validColor ? color! : "blue");
+      setEditingCustomHex(validColor?.hex ?? "#3b82f6");
+    }
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingName("");
     setEditingColor("blue");
+    setEditingCustomHex("#3b82f6");
   };
 
   const handleSaveEdit = async () => {
@@ -236,7 +245,7 @@ export function ManageTagsModal() {
                               <p className="text-xs text-muted-foreground mb-1.5">
                                 {t("addCategory.color")}
                               </p>
-                              <div className="grid grid-cols-11 gap-1">
+                              <div className="grid grid-cols-12 gap-1">
                                 {tagColorOptions.map((c) => (
                                   <button
                                     key={c.value}
@@ -252,6 +261,30 @@ export function ManageTagsModal() {
                                     title={c.value}
                                   />
                                 ))}
+                                {/* Color personalizado */}
+                                <label
+                                  className={cn(
+                                    "w-6 h-6 rounded-full cursor-pointer flex items-center justify-center relative transition-all hover:scale-110",
+                                    editingColor.startsWith("#")
+                                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110"
+                                      : "border-2 border-dashed border-muted-foreground/40 hover:border-muted-foreground/70"
+                                  )}
+                                  style={editingColor.startsWith("#") ? { backgroundColor: editingColor } : undefined}
+                                  title="Color personalizado"
+                                >
+                                  <input
+                                    type="color"
+                                    value={editingCustomHex}
+                                    onChange={(e) => {
+                                      setEditingCustomHex(e.target.value);
+                                      setEditingColor(e.target.value);
+                                    }}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  />
+                                  {!editingColor.startsWith("#") && (
+                                    <Pipette className="w-3 h-3 text-muted-foreground" />
+                                  )}
+                                </label>
                               </div>
                             </div>
 

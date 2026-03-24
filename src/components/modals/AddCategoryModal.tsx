@@ -27,6 +27,9 @@ import { Button } from "@/components/ui/button";
 import { useLinksStore } from "@/stores/links-store";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { Pipette } from "lucide-react";
+import { CATEGORY_COLORS } from "@/lib/colors";
 
 const formSchema = z.object({
   name: z.string().min(1, "required").max(100),
@@ -36,35 +39,6 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 
-const colorOptions = [
-  // Warm colors
-  { labelKey: "color.red", value: "red", hex: "#ef4444" },
-  { labelKey: "color.orange", value: "orange", hex: "#f97316" },
-  { labelKey: "color.amber", value: "amber", hex: "#f59e0b" },
-  { labelKey: "color.yellow", value: "yellow", hex: "#eab308" },
-  { labelKey: "color.gold", value: "gold", hex: "#d4a853" },
-  // Green colors
-  { labelKey: "color.lime", value: "lime", hex: "#84cc16" },
-  { labelKey: "color.green", value: "green", hex: "#22c55e" },
-  { labelKey: "color.emerald", value: "emerald", hex: "#10b981" },
-  { labelKey: "color.teal", value: "teal", hex: "#14b8a6" },
-  // Blue colors
-  { labelKey: "color.cyan", value: "cyan", hex: "#06b6d4" },
-  { labelKey: "color.sky", value: "sky", hex: "#0ea5e9" },
-  { labelKey: "color.blue", value: "blue", hex: "#3b82f6" },
-  { labelKey: "color.indigo", value: "indigo", hex: "#6366f1" },
-  // Purple/Pink colors
-  { labelKey: "color.violet", value: "violet", hex: "#8b5cf6" },
-  { labelKey: "color.purple", value: "purple", hex: "#a855f7" },
-  { labelKey: "color.fuchsia", value: "fuchsia", hex: "#d946ef" },
-  { labelKey: "color.pink", value: "pink", hex: "#ec4899" },
-  { labelKey: "color.rose", value: "rose", hex: "#f43f5e" },
-  // Neutral colors
-  { labelKey: "color.slate", value: "slate", hex: "#64748b" },
-  { labelKey: "color.gray", value: "gray", hex: "#6b7280" },
-  { labelKey: "color.zinc", value: "zinc", hex: "#71717a" },
-  { labelKey: "color.stone", value: "stone", hex: "#78716c" },
-];
 
 export function AddCategoryModal() {
   const { isAddCategoryModalOpen, setAddCategoryModalOpen, addCategory } =
@@ -73,6 +47,7 @@ export function AddCategoryModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIcon, setSelectedIcon] = useState("folder");
   const [selectedColor, setSelectedColor] = useState("#6366f1");
+  const [customHex, setCustomHex] = useState("#6366f1");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -119,6 +94,7 @@ export function AddCategoryModal() {
     form.reset();
     setSelectedIcon("folder");
     setSelectedColor("#6366f1");
+    setCustomHex("#6366f1");
     setAddCategoryModalOpen(false);
   };
 
@@ -179,20 +155,44 @@ export function AddCategoryModal() {
             <div>
               <label className="text-sm font-medium">{t("addCategory.color")}</label>
               <div className="grid grid-cols-11 gap-1.5 mt-2">
-                {colorOptions.map((color) => (
+                {CATEGORY_COLORS.map((hex) => (
                   <button
-                    key={color.value}
+                    key={hex}
                     type="button"
-                    onClick={() => setSelectedColor(color.hex)}
-                    className={`w-7 h-7 rounded-full transition-all hover:scale-110 ${
-                      selectedColor === color.hex
+                    onClick={() => setSelectedColor(hex)}
+                    className={cn(
+                      "w-7 h-7 rounded-full transition-all hover:scale-110",
+                      selectedColor === hex
                         ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110"
                         : "hover:ring-1 hover:ring-muted-foreground/30"
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                    title={t(color.labelKey)}
+                    )}
+                    style={{ backgroundColor: hex }}
                   />
                 ))}
+                {/* Color personalizado */}
+                <label
+                  className={cn(
+                    "w-7 h-7 rounded-full cursor-pointer flex items-center justify-center relative transition-all hover:scale-110",
+                    !CATEGORY_COLORS.includes(selectedColor)
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110"
+                      : "border-2 border-dashed border-muted-foreground/40 hover:border-muted-foreground/70"
+                  )}
+                  style={!CATEGORY_COLORS.includes(selectedColor) ? { backgroundColor: selectedColor } : undefined}
+                  title="Color personalizado"
+                >
+                  <input
+                    type="color"
+                    value={customHex}
+                    onChange={(e) => {
+                      setCustomHex(e.target.value);
+                      setSelectedColor(e.target.value);
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {CATEGORY_COLORS.includes(selectedColor) && (
+                    <Pipette className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </label>
               </div>
             </div>
 

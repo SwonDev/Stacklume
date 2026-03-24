@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getCsrfHeaders } from "@/hooks/useCsrf";
 import { useTranslation } from "@/lib/i18n";
+import { Pipette } from "lucide-react";
 
 const colorOptions = [
   { value: "red",     hex: "#ef4444" },
@@ -72,6 +73,7 @@ export function ManageCategoriesModal() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingColor, setEditingColor] = useState("#6366f1");
+  const [editingCustomHex, setEditingCustomHex] = useState("#6366f1");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const getCategoryLinkCount = (categoryId: string) => {
@@ -81,13 +83,16 @@ export function ManageCategoriesModal() {
   const handleStartEdit = (id: string, name: string, color: string | null | undefined) => {
     setEditingId(id);
     setEditingName(name);
-    setEditingColor(resolveHex(color));
+    const hex = resolveHex(color);
+    setEditingColor(hex);
+    setEditingCustomHex(hex);
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingName("");
     setEditingColor("#6366f1");
+    setEditingCustomHex("#6366f1");
   };
 
   const handleSaveEdit = async () => {
@@ -251,6 +256,30 @@ export function ManageCategoriesModal() {
                                     title={c.value}
                                   />
                                 ))}
+                                {/* Color personalizado */}
+                                <label
+                                  className={cn(
+                                    "w-6 h-6 rounded-full cursor-pointer flex items-center justify-center relative transition-all hover:scale-110",
+                                    !colorOptions.some((c) => c.hex === editingColor)
+                                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110"
+                                      : "border-2 border-dashed border-muted-foreground/40 hover:border-muted-foreground/70"
+                                  )}
+                                  style={!colorOptions.some((c) => c.hex === editingColor) ? { backgroundColor: editingColor } : undefined}
+                                  title="Color personalizado"
+                                >
+                                  <input
+                                    type="color"
+                                    value={editingCustomHex}
+                                    onChange={(e) => {
+                                      setEditingCustomHex(e.target.value);
+                                      setEditingColor(e.target.value);
+                                    }}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  />
+                                  {colorOptions.some((c) => c.hex === editingColor) && (
+                                    <Pipette className="w-3 h-3 text-muted-foreground" />
+                                  )}
+                                </label>
                               </div>
                             </div>
 
