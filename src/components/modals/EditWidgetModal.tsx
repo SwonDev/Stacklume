@@ -196,10 +196,10 @@ export function EditWidgetModal() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Widget Type Info */}
             <div className="rounded-lg border border-border/50 bg-secondary/20 p-3">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">{t("editWidget.type")}</span>
-                <span className="font-medium">{widgetMetadata.label}</span>
-                <span className="text-xs text-muted-foreground ml-auto">
+              <div className="flex items-center gap-2 text-sm min-w-0">
+                <span className="text-muted-foreground shrink-0">{t("editWidget.type")}</span>
+                <span className="font-medium shrink-0">{widgetMetadata.label}</span>
+                <span className="text-xs text-muted-foreground ml-auto truncate">
                   {widgetMetadata.description}
                 </span>
               </div>

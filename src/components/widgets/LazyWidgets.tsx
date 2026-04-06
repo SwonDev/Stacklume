@@ -51,6 +51,7 @@ const MCPExplorerWidget = lazy(() => import("./MCPExplorerWidget").then(m => ({ 
 const DeploymentStatusWidget = lazy(() => import("./DeploymentStatusWidget").then(m => ({ default: m.DeploymentStatusWidget })));
 const VoiceNotesWidget = lazy(() => import("./VoiceNotesWidget").then(m => ({ default: m.VoiceNotesWidget })));
 const LinkManagerWidget = lazy(() => import("./LinkManagerWidget").then(m => ({ default: m.LinkManagerWidget })));
+const LinkCollectionWidget = lazy(() => import("./LinkCollectionWidget").then(m => ({ default: m.LinkCollectionWidget })));
 // Social/News Feed widgets
 const TwitterFeedWidget = lazy(() => import("./TwitterFeedWidget").then(m => ({ default: m.TwitterFeedWidget })));
 const RedditWidget = lazy(() => import("./RedditWidget").then(m => ({ default: m.RedditWidget })));
@@ -242,6 +243,7 @@ const widgetMap: Record<string, LazyWidgetComponent> = {
   "deployment-status": DeploymentStatusWidget,
   "voice-notes": VoiceNotesWidget,
   "link-manager": LinkManagerWidget,
+  "link-collection": LinkCollectionWidget,
   // Social/News Feed widgets
   "twitter-feed": TwitterFeedWidget,
   "reddit": RedditWidget,
@@ -553,6 +555,7 @@ function getSkeletonVariant(widgetType: string): "list" | "stats" | "clock" | "n
     case "mcp-explorer":
     case "deployment-status":
     case "link-manager":
+    case "link-collection":
     // Social/News Feed widgets
     case "twitter-feed":
     case "reddit":
@@ -795,7 +798,7 @@ export const specialWidgetTypes = [
   "github-trending", "steam-games", "nintendo-deals", "github-search",
   "codepen", "spotify", "youtube", "crypto", "world-clock", "color-palette",
   "unsplash", "qr-code", "website-monitor", "embed", "prompt", "prompt-builder", "mcp-explorer",
-  "deployment-status", "voice-notes", "link-manager",
+  "deployment-status", "voice-notes", "link-manager", "link-collection",
   // Social/News Feed widgets
   "twitter-feed", "reddit", "reddit-widget", "hacker-news", "product-hunt", "devto-feed",
   // Utility widgets

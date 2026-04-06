@@ -405,6 +405,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
   useEffect(() => {
     if (!open) return;
     checkLlmStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkLlmStatus is stable but defined after this effect to avoid circular deps
   }, [open]);
 
   // Focus en textarea cuando llm está listo y el panel está abierto
@@ -439,6 +440,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     return () => {
       if (unlisten) unlisten();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initOrLoadSession is stable, adding it causes re-subscribe loops
   }, [open]);
 
   // Limpiar polling al desmontar
@@ -487,6 +489,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         setLlmStatus("no_binary");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable callbacks using refs, adding them causes re-creation loops
   }, []);
 
   const pollUntilReady = useCallback(() => {
@@ -507,6 +510,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
         if (pollingRef.current) clearInterval(pollingRef.current);
       }
     }, 2000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable ref-based callback
   }, []);
 
   function addWelcomeMessage() {
@@ -598,6 +602,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     // Siempre limpiar mensajes y mostrar bienvenida (sin depender del estado llmStatus)
     setMessages([]);
     setTimeout(addWelcomeMessage, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addWelcomeMessage is a stable function
   }, []);
 
   /** Carga los mensajes de una sesión existente */
@@ -632,6 +637,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
       setMessages([]);
       addWelcomeMessage();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addWelcomeMessage is a stable function
   }, []);
 
   /** Elimina una sesión del historial */
@@ -719,6 +725,7 @@ export function InlineChatPanel({ open, onClose }: InlineChatPanelProps) {
     }
     // Sin sesiones — crear una nueva
     await createNewSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addWelcomeMessage and cleanupEmptySessions are stable functions
   }, [createNewSession]);
 
   /** Limpia sesiones vacías (sin mensajes) excepto la actual — ejecuta en segundo plano */

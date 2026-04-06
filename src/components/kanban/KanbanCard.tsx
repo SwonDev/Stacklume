@@ -115,7 +115,7 @@ export const KanbanCard = memo(function KanbanCard({ widget, isDragging, columns
   const duplicateWidget = useWidgetStore((state) => state.duplicateWidget);
   const isEditMode = useLayoutStore((state) => state.isEditMode);
   // Use columns from prop (passed by parent) to avoid per-card store subscription
-  const columns = columnsProp ?? [];
+  const columns = useMemo(() => columnsProp ?? [], [columnsProp]);
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);

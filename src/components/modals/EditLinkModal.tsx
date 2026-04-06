@@ -7,7 +7,6 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2, Link as LinkIcon, Star, Trash2, Tag as TagIcon, BookOpen, StickyNote, Bell, Wand2, Inbox, CheckCheck } from "lucide-react";
 import { TagSelector } from "@/components/ui/tag-selector";
-import { TagBadge } from "@/components/ui/tag-badge";
 import { MultiCategorySelector } from "@/components/ui/multi-category-selector";
 import type { Tag } from "@/lib/db/schema";
 import { randomTagColor } from "@/lib/colors";
@@ -65,7 +64,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function EditLinkModal() {
   const isEditLinkModalOpen = useLinksStore((state) => state.isEditLinkModalOpen);
   const selectedLink = useLinksStore((state) => state.selectedLink);
-  const tags = useLinksStore((state) => state.tags);
+  const _tags = useLinksStore((state) => state.tags);
   const linkTags = useLinksStore((state) => state.linkTags);
   const linkCategories = useLinksStore((state) => state.linkCategories);
   const confirmBeforeDelete = useSettingsStore((state) => state.confirmBeforeDelete);

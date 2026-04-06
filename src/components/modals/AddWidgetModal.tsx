@@ -264,6 +264,7 @@ const formSchema = z.object({
     "deployment-status",
     "voice-notes",
     "link-manager",
+    "link-collection",
     // Social/News Feed widgets
     "twitter-feed",
     "reddit",
@@ -500,6 +501,7 @@ const widgetTypeOptions: Array<{
   { type: "deployment-status", labelKey: "widget.deployment-status.label", descKey: "widget.deployment-status.desc", icon: Rocket },
   { type: "voice-notes", labelKey: "widget.voice-notes.label", descKey: "widget.voice-notes.desc", icon: Mic },
   { type: "link-manager", labelKey: "widget.link-manager.label", descKey: "widget.link-manager.desc", icon: LayoutList },
+  { type: "link-collection", labelKey: "widget.link-collection.label", descKey: "widget.link-collection.desc", icon: LayoutGrid },
   { type: "twitter-feed", labelKey: "widget.twitter-feed.label", descKey: "widget.twitter-feed.desc", icon: Twitter },
   { type: "reddit", labelKey: "widget.reddit.label", descKey: "widget.reddit.desc", icon: MessageCircle },
   { type: "hacker-news", labelKey: "widget.hacker-news.label", descKey: "widget.hacker-news.desc", icon: Newspaper },
@@ -654,7 +656,7 @@ interface WidgetCategory {
 }
 
 const WIDGET_CATEGORIES: WidgetCategory[] = [
-  { id: "links", labelKey: "addWidget.catLinks", icon: Link, color: "blue", widgets: ["favorites", "recent", "category", "tag", "categories", "quick-add", "bookmarks", "search", "random-link", "link-manager", "session-launcher", "reading-queue"] },
+  { id: "links", labelKey: "addWidget.catLinks", icon: Link, color: "blue", widgets: ["favorites", "recent", "category", "tag", "categories", "quick-add", "bookmarks", "search", "random-link", "link-manager", "link-collection", "session-launcher", "reading-queue"] },
   { id: "productivity", labelKey: "addWidget.catProductivity", icon: Clock, color: "green", widgets: ["clock", "notes", "progress", "pomodoro", "calendar", "todo", "countdown", "habit-tracker", "weather", "quote", "custom"] },
   { id: "analytics", labelKey: "addWidget.catAnalytics", icon: BarChart3, color: "purple", widgets: ["stats", "link-analytics", "github-activity", "bookmark-growth", "reading-streak", "tag-cloud", "rss-feed"] },
   { id: "external", labelKey: "addWidget.catExternal", icon: Globe, color: "cyan", widgets: ["github-trending", "steam-games", "nintendo-deals", "github-search", "codepen", "spotify", "youtube", "crypto", "unsplash", "embed"] },
@@ -815,6 +817,7 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
                 const WidgetIcon = option.icon as React.ComponentType<{ className?: string }>;
                 const isSelected = selectedTypes.includes(option.type);
 
+                const isFeatured = option.type === "link-collection";
                 return (
                   <motion.button
                     key={option.type}
@@ -824,10 +827,16 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
                       relative p-3 rounded-lg border-2 transition-all
                       hover:border-primary/50 hover:bg-secondary/30
                       flex flex-col items-center gap-1.5 text-center
-                      ${isSelected ? "border-primary bg-primary/10" : "border-border/50 bg-background/50"}
+                      ${isSelected ? "border-primary bg-primary/10" : isFeatured ? "border-yellow-500/70 bg-yellow-500/5 shadow-[0_0_12px_rgba(234,179,8,0.15)]" : "border-border/50 bg-background/50"}
                     `}
                     whileTap={{ scale: 0.98 }}
                   >
+                    {/* Featured badge */}
+                    {isFeatured && !isSelected && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-yellow-500 text-yellow-950 leading-none">
+                        New
+                      </span>
+                    )}
                     {/* Selection indicator */}
                     <AnimatePresence>
                       {isSelected && (
@@ -841,7 +850,7 @@ function WidgetCategoryFolder({ category, widgetOptions, selectedTypes, onToggle
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    <WidgetIcon className={`w-5 h-5 ${isSelected ? "text-primary" : "text-foreground"}`} />
+                    <WidgetIcon className={`w-5 h-5 ${isSelected ? "text-primary" : isFeatured ? "text-yellow-500" : "text-foreground"}`} />
                     <p className="text-xs font-medium leading-tight">{t(option.labelKey)}</p>
                   </motion.button>
                 );
@@ -1360,6 +1369,7 @@ export function AddWidgetModal() {
                       {filteredWidgetOptions.map((option) => {
                         const Icon = option.icon as React.ComponentType<{ className?: string }>;
                         const isSelected = selectedTypes.includes(option.type);
+                        const isFeatured = option.type === "link-collection";
 
                         return (
                           <motion.button
@@ -1373,11 +1383,19 @@ export function AddWidgetModal() {
                               ${
                                 isSelected
                                   ? "border-primary bg-primary/10"
-                                  : "border-border/50"
+                                  : isFeatured
+                                    ? "border-yellow-500/70 bg-yellow-500/5 shadow-[0_0_12px_rgba(234,179,8,0.15)]"
+                                    : "border-border/50"
                               }
                             `}
                             whileTap={{ scale: 0.98 }}
                           >
+                            {/* Featured badge */}
+                            {isFeatured && !isSelected && (
+                              <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-yellow-500 text-yellow-950 leading-none">
+                                New
+                              </span>
+                            )}
                             {/* Selection indicator */}
                             <AnimatePresence>
                               {isSelected && (
@@ -1393,7 +1411,7 @@ export function AddWidgetModal() {
                             </AnimatePresence>
                             <Icon
                               className={`w-6 h-6 ${
-                                isSelected ? "text-primary" : "text-foreground"
+                                isSelected ? "text-primary" : isFeatured ? "text-yellow-500" : "text-foreground"
                               }`}
                             />
                             <div>

@@ -645,6 +645,15 @@ export interface LinkManagerWidgetConfig {
   linkManagerEnableDragReorder?: boolean;
 }
 
+// Link Collection Widget Types
+export interface LinkCollectionWidgetConfig {
+  collectionLinkIds?: string[];
+  collectionViewMode?: 'cards' | 'compact' | 'list';
+  collectionSortBy?: 'createdAt' | 'title' | 'updatedAt';
+  collectionSortOrder?: 'asc' | 'desc';
+  collectionShowImages?: boolean;
+}
+
 // UUID Generator Widget Types
 export interface UUIDGeneratorWidgetConfig {
   uuidVersion?: 'v1' | 'v4';
@@ -1947,6 +1956,7 @@ export interface WidgetConfig
     Partial<DeploymentStatusWidgetConfig>,
     Partial<VoiceNotesWidgetConfig>,
     Partial<LinkManagerWidgetConfig>,
+    Partial<LinkCollectionWidgetConfig>,
     // Social/News Feed widgets
     Partial<TwitterFeedWidgetConfig>,
     Partial<RedditWidgetConfig>,

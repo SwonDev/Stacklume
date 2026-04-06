@@ -599,6 +599,7 @@ export const useWidgetStore = create<WidgetState>()((set, get) => ({
       'deployment-status': 12,
       'voice-notes': 11,
       'link-manager': 10,
+      'link-collection': 9.8,
       // Social/News Feed widgets
       'twitter-feed': 9.5,
       'reddit': 9.4,

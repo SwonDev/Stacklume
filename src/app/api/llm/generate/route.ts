@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cuerpo inválido" }, { status: 400 });
   }
 
-  const { url, currentTitle, currentDescription, type, llamaPort: clientPort, enableThinking = false, modelFamily = "qwen3", linkId } = body;
+  const { url, currentTitle, currentDescription, type, llamaPort: clientPort, enableThinking: _enableThinking = false, modelFamily: _modelFamily = "qwen3", linkId } = body;
   if (!url || !type) {
     return NextResponse.json({ error: "url y type son obligatorios" }, { status: 400 });
   }

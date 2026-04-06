@@ -8,8 +8,8 @@
  */
 
 const _CACHE_NAME = 'stacklume-v7'; // Reserved for future cache versioning
-const STATIC_CACHE_NAME = 'stacklume-static-v12';
-const API_CACHE_NAME = 'stacklume-api-v12';
+const STATIC_CACHE_NAME = 'stacklume-static-v13';
+const API_CACHE_NAME = 'stacklume-api-v13';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [

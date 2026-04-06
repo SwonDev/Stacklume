@@ -11,7 +11,7 @@
  */
 
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, rmSync, statSync, copyFileSync } from "node:fs";
-import { pipeline as streamPipeline } from "node:stream/promises";
+import { pipeline as _streamPipeline } from "node:stream/promises";
 import { get } from "node:https";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -472,7 +472,7 @@ async function executeTool(
 
 // ─── Resumen de biblioteca ────────────────────────────────────────────────────
 
-async function loadLibrary(): Promise<string> {
+async function _loadLibrary(): Promise<string> {
   try {
     const [allLinks, allCats, allTags] = await Promise.all([
       withRetry(

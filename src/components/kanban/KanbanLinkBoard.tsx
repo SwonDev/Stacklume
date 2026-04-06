@@ -321,7 +321,6 @@ export function KanbanLinkBoard({ groupBy }: KanbanLinkBoardProps) {
     [linkMap]
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDragOver = useCallback((_event: DragOverEvent) => {
     // Cross-column visual feedback is handled by useDroppable isOver
   }, []);

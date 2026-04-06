@@ -47,6 +47,7 @@ export type WidgetType =
   | 'deployment-status' // Vercel/Netlify deployment status
   | 'voice-notes'     // Voice recording with transcription
   | 'link-manager'    // Comprehensive link management widget
+  | 'link-collection' // Curated link collection with glassmorphic cards
   // Social/News Feed widgets
   | 'twitter-feed'    // Twitter/X timeline embed
   | 'reddit'          // Reddit posts viewer

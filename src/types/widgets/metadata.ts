@@ -498,6 +498,15 @@ export const WIDGET_TYPE_METADATA: Record<WidgetType, WidgetTypeMetadata> = {
     defaultTitle: 'Mis Enlaces',
     configurable: true,
   },
+  'link-collection': {
+    type: 'link-collection',
+    label: 'Link Collection',
+    description: 'Colección curada de enlaces con tarjetas',
+    icon: 'LayoutGrid',
+    defaultSize: 'large',
+    defaultTitle: 'Mi Colección',
+    configurable: true,
+  },
   // Social/News Feed Widgets
   'twitter-feed': {
     type: 'twitter-feed',
@@ -2055,6 +2064,15 @@ export function getDefaultWidgetConfig(type: WidgetType): WidgetConfigOptions {
         linkManagerSortOrder: 'desc',
         linkManagerEnableBulkSelection: true,
         linkManagerEnableDragReorder: true,
+      };
+
+    case 'link-collection':
+      return {
+        collectionLinkIds: [],
+        collectionViewMode: 'cards',
+        collectionSortBy: 'createdAt',
+        collectionSortOrder: 'desc',
+        collectionShowImages: true,
       };
 
     case 'calculator':

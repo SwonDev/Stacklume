@@ -213,6 +213,7 @@ const widgetTypeSchema = z.enum([
   'search',
   'random-link',
   'link-manager',
+  'link-collection',
   // Productivity widgets
   'clock',
   'notes',
