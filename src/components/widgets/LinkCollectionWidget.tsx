@@ -91,9 +91,15 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
     () => (widget.config?.collectionLinkIds as string[]) || [],
     [widget.config?.collectionLinkIds]
   );
+  // O(1) lookup Set — prevents O(n²) in render loops
+  const collectionLinkIdsSet = useMemo(() => new Set(collectionLinkIds), [collectionLinkIds]);
   const viewMode: ViewMode = (widget.config?.collectionViewMode as ViewMode) || "cards";
   const sortBy: SortField = (widget.config?.collectionSortBy as SortField) || "createdAt";
   const sortOrder: "asc" | "desc" = (widget.config?.collectionSortOrder as "asc" | "desc") || "desc";
+
+  // Ref to always have fresh widget.config — avoids stale closures in callbacks
+  const widgetConfigRef = useRef(widget.config);
+  widgetConfigRef.current = widget.config;
 
   // ─── Local state ────────────────────────────────────────────────────────
   const [activePanel, setActivePanel] = useState<Panel>("collection");
@@ -117,9 +123,10 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
   useEffect(() => {
     if (pendingNewLink.current && links.length > prevLinksCount.current) {
       const newLink = links[0];
-      if (newLink && !collectionLinkIds.includes(newLink.id)) {
+      const current = (widgetConfigRef.current?.collectionLinkIds as string[]) || [];
+      if (newLink && !current.includes(newLink.id)) {
         updateWidget(widget.id, {
-          config: { ...widget.config, collectionLinkIds: [...collectionLinkIds, newLink.id] },
+          config: { ...widgetConfigRef.current, collectionLinkIds: [...current, newLink.id] },
         });
       }
       pendingNewLink.current = false;
@@ -159,7 +166,7 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
 
   // ─── Collection links (sorted — favorites first) ──────────────────────
   const collectionLinks = useMemo(() => {
-    let filtered = links.filter((l: Link) => collectionLinkIds.includes(l.id));
+    let filtered = links.filter((l: Link) => collectionLinkIdsSet.has(l.id));
     // Search within collection
     if (deferredCollectionSearch.trim()) {
       const q = deferredCollectionSearch.toLowerCase();
@@ -180,7 +187,7 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
       else cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return sortOrder === "desc" ? -cmp : cmp;
     });
-  }, [links, collectionLinkIds, sortBy, sortOrder, deferredCollectionSearch, categoryMap]);
+  }, [links, collectionLinkIdsSet, sortBy, sortOrder, deferredCollectionSearch, categoryMap]);
 
   // ─── Browse links (filtered) ───────────────────────────────────────────
   const browseLinks = useMemo(() => {
@@ -209,25 +216,28 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
   const getCategoryName = useCallback((catId?: string | null) => catId ? categoryMap.get(catId)?.name : undefined, [categoryMap]);
   const getCategoryColor = useCallback((catId?: string | null) => catId ? categoryMap.get(catId)?.color : undefined, [categoryMap]);
 
-  // ─── Actions ────────────────────────────────────────────────────────────
+  // ─── Actions (use widgetConfigRef to avoid stale closures) ──────────────
   const handleAddToCollection = useCallback((linkIds: string[]) => {
-    const updated = [...new Set([...collectionLinkIds, ...linkIds])];
-    updateWidget(widget.id, { config: { ...widget.config, collectionLinkIds: updated } });
+    const current = (widgetConfigRef.current?.collectionLinkIds as string[]) || [];
+    const updated = [...new Set([...current, ...linkIds])];
+    updateWidget(widget.id, { config: { ...widgetConfigRef.current, collectionLinkIds: updated } });
     setSelectedForAdd(new Set());
-  }, [collectionLinkIds, widget.id, widget.config, updateWidget]);
+  }, [widget.id, updateWidget]);
 
   const handleRemoveFromCollection = useCallback((linkId: string) => {
-    const updated = collectionLinkIds.filter((id: string) => id !== linkId);
-    updateWidget(widget.id, { config: { ...widget.config, collectionLinkIds: updated } });
+    const current = (widgetConfigRef.current?.collectionLinkIds as string[]) || [];
+    const updated = current.filter((id: string) => id !== linkId);
+    updateWidget(widget.id, { config: { ...widgetConfigRef.current, collectionLinkIds: updated } });
     setSelectedInCollection((prev) => { const n = new Set(prev); n.delete(linkId); return n; });
-  }, [collectionLinkIds, widget.id, widget.config, updateWidget]);
+  }, [widget.id, updateWidget]);
 
   const handleBulkRemove = useCallback(() => {
-    const updated = collectionLinkIds.filter((id: string) => !selectedInCollection.has(id));
-    updateWidget(widget.id, { config: { ...widget.config, collectionLinkIds: updated } });
+    const current = (widgetConfigRef.current?.collectionLinkIds as string[]) || [];
+    const updated = current.filter((id: string) => !selectedInCollection.has(id));
+    updateWidget(widget.id, { config: { ...widgetConfigRef.current, collectionLinkIds: updated } });
     setSelectedInCollection(new Set());
     setIsSelecting(false);
-  }, [collectionLinkIds, selectedInCollection, widget.id, widget.config, updateWidget]);
+  }, [selectedInCollection, widget.id, updateWidget]);
 
   const handleBulkFavorite = useCallback(async () => {
     for (const linkId of selectedInCollection) {
@@ -266,12 +276,12 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
   }, [links.length, openAddLinkModal]);
 
   const handleViewModeChange = useCallback((mode: ViewMode) => {
-    updateWidget(widget.id, { config: { ...widget.config, collectionViewMode: mode } });
-  }, [widget.id, widget.config, updateWidget]);
+    updateWidget(widget.id, { config: { ...widgetConfigRef.current, collectionViewMode: mode } });
+  }, [widget.id, updateWidget]);
 
   const handleSortChange = useCallback((field: SortField, order: "asc" | "desc") => {
-    updateWidget(widget.id, { config: { ...widget.config, collectionSortBy: field, collectionSortOrder: order } });
-  }, [widget.id, widget.config, updateWidget]);
+    updateWidget(widget.id, { config: { ...widgetConfigRef.current, collectionSortBy: field, collectionSortOrder: order } });
+  }, [widget.id, updateWidget]);
 
   const toggleSelectForAdd = useCallback((linkId: string) => {
     setSelectedForAdd((prev) => { const n = new Set(prev); if (n.has(linkId)) n.delete(linkId); else n.add(linkId); return n; });
@@ -445,7 +455,7 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
               </div>
             ) : (
               <ScrollArea className="h-full">
-                <div className={cn("p-3", viewMode === "cards" ? "grid grid-cols-1 @lg:grid-cols-2 gap-3 auto-rows-fr" : "flex flex-col gap-1")}>
+                <div className={cn("p-3", viewMode === "cards" ? "grid grid-cols-1 @lg:grid-cols-2 gap-3" : "flex flex-col gap-1")}>
                   {collectionLinks.map((link: Link) => {
                     const { names, colors } = getTagInfo(link.id);
                     return (
@@ -528,7 +538,7 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
                   <div className="text-center py-8 text-sm text-muted-foreground">{t("linkCollection.noResults")}</div>
                 ) : (
                   browseLinks.map((link: Link) => {
-                    const isInCollection = collectionLinkIds.includes(link.id);
+                    const isInCollection = collectionLinkIdsSet.has(link.id);
                     const isSelected = selectedForAdd.has(link.id);
                     return (
                       <div
@@ -542,7 +552,7 @@ export function LinkCollectionWidget({ widget }: LinkCollectionWidgetProps) {
                       >
                         <Checkbox checked={isInCollection || isSelected} disabled={isInCollection} onCheckedChange={() => { if (!isInCollection) toggleSelectForAdd(link.id); }} className="shrink-0" />
                         <div className="shrink-0 h-6 w-6 rounded-full bg-muted/50 flex items-center justify-center overflow-hidden">
-                          {link.faviconUrl ? <Image src={link.faviconUrl} alt="" width={24} height={24} className="h-full w-full object-cover" unoptimized /> : <Globe className="h-3 w-3 text-muted-foreground" />}
+                          {link.faviconUrl && /^https?:\/\//.test(link.faviconUrl) ? <Image src={link.faviconUrl} alt="" width={24} height={24} className="h-full w-full object-cover" unoptimized /> : <Globe className="h-3 w-3 text-muted-foreground" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm truncate">{link.title}</p>

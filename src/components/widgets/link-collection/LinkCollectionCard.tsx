@@ -92,7 +92,10 @@ export const LinkCollectionCard = memo(function LinkCollectionCard({
   const domain = getDomain(link.url);
   const readingStatus = (link.readingStatus as ReadingStatus) || "inbox";
   const StatusIcon = READING_STATUS_ICON[readingStatus];
-  const hasImage = !!link.imageUrl;
+  // Validate image URL — must start with http(s):// to avoid crashes
+  const hasImage = !!link.imageUrl && /^https?:\/\/.+/.test(link.imageUrl);
+  const safeImageUrl = hasImage ? link.imageUrl! : undefined;
+  const safeFaviconUrl = link.faviconUrl && /^https?:\/\/.+/.test(link.faviconUrl) ? link.faviconUrl : undefined;
 
   const handleOpen = useCallback(() => {
     window.open(link.url, "_blank", "noopener,noreferrer");
@@ -136,7 +139,7 @@ export const LinkCollectionCard = memo(function LinkCollectionCard({
           {hasImage && (
             <div className="relative w-full h-[88px] shrink-0 overflow-hidden bg-muted/20">
               <Image
-                src={link.imageUrl!}
+                src={safeImageUrl!}
                 alt=""
                 fill
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
@@ -146,8 +149,8 @@ export const LinkCollectionCard = memo(function LinkCollectionCard({
               <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
               {/* Favicon overlaid on thumbnail */}
               <div className="absolute bottom-2 left-3 h-7 w-7 rounded-lg bg-card/80 backdrop-blur-sm flex items-center justify-center overflow-hidden shadow-sm border border-border/30">
-                {link.faviconUrl ? (
-                  <Image src={link.faviconUrl} alt="" width={20} height={20} className="h-5 w-5 object-cover rounded-[3px]" unoptimized />
+                {safeFaviconUrl ? (
+                  <Image src={safeFaviconUrl} alt="" width={20} height={20} className="h-5 w-5 object-cover rounded-[3px]" unoptimized />
                 ) : (
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
@@ -163,8 +166,8 @@ export const LinkCollectionCard = memo(function LinkCollectionCard({
                   <Checkbox checked={isSelected} onCheckedChange={() => onSelect?.(link.id)} onClick={(e) => e.stopPropagation()} className="shrink-0" />
                 )}
                 <div className="shrink-0 h-6 w-6 rounded-lg bg-muted/40 flex items-center justify-center overflow-hidden">
-                  {link.faviconUrl ? (
-                    <Image src={link.faviconUrl} alt="" width={20} height={20} className="h-5 w-5 object-cover rounded-[3px]" unoptimized />
+                  {safeFaviconUrl ? (
+                    <Image src={safeFaviconUrl} alt="" width={20} height={20} className="h-5 w-5 object-cover rounded-[3px]" unoptimized />
                   ) : (
                     <Globe className="h-3 w-3 text-muted-foreground" />
                   )}
@@ -285,8 +288,8 @@ export const LinkCollectionCard = memo(function LinkCollectionCard({
           <Checkbox checked={isSelected} onCheckedChange={() => onSelect?.(link.id)} onClick={(e) => e.stopPropagation()} className="shrink-0" />
         )}
         <div className="shrink-0 h-5 w-5 rounded bg-muted/40 flex items-center justify-center overflow-hidden">
-          {link.faviconUrl ? (
-            <Image src={link.faviconUrl} alt="" width={16} height={16} className="h-4 w-4 object-cover rounded-[2px]" unoptimized />
+          {safeFaviconUrl ? (
+            <Image src={safeFaviconUrl} alt="" width={16} height={16} className="h-4 w-4 object-cover rounded-[2px]" unoptimized />
           ) : (
             <Globe className="h-2.5 w-2.5 text-muted-foreground" />
           )}
@@ -322,12 +325,12 @@ export const LinkCollectionCard = memo(function LinkCollectionCard({
         )}
         {hasImage ? (
           <div className="shrink-0 w-16 h-12 rounded-md overflow-hidden bg-muted/20 relative">
-            <Image src={link.imageUrl!} alt="" fill className="object-cover" unoptimized sizes="64px" />
+            <Image src={safeImageUrl!} alt="" fill className="object-cover" unoptimized sizes="64px" />
           </div>
         ) : (
           <div className="shrink-0 h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center overflow-hidden mt-0.5">
-            {link.faviconUrl ? (
-              <Image src={link.faviconUrl} alt="" width={24} height={24} className="h-6 w-6 object-cover rounded-[3px]" unoptimized />
+            {safeFaviconUrl ? (
+              <Image src={safeFaviconUrl} alt="" width={24} height={24} className="h-6 w-6 object-cover rounded-[3px]" unoptimized />
             ) : (
               <Globe className="h-4 w-4 text-muted-foreground" />
             )}
